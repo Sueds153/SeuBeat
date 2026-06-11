@@ -139,16 +139,16 @@ VALUES
   ('voice-samples', 'voice-samples', false, 52428800)
 ON CONFLICT (id) DO NOTHING;
 
--- 2. Habilitar RLS no storage (geralmente habilitado por padrão)
--- 3. Criar políticas para permitir uploads e leituras públicas/anon
+-- 2. Habilitar RLS no storage
+-- 3. Criar políticas para permitir uploads e leituras públicas/anon seguras
 DROP POLICY IF EXISTS "Permitir upload público para anon" ON storage.objects;
 CREATE POLICY "Permitir upload público para anon" 
 ON storage.objects FOR INSERT TO anon 
-WITH CHECK (bucket_id IN ('payment-proofs', 'preview', 'full-audio', 'voice-samples'));
+WITH CHECK (bucket_id IN ('payment-proofs', 'voice-samples'));
 
 DROP POLICY IF EXISTS "Permitir leitura pública para anon" ON storage.objects;
 CREATE POLICY "Permitir leitura pública para anon" 
 ON storage.objects FOR SELECT TO anon 
-USING (bucket_id IN ('payment-proofs', 'preview', 'full-audio', 'voice-samples'));
+USING (bucket_id IN ('payment-proofs', 'preview'));
 
 

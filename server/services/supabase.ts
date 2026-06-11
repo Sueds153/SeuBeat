@@ -4,9 +4,10 @@ import fs from 'fs';
 // Supabase client helper
 export function getSupabase() {
   const supabaseUrl = process.env.SUPABASE_URL || '';
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
-  if (!supabaseUrl || !supabaseAnonKey) return null;
-  return createClient(supabaseUrl, supabaseAnonKey);
+  // Utiliza a service_role key no backend se disponível para contornar RLS em buckets privados
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+  if (!supabaseUrl || !supabaseKey) return null;
+  return createClient(supabaseUrl, supabaseKey);
 }
 
 // Utilitário para fazer upload para o Supabase Storage
