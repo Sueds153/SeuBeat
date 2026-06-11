@@ -1,0 +1,6 @@
+{
+  "name": "SeuBeat",
+  "description": "Transforme a sua história numa música inesquecível para quem mais ama. Escolha o estilo, partilhe as suas memórias e crie uma canção personalizada emocionante com o SeuBeat.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
