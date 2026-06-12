@@ -221,11 +221,16 @@ export default function AdminPanel() {
         setAdminPassword(passwordInput);
         setAuthenticated(true);
         sessionStorage.setItem('seubeat_admin_password', passwordInput);
-      } else {
+      } else if (res.status === 401) {
         setAuthError('Password incorreta. Tente novamente.');
+      } else if (res.status === 500) {
+        // 500 = servidor com erro interno (ex: variáveis de ambiente em falta no Render)
+        setAuthError(`⚠️ Erro no servidor (500). Verifique as variáveis de ambiente no Render (SUPABASE_URL, SUPABASE_ANON_KEY, etc).`);
+      } else {
+        setAuthError(`Erro inesperado (${res.status}). Tente novamente.`);
       }
     } catch (e) {
-      setAuthError('Erro ao ligar ao servidor.');
+      setAuthError('Erro ao ligar ao servidor. Verifique se o Render está online.');
     }
     setLoading(false);
   };
