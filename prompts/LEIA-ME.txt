@@ -1,0 +1,36 @@
+# ════════════════════════════════════════════════════════════
+#  SEUBEAT — GUIA DE EDIÇÃO DOS PROMPTS DA IA (GEMINI)
+# ════════════════════════════════════════════════════════════
+#
+#  Esta pasta contém as instruções que a IA (Gemini) recebe
+#  para compor a letra da música.
+#
+#  COMO LOCALIZAR NO CÓDIGO:
+#  Ficheiro de Lógica: server/services/gemini.ts (função `selectPrompt`)
+#
+#  COMO A IA DECIDE QUAL FICHEIRO USAR:
+#  1. Primeiro ela lê "mestre.txt" (Regras globais e estrutura Verso/Refrão).
+#  2. Depois, ela escolhe o prompt temático dependendo da Ocasião ou Relação:
+#
+#  POR OCASIÃO (Tem prioridade máxima):
+#  - Se a ocasião contiver "casamento"       → Usa "casamento.txt"
+#  - Se a ocasião contiver "desculpa"        → Usa "pedido_desculpas.txt"
+#  - Se a ocasião contiver "memorial/saudade"→ Usa "memorial.txt"
+#  - Se a ocasião contiver "homenagem"       → Usa "homenagem.txt"
+#
+#  POR RELAÇÃO (Usado se não for nenhuma das ocasiões acima):
+#  - Para mãe/mae                            → Usa "mae.txt"
+#  - Para pai                                → Usa "pai.txt"
+#  - Para avó/avô/avo                        → Usa "avo.txt"
+#  - Para filho/filha                        → Usa "filho.txt"
+#  - Para irmão/irmã                         → Usa "familia.txt"
+#  - Para amigo/amiga                        → Usa "amizade.txt"
+#  - Para professor                          → Usa "professor.txt"
+#  - Para pastor                             → Usa "pastor.txt"
+#  - Para colega                             → Usa "colega.txt"
+#  - Para ex-namorado/a                      → Usa "saudade.txt"
+#  - Para "Para mim"                         → Usa "paramim.txt"
+#  - Namorados / Casais                      → Usa "romance.txt"
+#  - Qualquer outra situação                 → Usa "outro.txt"
+#
+# ════════════════════════════════════════════════════════════

@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import { randomUUID } from 'crypto';
 import os from 'os';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
@@ -375,16 +376,68 @@ app.post('/api/generate-lyrics', async (req, res) => {
         }
       }
 
-      // 1. Insert User
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .insert([{ 
-          name: userNick || 'Autor',
-          email: req.body.email || null,
-          phone: req.body.phone || null
-        }])
-        .select()
-        .single();
+      // 1. Insert User (Check if user already exists first, then handle auth/guest user creation)
+      let userData: any = null;
+      let userError: any = null;
+      const userEmail = req.body.email || `guest_${randomUUID()}@seubeat.com`;
+
+      try {
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', userEmail)
+          .maybeSingle();
+
+        if (existingUser) {
+          userData = existingUser;
+        } else {
+          // Attempt to create the user in auth.users via admin API to satisfy foreign key constraint
+          let userId = randomUUID() as any;
+          try {
+            const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+              email: userEmail,
+              email_confirm: true,
+              user_metadata: { name: userNick }
+            });
+            if (authUser && authUser.user) {
+              userId = authUser.user.id;
+            } else {
+              console.warn('Could not create auth user, falling back to random UUID. Error:', authError);
+            }
+          } catch (authCatchErr) {
+            console.warn('Exception creating auth user, falling back to random UUID. Error:', authCatchErr);
+          }
+
+          // Insert into public.users
+          const { data: newProfile, error: profileError } = await supabase
+            .from('users')
+            .insert([{
+              id: userId,
+              name: userNick || 'Autor',
+              email: userEmail,
+              phone: req.body.phone || null
+            }])
+            .select()
+            .single();
+
+          if (profileError) {
+            const { data: retryUser } = await supabase
+              .from('users')
+              .select('*')
+              .eq('email', userEmail)
+              .maybeSingle();
+            if (retryUser) {
+              userData = retryUser;
+            } else {
+              userError = profileError;
+            }
+          } else {
+            userData = newProfile;
+          }
+        }
+      } catch (err) {
+        userError = err;
+      }
         
       if (!userError && userData) {
         // 2. Insert Song Request (status = draft)
@@ -393,10 +446,16 @@ app.post('/api/generate-lyrics', async (req, res) => {
           .insert([{
             user_id: userData.id,
             recipient_name: recipientName || 'Destinatário',
-            recipient_relation: recipientRelation || 'Parceiro',
-            occasion: occasion || 'Homenagem',
-            music_style: musicStyle || 'Pop Romântico',
-            voice_type: voiceType || 'Masculina',
+            relationship: recipientRelation || req.body.recipientRelation || 'Parceiro',
+            occasion: occasion || req.body.occasion || 'Homenagem',
+            music_style: musicStyle || req.body.musicStyle || 'Pop Romântico',
+            voice_type: voiceType || req.body.voiceType || 'Masculina',
+            special_traits: req.body.specialTraits || req.body.special_traits || '',
+            memory: req.body.memory || req.body.messageFromTheHeart || '',
+            heart_message: req.body.heartMessage || req.body.heart_message || req.body.messageFromTheHeart || '',
+            desired_emotion: req.body.desiredEmotion || req.body.desired_emotion || 'Emocionante',
+            email: req.body.email || null,
+            phone: req.body.phone || null,
             status: 'draft',
             photo_url: photoUrl
           }])
@@ -657,7 +716,7 @@ app.post('/api/submit-payment', async (req, res) => {
       const { data: paymentData, error: paymentError } = await supabase
         .from('payments')
         .insert([{
-          song_request_id: songRequestId || null,
+          request_id: songRequestId || null,
           user_email: userEmail,
           plan,
           amount,
@@ -846,7 +905,7 @@ app.post('/api/admin/payment/:id/approve', adminAuth, async (req, res) => {
       .eq('id', id);
 
     const songRequest = payment.song_requests as any;
-    const requestId = payment.song_request_id;
+    const requestId = payment.request_id;
     const songData = songRequest?.songs?.[0];
     const userEmail = songRequest?.users?.email;
     const letterText = songData?.letter_text || 'Preparámos uma dedicatória especial para si.';
@@ -925,7 +984,7 @@ app.post('/api/admin/payment/:id/reject', adminAuth, async (req, res) => {
 
     const { data: payment } = await supabase
       .from('payments')
-      .select('user_email, song_request_id')
+      .select('user_email, request_id')
       .eq('id', id)
       .single();
 
@@ -934,11 +993,11 @@ app.post('/api/admin/payment/:id/reject', adminAuth, async (req, res) => {
       .update({ status: 'rejected', notes: notes || null })
       .eq('id', id);
 
-    if (payment?.song_request_id) {
+    if (payment?.request_id) {
       await supabase
         .from('song_requests')
         .update({ status: 'payment_rejected' })
-        .eq('id', payment.song_request_id);
+        .eq('id', payment.request_id);
     }
 
     // Notify client by email

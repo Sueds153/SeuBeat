@@ -14,8 +14,8 @@ if (ffmpegInstaller) {
 export async function downloadFile(url: string, destPath: string): Promise<void> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Falha ao descarregar arquivo: ${res.statusText}`);
-  const fileStream = fs.createWriteStream(destPath);
-  await streamPipeline(res.body as any, fileStream);
+  const arrayBuffer = await res.arrayBuffer();
+  fs.writeFileSync(destPath, Buffer.from(arrayBuffer));
 }
 
 // Utilitário para cortar os primeiros 30s de preview

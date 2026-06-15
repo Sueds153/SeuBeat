@@ -1,0 +1,33 @@
+# ════════════════════════════════════════════════════════════
+#  05 — TESTEMUNHOS DE CLIENTES
+#  Ficheiro: src/components/Testimonials.tsx → TESTIMONIALS_DATA
+# ════════════════════════════════════════════════════════════
+
+# ── CABEÇALHO DA SECÇÃO ──────────────────────────────────────
+cabecalho_etiqueta: "Corações Conquistados"
+cabecalho_titulo: "Quem ofereceu, nunca mais esqueceu ❤️"
+cabecalho_subtitulo: "Depoimentos comoventes de pessoas reais em Angola que criaram recordações inesquecíveis."
+
+# ── TESTEMUNHO 1 (Rui dos Santos) ────────────────────────────
+testemunho1_nome: "Rui dos Santos"
+testemunho1_cargo: "Marido Apaixonado"
+testemunho1_localizacao: "Luanda"
+testemunho1_relacao: "Esposa"
+testemunho1_cancao: "Kizomba Romântica • Cláudia"
+testemunho1_texto: "Não sei cantar nem sei escrever poesia, mas queria muito dar algo pessoal à Cláudia no nosso aniversário de 10 anos. A música superou tudo o que sonhava. Quando começou a tocar e o cantor pronunciou o nome dela e a piada das nossas viagens à Mussulo, ela desabou em lágrimas. Foi indescritível!"
+
+# ── TESTEMUNHO 2 (Delfina Neto) ─────────────────────────────
+testemunho2_nome: "Delfina Neto"
+testemunho2_cargo: "Filha Grata"
+testemunho2_localizacao: "Lobito"
+testemunho2_relacao: "Mãe"
+testemunho2_cancao: "Semba Tradicional • Mãe Maria"
+testemunho2_texto: "Criei um Semba lindo para o Aniversário da minha Mãe Maria. Ela ouve todos os dias ao acordar e já enviou a música a todas as amigas no grupo de WhatsApp lá da paróquia. Diz que foi o presente mais lindo de toda a vida dela. Podem fazer sem medo, vale cada kwanza!"
+
+# ── TESTEMUNHO 3 (Mateus Camilo) ─────────────────────────────
+testemunho3_nome: "Mateus Camilo"
+testemunho3_cargo: "Namorado Romântico"
+testemunho3_localizacao: "Talatona"
+testemunho3_relacao: "Pedido de Casamento"
+testemunho3_cancao: "Pop Acústico (Voz Customizada) • Irina"
+testemunho3_texto: "Usei o plano de voz de estúdio personalizada para pedi-la em casamento. Gravei o meu tom lírico no telemóvel e as linhas vocais assumiram a minha própria assinatura num Pop acústico clássico. Ela sentiu toda a emoção e dedicação de estúdio real! Obviamente que ela disse SIM. Ganhei pontos para a vida toda."

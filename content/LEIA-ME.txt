@@ -1,0 +1,44 @@
+# ════════════════════════════════════════════════════════════
+#  SEUBEAT — GUIA DE EDIÇÃO DE CONTEÚDO (LOCALIZAÇÃO NO CÓDIGO)
+# ════════════════════════════════════════════════════════════
+#
+#  Esta pasta contém TODOS os textos visíveis no seu site.
+#  Abaixo está a localização exata de cada secção no código fonte
+#  caso precise de fazer alterações estruturais ou de design:
+#
+#  ├── 01_navegacao.txt
+#  │   └── Código: src/components/LandingPage.tsx (dentro da tag <header>)
+#  │
+#  ├── 02_hero.txt
+#  │   └── Código: src/components/LandingPage.tsx (tag <section> id="hero-section")
+#  │
+#  ├── 03_como_funciona.txt
+#  │   └── Código: src/components/LandingPage.tsx (tag <section> id="how-it-works-section")
+#  │
+#  ├── 04_precos.txt
+#  │   ├── Tabela: src/types.ts (constante `PRICING_PLANS`)
+#  │   └── Subtítulo: src/components/LandingPage.tsx (tag <section> id="pricing-section")
+#  │
+#  ├── 05_testemunhos.txt
+#  │   └── Código: src/components/Testimonials.tsx (constante `TESTIMONIALS_DATA`)
+#  │
+#  ├── 06_perguntas.txt
+#  │   └── Código: src/components/FAQ.tsx (constante `FAQ_ITEMS`)
+#  │
+#  ├── 07_rodape.txt
+#  │   └── Código: src/components/LandingPage.tsx (tag <footer> no fim do ficheiro)
+#  │
+#  ├── 08_wizard.txt
+#  │   └── Código: src/components/Wizard.tsx (constante `STEP_META` no início)
+#  │
+#  └── 09_demonstracoes.txt
+#      └── Código: src/types.ts (constante `DEMO_SONGS` no fim do ficheiro)
+#
+# ════════════════════════════════════════════════════════════
+#
+#  COMO APLICAR ALTERAÇÕES:
+#  1. Abra o ficheiro de conteúdo pretendido nesta pasta
+#  2. Edite os textos à sua vontade e guarde o ficheiro
+#  3. Envie uma mensagem ao assistente AI: "Aplica as alterações da pasta content"
+#
+# ════════════════════════════════════════════════════════════

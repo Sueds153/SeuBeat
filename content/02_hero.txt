@@ -1,0 +1,23 @@
+# ════════════════════════════════════════════════════════════
+#  02 — SECÇÃO PRINCIPAL (Hero)
+#  Ficheiro: src/components/LandingPage.tsx → <section> Hero
+# ════════════════════════════════════════════════════════════
+
+# ── TAG FLUTUANTE (pequena etiqueta animada no topo) ─────────
+tag_lancamento: "Lançamento Exclusivo em Angola"
+
+# ── TÍTULO PRINCIPAL (H1) ────────────────────────────────────
+titulo_linha1: "Transforme a sua história numa"
+titulo_linha2: "música inesquecível ❤️"
+
+# ── SUBTÍTULO (parágrafo abaixo do título) ───────────────────
+subtitulo: "Surpreenda quem mais ama com uma canção premium personalizada. Escolha Kizomba, Semba ou Pop Romântico. Escreva as suas memórias e deixe o nosso estúdio cantar o seu amor."
+
+# ── BOTÕES DE AÇÃO PRINCIPAIS ────────────────────────────────
+botao_criar_musica: "Criar Minha Música"
+botao_ouvir_exemplos: "Ouvir Exemplos Reais"
+
+# ── SELOS DE CONFIANÇA (ícones de verificação) ───────────────
+selo_1: "Letras em Português Real"
+selo_2: "Kizomba, Semba e mais"
+selo_3: "Voz de Estúdio Customizada"

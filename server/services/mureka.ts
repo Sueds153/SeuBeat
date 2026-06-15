@@ -52,7 +52,7 @@ export async function generateMurekaMusic(lyrics: string[], musicStyle: string, 
   for (let attempt = 0; attempt < 30; attempt++) {
     await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10s between polls
 
-    const statusRes = await fetch(`https://api.mureka.ai/v1/song/${taskId}`, {
+    const statusRes = await fetch(`https://api.mureka.ai/v1/song/query/${taskId}`, {
       headers: { 'Authorization': `Bearer ${apiKey}` }
     });
 
@@ -60,9 +60,12 @@ export async function generateMurekaMusic(lyrics: string[], musicStyle: string, 
 
     const statusData = await statusRes.json();
     const status = statusData.status || statusData.data?.status;
-    const audioUrl = statusData.flac_url || statusData.mp3_url || statusData.audio_url ||
-      statusData.data?.flac_url || statusData.data?.mp3_url || statusData.data?.audio_url ||
-      statusData.choices?.[0]?.url;
+    const audioUrl = statusData.choices?.[0]?.flac_url ||
+      statusData.choices?.[0]?.wav_url ||
+      statusData.choices?.[0]?.url ||
+      statusData.choices?.[0]?.audio_url ||
+      statusData.flac_url || statusData.mp3_url || statusData.audio_url ||
+      statusData.data?.flac_url || statusData.data?.mp3_url || statusData.data?.audio_url;
 
     console.log(`🎵 Mureka poll ${attempt + 1}: status=${status}`);
 

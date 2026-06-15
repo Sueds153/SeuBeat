@@ -1,0 +1,24 @@
+# ════════════════════════════════════════════════════════════
+#  03 — COMO FUNCIONA
+#  Ficheiro: src/components/LandingPage.tsx → #how-it-works-section
+# ════════════════════════════════════════════════════════════
+
+# ── CABEÇALHO DA SECÇÃO ──────────────────────────────────────
+cabecalho_etiqueta: "Estúdio SeuBeat"
+cabecalho_titulo: "Como funciona o presente perfeito?"
+cabecalho_subtitulo: "Em apenas três passos rápidos, convertemos as vossas memórias numa faixa de nível profissional."
+
+# ── PASSO 1 ──────────────────────────────────────────────────
+passo1_numero: "01"
+passo1_titulo: "Conte a sua história"
+passo1_descricao: "Abra o estúdio e responda a perguntas simples e românticas. Conte fofocas, alcunhas, piadas privadas e aquela viagem fantástica ao Cabo Ledo ou Mussulo."
+
+# ── PASSO 2 ──────────────────────────────────────────────────
+passo2_numero: "02"
+passo2_titulo: "O Estúdio cria a música"
+passo2_descricao: "O nosso estúdio junta compositores nacionais para estruturar a letra, e vozes profissionais gravam a música no ritmo de Kizomba, Semba ou Pop favorito."
+
+# ── PASSO 3 ──────────────────────────────────────────────────
+passo3_numero: "03"
+passo3_titulo: "Surpreenda alguém especial"
+passo3_descricao: "Receba uma página de dedicatória lindíssima, com as fotos do casal, letra sincronizada e leitor interativo. Prepare os lenços porque as lágrimas são garantidas."

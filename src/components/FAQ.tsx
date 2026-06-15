@@ -14,15 +14,15 @@ const FAQ_ITEMS: FAQItem[] = [
   },
   {
     question: "Quanto tempo demora a entrega da minha música?",
-    answer: "Depende do plano selecionado. O plano Standard é entregue em até 5 dias úteis. No plano SeuBeat Express ⚡ a entrega é ultrarrápida (geralmente entre 24 a 48 horas). O plano Premium Voice 👑 (com som de estúdio personalizado) demora as mesmas gravações válidas."
+    answer: "Depende do plano selecionado. O plano Standard é entregue em até 24 dias úteis. No plano SeuBeat Express ⚡ a entrega é ultrarrápida. O plano Premium Voice 👑 (com som de estúdio personalizado) demora as mesmas gravações válidas."
   },
   {
     question: "Posso sugerir alterações se não gostar de algum detalhe?",
-    answer: "Sim, absolutamente! Queremos que a sua surpresa seja inesquecível e perfeita. No plano Standard dispõe de até 2 rodadas de ajustes na letra. Nos planos Express e Premium Voice, tem suporte a alterações ilimitadas na letra e ajuste de arranjos até que fique exatamente como idealizou."
+    answer: "Não é possível alterar, por este motivo se atente no acto do preenchimento do formulário"
   },
   {
     question: "Como funciona a opção 'A Minha Própria Voz' (Premium)?",
-    answer: "É a experiência mais romântica e premium no mercado! No passo 4 do assistente, se selecionar a sua própria voz, poderá fazer upload de um ficheiro de áudio simples (pelo telemóvel ou computador) onde lê um pequeno texto ou canta um bocado. O nosso motor acústico exclusivo estuda a sua assinatura vocal e timbre. O cantor de estúdio canta depois a canção inteira com a sua assinatura de voz e a emoção perfeita."
+    answer: "É a experiência mais romântica e premium no mercado! No passo 4 do assistente, se selecionar a sua própria voz, poderá fazer upload de um ficheiro de áudio simples (pelo telemóvel ou computador). O nosso motor acústico exclusivo estuda a sua assinatura vocal e timbre. O cantor de estúdio canta depois a canção inteira com a sua assinatura de voz e a emoção perfeita."
   },
   {
     question: "De que forma recebo a música pronta?",

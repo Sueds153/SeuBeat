@@ -1,0 +1,33 @@
+# ════════════════════════════════════════════════════════════
+#  07 — RODAPÉ DO SITE (Footer)
+#  Ficheiro: src/components/LandingPage.tsx → <footer>
+# ════════════════════════════════════════════════════════════
+
+# ── LOGO E DESCRITIVO DO RODAPÉ ──────────────────────────────
+logo_nome: "SeuBeat"
+descritivo: "Fazemos com que os sentimentos mais profundos se tornem canções eternas de alta definição artística para recordar."
+
+# ── COLUNA 1: ESTILOS ────────────────────────────────────────
+titulo_estilos: "Estilos Artísticos"
+estilo_1: "Kizomba Lenta / Tarraxinha"
+estilo_2: "Semba Tradicional Angolano"
+estilo_3: "Afrobeat Vibrante"
+estilo_4: "Pop Balada Romântica"
+
+# ── COLUNA 2: LEGAL ──────────────────────────────────────────
+titulo_legal: "Parcerias e Legal"
+legal_1: "Termos de Utilização"
+legal_2: "Políticas de Privacidade"
+legal_3: "Compositores Associados"
+legal_4: "Contactar Suporte VIP"
+
+# ── COLUNA 3: LOCALIZAÇÃO E CONTATOS ─────────────────────────
+titulo_contato: "Estúdio central em Angola"
+morada: "Bairro Talatona, Edifício Premium, Luanda."
+whatsapp: "WhatsApp: 922 000 000"
+email: "Email: suporte@seubeat.ao"
+direitos_autorais: "@ 2026 SeuBeat. Todos os direitos reservados."
+
+# ── BARRA INFERIOR DE CRÉDITOS ──────────────────────────────
+mensagem_amor: "CONSTRUÍDO COM AMOR PARA RECORDAR PARA SEMPRE"
+selo_seguranca: "Feito de forma segura com criptografia integrada no BAI"

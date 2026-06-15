@@ -1,0 +1,36 @@
+# ════════════════════════════════════════════════════════════
+#  09 — MÚSICAS DE DEMONSTRAÇÃO (Áudio Player)
+#  Ficheiro: src/types.ts → DEMO_SONGS
+# ════════════════════════════════════════════════════════════
+
+# ── DEMONSTRAÇÃO 1: KIZOMBA ──────────────────────────────────
+musica1_id: "kizomba-love"
+musica1_titulo: "Minha Rainha"
+musica1_estilo: "Kizomba"
+musica1_ocasiao: "Casamento"
+musica1_destinatario: "Esposa (Cláudia)"
+musica1_duracao: "3:15"
+# As letras estão sincronizadas no leitor:
+# "Desde o dia em que te vi na Ilha de Luanda..."
+# "Sabia que o meu peito tinha nova comandante..."
+# "O teu sorriso brilha mais que o sol do deserto..."
+
+# ── DEMONSTRAÇÃO 2: SEMBA ────────────────────────────────────
+musica2_id: "semba-bday"
+musica2_titulo: "Sorriso de Mãe"
+musica2_estilo: "Semba"
+musica2_ocasiao: "Aniversário"
+musica2_destinatario: "Mãe (Dona Maria)"
+musica2_duracao: "2:45"
+# As letras estão sincronizadas no leitor:
+# "Mãe Maria, a senhora que tudo me deu..."
+
+# ── DEMONSTRAÇÃO 3: POP ACÚSTICO ──────────────────────────────
+musica3_id: "acoustic-heart"
+musica3_titulo: "Meu Porto Seguro"
+musica3_estilo: "Romantic Pop"
+musica3_ocasiao: "Dedicatória Especial"
+musica3_destinatario: "Namorado (Yuri)"
+musica3_duracao: "3:05"
+# As letras estão sincronizadas no leitor:
+# "O vento que sobra suave lá fora..."

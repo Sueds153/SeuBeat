@@ -184,7 +184,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               Preços Únicos Por Canção 💎
             </h2>
             <p className="text-stone-400 text-xs md:text-sm">
-              Encontre o plano ideal para orquestrar a sua surpresa sentimental sem mensalidades.
+              Encontre o plano ideal para surpresa sentimental sem mensalidades.
             </p>
           </div>
 
@@ -320,8 +320,8 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           <div className="text-left space-y-3">
             <h4 className="text-xs font-bold text-stone-300 uppercase tracking-widest">Estúdio central em Angola</h4>
             <p className="text-stone-400 leading-relaxed max-w-xs text-xs font-sans">
-              Bairro Talatona, Edifício Premium, Luanda.<br />
-              WhatsApp: 922 000 000 | Email: suporte@seubeat.ao
+              Bairro Talatona, Luanda.<br />
+              WhatsApp: 929 423 278 | Email: suporte@seubeat.ao
             </p>
             <div className="pt-2 text-[10px] text-stone-500">
               @ 2026 SeuBeat. Todos os direitos reservados.
@@ -335,7 +335,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           <span>CONSTRUÍDO COM AMOR PARA RECORDAR PARA SEMPRE</span>
           <div className="flex items-center gap-1.5 text-stone-600">
             <Coffee className="w-3.5 h-3.5 text-amber-500/80" />
-            <span>Feito de forma segura com criptografia integrada no BAI</span>
+            <span>Feito de forma segura com criptografia</span>
           </div>
         </div>
       </footer>

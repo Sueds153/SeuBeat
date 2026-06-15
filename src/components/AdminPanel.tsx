@@ -42,7 +42,7 @@ interface Payment {
 interface SongRequest {
   id: string;
   recipient_name: string;
-  recipient_relation: string;
+  relationship: string;
   occasion: string;
   music_style: string;
   voice_type: string;
@@ -717,7 +717,7 @@ export default function AdminPanel() {
                                 <p className="text-stone-600 font-mono text-[10px]">{req.users?.email || '—'}</p>
                               </td>
                               <td className="px-4 py-3 text-stone-300">{req.recipient_name}</td>
-                              <td className="px-4 py-3 text-stone-400">{req.recipient_relation}</td>
+                              <td className="px-4 py-3 text-stone-400">{req.relationship}</td>
                               <td className="px-4 py-3 text-stone-400">{req.occasion}</td>
                               <td className="px-4 py-3 text-stone-400">{req.music_style}</td>
                               <td className="px-4 py-3"><StatusBadge status={req.status} /></td>

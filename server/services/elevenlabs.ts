@@ -7,7 +7,7 @@ export async function cloneElevenLabsVoice(name: string, audioBuffer: Buffer, mi
   formData.append('name', name);
   formData.append('description', 'SeuBeat Cloned Voice Sample');
   
-  const blob = new Blob([audioBuffer], { type: mimeType });
+  const blob = new Blob([audioBuffer as any], { type: mimeType });
   formData.append('files', blob, 'sample.wav');
 
   const res = await fetch('https://api.elevenlabs.io/v1/voices/add', {

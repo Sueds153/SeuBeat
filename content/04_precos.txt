@@ -1,0 +1,45 @@
+# ════════════════════════════════════════════════════════════
+#  04 — PREÇOS E PLANOS
+#  Ficheiro: src/types.ts → PRICING_PLANS
+# ════════════════════════════════════════════════════════════
+
+# ── CABEÇALHO DA SECÇÃO ──────────────────────────────────────
+cabecalho_etiqueta: "Sem Subscrições Secretas"
+cabecalho_titulo: "Preços Únicos Por Canção 💎"
+cabecalho_subtitulo: "Encontre o plano ideal para orquestrar a sua surpresa sentimental sem mensalidades."
+
+# ── PLANO STANDARD ───────────────────────────────────────────
+plano_std_nome: "SeuBeat Standard"
+plano_std_preco: "7.900 Kz"
+plano_std_subtitulo: "Música personalizada criada no estilo ideal."
+plano_std_recurso1: "Entrega digital em 5 dias"
+plano_std_recurso2: "Até 2 retoques de letra"
+plano_std_recurso3: "Qualidade de áudio standard (MP3)"
+plano_std_recurso4: "Estilo de voz Masculino ou Feminino"
+plano_std_botao: "Escolher Este Plano"
+
+# ── PLANO EXPRESS (POPULAR) ──────────────────────────────────
+plano_exp_nome: "SeuBeat Express ⚡"
+plano_exp_preco: "9.900 Kz"
+plano_exp_subtitulo: "Mais rápido, com letra expandida e maior prioridade."
+plano_exp_distintivo: "Mais Popular"
+plano_exp_recurso1: "Entrega prioritária em 24-48 horas"
+plano_exp_recurso2: "Retoques ilimitados de letra"
+plano_exp_recurso3: "Áudio em Alta Definição (WAV + MP3)"
+plano_exp_recurso4: "Vozes em Dueto disponíveis"
+plano_exp_recurso5: "Página de dedicatória personalizada"
+plano_exp_botao: "Escolher Este Plano"
+
+# ── PLANO PREMIUM VOICE ──────────────────────────────────────
+plano_prem_nome: "Premium Voice 👑"
+plano_prem_preco: "14.900 Kz"
+plano_prem_subtitulo: "A sua surpresa! Gravação de timbre personalizada."
+plano_prem_recurso1: "Entrega express em 24 horas"
+plano_prem_recurso2: "Sintonia acústica fina do seu timbre de voz"
+plano_prem_recurso3: "O vocalista assume a letra com a sua assinatura vocal"
+plano_prem_recurso4: "Acompanhamento VIP por produtor musical"
+plano_prem_recurso5: "Vídeo-dedicatória com fotos integrado"
+plano_prem_botao: "Criar com Minha Voz 👑"
+
+# ── NOTA DE SUPORTE ──────────────────────────────────────────
+nota_suporte: "Suporte de apoio pós-venda incluído"

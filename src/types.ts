@@ -141,7 +141,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     price: '7.900 Kz',
     subtitle: 'Música personalizada criada no estilo ideal.',
     features: [
-      'Entrega digital em 5 dias',
+      'Entrega digital em 24 horas',
       'Até 2 retoques de letra',
       'Qualidade de áudio standard (MP3)',
       'Estilo de voz Masculino ou Feminino'
@@ -153,7 +153,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     price: '9.900 Kz',
     subtitle: 'Mais rápido, com letra expandida e maior prioridade.',
     features: [
-      'Entrega prioritária em 24-48 horas',
+      'Entrega prioritária na mesma hora',
       'Retoques ilimitados de letra',
       'Áudio em Alta Definição (WAV + MP3)',
       'Vozes em Dueto disponíveis',
@@ -168,7 +168,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     price: '14.900 Kz',
     subtitle: 'A sua surpresa! Gravação de timbre personalizada.',
     features: [
-      'Entrega express em 24 horas',
+      'Entrega express',
       'Sintonia acústica fina do seu timbre de voz',
       'O vocalista assume a letra com a sua assinatura vocal',
       'Acompanhamento VIP por produtor musical',

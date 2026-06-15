@@ -1,0 +1,58 @@
+# ════════════════════════════════════════════════════════════
+#  08 — ASSISTENTE DE CRIAÇÃO (Wizard)
+#  Ficheiro: src/components/Wizard.tsx → STEP_META
+# ════════════════════════════════════════════════════════════
+
+# ── PASSO 1: DESTINATÁRIO ────────────────────────────────────
+passo1_titulo: "Para quem é esta canção? ❤️"
+passo1_subtitulo: "Escolha a relação e configure os nomes para rimas profundas."
+passo1_exemplo: "Exemplo: \"Para a minha Mãe (Dona Maria)\", mostrando gratidão."
+passo1_dica: "Passo 1 de 9 • Os pormenores pessoais criam mais empatia na música."
+
+# ── PASSO 2: OCASIÃO ─────────────────────────────────────────
+passo2_titulo: "Qual é a ocasião especial? 🎂"
+passo2_subtitulo: "O compasso e ritmo assentam na festa pretendida."
+passo2_exemplo: "Exemplo: \"Aniversário de Casamento\", ou \"Uma declaração sem motivo\"."
+passo2_dica: "Passo 2 de 9 • Conte-nos brevemente as razões da surpresa de hoje."
+
+# ── PASSO 3: ESTILO ──────────────────────────────────────────
+passo3_titulo: "Qual é o estilo e artista de inspiração? 🎵"
+passo3_subtitulo: "Navegue pelos sons angolanos ou uma balada emocionante."
+passo3_exemplo: "Exemplo: Kizomba ao estilo de Anselmo Ralph ou Chelsea Dinorath."
+passo3_dica: "Passo 3 de 9 • Isto ajuda a modelar com mais precisão a vibração ideal."
+
+# ── PASSO 4: CANTOR ──────────────────────────────────────────
+passo4_titulo: "Quem deve cantar esta homenagem? 🎙️"
+passo4_subtitulo: "A voz transmite sentimentos inesquecíveis."
+passo4_exemplo: "Exemplo: Voz Feminina celestial ou Dueto Romântico expressivo."
+passo4_dica: "Passo 4 de 9 • Note: A sua própria voz poderá ser personalizada na fase seguinte!"
+
+# ── PASSO 5: CARACTERÍSTICAS ÚNICAS ─────────────────────────
+passo5_titulo: "O que o torna especial? ✨"
+passo5_subtitulo: "Escreva sobre os seus superpoderes e mimos diários."
+passo5_exemplo: "Exemplo: \"Ela é ultra protetora e canta sempre no banho de manhã.\""
+passo5_dica: "Passo 5 de 9 • Detalhes engraçados convertem-se no presente perfeito."
+
+# ── PASSO 6: MEMÓRIA FORTE ───────────────────────────────────
+passo6_titulo: "Onde e qual é a vossa memória forte? 📍"
+passo6_subtitulo: "O local e os momentos formam a lírica narrativa."
+passo6_exemplo: "Exemplo: \"Amamos passear em Luanda, e rimos imenso quando a tenda caiu no Cabo Ledo.\""
+passo6_dica: "Passo 6 de 9 • Locais e datas criam um ambiente imersivo fantástico."
+
+# ── PASSO 7: MENSAGEM DO CORAÇÃO ─────────────────────────────
+passo7_titulo: "O que gostaria de nunca esquecer? 🥹"
+passo7_subtitulo: "A mensagem pura do seu peito que compõe o marcante refrão."
+passo7_exemplo: "Exemplo: \"Que ela mudou a minha vida e que sempre estarei ao lado dela.\""
+passo7_dica: "Passo 7 de 9 • Escreva com verdade crua para derreter corações."
+
+# ── PASSO 8: FOTOGRAFIA ──────────────────────────────────────
+passo8_titulo: "Fotografia marcante do casal 📸"
+passo8_subtitulo: "Esta foto preencherá o ecrã do player digital da dedicatória."
+passo8_exemplo: "Exemplo: Um lindo retrato do aniversário passado juntos."
+passo8_dica: "Passo 8 de 9 • Acompanha o correio eletrónico nas capas de estúdio."
+
+# ── PASSO 9: CONTACTO DE SEGURANÇA ───────────────────────────
+passo9_titulo: "Contacto de segurança do autor 🛡️"
+passo9_subtitulo: "Preencha o correio eletrónico para o seu link privado de escuta."
+passo9_exemplo: "Exemplo: Receba o ficheiro WAV directamente no WhatsApp."
+passo9_dica: "Passo 9 de 9 • Estamos quase prontos para criar a melodia!"

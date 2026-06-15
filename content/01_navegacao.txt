@@ -1,0 +1,18 @@
+# ════════════════════════════════════════════════════════════
+#  01 — NAVEGAÇÃO (Cabeçalho / Menu)
+#  Ficheiro: src/components/LandingPage.tsx → <header>
+# ════════════════════════════════════════════════════════════
+
+# ── LOGO ─────────────────────────────────────────────────────
+logo_iniciais: "SB"
+logo_nome: "SeuBeat"
+logo_slogan: "Música com Emoção"
+
+# ── LINKS DO MENU (desktop) ──────────────────────────────────
+menu_como_funciona: "Como Funciona"
+menu_demonstracoes: "Demonstrações"
+menu_precos: "Preços"
+menu_perguntas: "Perguntas Frequentes"
+
+# ── BOTÃO DO CABEÇALHO ───────────────────────────────────────
+botao_cabecalho: "Criar Música ❤️"

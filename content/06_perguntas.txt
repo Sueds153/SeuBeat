@@ -1,0 +1,33 @@
+# ════════════════════════════════════════════════════════════
+#  06 — PERGUNTAS FREQUENTES (FAQ)
+#  Ficheiro: src/components/FAQ.tsx → FAQ_ITEMS
+# ════════════════════════════════════════════════════════════
+
+# ── CABEÇALHO DA SECÇÃO ──────────────────────────────────────
+cabecalho_etiqueta: "Centro de Ajuda"
+cabecalho_titulo: "Perguntas Frequentes 💡"
+cabecalho_subtitulo: "Tudo o que precisa de saber para encomendar a sua composição com facilidade."
+
+# ── PERGUNTA 1 ───────────────────────────────────────────────
+p1_pergunta: "Como funciona a criação artística das músicas?"
+p1_resposta: "É simples e emocionante! No nosso assistente, partilha memórias reais, alcunhas, piadas e mensagens do fundo do coração. O nosso estúdio de composição criativa desenvolve um poema lírico personalizado com rimas ricas e naturais em ritmos como Kizomba, Semba, R&B ou Pop. Um talentoso vocalista digital de estúdio interpreta depois a letra com instrumentistas de excelência, resultando numa faixa personalizada real e incrivelmente emocionante."
+
+# ── PERGUNTA 2 ───────────────────────────────────────────────
+p2_pergunta: "Quanto tempo demora a entrega da minha música?"
+p2_resposta: "Depende do plano selecionado. O plano Standard é entregue em até 5 dias úteis. No plano SeuBeat Express ⚡ a entrega é ultrarrápida (geralmente entre 24 a 48 horas). O plano Premium Voice 👑 (com som de estúdio personalizado) demora as mesmas gravações válidas."
+
+# ── PERGUNTA 3 ───────────────────────────────────────────────
+p3_pergunta: "Posso sugerir alterações se não gostar de algum detalhe?"
+p3_resposta: "Sim, absolutamente! Queremos que a sua surpresa seja inesquecível e perfeita. No plano Standard dispõe de até 2 rodadas de ajustes na letra. Nos planos Express e Premium Voice, tem suporte a alterações ilimitadas na letra e ajuste de arranjos até que fique exatamente como idealizou."
+
+# ── PERGUNTA 4 ───────────────────────────────────────────────
+p4_pergunta: "Como funciona a opção 'A Minha Própria Voz' (Premium)?"
+p4_resposta: "É a experiência mais romântica e premium no mercado! No passo 4 do assistente, se selecionar a sua própria voz, poderá fazer upload de um ficheiro de áudio simples (pelo telemóvel ou computador) onde lê um pequeno texto ou canta um bocado. O nosso motor acústico exclusivo estuda a sua assinatura vocal e timbre. O cantor de estúdio canta depois a canção inteira com a sua assinatura de voz e a emoção perfeita."
+
+# ── PERGUNTA 5 ───────────────────────────────────────────────
+p5_pergunta: "De que forma recebo a música pronta?"
+p5_resposta: "A música é entregue através de um link exclusivo no seu e-mail e WhatsApp. Esse link abre uma página de dedicatória lindíssima, personalizada com a foto que carregou, as letras a passar em formato animado, e um leitor premium para carregar no play e emocionar a pessoa especial instantaneamente. Também daremos a opção de descarregar em ficheiro de áudio padrão de alta definição (MP3 e WAV)."
+
+# ── PERGUNTA 6 ───────────────────────────────────────────────
+p6_pergunta: "Como posso efetuar o pagamento seguro em Angola?"
+p6_resposta: "Aceitamos pagamentos instantâneos extremamente populares como transferência bancária direta, depósitos ou via referências de pagamento Multicaixa Express. No final do formulário, as instruções de liquidação serão apresentadas de forma clara para validação."
