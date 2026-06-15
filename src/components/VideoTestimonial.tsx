@@ -138,16 +138,72 @@ export default function VideoTestimonial() {
               className="relative w-full h-full rounded-[30px] overflow-hidden bg-stone-950 flex flex-col justify-between group/player cursor-pointer"
               onClick={togglePlay}
             >
-              <iframe
-                src="https://www.youtube.com/embed/FeZmi3nRC6Q?autoplay=1&mute=1&loop=1&playlist=FeZmi3nRC6Q&controls=0&modestbranding=1&rel=0&playsinline=1"
-                title="SeuBeat Social Proof"
+              <video
+                ref={videoRef}
+                playsInline
+                loop
+                referrerPolicy="no-referrer"
+                src={videoSrc}
                 className="absolute inset-0 w-full h-full object-cover z-0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
+                onError={() => {
+                  if (!isCustomLoaded) {
+                    console.log("Could not load /assets/prova_social.mp4, using fallback description/state");
+                    setVideoError(true);
+                  }
+                }}
               />
 
+              {/* Error state / Fallback placeholder when video file is not yet uploaded */}
+              {videoError && (
+                <div className="absolute inset-0 z-5 bg-gradient-to-b from-stone-900/80 via-stone-950 to-stone-900 flex flex-col items-center justify-center p-5 text-center space-y-4">
+                  <div className="w-12 h-12 bg-amber-500/10 rounded-full flex items-center justify-center text-amber-500">
+                    <Heart className="w-7 h-7 text-rose-500 fill-rose-500 animate-[pulse_1.5s_infinite]" />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[9.5px] font-mono text-amber-500 font-bold uppercase tracking-widest block">VÍDEO DE PROVA SOCIAL</span>
+                    <h4 className="text-stone-150 font-bold text-sm leading-tight">Rosa Emociona-se com a Música</h4>
+                    <p className="text-stone-400 text-[10px] leading-relaxed max-w-[240px] mx-auto">
+                      Como o ficheiro de vídeo não existe no servidor, pode selecioná-lo diretamente do seu dispositivo para ver a reprodução real integrada!
+                    </p>
+                  </div>
+                  
+                  {/* Client-side File Loader Button */}
+                  <label 
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-90 text-stone-950 rounded-xl text-[10.5px] font-bold cursor-pointer transition-all shadow-md shadow-amber-500/15"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '6s' }} />
+                    <span>Carregar o seu Vídeo (.mp4)</span>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="video/mp4,video/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          const fileUrl = URL.createObjectURL(e.target.files[0]);
+                          setVideoSrc(fileUrl);
+                          setIsCustomLoaded(true);
+                          setVideoError(false);
+                          setTimeout(() => {
+                            if (videoRef.current) {
+                              videoRef.current.play().then(() => setIsPlaying(true)).catch(err => console.log(err));
+                            }
+                          }, 150);
+                        }
+                      }}
+                    />
+                  </label>
+
+                  <div className="bg-stone-950/80 px-3 py-1.5 rounded-xl text-[10px] text-stone-500 font-mono border border-stone-850 leading-normal text-left max-w-[240px]">
+                    ✍️ Letra ouvida no vídeo:<br />
+                    <span className="text-stone-300 italic">"Rosa, mulher da minha vida, desde o Huambo até aqui, 30 anos ao teu lado..."</span>
+                  </div>
+                </div>
+              )}
+
               {/* TikTok visual overlay watermark */}
-              <div className="absolute top-12 left-4 z-10 flex items-center gap-1.5 opacity-90 pointer-events-none">
+              <div className="absolute top-12 left-4 z-10 flex items-center gap-1.5 opacity-90">
                 <span className="inline-block w-2.5 h-2.5 rounded-full bg-rose-500 animate-[ping_1.5s_infinite]" />
                 <span className="text-[9.5px] font-mono font-bold tracking-widest bg-stone-950/60 backdrop-blur text-stone-200 px-2.5 py-0.5 rounded-full border border-stone-800">
                   REPRODUZINDO • REAÇÃO REAL
@@ -155,12 +211,15 @@ export default function VideoTestimonial() {
               </div>
 
               {/* Floating control buttons inside the video */}
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-5 pointer-events-none">
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-5">
                 {/* Hearts / Likes */}
                 <button
                   type="button"
-                  className="flex flex-col items-center gap-1 cursor-pointer group/icon bg-stone-950/40 p-2 rounded-full hover:bg-stone-900/60 backdrop-blur pointer-events-auto"
-                  onClick={(e) => { e.stopPropagation(); handleLike(); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleLike();
+                  }}
+                  className="flex flex-col items-center gap-1 cursor-pointer group/icon bg-stone-950/40 p-2 rounded-full hover:bg-stone-900/60 backdrop-blur"
                 >
                   <div className="w-10 h-10 rounded-full flex items-center justify-center transition-all">
                     <Heart className={`w-5.5 h-5.5 transition-all ${hasLiked ? 'text-rose-500 fill-rose-500 scale-120' : 'text-stone-300 group-hover/icon:text-rose-400'}`} />
@@ -171,8 +230,11 @@ export default function VideoTestimonial() {
                 {/* Shares */}
                 <button
                   type="button"
-                  className="flex flex-col items-center gap-1 cursor-pointer bg-stone-950/40 p-2 rounded-full hover:bg-stone-900/60 backdrop-blur pointer-events-auto"
-                  onClick={(e) => { e.stopPropagation(); alert("Link de partilha copiado com sucesso!"); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    alert("Link de partilha copiado com sucesso!");
+                  }}
+                  className="flex flex-col items-center gap-1 cursor-pointer bg-stone-950/40 p-2 rounded-full hover:bg-stone-900/60 backdrop-blur"
                 >
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-stone-300">
                     <Share2 className="w-5 h-5" />
@@ -183,7 +245,10 @@ export default function VideoTestimonial() {
                 {/* Comments */}
                 <button
                   type="button"
-                  className="flex flex-col items-center gap-1 cursor-pointer bg-stone-950/40 p-2 rounded-full hover:bg-stone-900/60 backdrop-blur pointer-events-auto"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                  className="flex flex-col items-center gap-1 cursor-pointer bg-stone-950/40 p-2 rounded-full hover:bg-stone-900/60 backdrop-blur"
                 >
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-stone-300">
                     <MessageCircle className="w-5 h-5" />
@@ -193,7 +258,7 @@ export default function VideoTestimonial() {
               </div>
 
               {/* Subtitles Overlay simulated timeline captions */}
-              <div className="absolute bottom-6 inset-x-4 z-10 bg-gradient-to-t from-stone-950/95 via-stone-950/70 to-transparent p-4 rounded-[24px] text-left space-y-1.5 pointer-events-none">
+              <div className="absolute bottom-16 inset-x-4 z-10 bg-gradient-to-t from-stone-950/95 via-stone-950/70 to-transparent p-4 rounded-b-[24px] text-left space-y-1.5 pointer-events-none">
                 <span className="text-[9px] font-mono text-amber-500 tracking-wider font-extrabold uppercase bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 inline-block">
                   @seubeat
                 </span>
@@ -205,6 +270,55 @@ export default function VideoTestimonial() {
                 <p className="text-[10px] text-stone-400 leading-normal font-mono">
                   🎵 Rosa (Kizomba Romântica) - Composição Original SeuBeat
                 </p>
+              </div>
+
+              {/* Big play button centered when paused */}
+              <AnimatePresence>
+                {!isPlaying && (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    className="absolute inset-0 flex items-center justify-center z-15 bg-black/20 pointer-events-none"
+                  >
+                    <div className="w-16 h-16 bg-gradient-to-tr from-amber-500 to-rose-600 rounded-full flex items-center justify-center shadow-2xl shadow-amber-500/30">
+                      <Play className="w-7 h-7 text-stone-950 fill-stone-950 translate-x-0.5" />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Custom micro control bar at the absolute bottom */}
+              <div className="absolute bottom-0 inset-x-0 h-10 bg-stone-950 z-20 flex items-center justify-between px-4 border-t border-stone-900">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePlay();
+                  }}
+                  className="text-stone-400 hover:text-white transition-colors p-1"
+                >
+                  {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
+                </button>
+
+                {/* Progress track */}
+                <div className="flex-grow mx-3 bg-stone-850 h-1 rounded-full overflow-hidden relative">
+                  <div 
+                    className="bg-gradient-to-r from-amber-500 to-rose-500 h-full rounded-full transition-all duration-100"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleMute();
+                  }}
+                  className="text-stone-400 hover:text-white transition-colors p-1"
+                >
+                  {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                </button>
               </div>
 
             </div>
