@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   BarChart3, Users, Music, CreditCard, CheckCircle, XCircle,
   Clock, RefreshCw, Eye, LogOut, ChevronDown, ChevronRight,
-  Download, Play, AlertTriangle, Sparkles, TrendingUp, Shield
+  Download, Play, AlertTriangle, Sparkles, TrendingUp, Shield,
+  Activity, RotateCcw, Mic, Mail, Pencil, Upload, Zap, Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -48,8 +49,10 @@ interface SongRequest {
   voice_type: string;
   status: string;
   created_at: string;
+  voice_sample_url?: string | null;
   users?: { name: string; email: string; phone: string };
-  songs?: { id: string; title: string; audio_url: string | null; mureka_status: string; created_at: string }[];
+  songs?: { id: string; title: string; audio_url: string | null; mureka_status: string; created_at: string; letter_text?: string; lyrics?: string[] }[];
+  payments?: { plan: string; amount: string; status: string }[];
 }
 
 interface Song {
@@ -59,6 +62,8 @@ interface Song {
   mureka_status: string;
   mureka_task_id: string | null;
   created_at: string;
+  letter_text?: string | null;
+  lyrics?: string[] | null;
   song_requests?: {
     recipient_name: string;
     music_style: string;
@@ -67,7 +72,22 @@ interface Song {
   };
 }
 
-type AdminView = 'dashboard' | 'payments' | 'requests' | 'songs' | 'clients';
+interface DiagnosticsResult {
+  supabase: { ok: boolean; error?: string; buckets?: { name: string; public: boolean }[] };
+  gemini: { ok: boolean; error?: string };
+  elevenlabs: { ok: boolean; error?: string; info?: { characterCount: number; characterLimit: number; tier: string } };
+  mureka: { ok: boolean; error?: string };
+  resend: { ok: boolean; error?: string; domains?: any[] };
+}
+
+interface ProgressEntry {
+  status: string;
+  progress: number;
+  message: string;
+  error?: string;
+}
+
+type AdminView = 'dashboard' | 'payments' | 'requests' | 'songs' | 'clients' | 'diagnostics';
 
 const STATUS_COLORS: Record<string, string> = {
   pending_verification: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
@@ -152,6 +172,13 @@ export default function AdminPanel() {
   const [rejectNotes, setRejectNotes] = useState<Record<string, string>>({});
   const [expandedPayment, setExpandedPayment] = useState<string | null>(null);
   const [proofModal, setProofModal] = useState<string | null>(null);
+  const [diagnostics, setDiagnostics] = useState<DiagnosticsResult | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [progressMap, setProgressMap] = useState<Record<string, ProgressEntry>>({});
+  const [expandedRequest, setExpandedRequest] = useState<string | null>(null);
+  const [editingSong, setEditingSong] = useState<{ id: string; title: string; lyrics: string; letterText: string } | null>(null);
+  const [uploadingSongId, setUploadingSongId] = useState<string | null>(null);
+  const progressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -198,13 +225,42 @@ export default function AdminPanel() {
     setLoading(false);
   }, [adminPassword]);
 
+  const fetchDiagnostics = useCallback(async () => {
+    if (!adminPassword) return;
+    setDiagLoading(true);
+    try {
+      const res = await fetch('/api/admin/diagnostics', { headers: apiHeaders });
+      if (res.ok) setDiagnostics(await res.json());
+    } catch (e) { console.error(e); }
+    setDiagLoading(false);
+  }, [adminPassword]);
+
+  const fetchProgress = useCallback(async () => {
+    if (!adminPassword) return;
+    try {
+      const res = await fetch('/api/admin/progress', { headers: apiHeaders });
+      if (res.ok) setProgressMap(await res.json());
+    } catch (e) {}
+  }, [adminPassword]);
+
   useEffect(() => {
     if (!authenticated) return;
     fetchStats();
     if (activeView === 'payments') fetchPayments();
-    else if (activeView === 'requests') fetchRequests();
+    else if (activeView === 'requests') { fetchRequests(); fetchProgress(); }
     else if (activeView === 'songs') fetchSongs();
-  }, [authenticated, activeView, fetchStats, fetchPayments, fetchRequests, fetchSongs]);
+    else if (activeView === 'diagnostics') fetchDiagnostics();
+  }, [authenticated, activeView]);
+
+  // Poll progress every 5s when on requests tab
+  useEffect(() => {
+    if (activeView === 'requests' && authenticated) {
+      progressPollRef.current = setInterval(fetchProgress, 5000);
+    } else {
+      if (progressPollRef.current) clearInterval(progressPollRef.current);
+    }
+    return () => { if (progressPollRef.current) clearInterval(progressPollRef.current); };
+  }, [activeView, authenticated]);
 
   const handleLogin = async () => {
     if (!passwordInput) {
@@ -300,6 +356,73 @@ export default function AdminPanel() {
     setActionLoading(null);
   };
 
+  const handleRetry = async (requestId: string) => {
+    setActionLoading(requestId + '_retry');
+    try {
+      const res = await fetch(`/api/admin/request/${requestId}/retry`, { method: 'POST', headers: apiHeaders });
+      const data = await res.json();
+      if (res.ok) { showToast('🔁 Fluxo reiniciado!'); fetchRequests(); fetchProgress(); }
+      else showToast(data.error || 'Erro ao reiniciar.', 'error');
+    } catch (e: any) { showToast(e.message, 'error'); }
+    setActionLoading(null);
+  };
+
+  const handleForceVoice = async (requestId: string) => {
+    setActionLoading(requestId + '_voice');
+    try {
+      const res = await fetch(`/api/admin/request/${requestId}/force-voice`, { method: 'POST', headers: apiHeaders });
+      const data = await res.json();
+      if (res.ok) { showToast('🎙️ Processamento de voz iniciado!'); fetchRequests(); fetchProgress(); }
+      else showToast(data.error || 'Erro ao forçar voz.', 'error');
+    } catch (e: any) { showToast(e.message, 'error'); }
+    setActionLoading(null);
+  };
+
+  const handleResendEmail = async (requestId: string) => {
+    setActionLoading(requestId + '_email');
+    try {
+      const res = await fetch(`/api/admin/request/${requestId}/resend-email`, { method: 'POST', headers: apiHeaders });
+      const data = await res.json();
+      if (res.ok) showToast('📧 Email reenviado com sucesso!');
+      else showToast(data.error || 'Erro ao reenviar email.', 'error');
+    } catch (e: any) { showToast(e.message, 'error'); }
+    setActionLoading(null);
+  };
+
+  const handleSaveLyrics = async () => {
+    if (!editingSong) return;
+    setActionLoading('lyrics_' + editingSong.id);
+    try {
+      const res = await fetch(`/api/admin/song/${editingSong.id}/edit-lyrics`, {
+        method: 'POST', headers: apiHeaders,
+        body: JSON.stringify({ title: editingSong.title, lyrics: editingSong.lyrics, letterText: editingSong.letterText })
+      });
+      const data = await res.json();
+      if (res.ok) { showToast('✏️ Letra atualizada!'); setEditingSong(null); fetchSongs(); fetchRequests(); }
+      else showToast(data.error || 'Erro ao guardar letra.', 'error');
+    } catch (e: any) { showToast(e.message, 'error'); }
+    setActionLoading(null);
+  };
+
+  const handleUploadAudio = async (songId: string, file: File) => {
+    setActionLoading(songId + '_upload');
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = e.target?.result as string;
+        const res = await fetch(`/api/admin/song/${songId}/upload-audio`, {
+          method: 'POST', headers: apiHeaders,
+          body: JSON.stringify({ audioBase64: base64, audioFilename: file.name, audioMimeType: file.type })
+        });
+        const data = await res.json();
+        if (res.ok) { showToast('📤 Áudio carregado com sucesso!'); fetchSongs(); setUploadingSongId(null); }
+        else showToast(data.error || 'Erro ao carregar áudio.', 'error');
+        setActionLoading(null);
+      };
+      reader.readAsDataURL(file);
+    } catch (e: any) { showToast(e.message, 'error'); setActionLoading(null); }
+  };
+
   // ─── LOGIN SCREEN ───
   if (!authenticated) {
     return (
@@ -369,7 +492,31 @@ export default function AdminPanel() {
     { id: 'requests', label: 'Pedidos', icon: Music },
     { id: 'songs', label: 'Músicas', icon: Sparkles },
     { id: 'clients', label: 'Clientes', icon: Users },
+    { id: 'diagnostics', label: 'Diagnóstico', icon: Activity },
   ];
+
+  const PLAN_COLORS: Record<string, string> = {
+    standard: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+    express: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+    premium: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+  };
+  const PlanBadge = ({ plan }: { plan?: string }) => {
+    if (!plan) return null;
+    const color = PLAN_COLORS[plan.toLowerCase()] || 'bg-stone-700/50 text-stone-400 border-stone-700';
+    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${color} whitespace-nowrap uppercase`}>{plan}</span>;
+  };
+
+  const DiagBadge = ({ ok, label, detail }: { ok: boolean; label: string; detail?: string }) => (
+    <div className={`flex items-start gap-3 p-3 rounded-xl border ${ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-rose-500/20 bg-rose-500/5'}`}>
+      <div className={`mt-0.5 w-4 h-4 shrink-0 ${ok ? 'text-emerald-400' : 'text-rose-400'}`}>
+        {ok ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+      </div>
+      <div>
+        <p className={`text-xs font-mono font-bold ${ok ? 'text-emerald-400' : 'text-rose-400'}`}>{label}</p>
+        {detail && <p className="text-[10px] text-stone-500 mt-0.5">{detail}</p>}
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100">
@@ -475,7 +622,7 @@ export default function AdminPanel() {
 
           <div className="mt-6 px-2 space-y-2">
             <button
-              onClick={() => { fetchStats(); if (activeView === 'payments') fetchPayments(); else if (activeView === 'requests') fetchRequests(); else if (activeView === 'songs') fetchSongs(); }}
+              onClick={() => { fetchStats(); if (activeView === 'payments') fetchPayments(); else if (activeView === 'requests') { fetchRequests(); fetchProgress(); } else if (activeView === 'songs') fetchSongs(); else if (activeView === 'diagnostics') fetchDiagnostics(); }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-stone-500 hover:text-stone-300 hover:bg-stone-800/50 transition-all cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" /> Atualizar Dados
@@ -692,7 +839,7 @@ export default function AdminPanel() {
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Pedidos</h1>
                       <p className="text-stone-500 text-sm mt-1">Todos os pedidos de música recebidos</p>
                     </div>
-                    <button onClick={fetchRequests} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
+                    <button onClick={() => { fetchRequests(); fetchProgress(); }} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
                       <RefreshCw className="w-3.5 h-3.5" /> Atualizar
                     </button>
                   </div>
@@ -700,32 +847,93 @@ export default function AdminPanel() {
                   {loading ? (
                     <div className="flex items-center justify-center h-40"><RefreshCw className="w-6 h-6 text-stone-600 animate-spin" /></div>
                   ) : (
-                    <div className="overflow-hidden rounded-2xl border border-stone-800">
-                      <table className="w-full text-xs">
-                        <thead className="bg-stone-900/80">
-                          <tr>
-                            {['Cliente', 'Para', 'Relação', 'Ocasião', 'Estilo', 'Estado', 'Data'].map(h => (
-                              <th key={h} className="text-left px-4 py-3 text-[10px] font-mono text-stone-500 uppercase tracking-wider">{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-stone-800/50">
-                          {requests.map(req => (
-                            <tr key={req.id} className="hover:bg-stone-800/20 transition-colors">
-                              <td className="px-4 py-3">
-                                <p className="text-stone-300 font-medium">{req.users?.name || '—'}</p>
-                                <p className="text-stone-600 font-mono text-[10px]">{req.users?.email || '—'}</p>
-                              </td>
-                              <td className="px-4 py-3 text-stone-300">{req.recipient_name}</td>
-                              <td className="px-4 py-3 text-stone-400">{req.relationship}</td>
-                              <td className="px-4 py-3 text-stone-400">{req.occasion}</td>
-                              <td className="px-4 py-3 text-stone-400">{req.music_style}</td>
-                              <td className="px-4 py-3"><StatusBadge status={req.status} /></td>
-                              <td className="px-4 py-3 text-stone-600 font-mono text-[10px]">{formatDate(req.created_at)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="space-y-3">
+                      {requests.map(req => {
+                        const plan = req.payments?.[0]?.plan;
+                        const progress = progressMap[req.id];
+                        const isExpanded = expandedRequest === req.id;
+                        const song = req.songs?.[0];
+                        return (
+                          <div key={req.id} className="bg-stone-900/50 border border-stone-800 rounded-2xl overflow-hidden">
+                            <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-stone-800/20 transition-colors" onClick={() => setExpandedRequest(isExpanded ? null : req.id)}>
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center shrink-0">
+                                  <Music className="w-4 h-4 text-purple-400" />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <p className="text-sm font-medium text-stone-200">{req.users?.name || '—'}</p>
+                                    <span className="text-stone-600 text-xs">→</span>
+                                    <p className="text-sm text-stone-400">{req.recipient_name}</p>
+                                    {plan && <PlanBadge plan={plan} />}
+                                  </div>
+                                  <p className="text-[10px] font-mono text-stone-500">{req.occasion} • {req.music_style} • {req.users?.email}</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <StatusBadge status={req.status} />
+                                {isExpanded ? <ChevronDown className="w-4 h-4 text-stone-500" /> : <ChevronRight className="w-4 h-4 text-stone-500" />}
+                              </div>
+                            </div>
+
+                            {/* Progress bar */}
+                            {progress && (
+                              <div className="px-4 pb-2">
+                                <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                                  <div className="flex items-center justify-between mb-1.5">
+                                    <p className="text-[10px] font-mono text-stone-400">{progress.message}</p>
+                                    <span className="text-[10px] font-mono text-stone-500">{progress.progress}%</span>
+                                  </div>
+                                  <div className="w-full bg-stone-800 rounded-full h-1.5">
+                                    <div className={`h-1.5 rounded-full transition-all duration-500 ${progress.status === 'failed' ? 'bg-rose-500' : progress.status === 'completed' ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${progress.progress}%` }} />
+                                  </div>
+                                  {progress.error && <p className="text-[10px] text-rose-400 font-mono mt-1.5">❌ {progress.error}</p>}
+                                </div>
+                              </div>
+                            )}
+
+                            <AnimatePresence>
+                              {isExpanded && (
+                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-t border-stone-800 overflow-hidden">
+                                  <div className="p-4 space-y-3">
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                                        <p className="text-stone-500 font-mono text-[9px] uppercase mb-1">Relação</p>
+                                        <p className="text-stone-300">{req.relationship}</p>
+                                      </div>
+                                      <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                                        <p className="text-stone-500 font-mono text-[9px] uppercase mb-1">Plano Pago</p>
+                                        <div className="flex items-center gap-1.5">{plan ? <PlanBadge plan={plan} /> : <span className="text-stone-600">—</span>}
+                                          {req.payments?.[0]?.amount && <span className="text-stone-500 text-[10px]">({req.payments[0].amount})</span>}</div>
+                                      </div>
+                                    </div>
+                                    {song && (
+                                      <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
+                                        <p className="text-stone-500 font-mono text-[9px] uppercase mb-1">Música Associada</p>
+                                        <p className="text-stone-300 font-serif font-bold">{song.title}</p>
+                                        <div className="flex items-center gap-2 mt-1"><StatusBadge status={song.mureka_status || 'not_started'} /></div>
+                                      </div>
+                                    )}
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                      <button onClick={() => handleRetry(req.id)} disabled={!!actionLoading} className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs rounded-xl hover:bg-amber-500/20 disabled:opacity-50 cursor-pointer font-mono transition-colors">
+                                        {actionLoading === req.id + '_retry' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />} Tentar Novamente
+                                      </button>
+                                      {req.voice_sample_url && (
+                                        <button onClick={() => handleForceVoice(req.id)} disabled={!!actionLoading} className="flex items-center gap-1.5 px-3 py-2 bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs rounded-xl hover:bg-purple-500/20 disabled:opacity-50 cursor-pointer font-mono transition-colors">
+                                          {actionLoading === req.id + '_voice' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Mic className="w-3 h-3" />} Forçar Voz
+                                        </button>
+                                      )}
+                                      <button onClick={() => handleResendEmail(req.id)} disabled={!!actionLoading} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs rounded-xl hover:bg-blue-500/20 disabled:opacity-50 cursor-pointer font-mono transition-colors">
+                                        {actionLoading === req.id + '_email' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />} Reenviar Email
+                                      </button>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        );
+                      })}
                       {requests.length === 0 && (
                         <div className="text-center py-12 text-stone-600 font-mono text-sm">Nenhum pedido encontrado.</div>
                       )}
@@ -752,44 +960,91 @@ export default function AdminPanel() {
                   ) : (
                     <div className="space-y-3">
                       {songs.map(song => (
-                        <div key={song.id} className="bg-stone-900/50 border border-stone-800 rounded-2xl p-4 flex items-center gap-4">
-                          <div className="w-10 h-10 bg-amber-500/10 rounded-xl border border-amber-500/20 flex items-center justify-center shrink-0">
-                            <Music className="w-5 h-5 text-amber-400" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-serif text-sm font-bold text-stone-200 truncate">{song.title}</p>
-                            <p className="text-[10px] font-mono text-stone-500">
-                              Para: {(song.song_requests as any)?.recipient_name || '—'} • {(song.song_requests as any)?.music_style || '—'}
-                            </p>
-                            <p className="text-[10px] font-mono text-stone-600">{formatDate(song.created_at)}</p>
-                          </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <StatusBadge status={song.mureka_status || 'not_started'} />
-                            {song.audio_url ? (
-                              <a href={song.audio_url} target="_blank" rel="noopener noreferrer"
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 border border-emerald-600/30 text-emerald-400 text-xs rounded-xl hover:bg-emerald-600/30 transition-colors font-mono">
-                                <Play className="w-3 h-3 fill-emerald-400" /> Ouvir
-                              </a>
-                            ) : (
-                              <button
-                                onClick={() => handleGenerateMusic(song.id)}
-                                disabled={actionLoading === song.id + '_music' || song.mureka_status === 'generating' || song.mureka_status === 'processing'}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs rounded-xl hover:bg-amber-500/25 transition-colors disabled:opacity-50 cursor-pointer font-mono"
-                              >
-                                {actionLoading === song.id + '_music' ? (
-                                  <RefreshCw className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  <Sparkles className="w-3 h-3" />
-                                )}
-                                Gerar Mureka
+                        <div key={song.id} className="bg-stone-900/50 border border-stone-800 rounded-2xl p-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-amber-500/10 rounded-xl border border-amber-500/20 flex items-center justify-center shrink-0">
+                              <Music className="w-5 h-5 text-amber-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-serif text-sm font-bold text-stone-200 truncate">{song.title}</p>
+                              <p className="text-[10px] font-mono text-stone-500">
+                                Para: {(song.song_requests as any)?.recipient_name || '—'} • {(song.song_requests as any)?.music_style || '—'}
+                              </p>
+                              <p className="text-[10px] font-mono text-stone-600">{formatDate(song.created_at)}</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                              <StatusBadge status={song.mureka_status || 'not_started'} />
+                              <button onClick={() => setEditingSong({ id: song.id, title: song.title, lyrics: (song.lyrics || []).join('\n'), letterText: song.letter_text || '' })}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-amber-400 hover:border-amber-500/30 transition-colors cursor-pointer font-mono">
+                                <Pencil className="w-3 h-3" /> Editar
                               </button>
-                            )}
+                              <button onClick={() => setUploadingSongId(song.id)}
+                                className="flex items-center gap-1 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-blue-400 hover:border-blue-500/30 transition-colors cursor-pointer font-mono">
+                                <Upload className="w-3 h-3" /> Upload
+                              </button>
+                              {song.audio_url ? (
+                                <a href={song.audio_url} target="_blank" rel="noopener noreferrer"
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 border border-emerald-600/30 text-emerald-400 text-xs rounded-xl hover:bg-emerald-600/30 transition-colors font-mono">
+                                  <Play className="w-3 h-3 fill-emerald-400" /> Ouvir
+                                </a>
+                              ) : (
+                                <button onClick={() => handleGenerateMusic(song.id)}
+                                  disabled={actionLoading === song.id + '_music' || song.mureka_status === 'generating' || song.mureka_status === 'processing'}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs rounded-xl hover:bg-amber-500/25 transition-colors disabled:opacity-50 cursor-pointer font-mono">
+                                  {actionLoading === song.id + '_music' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Gerar Mureka
+                                </button>
+                              )}
+                            </div>
                           </div>
+                          {/* Inline upload input */}
+                          {uploadingSongId === song.id && (
+                            <div className="mt-3 p-3 bg-stone-950 border border-blue-500/20 rounded-xl flex items-center gap-3">
+                              <Upload className="w-4 h-4 text-blue-400 shrink-0" />
+                              <input type="file" accept="audio/*" className="text-xs text-stone-400 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-blue-500/20 file:text-blue-400 cursor-pointer"
+                                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadAudio(song.id, f); }} />
+                              <button onClick={() => setUploadingSongId(null)} className="text-stone-500 hover:text-stone-300 text-xs font-mono cursor-pointer">Cancelar</button>
+                            </div>
+                          )}
                         </div>
                       ))}
                       {songs.length === 0 && (
                         <div className="text-center py-12 text-stone-600 font-mono text-sm">Nenhuma música encontrada.</div>
                       )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* DIAGNOSTICS */}
+              {activeView === 'diagnostics' && (
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="font-serif text-2xl font-bold text-stone-100">Diagnóstico</h1>
+                      <p className="text-stone-500 text-sm mt-1">Estado das APIs e serviços externos</p>
+                    </div>
+                    <button onClick={fetchDiagnostics} disabled={diagLoading} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
+                      <RefreshCw className={`w-3.5 h-3.5 ${diagLoading ? 'animate-spin' : ''}`} /> {diagLoading ? 'A verificar...' : 'Verificar Agora'}
+                    </button>
+                  </div>
+                  {!diagnostics && !diagLoading && (
+                    <div className="text-center py-16 text-stone-600 font-mono text-sm">Clique em "Verificar Agora" para testar as APIs.</div>
+                  )}
+                  {diagLoading && <div className="flex items-center justify-center h-40"><RefreshCw className="w-6 h-6 text-stone-600 animate-spin" /></div>}
+                  {diagnostics && !diagLoading && (
+                    <div className="space-y-3">
+                      <DiagBadge ok={diagnostics.supabase.ok} label="Supabase (Base de Dados & Storage)"
+                        detail={diagnostics.supabase.ok ? `Buckets: ${diagnostics.supabase.buckets?.map(b => b.name).join(', ')}` : diagnostics.supabase.error} />
+                      <DiagBadge ok={diagnostics.gemini.ok} label="Google Gemini (Geração de Letras)"
+                        detail={diagnostics.gemini.error} />
+                      <DiagBadge ok={diagnostics.elevenlabs.ok} label="ElevenLabs (Clonagem de Voz)"
+                        detail={diagnostics.elevenlabs.ok
+                          ? `Plano: ${diagnostics.elevenlabs.info?.tier} • ${diagnostics.elevenlabs.info?.characterCount?.toLocaleString()}/${diagnostics.elevenlabs.info?.characterLimit?.toLocaleString()} caracteres`
+                          : diagnostics.elevenlabs.error} />
+                      <DiagBadge ok={diagnostics.mureka.ok} label="Mureka AI (Geração de Música)"
+                        detail={diagnostics.mureka.error} />
+                      <DiagBadge ok={diagnostics.resend.ok} label="Resend (Envio de Emails)"
+                        detail={diagnostics.resend.ok ? `Domínios: ${diagnostics.resend.domains?.length || 0}` : diagnostics.resend.error} />
                     </div>
                   )}
                 </div>
@@ -837,6 +1092,76 @@ export default function AdminPanel() {
           </AnimatePresence>
         </main>
       </div>
+      {/* Lyrics Editor Modal */}
+      <AnimatePresence>
+        {editingSong && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-stone-950/90 backdrop-blur flex items-center justify-center p-4"
+            onClick={() => setEditingSong(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="max-w-2xl w-full bg-stone-900 rounded-2xl border border-stone-800 overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between p-5 border-b border-stone-800">
+                <div className="flex items-center gap-2">
+                  <Pencil className="w-4 h-4 text-amber-400" />
+                  <span className="font-mono text-sm text-stone-300 uppercase tracking-wider">Editar Música</span>
+                </div>
+                <button onClick={() => setEditingSong(null)} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer">✕ Fechar</button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div>
+                  <label className="text-[10px] font-mono text-stone-500 uppercase tracking-wider block mb-1.5">Título da Música</label>
+                  <input
+                    type="text"
+                    value={editingSong.title}
+                    onChange={e => setEditingSong(s => s ? { ...s, title: e.target.value } : null)}
+                    className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2.5 text-stone-100 text-sm focus:outline-none focus:border-amber-500 transition-colors font-serif"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-mono text-stone-500 uppercase tracking-wider block mb-1.5">Letra (uma estrofe por linha)</label>
+                  <textarea
+                    rows={10}
+                    value={editingSong.lyrics}
+                    onChange={e => setEditingSong(s => s ? { ...s, lyrics: e.target.value } : null)}
+                    className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-stone-300 text-xs font-mono focus:outline-none focus:border-amber-500 transition-colors resize-none leading-relaxed"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-mono text-stone-500 uppercase tracking-wider block mb-1.5">Texto da Dedicatória</label>
+                  <textarea
+                    rows={4}
+                    value={editingSong.letterText}
+                    onChange={e => setEditingSong(s => s ? { ...s, letterText: e.target.value } : null)}
+                    className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-stone-300 text-xs font-mono focus:outline-none focus:border-amber-500 transition-colors resize-none"
+                  />
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={handleSaveLyrics}
+                    disabled={actionLoading === 'lyrics_' + editingSong.id}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-stone-950 text-sm font-bold rounded-xl transition-colors cursor-pointer"
+                  >
+                    {actionLoading === 'lyrics_' + editingSong.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                    Guardar Alterações
+                  </button>
+                  <button onClick={() => setEditingSong(null)} className="px-6 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-400 text-sm rounded-xl transition-colors cursor-pointer">
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

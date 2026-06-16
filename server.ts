@@ -49,6 +49,7 @@ async function runBackgroundMurekaWorkflow(
 
   try {
     console.log(`[Background Mureka] Starting workflow for Request ${requestId}, Song ${songId}`);
+    requestProgressMap[requestId] = { status: 'generating', progress: 10, message: 'A iniciar fluxo de geração Mureka...' };
     
     // Update status to music_generating
     await supabase
@@ -61,6 +62,8 @@ async function runBackgroundMurekaWorkflow(
       .update({ mureka_status: 'generating' })
       .eq('id', songId);
 
+    requestProgressMap[requestId] = { status: 'generating', progress: 30, message: 'A submeter letra ao Mureka AI...' };
+
     // Call Mureka
     const { taskId, audioUrl } = await generateMurekaMusic(lyrics, musicStyle, songTitle);
     
@@ -69,19 +72,26 @@ async function runBackgroundMurekaWorkflow(
     }
 
     console.log(`[Background Mureka] Generated successfully: ${audioUrl}`);
+    requestProgressMap[requestId] = { status: 'generating', progress: 60, message: 'Geração concluída no Mureka. A descarregar ficheiro...' };
 
     // Download file from Mureka
     const tempMurekaPath = path.join(os.tmpdir(), `${songId}_mureka.flac`);
     await downloadFile(audioUrl, tempMurekaPath);
+
+    requestProgressMap[requestId] = { status: 'generating', progress: 75, message: 'A guardar áudio original no Supabase Storage...' };
 
     // Upload original file to private 'full-audio' bucket
     const originalFilename = `songs/${songId}_original.flac`;
     const fullAudioUrl = await uploadToSupabase('full-audio', originalFilename, tempMurekaPath, 'audio/x-flac');
     console.log(`[Background Mureka] Saved original to full-audio: ${fullAudioUrl}`);
 
+    requestProgressMap[requestId] = { status: 'generating', progress: 85, message: 'A cortar áudio para pré-visualização de 30 segundos (FFmpeg)...' };
+
     // Cut first 30 seconds for preview
     const tempPreviewPath = path.join(os.tmpdir(), `${songId}_preview.mp3`);
     await createPreviewAudio(tempMurekaPath, tempPreviewPath);
+
+    requestProgressMap[requestId] = { status: 'generating', progress: 95, message: 'A publicar áudio de pré-visualização...' };
 
     // Upload preview to public 'preview' bucket
     const previewFilename = `previews/${songId}_preview.mp3`;
@@ -107,9 +117,11 @@ async function runBackgroundMurekaWorkflow(
       .update({ status: 'preview_ready' })
       .eq('id', requestId);
 
+    requestProgressMap[requestId] = { status: 'completed', progress: 100, message: 'Fluxo Mureka concluído com sucesso!' };
     console.log(`[Background Mureka] Workflow completed successfully for Request ${requestId}`);
   } catch (err: any) {
     console.error(`[Background Mureka] Error in background workflow:`, err);
+    requestProgressMap[requestId] = { status: 'failed', progress: 100, message: 'Erro na geração Mureka', error: err.message || String(err) };
     await supabase
       .from('song_requests')
       .update({ status: 'failed' })
@@ -132,6 +144,7 @@ async function runBackgroundVoiceProcessingAndMix(
 
   try {
     console.log(`[Background Voice] Starting for Request ${requestId}, Song ${songId}`);
+    requestProgressMap[requestId] = { status: 'voice_processing', progress: 10, message: 'A iniciar clonagem de voz e mistura...' };
     
     // 1. Get request details
     const { data: requestData, error: reqError } = await supabase
@@ -155,12 +168,14 @@ async function runBackgroundVoiceProcessingAndMix(
 
     // 2. Download voice sample file
     console.log(`[Background Voice] Downloading voice sample: ${voiceSampleUrl}`);
+    requestProgressMap[requestId] = { status: 'voice_processing', progress: 25, message: 'A transferir amostra de voz do cliente...' };
     const tempSamplePath = path.join(os.tmpdir(), `${requestId}_sample.wav`);
     await downloadFile(voiceSampleUrl, tempSamplePath);
     const sampleBuffer = fs.readFileSync(tempSamplePath);
 
     // 3. Call ElevenLabs Voice Cloning
     console.log(`[Background Voice] Creating cloned voice in ElevenLabs...`);
+    requestProgressMap[requestId] = { status: 'voice_processing', progress: 45, message: 'A criar voz clonada no ElevenLabs (pode demorar)...' };
     const voiceId = await cloneElevenLabsVoice(
       `SeuBeat_${requestData.recipient_name || 'Voice'}`, 
       sampleBuffer, 
@@ -176,6 +191,7 @@ async function runBackgroundVoiceProcessingAndMix(
 
     // 4. Generate Speech (TTS) of the Letter
     console.log(`[Background Voice] Generating spoken letter via ElevenLabs TTS...`);
+    requestProgressMap[requestId] = { status: 'voice_processing', progress: 65, message: 'A gerar narração de dedicatória via ElevenLabs...' };
     const ttsBuffer = await generateElevenLabsSpeechWithVoiceId(letterText, voiceId);
     
     // Save narration to voice-samples bucket
@@ -194,6 +210,7 @@ async function runBackgroundVoiceProcessingAndMix(
 
     // 5. Download original Mureka song
     console.log(`[Background Voice] Downloading original song from storage...`);
+    requestProgressMap[requestId] = { status: 'voice_processing', progress: 80, message: 'A descarregar a melodia original...' };
     const tempMurekaPath = path.join(os.tmpdir(), `${songId}_mureka.flac`);
     
     const murekaFilename = songData.audio_url.substring(songData.audio_url.indexOf('full-audio/') + 'full-audio/'.length);
@@ -209,6 +226,7 @@ async function runBackgroundVoiceProcessingAndMix(
 
     // 6. Mix using FFmpeg
     console.log(`[Background Voice] Mixing original song and narration...`);
+    requestProgressMap[requestId] = { status: 'voice_processing', progress: 90, message: 'A misturar voz e melodia (FFmpeg)...' };
     const tempMixedPath = path.join(os.tmpdir(), `${songId}_mixed.mp3`);
     await mixAudio(tempMurekaPath, tempNarrationPath, tempMixedPath);
 
@@ -233,6 +251,7 @@ async function runBackgroundVoiceProcessingAndMix(
       .eq('id', requestId);
 
     // 9. Send Email
+    requestProgressMap[requestId] = { status: 'voice_processing', progress: 95, message: 'A enviar email com a dedicatória final...' };
     const userEmail = requestData.users?.email;
     if (userEmail) {
       const slug = (requestData.recipient_name || 'especial')
@@ -252,9 +271,11 @@ async function runBackgroundVoiceProcessingAndMix(
       );
     }
 
+    requestProgressMap[requestId] = { status: 'completed', progress: 100, message: 'Processamento de voz e entrega concluídos!' };
     console.log(`[Background Voice] Completed successfully for Request ${requestId}`);
   } catch (err: any) {
     console.error(`[Background Voice] Error:`, err);
+    requestProgressMap[requestId] = { status: 'failed', progress: 100, message: 'Erro no processamento de voz', error: err.message || String(err) };
     await supabase
       .from('song_requests')
       .update({ status: 'failed' })
@@ -1015,7 +1036,7 @@ app.post('/api/admin/payment/:id/reject', adminAuth, async (req, res) => {
   }
 });
 
-// E. Admin list all song requests
+// E. Admin list all song requests (with plan details from payments)
 app.get('/api/admin/requests', adminAuth, async (req, res) => {
   try {
     const supabase = getSupabase();
@@ -1023,7 +1044,7 @@ app.get('/api/admin/requests', adminAuth, async (req, res) => {
 
     const { data, error } = await supabase
       .from('song_requests')
-      .select('*, users(name, email, phone), songs(id, title, audio_url, mureka_status, created_at)')
+      .select('*, users(name, email, phone), songs(id, title, audio_url, mureka_status, created_at, letter_text, lyrics), payments(plan, amount, status)')
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ error: error.message });
@@ -1090,6 +1111,331 @@ app.post('/api/admin/song/:id/generate-music', adminAuth, async (req, res) => {
     res.json({ success: true, taskId, audioUrl });
   } catch (err: any) {
     console.error('Manual Mureka trigger error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET progress tracking for background jobs
+app.get('/api/admin/progress', adminAuth, (req, res) => {
+  res.json(requestProgressMap);
+});
+
+// API Diagnostics and Health Endpoint
+app.get('/api/admin/diagnostics', adminAuth, async (req, res) => {
+  try {
+    const [supabaseDiag, geminiDiag, elevenLabsDiag, murekaDiag, resendDiag] = await Promise.all([
+      (async () => {
+        const supabase = getSupabase();
+        if (!supabase) return { ok: false, error: 'Cliente não inicializado' };
+        try {
+          const { data, error } = await supabase.storage.listBuckets();
+          if (error) return { ok: false, error: error.message };
+          return { ok: true, buckets: data.map(b => ({ name: b.name, public: b.public })) };
+        } catch (e: any) {
+          return { ok: false, error: e.message };
+        }
+      })(),
+      (async () => {
+        if (!process.env.GEMINI_API_KEY) return { ok: false, error: 'GEMINI_API_KEY em falta' };
+        try {
+          const client = getGeminiClient();
+          const response = await client.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: 'ping',
+            config: { maxOutputTokens: 5 }
+          });
+          if (response && response.text) return { ok: true };
+          return { ok: false, error: 'Nenhum texto retornado' };
+        } catch (e: any) {
+          return { ok: false, error: e.message };
+        }
+      })(),
+      (async () => {
+        const key = process.env.ELEVENLABS_API_KEY;
+        if (!key) return { ok: false, error: 'ELEVENLABS_API_KEY em falta' };
+        try {
+          const res = await fetch('https://api.elevenlabs.io/v1/user', {
+            headers: { 'xi-api-key': key }
+          });
+          if (!res.ok) return { ok: false, error: `HTTP ${res.status} - ${await res.text()}` };
+          const data = await res.json();
+          return {
+            ok: true,
+            info: {
+              characterCount: data.subscription?.character_count,
+              characterLimit: data.subscription?.character_limit,
+              tier: data.subscription?.tier
+            }
+          };
+        } catch (e: any) {
+          return { ok: false, error: e.message };
+        }
+      })(),
+      (async () => {
+        const key = process.env.MUREKA_API_KEY;
+        if (!key) return { ok: false, error: 'MUREKA_API_KEY em falta' };
+        try {
+          const res = await fetch('https://api.mureka.ai/v1/song/query/conn_test_id', {
+            headers: { 'Authorization': `Bearer ${key}` }
+          });
+          if (res.status === 401 || res.status === 403) {
+            return { ok: false, error: `Autenticação falhou (HTTP ${res.status})` };
+          }
+          return { ok: true };
+        } catch (e: any) {
+          return { ok: false, error: e.message };
+        }
+      })(),
+      (async () => {
+        const key = process.env.RESEND_API_KEY;
+        if (!key) return { ok: false, error: 'RESEND_API_KEY em falta' };
+        try {
+          const res = await fetch('https://api.resend.com/domains', {
+            headers: { 'Authorization': `Bearer ${key}` }
+          });
+          if (!res.ok) return { ok: false, error: `HTTP ${res.status} - ${await res.text()}` };
+          const data = await res.json();
+          return { ok: true, domains: data.data || [] };
+        } catch (e: any) {
+          return { ok: false, error: e.message };
+        }
+      })()
+    ]);
+
+    res.json({
+      supabase: supabaseDiag,
+      gemini: geminiDiag,
+      elevenlabs: elevenLabsDiag,
+      mureka: murekaDiag,
+      resend: resendDiag
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Retry background workflow for failed requests
+app.post('/api/admin/request/:id/retry', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const supabase = getSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    const { data: requestData, error: reqError } = await supabase
+      .from('song_requests')
+      .select('*, songs(*)')
+      .eq('id', id)
+      .single();
+
+    if (reqError || !requestData) return res.status(404).json({ error: 'Pedido não encontrado' });
+    const songData = requestData.songs?.[0];
+    if (!songData) return res.status(400).json({ error: 'Música associada em falta.' });
+
+    // Reset progress in memory
+    requestProgressMap[id] = { status: 'generating', progress: 5, message: 'A reiniciar fluxo completo...' };
+
+    // Set statuses back to generating
+    await supabase.from('song_requests').update({ status: 'music_generating' }).eq('id', id);
+    await supabase.from('songs').update({ mureka_status: 'generating' }).eq('id', songData.id);
+
+    // Trigger background workflow
+    runBackgroundMurekaWorkflow(
+      id,
+      songData.id,
+      requestData.music_style || 'Kizomba',
+      songData.title || 'Música SeuBeat',
+      songData.lyrics || []
+    ).catch(err => {
+      console.error('Background Mureka workflow retry catch:', err);
+    });
+
+    res.json({ success: true, message: 'Fluxo de geração reiniciado.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Force Voice processing and mixing retry
+app.post('/api/admin/request/:id/force-voice', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const supabase = getSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    const { data: requestData, error: reqError } = await supabase
+      .from('song_requests')
+      .select('*, songs(*)')
+      .eq('id', id)
+      .single();
+
+    if (reqError || !requestData) return res.status(404).json({ error: 'Pedido não encontrado' });
+    const songData = requestData.songs?.[0];
+    if (!songData) return res.status(400).json({ error: 'Música associada em falta.' });
+    if (!requestData.voice_sample_url) return res.status(400).json({ error: 'Este pedido não tem amostra de voz.' });
+
+    // Set status to voice_processing in DB
+    await supabase
+      .from('song_requests')
+      .update({ status: 'voice_processing' })
+      .eq('id', id);
+
+    requestProgressMap[id] = { status: 'voice_processing', progress: 5, message: 'A reiniciar processamento de voz...' };
+
+    runBackgroundVoiceProcessingAndMix(
+      id,
+      songData.id,
+      songData.letter_text || 'Dedicatória especial para si.'
+    ).catch(err => {
+      console.error('Background voice retry catch:', err);
+    });
+
+    res.json({ success: true, message: 'Fluxo de clonagem e mistura de voz reiniciado.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manual Resend Delivery Email
+app.post('/api/admin/request/:id/resend-email', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const supabase = getSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    const { data: requestData, error: reqError } = await supabase
+      .from('song_requests')
+      .select('*, songs(*), users(*)')
+      .eq('id', id)
+      .single();
+
+    if (reqError || !requestData) return res.status(404).json({ error: 'Pedido não encontrado' });
+    const songData = requestData.songs?.[0];
+    if (!songData) return res.status(400).json({ error: 'Música associada em falta.' });
+    
+    const userEmail = requestData.users?.email;
+    if (!userEmail) return res.status(400).json({ error: 'Email do utilizador não encontrado.' });
+
+    const slug = (requestData.recipient_name || 'especial')
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-0]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
+    const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${songData.id}`;
+    
+    console.log(`[Admin Resend Email] Sending email to ${userEmail}...`);
+    await sendPersonalizedEmail(
+      userEmail,
+      requestData.recipient_name,
+      personalizedUrl,
+      songData.letter_text || 'Preparámos uma canção e dedicatória de amor...'
+    );
+
+    res.json({ success: true, message: 'Email reenviado com sucesso.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Edit Song Lyrics
+app.post('/api/admin/song/:id/edit-lyrics', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, lyrics, letterText } = req.body;
+    
+    if (!title || !lyrics) return res.status(400).json({ error: 'Título e letra são obrigatórios.' });
+
+    const supabase = getSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    const { data, error } = await supabase
+      .from('songs')
+      .update({
+        title,
+        lyrics: Array.isArray(lyrics) ? lyrics : lyrics.split('\n').filter((l: string) => l.trim().length > 0),
+        letter_text: letterText || null
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ success: true, message: 'Música atualizada.', song: data });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manual Audio File Upload
+app.post('/api/admin/song/:id/upload-audio', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { audioBase64, audioFilename, audioMimeType } = req.body;
+
+    if (!audioBase64) return res.status(400).json({ error: 'Dados do áudio em falta.' });
+
+    const supabase = getSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    // Download the song/request details to update request status
+    const { data: songData, error: songError } = await supabase
+      .from('songs')
+      .select('*, song_requests(*)')
+      .eq('id', id)
+      .single();
+
+    if (songError || !songData) return res.status(404).json({ error: 'Música não encontrada.' });
+
+    const base64Data = audioBase64.replace(/^data:[^;]+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    const filename = `songs/${Date.now()}_${audioFilename || 'manual_audio.mp3'}`;
+
+    // Upload to 'full-audio' private bucket
+    const { data: uploadData, error: uploadError } = await supabase
+      .storage
+      .from('full-audio')
+      .upload(filename, buffer, {
+        contentType: audioMimeType || 'audio/mpeg',
+        upsert: true
+      });
+
+    if (uploadError) return res.status(500).json({ error: `Upload falhou: ${uploadError.message}` });
+
+    const { data: urlData } = supabase.storage.from('full-audio').getPublicUrl(filename);
+    const fullAudioUrl = urlData?.publicUrl || '';
+
+    // Copy to public preview bucket as mp3
+    const previewFilename = `previews/${id}_preview.mp3`;
+    const { error: previewUploadErr } = await supabase
+      .storage
+      .from('preview')
+      .upload(previewFilename, buffer, {
+        contentType: 'audio/mpeg',
+        upsert: true
+      });
+
+    if (previewUploadErr) {
+      console.warn('Manual upload could not upload preview:', previewUploadErr.message);
+    }
+
+    // Update database
+    await supabase
+      .from('songs')
+      .update({
+        audio_url: fullAudioUrl,
+        mureka_status: 'completed'
+      })
+      .eq('id', id);
+
+    if (songData.request_id) {
+      await supabase
+        .from('song_requests')
+        .update({ status: 'delivered' })
+        .eq('id', songData.request_id);
+    }
+
+    res.json({ success: true, message: 'Áudio carregado manualmente com sucesso!' });
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
