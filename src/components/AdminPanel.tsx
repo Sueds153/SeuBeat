@@ -345,8 +345,9 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`🎵 Geração Mureka iniciada! Task: ${data.taskId}`);
+        showToast(data.message || 'Geracao Mureka iniciada em background.');
         fetchSongs();
+        fetchProgress();
       } else {
         showToast(data.error || 'Erro ao gerar música.', 'error');
       }

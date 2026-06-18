@@ -13,6 +13,14 @@ interface WizardProps {
   onBackToLanding: () => void;
 }
 
+type GenerationStatus =
+  | 'idle'
+  | 'lyrics_generating'
+  | 'lyrics_ready'
+  | 'music_processing'
+  | 'preview_available'
+  | 'error';
+
 // Custom steps configuration with titles, subtitles, examples, and tips
 const STEP_META = [
   {
@@ -112,6 +120,9 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [aiLetterText, setAiLetterText] = useState('');
   const [dbSongId, setDbSongId] = useState<string>('');
   const [dbSongRequestId, setDbSongRequestId] = useState<string>('');
+  const [generationStatus, setGenerationStatus] = useState<GenerationStatus>('idle');
+  const [generationError, setGenerationError] = useState('');
+  const [previewAudioUrl, setPreviewAudioUrl] = useState('');
 
   const handleProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -133,6 +144,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   };
 
   const submitPaymentProof = async () => {
+    if (!dbSongRequestId) {
+      setPaymentSubmitError('Nao foi possivel associar o pagamento ao pedido. Tente gerar a musica novamente.');
+      return;
+    }
+
     if (!proofFile) {
       setPaymentSubmitError('Por favor, selecione um ficheiro de comprovativo primeiro.');
       return;
@@ -211,6 +227,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const photoFileRef = useRef<HTMLInputElement>(null);
   const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const liveAudioRef = useRef<HTMLAudioElement | null>(null);
+  const submissionStartedRef = useRef(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -329,44 +346,77 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     { type: 'Inspiração', icon: '✨', label: 'Inspiração' }
   ];
 
-  // Process Stage Timer Simulator
+  // Processing message rotator while the real backend workflow runs.
   useEffect(() => {
     if (isSubmitting) {
-      // Advance stages of creation
-      const stageTimer = setInterval(() => {
-        setProcessingStage((prev) => {
-          if (prev < 4) {
-            return prev + 1;
-          } else {
-            clearInterval(stageTimer);
-            // Submit complete - route to preview page!
-            setTimeout(() => {
-              setIsSubmitting(false);
-              setShowPreviewPage(true);
-            }, 1500);
-            return prev;
-          }
-        });
-      }, 2400);
-
-      // Rotate beautiful supportive studio events
       const rotateTimer = setInterval(() => {
         setRotatingMsgIndex((prev) => (prev + 1) % 4);
       }, 3000);
 
       return () => {
-        clearInterval(stageTimer);
         clearInterval(rotateTimer);
       };
     }
   }, [isSubmitting]);
 
+  const pollSongUntilPreview = async (songId: string, maxAttempts = 60) => {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (attempt > 0) {
+        await new Promise(resolve => setTimeout(resolve, 8000));
+      }
+
+      const statusRes = await fetch(`/api/song/${songId}`);
+      if (!statusRes.ok) {
+        throw new Error('Nao foi possivel consultar o estado da musica.');
+      }
+
+      const statusData = await statusRes.json();
+      const song = statusData.data;
+      const requestStatus = song?.song_requests?.status;
+      const previewUrl = song?.preview_url;
+
+      if (requestStatus === 'failed' || song?.mureka_status === 'failed') {
+        throw new Error('A geracao da musica falhou. Tente novamente.');
+      }
+
+      if (previewUrl && (requestStatus === 'music_ready' || song?.mureka_status === 'completed')) {
+        setPreviewAudioUrl(previewUrl);
+        setGenerationStatus('preview_available');
+        setProcessingStage(4);
+        setIsSubmitting(false);
+        setShowPreviewPage(true);
+        return true;
+      }
+
+      if (requestStatus === 'lyrics_ready') {
+        setGenerationStatus('lyrics_ready');
+        setProcessingStage(2);
+      } else {
+        setGenerationStatus('music_processing');
+        setProcessingStage(3);
+      }
+    }
+
+    setGenerationStatus('music_processing');
+    setProcessingStage(3);
+    return false;
+  };
+
   // Call Gemini Lyric Generator API on submission
   useEffect(() => {
     if (isSubmitting) {
+      if (submissionStartedRef.current) return;
+      submissionStartedRef.current = true;
       console.log('Wizard triggers real Gemini lyric generator...');
       
       const submitData = async () => {
+        setGenerationStatus('lyrics_generating');
+        setGenerationError('');
+        setProcessingStage(1);
+        setDbSongId('');
+        setDbSongRequestId('');
+        setPreviewAudioUrl('');
+
         let photoBase64 = null;
         let photoFilename = null;
         let photoMimeType = null;
@@ -399,18 +449,30 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           });
           const data = await res.json();
           console.log('Gemini writing result:', data);
+
+          if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Nao foi possivel gerar a letra agora.');
+          }
+
+          if (!data.dbSongId || !data.dbSongRequestId) {
+            throw new Error('O pedido nao foi guardado corretamente. Tente novamente.');
+          }
+
           setAiSongTitle(data.songTitle);
           setAiLyrics(data.lyrics);
           setAiLyricsSnippet(data.lyricsSnippet);
           setAiLetterText(data.letterText);
-          if (data.dbSongId) {
-            setDbSongId(data.dbSongId);
-          }
-          if (data.dbSongRequestId) {
-            setDbSongRequestId(data.dbSongRequestId);
-          }
-        } catch (err) {
+          setDbSongId(data.dbSongId);
+          setDbSongRequestId(data.dbSongRequestId);
+          setGenerationStatus('lyrics_ready');
+          setProcessingStage(2);
+
+          await pollSongUntilPreview(data.dbSongId);
+        } catch (err: any) {
           console.error('Error generating AI lyrics:', err);
+          setGenerationStatus('error');
+          setGenerationError(err.message || 'Erro ao gerar. Tente novamente.');
+          setIsSubmitting(true);
         }
       };
       
@@ -607,6 +669,9 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         // Trigger Submitting / Composition simulation
+        submissionStartedRef.current = false;
+        setGenerationStatus('idle');
+        setGenerationError('');
         setIsSubmitting(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -623,6 +688,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   };
 
   const handlePlanSelection = (pId: 'standard' | 'express' | 'premium') => {
+    if (!dbSongRequestId) {
+      setPaymentSubmitError('Ainda nao existe um pedido guardado para associar ao pagamento. Tente novamente.');
+      return;
+    }
+
     setSelectedPlanID(pId);
     if (pId === 'premium') {
       // Premium = Express + Voz Clonada (14.900 Kz total)

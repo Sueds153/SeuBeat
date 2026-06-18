@@ -5,14 +5,13 @@ import { randomUUID } from 'crypto';
 import os from 'os';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
-import { Type } from '@google/genai';
 
 // Import modularized services
 import { getSupabase, uploadToSupabase } from './server/services/supabase';
 import { downloadFile, createPreviewAudio, mixAudio } from './server/services/audio';
-import { getGeminiClient, selectPrompt } from './server/services/gemini';
+import { generateLyricsWithGemini, getGeminiClient } from './server/services/gemini';
 import { cloneElevenLabsVoice, generateElevenLabsSpeechWithVoiceId, generateElevenLabsSpeech } from './server/services/elevenlabs';
-import { generateMurekaMusic } from './server/services/mureka';
+import { queryMurekaTask, startMurekaMusic } from './server/services/mureka';
 import { sendPersonalizedEmail, sendPaymentNotificationEmail, sendPaymentRejectionEmail } from './server/services/email';
 
 // Load environmental variables
@@ -36,6 +35,154 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Dicionário na memória para acompanhar progresso detalhado de cada pedido
 const requestProgressMap: Record<string, { status: string; progress: number; message: string; error?: string }> = {};
 
+function publicErrorMessage(err: any, fallback = 'Nao foi possivel concluir esta etapa. Tente novamente em instantes.') {
+  const message = err?.message || String(err || '');
+  if (/GEMINI_API_KEY/i.test(message)) return 'Geracao de letras indisponivel no momento. A configuracao de IA esta em falta.';
+  if (/MUREKA_API_KEY/i.test(message)) return 'Geracao de musica indisponivel no momento. A configuracao musical esta em falta.';
+  if (/Supabase|database|DB|song_requests|songs|users/i.test(message)) return 'Nao foi possivel guardar o seu pedido. Tente novamente.';
+  if (/timeout|excedeu/i.test(message)) return 'A geracao demorou mais do que o esperado. Tente novamente.';
+  if (/malformada|JSON/i.test(message)) return 'A IA devolveu uma resposta incompleta. Tente novamente.';
+  return fallback;
+}
+
+function adminErrorDetails(stage: string, err: any) {
+  return {
+    stage,
+    message: err?.message || String(err),
+    name: err?.name || 'Error',
+    at: new Date().toISOString()
+  };
+}
+
+async function updateRequestStatus(
+  supabase: NonNullable<ReturnType<typeof getSupabase>>,
+  requestId: string,
+  status: string,
+  err?: any
+) {
+  const payload: Record<string, any> = { status };
+  if (err) payload.error_details = adminErrorDetails(status, err);
+
+  const { error } = await supabase.from('song_requests').update(payload).eq('id', requestId);
+  if (!error) return;
+
+  if (err && /error_details/i.test(error.message || '')) {
+    const { error: fallbackError } = await supabase.from('song_requests').update({ status }).eq('id', requestId);
+    if (!fallbackError) return;
+    throw fallbackError;
+  }
+
+  throw error;
+}
+
+function getAudioFileInfo(audioUrl: string) {
+  const cleanUrl = audioUrl.split('?')[0].toLowerCase();
+  if (cleanUrl.endsWith('.wav')) return { ext: 'wav', mimeType: 'audio/wav' };
+  if (cleanUrl.endsWith('.mp3')) return { ext: 'mp3', mimeType: 'audio/mpeg' };
+  if (cleanUrl.endsWith('.m4a')) return { ext: 'm4a', mimeType: 'audio/mp4' };
+  if (cleanUrl.endsWith('.ogg')) return { ext: 'ogg', mimeType: 'audio/ogg' };
+  return { ext: 'flac', mimeType: 'audio/flac' };
+}
+
+async function persistGeneratedMurekaAudio(songId: string, taskId: string, audioUrl: string) {
+  const fileInfo = getAudioFileInfo(audioUrl);
+  const tempMurekaPath = path.join(os.tmpdir(), `${songId}_mureka.${fileInfo.ext}`);
+  const tempPreviewPath = path.join(os.tmpdir(), `${songId}_preview.mp3`);
+
+  try {
+    await downloadFile(audioUrl, tempMurekaPath);
+
+    const originalFilename = `songs/${songId}_original.${fileInfo.ext}`;
+    const fullAudioUrl = await uploadToSupabase('full-audio', originalFilename, tempMurekaPath, fileInfo.mimeType);
+
+    await createPreviewAudio(tempMurekaPath, tempPreviewPath);
+
+    const previewFilename = `previews/${songId}_preview.mp3`;
+    const publicPreviewUrl = await uploadToSupabase('preview', previewFilename, tempPreviewPath, 'audio/mpeg');
+
+    return { taskId, fullAudioUrl, publicPreviewUrl };
+  } finally {
+    try { fs.unlinkSync(tempMurekaPath); } catch {}
+    try { fs.unlinkSync(tempPreviewPath); } catch {}
+  }
+}
+
+async function completeMurekaWorkflowFromAudio(
+  requestId: string,
+  songId: string,
+  taskId: string,
+  audioUrl: string
+) {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error('Supabase client nao inicializado.');
+
+  requestProgressMap[requestId] = { status: 'generating', progress: 60, message: 'Geracao concluida no Mureka. A descarregar ficheiro...' };
+  requestProgressMap[requestId] = { status: 'generating', progress: 75, message: 'A guardar audio original no Supabase Storage...' };
+
+  const { fullAudioUrl, publicPreviewUrl } = await persistGeneratedMurekaAudio(songId, taskId, audioUrl);
+  console.log(`[Background Mureka] Saved original to full-audio: ${fullAudioUrl}`);
+  console.log(`[Background Mureka] Saved preview to public bucket: ${publicPreviewUrl}`);
+
+  const { error: songUpdateError } = await supabase
+    .from('songs')
+    .update({
+      audio_url: fullAudioUrl,
+      full_song_url: fullAudioUrl,
+      preview_url: publicPreviewUrl,
+      mureka_task_id: taskId,
+      mureka_status: 'completed'
+    })
+    .eq('id', songId);
+  if (songUpdateError) throw songUpdateError;
+
+  await updateRequestStatus(supabase, requestId, 'music_ready');
+
+  requestProgressMap[requestId] = { status: 'completed', progress: 100, message: 'Fluxo Mureka concluido com sucesso!' };
+}
+
+async function resumeMurekaTaskWorkflow(requestId: string, songId: string, taskId: string) {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  try {
+    console.log(`[Background Mureka] Resuming task ${taskId} for Request ${requestId}, Song ${songId}`);
+    requestProgressMap[requestId] = { status: 'processing', progress: 25, message: 'A consultar task Mureka existente...' };
+
+    await updateRequestStatus(supabase, requestId, 'music_processing');
+    const { error: resumeSongError } = await supabase.from('songs').update({ mureka_status: 'processing' }).eq('id', songId);
+    if (resumeSongError) throw resumeSongError;
+
+    for (let attempt = 0; attempt < 60; attempt++) {
+      if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 10000));
+      const { audioUrl, status } = await queryMurekaTask(taskId);
+      console.log(`[Background Mureka] Resume poll ${attempt + 1}: status=${status}${audioUrl ? ' audio=ready' : ''}`);
+
+      if (audioUrl) {
+        await completeMurekaWorkflowFromAudio(requestId, songId, taskId, audioUrl);
+        console.log(`[Background Mureka] Existing task completed for Request ${requestId}`);
+        return;
+      }
+
+      requestProgressMap[requestId] = {
+        status: 'processing',
+        progress: Math.min(85, 30 + attempt),
+        message: `Mureka ainda esta a processar (${status || 'processing'}).`
+      };
+    }
+
+    requestProgressMap[requestId] = {
+      status: 'processing',
+      progress: 85,
+      message: 'Mureka ainda esta a processar. Tente novamente daqui a pouco para continuar a verificacao.'
+    };
+  } catch (err: any) {
+    console.error(`[Background Mureka] Error while resuming task:`, err);
+    requestProgressMap[requestId] = { status: 'failed', progress: 100, message: 'Erro na consulta Mureka', error: err.message || String(err) };
+    await updateRequestStatus(supabase, requestId, 'failed', err);
+    await supabase.from('songs').update({ mureka_status: 'failed' }).eq('id', songId);
+  }
+}
+
 // Background workflow for Mureka generation & cutting 30s preview
 async function runBackgroundMurekaWorkflow(
   requestId: string, 
@@ -51,81 +198,85 @@ async function runBackgroundMurekaWorkflow(
     console.log(`[Background Mureka] Starting workflow for Request ${requestId}, Song ${songId}`);
     requestProgressMap[requestId] = { status: 'generating', progress: 10, message: 'A iniciar fluxo de geração Mureka...' };
     
-    // Update status to music_generating
-    await supabase
-      .from('song_requests')
-      .update({ status: 'music_generating' })
-      .eq('id', requestId);
+    await updateRequestStatus(supabase, requestId, 'music_processing');
 
-    await supabase
+    const { error: initialSongUpdateError } = await supabase
       .from('songs')
       .update({ mureka_status: 'generating' })
       .eq('id', songId);
+    if (initialSongUpdateError) throw initialSongUpdateError;
 
     requestProgressMap[requestId] = { status: 'generating', progress: 30, message: 'A submeter letra ao Mureka AI...' };
 
-    // Call Mureka
-    const { taskId, audioUrl } = await generateMurekaMusic(lyrics, musicStyle, songTitle);
+    const { taskId, audioUrl } = await startMurekaMusic(lyrics, musicStyle, songTitle);
+
+    const { error: taskUpdateError } = await supabase
+      .from('songs')
+      .update({
+        mureka_task_id: taskId,
+        mureka_status: 'processing'
+      })
+      .eq('id', songId);
+    if (taskUpdateError) throw taskUpdateError;
     
-    if (!audioUrl) {
-      throw new Error('Mureka generation did not return a valid audio URL.');
+    let finalAudioUrl = audioUrl;
+    if (!finalAudioUrl) {
+      for (let attempt = 0; attempt < 60; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        const taskData = await queryMurekaTask(taskId);
+        const status = taskData.status || 'processing';
+        finalAudioUrl = taskData.audioUrl;
+        console.log(`[Background Mureka] Poll ${attempt + 1}: status=${status}${finalAudioUrl ? ' audio=ready' : ''}`);
+
+        requestProgressMap[requestId] = {
+          status: 'processing',
+          progress: Math.min(85, 35 + attempt),
+          message: `Mureka esta a processar a musica (${status}).`
+        };
+
+        if (finalAudioUrl) break;
+      }
     }
 
-    console.log(`[Background Mureka] Generated successfully: ${audioUrl}`);
+    if (!finalAudioUrl) {
+      requestProgressMap[requestId] = {
+        status: 'processing',
+        progress: 85,
+        message: 'Mureka ainda esta a processar. A musica ainda nao esta pronta.'
+      };
+      console.warn(`[Background Mureka] Task ${taskId} still processing after polling timeout.`);
+      return;
+    }
+
+    console.log(`[Background Mureka] Generated successfully for task ${taskId}`);
     requestProgressMap[requestId] = { status: 'generating', progress: 60, message: 'Geração concluída no Mureka. A descarregar ficheiro...' };
-
-    // Download file from Mureka
-    const tempMurekaPath = path.join(os.tmpdir(), `${songId}_mureka.flac`);
-    await downloadFile(audioUrl, tempMurekaPath);
-
     requestProgressMap[requestId] = { status: 'generating', progress: 75, message: 'A guardar áudio original no Supabase Storage...' };
 
-    // Upload original file to private 'full-audio' bucket
-    const originalFilename = `songs/${songId}_original.flac`;
-    const fullAudioUrl = await uploadToSupabase('full-audio', originalFilename, tempMurekaPath, 'audio/x-flac');
+    const { fullAudioUrl, publicPreviewUrl } = await persistGeneratedMurekaAudio(songId, taskId, finalAudioUrl);
     console.log(`[Background Mureka] Saved original to full-audio: ${fullAudioUrl}`);
-
-    requestProgressMap[requestId] = { status: 'generating', progress: 85, message: 'A cortar áudio para pré-visualização de 30 segundos (FFmpeg)...' };
-
-    // Cut first 30 seconds for preview
-    const tempPreviewPath = path.join(os.tmpdir(), `${songId}_preview.mp3`);
-    await createPreviewAudio(tempMurekaPath, tempPreviewPath);
-
-    requestProgressMap[requestId] = { status: 'generating', progress: 95, message: 'A publicar áudio de pré-visualização...' };
-
-    // Upload preview to public 'preview' bucket
-    const previewFilename = `previews/${songId}_preview.mp3`;
-    const publicPreviewUrl = await uploadToSupabase('preview', previewFilename, tempPreviewPath, 'audio/mpeg');
     console.log(`[Background Mureka] Saved preview to public bucket: ${publicPreviewUrl}`);
 
-    // Cleanup temp files
-    try { fs.unlinkSync(tempMurekaPath); } catch {}
-    try { fs.unlinkSync(tempPreviewPath); } catch {}
-
     // Update database
-    await supabase
+    const { error: completedSongUpdateError } = await supabase
       .from('songs')
       .update({
         audio_url: fullAudioUrl,
+        full_song_url: fullAudioUrl,
+        preview_url: publicPreviewUrl,
         mureka_task_id: taskId,
         mureka_status: 'completed'
       })
       .eq('id', songId);
+    if (completedSongUpdateError) throw completedSongUpdateError;
 
-    await supabase
-      .from('song_requests')
-      .update({ status: 'preview_ready' })
-      .eq('id', requestId);
+    await updateRequestStatus(supabase, requestId, 'music_ready');
 
     requestProgressMap[requestId] = { status: 'completed', progress: 100, message: 'Fluxo Mureka concluído com sucesso!' };
     console.log(`[Background Mureka] Workflow completed successfully for Request ${requestId}`);
   } catch (err: any) {
     console.error(`[Background Mureka] Error in background workflow:`, err);
     requestProgressMap[requestId] = { status: 'failed', progress: 100, message: 'Erro na geração Mureka', error: err.message || String(err) };
-    await supabase
-      .from('song_requests')
-      .update({ status: 'failed' })
-      .eq('id', requestId);
+    await updateRequestStatus(supabase, requestId, 'failed', err);
     await supabase
       .from('songs')
       .update({ mureka_status: 'failed' })
@@ -276,10 +427,7 @@ async function runBackgroundVoiceProcessingAndMix(
   } catch (err: any) {
     console.error(`[Background Voice] Error:`, err);
     requestProgressMap[requestId] = { status: 'failed', progress: 100, message: 'Erro no processamento de voz', error: err.message || String(err) };
-    await supabase
-      .from('song_requests')
-      .update({ status: 'failed' })
-      .eq('id', requestId);
+    await updateRequestStatus(supabase, requestId, 'failed', err);
   }
 }
 
@@ -316,247 +464,205 @@ app.post('/api/send-email', async (req, res) => {
 
 // 2. Generate Lyrics & Letter via Gemini
 app.post('/api/generate-lyrics', async (req, res) => {
+  const supabase = getSupabase();
+  let dbSongRequestId: string | null = null;
+
   try {
-    const { 
-      userNick, 
-      recipientName, 
-      recipientRelation, 
-      occasion, 
-      musicStyle, 
+    const {
+      userNick,
+      recipientName,
+      recipientRelation,
+      occasion,
+      musicStyle,
       voiceType,
       photoBase64,
       photoFilename,
       photoMimeType
     } = req.body;
-    const prompt = selectPrompt(req.body);
 
-    const responseSchema = {
-      type: Type.OBJECT,
-      properties: {
-        songTitle: { type: Type.STRING, description: "A creative, beautiful title for the song in Portuguese" },
-        lyrics: { 
-          type: Type.ARRAY, 
-          items: { type: Type.STRING },
-          description: "Array of 4-5 verses/choruses forming the complete song lyrics in Portuguese"
-        },
-        lyricsSnippet: { type: Type.STRING, description: "A beautiful, emotional 3-line sample from the chorus" },
-        letterText: { type: Type.STRING, description: "A deeply moving, personalized dedication letter in Portuguese" }
-      },
-      required: ["songTitle", "lyrics", "lyricsSnippet", "letterText"]
-    };
+    if (!supabase) {
+      return res.status(500).json({
+        success: false,
+        error: 'Nao foi possivel ligar ao banco de dados. Tente novamente.'
+      });
+    }
 
-    console.log("Calling Gemini API with custom prompt...");
-    const ai = getGeminiClient();
-    const resultResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: responseSchema,
-        temperature: 1.0,
+    let photoUrl: string | null = null;
+
+    if (photoBase64) {
+      const base64Data = photoBase64.replace(/^data:[^;]+;base64,/, '');
+      const buffer = Buffer.from(base64Data, 'base64');
+      const safePhotoName = String(photoFilename || 'foto.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filename = `photos/${Date.now()}_${safePhotoName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase
+        .storage
+        .from('voice-samples')
+        .upload(filename, buffer, {
+          contentType: photoMimeType || 'image/jpeg',
+          upsert: false
+        });
+
+      if (uploadError || !uploadData) {
+        throw new Error(`Photo upload failed: ${uploadError?.message || 'sem dados de upload'}`);
       }
+
+      const { data: urlData } = supabase
+        .storage
+        .from('voice-samples')
+        .getPublicUrl(filename);
+      photoUrl = urlData?.publicUrl || null;
+      console.log('[Generate Lyrics] Photo stored for request.');
+    }
+
+    const userEmail = req.body.email || `guest_${randomUUID()}@seubeat.com`;
+    let userData: any = null;
+
+    const { data: existingUser, error: existingUserError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', userEmail)
+      .maybeSingle();
+
+    if (existingUserError) throw existingUserError;
+
+    if (existingUser) {
+      userData = existingUser;
+    } else {
+      let userId = randomUUID() as any;
+      try {
+        const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+          email: userEmail,
+          email_confirm: true,
+          user_metadata: { name: userNick }
+        });
+        if (authUser?.user) {
+          userId = authUser.user.id;
+        } else if (authError) {
+          console.warn('[Generate Lyrics] Auth user creation skipped.', { error: authError.message });
+        }
+      } catch (authCatchErr: any) {
+        console.warn('[Generate Lyrics] Auth user creation failed; creating profile only.', {
+          error: authCatchErr?.message || String(authCatchErr)
+        });
+      }
+
+      const { data: newProfile, error: profileError } = await supabase
+        .from('users')
+        .insert([{
+          id: userId,
+          name: userNick || 'Autor',
+          email: userEmail,
+          phone: req.body.phone || null
+        }])
+        .select()
+        .single();
+
+      if (profileError) throw profileError;
+      userData = newProfile;
+    }
+
+    if (!userData?.id) throw new Error('User profile was not created or found.');
+
+    const { data: requestData, error: requestError } = await supabase
+      .from('song_requests')
+      .insert([{
+        user_id: userData.id,
+        recipient_name: recipientName || 'Destinatario',
+        relationship: recipientRelation || req.body.recipientRelation || 'Parceiro',
+        occasion: occasion || req.body.occasion || 'Homenagem',
+        music_style: musicStyle || req.body.musicStyle || 'Kizomba',
+        voice_type: voiceType || req.body.voiceType || 'Masculina',
+        special_traits: req.body.whatMakesSpecial || req.body.specialTraits || req.body.special_traits || '',
+        memory: req.body.unforgettableMemory || req.body.memory || '',
+        heart_message: req.body.messageFromTheHeart || req.body.heartMessage || req.body.heart_message || '',
+        desired_emotion: req.body.desiredEmotion || req.body.desired_emotion || 'Emocionante',
+        email: req.body.email || null,
+        phone: req.body.phone || null,
+        status: 'lyrics_generating',
+        photo_url: photoUrl
+      }])
+      .select()
+      .single();
+
+    if (requestError || !requestData?.id) throw requestError || new Error('song_request nao foi criado.');
+    dbSongRequestId = requestData.id;
+    requestProgressMap[dbSongRequestId] = { status: 'lyrics_generating', progress: 10, message: 'A gerar letra personalizada.' };
+
+    const parsedData = await generateLyricsWithGemini(req.body);
+
+    const { data: songData, error: songError } = await supabase
+      .from('songs')
+      .insert([{
+        request_id: requestData.id,
+        title: parsedData.songTitle,
+        lyrics: parsedData.lyrics,
+        lyrics_snippet: parsedData.lyricsSnippet,
+        letter_text: parsedData.letterText,
+        mureka_status: 'not_started'
+      }])
+      .select()
+      .single();
+
+    if (songError || !songData?.id) throw songError || new Error('song nao foi criada.');
+
+    await updateRequestStatus(supabase, requestData.id, 'lyrics_ready');
+    requestProgressMap[requestData.id] = { status: 'lyrics_ready', progress: 35, message: 'Letra criada. A iniciar musica.' };
+
+    console.log('[Generate Lyrics] Lyrics persisted. Spawning background Mureka workflow.', {
+      requestId: requestData.id,
+      songId: songData.id
     });
 
-    const textOutput = resultResponse.text || '';
-    const parsedData = JSON.parse(textOutput.trim());
-
-    // Connect to Supabase
-    const supabase = getSupabase();
-    let dbSongId = null;
-    let dbSongRequestId = null;
-    let photoUrl = null;
-
-    if (supabase) {
-      // Upload photo if provided
-      if (photoBase64) {
-        try {
-          const base64Data = photoBase64.replace(/^data:[^;]+;base64,/, '');
-          const buffer = Buffer.from(base64Data, 'base64');
-          const filename = `photos/${Date.now()}_${photoFilename || 'foto.jpg'}`;
-          
-          const { data: uploadData, error: uploadError } = await supabase
-            .storage
-            .from('voice-samples')
-            .upload(filename, buffer, {
-              contentType: photoMimeType || 'image/jpeg',
-              upsert: false
-            });
-
-          if (!uploadError && uploadData) {
-            const { data: urlData } = supabase
-              .storage
-              .from('voice-samples')
-              .getPublicUrl(filename);
-            photoUrl = urlData?.publicUrl || null;
-            console.log(`[Photo Upload] Saved photo successfully: ${photoUrl}`);
-          } else {
-            console.error('Photo upload error:', uploadError);
-          }
-        } catch (photoErr) {
-          console.error('Photo storage error:', photoErr);
-        }
-      }
-
-      // 1. Insert User (Check if user already exists first, then handle auth/guest user creation)
-      let userData: any = null;
-      let userError: any = null;
-      const userEmail = req.body.email || `guest_${randomUUID()}@seubeat.com`;
-
-      try {
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('*')
-          .eq('email', userEmail)
-          .maybeSingle();
-
-        if (existingUser) {
-          userData = existingUser;
-        } else {
-          // Attempt to create the user in auth.users via admin API to satisfy foreign key constraint
-          let userId = randomUUID() as any;
-          try {
-            const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-              email: userEmail,
-              email_confirm: true,
-              user_metadata: { name: userNick }
-            });
-            if (authUser && authUser.user) {
-              userId = authUser.user.id;
-            } else {
-              console.warn('Could not create auth user, falling back to random UUID. Error:', authError);
-            }
-          } catch (authCatchErr) {
-            console.warn('Exception creating auth user, falling back to random UUID. Error:', authCatchErr);
-          }
-
-          // Insert into public.users
-          const { data: newProfile, error: profileError } = await supabase
-            .from('users')
-            .insert([{
-              id: userId,
-              name: userNick || 'Autor',
-              email: userEmail,
-              phone: req.body.phone || null
-            }])
-            .select()
-            .single();
-
-          if (profileError) {
-            const { data: retryUser } = await supabase
-              .from('users')
-              .select('*')
-              .eq('email', userEmail)
-              .maybeSingle();
-            if (retryUser) {
-              userData = retryUser;
-            } else {
-              userError = profileError;
-            }
-          } else {
-            userData = newProfile;
-          }
-        }
-      } catch (err) {
-        userError = err;
-      }
-        
-      if (!userError && userData) {
-        // 2. Insert Song Request (status = draft)
-        const { data: requestData, error: requestError } = await supabase
-          .from('song_requests')
-          .insert([{
-            user_id: userData.id,
-            recipient_name: recipientName || 'Destinatário',
-            relationship: recipientRelation || req.body.recipientRelation || 'Parceiro',
-            occasion: occasion || req.body.occasion || 'Homenagem',
-            music_style: musicStyle || req.body.musicStyle || 'Pop Romântico',
-            voice_type: voiceType || req.body.voiceType || 'Masculina',
-            special_traits: req.body.specialTraits || req.body.special_traits || '',
-            memory: req.body.memory || req.body.messageFromTheHeart || '',
-            heart_message: req.body.heartMessage || req.body.heart_message || req.body.messageFromTheHeart || '',
-            desired_emotion: req.body.desiredEmotion || req.body.desired_emotion || 'Emocionante',
-            email: req.body.email || null,
-            phone: req.body.phone || null,
-            status: 'draft',
-            photo_url: photoUrl
-          }])
-          .select()
-          .single();
-
-        if (!requestError && requestData) {
-          dbSongRequestId = requestData.id;
-          // 3. Insert Song
-          const { data: songData, error: songError } = await supabase
-            .from('songs')
-            .insert([{
-              request_id: requestData.id,
-              title: parsedData.songTitle,
-              lyrics: parsedData.lyrics,
-              lyrics_snippet: parsedData.lyricsSnippet,
-              letter_text: parsedData.letterText,
-              mureka_status: 'not_started'
-            }])
-            .select()
-            .single();
-
-          if (!songError && songData) {
-            dbSongId = songData.id;
-            
-            // Update request status to lyrics_ready
-            await supabase
-              .from('song_requests')
-              .update({ status: 'lyrics_ready' })
-              .eq('id', dbSongRequestId);
-
-            // Trigger background workflow for Mureka music generation & cut preview
-            console.log(`[Generate Lyrics] Spawning background Mureka workflow...`);
-            runBackgroundMurekaWorkflow(
-              dbSongRequestId,
-              dbSongId,
-              musicStyle || 'Kizomba',
-              parsedData.songTitle,
-              parsedData.lyrics
-            ).catch(err => {
-              console.error('Background Mureka workflow promise catch:', err);
-            });
-          } else {
-            console.error('Supabase song insert error:', songError);
-          }
-        } else {
-          console.error('Supabase request insert error:', requestError);
-        }
-      } else {
-        console.error('Supabase user insert error:', userError);
-      }
-    }
+    runBackgroundMurekaWorkflow(
+      requestData.id,
+      songData.id,
+      musicStyle || req.body.musicStyle || 'Kizomba',
+      parsedData.songTitle,
+      parsedData.lyrics
+    ).catch(err => {
+      console.error('Background Mureka workflow promise catch:', err);
+    });
 
     res.json({
       success: true,
       sender: userNick || 'Autor',
-      recipient: recipientName || 'Destinatário',
-      dbSongId,
-      dbSongRequestId,
+      recipient: recipientName || 'Destinatario',
+      dbSongId: songData.id,
+      dbSongRequestId: requestData.id,
+      requestStatus: 'lyrics_ready',
+      musicStatus: 'music_processing',
       ...parsedData,
       photoUrl
     });
-
   } catch (err: any) {
-    console.error('Gemini composition generation failed:', err);
-    res.json({
-      success: true,
-      songTitle: `Melodia Para ${req.body.recipientName || 'Ti'}`,
-      lyrics: [
-        `No silêncio que o vento trouxe do mar de ${req.body.whereItHappened || 'Luanda'},`,
-        `Fita meus olhos, ${req.body.recipientNick || req.body.recipientName || 'meu amor'}, és tu quem me comanda.`,
-        `Lembra do riso em que o mundo parou naquele instante,`,
-        `Nosso amor é Kizomba viva, forte e constante.`,
-        `[Refrão]`,
-        `Prometo segurar tua mão no compasso do dia,`,
-        `Tornar cada detalhe simples numa bela harmonia,`,
-        `Dizer ao peito que bate que és a minha alegria!`
-      ],
-      lyricsSnippet: `Lembra do riso em que o mundo parou naquele instante, nosso amor é Kizomba viva, forte e constante.`,
-      letterText: req.body.messageFromTheHeart || 'Fiz esta música para que saibas que o meu amor por ti nunca vai acabar. És o meu porto seguro, a minha luz eterna.'
+    console.error('[Generate Lyrics] Failed.', {
+      requestId: dbSongRequestId,
+      error: err?.message || String(err)
+    });
+
+    if (supabase && dbSongRequestId) {
+      try {
+        await updateRequestStatus(supabase, dbSongRequestId, 'failed', err);
+        requestProgressMap[dbSongRequestId] = {
+          status: 'failed',
+          progress: 100,
+          message: 'Erro ao gerar letra.',
+          error: err?.message || String(err)
+        };
+      } catch (statusErr: any) {
+        console.error('[Generate Lyrics] Failed to mark request as failed.', {
+          requestId: dbSongRequestId,
+          error: statusErr?.message || String(statusErr)
+        });
+      }
+    }
+
+    const statusCode = /GEMINI_API_KEY|malformada|JSON|Gemini|timeout|excedeu/i.test(err?.message || '') ? 502 : 500;
+    res.status(statusCode).json({
+      success: false,
+      error: publicErrorMessage(err, 'Nao foi possivel gerar a letra agora. Tente novamente.'),
+      dbSongRequestId
     });
   }
 });
@@ -583,15 +689,12 @@ app.get('/api/song/:id', async (req, res) => {
     
     const requestStatus = songData.song_requests?.status;
     let audioUrl = null;
-    
-    // Construct public preview URL
-    const supabaseUrl = process.env.SUPABASE_URL || 'https://xdlssfxbndwuirwcofdx.supabase.co';
-    const previewUrl = `${supabaseUrl}/storage/v1/object/public/preview/previews/${songData.id}_preview.mp3`;
+    const previewUrl = songData.preview_url || null;
 
     if (requestStatus === 'delivered' || requestStatus === 'paid') {
       // User has paid, generate signed URL for full audio (or mixed audio)
       const mixedUrl = songData.song_requests?.final_mixed_audio_url;
-      const fullUrl = mixedUrl || songData.audio_url;
+      const fullUrl = mixedUrl || songData.full_song_url || songData.audio_url;
       
       if (fullUrl) {
         if (fullUrl.includes('full-audio')) {
@@ -619,7 +722,7 @@ app.get('/api/song/:id', async (req, res) => {
       success: true,
       data: {
         ...songData,
-        audio_url: audioUrl || previewUrl, // Play full if paid/delivered, else preview
+        audio_url: audioUrl || previewUrl,
         preview_url: previewUrl
       }
     });
@@ -956,11 +1059,18 @@ app.post('/api/admin/payment/:id/approve', adminAuth, async (req, res) => {
         console.error('Error in runBackgroundVoiceProcessingAndMix:', err);
       });
     } else {
-      // Standard flow: update request status to delivered immediately
-      await supabase
-        .from('song_requests')
-        .update({ status: 'delivered' })
-        .eq('id', requestId);
+      const hasGeneratedAudio = !!(songData.full_song_url || songData.audio_url);
+
+      if (!hasGeneratedAudio) {
+        await updateRequestStatus(supabase, requestId, 'music_processing');
+        return res.json({
+          success: true,
+          message: 'Pagamento aprovado. A musica ainda esta em processamento e sera entregue quando o audio estiver pronto.',
+          voiceWorkflowTriggered
+        });
+      }
+
+      await updateRequestStatus(supabase, requestId, 'delivered');
 
       // Send email
       if (userEmail) {
@@ -1087,28 +1197,49 @@ app.post('/api/admin/song/:id/generate-music', adminAuth, async (req, res) => {
 
     if (error || !songData) return res.status(404).json({ error: 'Música não encontrada' });
 
+    if (songData.request_id && songData.mureka_task_id && !songData.audio_url) {
+      requestProgressMap[songData.request_id] = {
+        status: 'processing',
+        progress: 10,
+        message: 'A retomar task Mureka existente.'
+      };
+
+      resumeMurekaTaskWorkflow(songData.request_id, id, songData.mureka_task_id).catch(err => {
+        console.error('Manual Mureka resume catch:', err);
+      });
+
+      return res.json({ success: true, message: 'Verificacao da task Mureka existente iniciada.' });
+    }
+
     // Mark as generating
     await supabase
       .from('songs')
       .update({ mureka_status: 'generating' })
       .eq('id', id);
 
-    const { taskId, audioUrl } = await generateMurekaMusic(
-      songData.lyrics || [],
+    if (!songData.request_id) {
+      return res.status(400).json({ error: 'Musica sem pedido associado.' });
+    }
+
+    await updateRequestStatus(supabase, songData.request_id, 'music_processing');
+
+    requestProgressMap[songData.request_id] = {
+      status: 'generating',
+      progress: 5,
+      message: 'Geracao musical iniciada pelo painel admin.'
+    };
+
+    runBackgroundMurekaWorkflow(
+      songData.request_id,
+      id,
       (songData.song_requests as any)?.music_style || 'Kizomba',
-      songData.title || 'Música SeuBeat'
-    );
+      songData.title || 'Musica SeuBeat',
+      songData.lyrics || []
+    ).catch(err => {
+      console.error('Manual background Mureka workflow catch:', err);
+    });
 
-    await supabase
-      .from('songs')
-      .update({ 
-        mureka_task_id: taskId,
-        mureka_status: audioUrl ? 'completed' : 'processing',
-        audio_url: audioUrl || null
-      })
-      .eq('id', id);
-
-    res.json({ success: true, taskId, audioUrl });
+    res.json({ success: true, message: 'Geracao Mureka iniciada em background.' });
   } catch (err: any) {
     console.error('Manual Mureka trigger error:', err);
     res.status(500).json({ error: err.message });
@@ -1231,11 +1362,21 @@ app.post('/api/admin/request/:id/retry', adminAuth, async (req, res) => {
     const songData = requestData.songs?.[0];
     if (!songData) return res.status(400).json({ error: 'Música associada em falta.' });
 
+    if (songData.mureka_task_id && !songData.audio_url) {
+      requestProgressMap[id] = { status: 'processing', progress: 10, message: 'A retomar task Mureka existente...' };
+
+      resumeMurekaTaskWorkflow(id, songData.id, songData.mureka_task_id).catch(err => {
+        console.error('Background Mureka resume retry catch:', err);
+      });
+
+      return res.json({ success: true, message: 'Verificacao da task Mureka existente reiniciada.' });
+    }
+
     // Reset progress in memory
     requestProgressMap[id] = { status: 'generating', progress: 5, message: 'A reiniciar fluxo completo...' };
 
     // Set statuses back to generating
-    await supabase.from('song_requests').update({ status: 'music_generating' }).eq('id', id);
+    await updateRequestStatus(supabase, id, 'music_processing');
     await supabase.from('songs').update({ mureka_status: 'generating' }).eq('id', songData.id);
 
     // Trigger background workflow
@@ -1417,21 +1558,25 @@ app.post('/api/admin/song/:id/upload-audio', adminAuth, async (req, res) => {
     if (previewUploadErr) {
       console.warn('Manual upload could not upload preview:', previewUploadErr.message);
     }
+    const { data: previewUrlData } = supabase.storage.from('preview').getPublicUrl(previewFilename);
+    const publicPreviewUrl = previewUploadErr ? null : previewUrlData?.publicUrl || null;
 
     // Update database
-    await supabase
+    const songUpdatePayload: Record<string, any> = {
+      audio_url: fullAudioUrl,
+      full_song_url: fullAudioUrl,
+      mureka_status: 'completed'
+    };
+    if (publicPreviewUrl) songUpdatePayload.preview_url = publicPreviewUrl;
+
+    const { error: manualSongUpdateError } = await supabase
       .from('songs')
-      .update({
-        audio_url: fullAudioUrl,
-        mureka_status: 'completed'
-      })
+      .update(songUpdatePayload)
       .eq('id', id);
+    if (manualSongUpdateError) throw manualSongUpdateError;
 
     if (songData.request_id) {
-      await supabase
-        .from('song_requests')
-        .update({ status: 'delivered' })
-        .eq('id', songData.request_id);
+      await updateRequestStatus(supabase, songData.request_id, 'music_ready');
     }
 
     res.json({ success: true, message: 'Áudio carregado manualmente com sucesso!' });
