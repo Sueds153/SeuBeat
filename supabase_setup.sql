@@ -7,6 +7,7 @@
 --       O backend usa service_role para bypass de RLS.
 CREATE TABLE IF NOT EXISTS public.users (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  auth_user_id uuid UNIQUE REFERENCES auth.users(id),
   email text UNIQUE,
   phone text,
   name text,
@@ -155,12 +156,12 @@ DROP POLICY IF EXISTS "Permitir criação pública de pagamentos" ON public.paym
 DROP POLICY IF EXISTS "Permitir submissão de pagamento" ON public.payments;
 
 -- Políticas de acesso mais seguras
--- 1. USERS: Apenas o próprio utilizador ou o service_role pode ver/editar
-CREATE POLICY "Utilizadores podem ver o seu próprio perfil" ON public.users FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Utilizadores podem editar o seu próprio perfil" ON public.users FOR UPDATE USING (auth.uid() = id);
+-- 1. USERS: Apenas o próprio utilizador (auth_user_id ou id) ou o service_role pode ver/editar
+CREATE POLICY "Utilizadores podem ver o seu próprio perfil" ON public.users FOR SELECT USING (auth.uid() = auth_user_id OR auth.uid() = id);
+CREATE POLICY "Utilizadores podem editar o seu próprio perfil" ON public.users FOR UPDATE USING (auth.uid() = auth_user_id OR auth.uid() = id) WITH CHECK (auth.uid() = auth_user_id OR auth.uid() = id);
 
 -- 2. SONG_REQUESTS: Apenas o dono pode ver. Inserção permitida para anon (início do fluxo).
-CREATE POLICY "Clientes podem ver os seus pedidos" ON public.song_requests FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Clientes podem ver os seus pedidos" ON public.song_requests FOR SELECT USING (user_id IN (SELECT id FROM public.users WHERE auth_user_id = auth.uid()) OR user_id = auth.uid());
 CREATE POLICY "Permitir inserção de pedidos por anon" ON public.song_requests FOR INSERT WITH CHECK (true);
 
 -- 3. SONGS: Letras e previews são públicos. Áudio completo apenas se pago.
