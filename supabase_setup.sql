@@ -186,6 +186,35 @@ CREATE POLICY "Permitir submissão de pagamento" ON public.payments FOR INSERT W
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- SCHEMA PRIVADO (funções internas não expostas via /rest/v1/rpc)
+-- ─────────────────────────────────────────────────────────────────────────────
+
+CREATE SCHEMA IF NOT EXISTS private;
+
+-- Função de trigger para novo utilizador via Auth (se algum dia for ativado)
+CREATE OR REPLACE FUNCTION private.handle_new_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  INSERT INTO public.users (id, email, name, auth_user_id)
+  VALUES (
+    gen_random_uuid(),
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data ->> 'name', NEW.email),
+    NEW.id
+  );
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION private.handle_new_user() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON SCHEMA private FROM anon, authenticated;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- TRIGGER PARA UPDATED_AT
 -- ─────────────────────────────────────────────────────────────────────────────
 
