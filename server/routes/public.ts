@@ -16,7 +16,7 @@ import {
   getSongLimiter,
   paymentLimiter
 } from '../middleware/rateLimiter';
-import { logInfo, logError, logDebug } from '../utils/logger';
+import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 
 const router = express.Router();
 
@@ -56,14 +56,25 @@ function publicUrlForStoragePath(supabase: NonNullable<ReturnType<typeof getSupa
 }
 
 async function findAuthUserIdByEmail(supabase: NonNullable<ReturnType<typeof getSupabase>>, email: string) {
-  const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  if (error) {
-    console.warn('[API] Falha ao listar auth.users para procurar email.', { error: error.message });
-    return null;
-  }
+  let page = 1;
+  const perPage = 200;
+  const targetEmail = email.toLowerCase();
 
-  const users = (data?.users || []) as Array<{ id?: string; email?: string }>;
-  return users.find(user => user.email?.toLowerCase() === email.toLowerCase())?.id || null;
+  while (true) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
+    if (error) {
+      logWarn('[API] Falha ao listar auth.users para procurar email.', { error: error.message });
+      return null;
+    }
+
+    const users = (data?.users || []) as Array<{ id?: string; email?: string }>;
+    const found = users.find(user => user.email?.toLowerCase() === targetEmail);
+    if (found?.id) return found.id;
+
+    if (users.length < perPage) break;
+    page++;
+  }
+  return null;
 }
 
 async function ensureUserProfile(
@@ -422,11 +433,15 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });
     if (!songRequestId) return res.status(400).json({ error: 'ID do pedido em falta.' });
     if (!userEmail) return res.status(400).json({ error: 'Email do cliente em falta.' });
+    if (typeof userEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) return res.status(400).json({ error: 'Email inválido.' });
     if (!['standard', 'express', 'premium'].includes(plan)) return res.status(400).json({ error: 'Plano invalido.' });
 
     let proofUrl = null;
     if (proofBase64) {
-      const filename = `proofs/${Date.now()}_${proofFilename || 'proof.jpg'}`;
+      const proofBuffer = decodeBase64Payload(proofBase64);
+      if (proofBuffer.length > 10 * 1024 * 1024) throw new Error('Comprovativo demasiado grande. Máx. 10MB.');
+      const sanitizedProofFilename = String(proofFilename || 'proof.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filename = `proofs/${Date.now()}_${sanitizedProofFilename}`;
       const { data, error } = await supabase.storage
         .from('payment-proofs')
         .upload(filename, decodeBase64Payload(proofBase64), { contentType: proofMimeType || 'image/jpeg' });
@@ -436,7 +451,10 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
 
     let voiceSampleUrl = null;
     if (voiceSampleBase64) {
-      const filename = `voices/${Date.now()}_${voiceSampleFilename || 'sample.wav'}`;
+      const voiceBuffer = decodeBase64Payload(voiceSampleBase64);
+      if (voiceBuffer.length > 10 * 1024 * 1024) throw new Error('Amostra de voz demasiado grande. Máx. 10MB.');
+      const sanitizedVoiceFilename = String(voiceSampleFilename || 'sample.wav').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filename = `voices/${Date.now()}_${sanitizedVoiceFilename}`;
       const { data, error } = await supabase.storage
         .from('voice-samples')
         .upload(filename, decodeBase64Payload(voiceSampleBase64), { contentType: voiceSampleMimeType || 'audio/wav' });
@@ -448,7 +466,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       request_id: songRequestId,
       user_email: userEmail,
       plan,
-      amount: typeof amount === 'string' ? parseAngolanAmount(amount) : amount,
+      amount: typeof amount === 'string' ? parseAngolanAmount(amount) : typeof amount === 'number' && !isNaN(amount) ? amount : 0,
       proof_url: proofUrl,
       status: 'pending_verification'
     }]);

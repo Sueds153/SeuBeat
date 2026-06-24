@@ -535,7 +535,7 @@ Angola ${(new Date().getFullYear())}
                 <button
                   type="button"
                   onClick={handlePlayPause}
-                  className="flex-grow py-3.5 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-95 text-stone-950 font-black text-xs md:text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10 cursor-pointer active:scale-99 transition-transform"
+                  className="flex-grow py-3.5 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-95 text-stone-950 font-black text-xs md:text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10 cursor-pointer active:scale-[0.99] transition-transform"
                 >
                   {isPlaying ? (
                     <>

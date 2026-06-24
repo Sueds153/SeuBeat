@@ -208,7 +208,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                   <div className="space-y-5 text-left">
                     <div>
                       <h3 className="font-serif text-lg md:text-xl font-bold text-stone-200">{plan.name}</h3>
-                      <p className="text-xxs text-stone-500 mt-1 lines-clamp-2 leading-relaxed h-8">{plan.subtitle}</p>
+                      <p className="text-xxs text-stone-500 mt-1 line-clamp-2 leading-relaxed h-8">{plan.subtitle}</p>
                     </div>
 
                     <div className="py-3 flex items-baseline gap-1.5 border-b border-stone-850">

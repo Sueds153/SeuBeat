@@ -27,8 +27,8 @@ if (missing.length > 0) {
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
 // Global rate limiter
 app.use(globalLimiter);
@@ -36,12 +36,8 @@ app.use(globalLimiter);
 // CORS restrito
 const allowedOrigin = process.env.ALLOWED_ORIGIN || '*';
 app.use((_req, res, next) => {
-  if (allowedOrigin !== '*') {
-    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-    res.setHeader('Vary', 'Origin');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
+  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-password');
   if (_req.method === 'OPTIONS') { res.sendStatus(204); return; }
@@ -119,4 +115,7 @@ async function setupApp() {
   });
 }
 
-setupApp();
+setupApp().catch(err => {
+  logFatal('Erro fatal ao iniciar servidor', err);
+  process.exit(1);
+});

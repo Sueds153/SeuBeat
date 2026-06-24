@@ -141,6 +141,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const handleProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      if (file.size > 10 * 1024 * 1024) {
+        setPaymentSubmitError('O comprovativo não pode exceder 10MB.');
+        e.target.value = '';
+        return;
+      }
       setProofFile(file);
       setPaymentSubmitError('');
       
@@ -437,7 +442,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     if (isSubmitting) {
       if (submissionStartedRef.current) return;
       submissionStartedRef.current = true;
-      console.log('Wizard triggers real Claude lyric generator...');
       
       const submitData = async () => {
         setGenerationStatus('lyrics_generating');
@@ -484,8 +488,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           }
 
           const data = await res.json();
-          console.log('Claude writing result:', data);
-
+          
           if (!data.success) {
             throw new Error(data.error || 'Não foi possível gerar a letra agora.');
           }
@@ -672,8 +675,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
             if (!res.ok) throw new Error('Falha no status de envio do email');
             return res.json();
           })
-          .then((data) => {
-            console.log('Email integration result:', data);
+          .then((_data) => {
             setEmailStatus('sent');
           })
           .catch((err) => {
@@ -688,6 +690,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('A foto não pode exceder 5MB.', 'error');
+        e.target.value = '';
+        return;
+      }
       const url = URL.createObjectURL(file);
       setFormData(prev => {
         if (prev.photoUrl?.startsWith('blob:')) URL.revokeObjectURL(prev.photoUrl);
@@ -1469,7 +1476,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                       setShowVoiceCloningScreen(true);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-400 to-rose-600 text-stone-950 font-black text-xs md:text-sm rounded-2xl hover:opacity-95 active:scale-98 transition-transform cursor-pointer uppercase tracking-wider shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+                    className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-400 to-rose-600 text-stone-950 font-black text-xs md:text-sm rounded-2xl hover:opacity-95 active:scale-[0.98] transition-transform cursor-pointer uppercase tracking-wider shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
                   >
                     <Mic className="w-4 h-4 text-stone-950 fill-stone-950" />
                     <span>Quero a Música Cantada pela Minha Voz — 14.900 Kz</span>
@@ -1642,7 +1649,13 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                       className="hidden"
                       onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
-                          setClonedVoiceFile(e.target.files[0]);
+                          const file = e.target.files[0];
+                          if (file.size > 50 * 1024 * 1024) {
+                            showToast('O áudio não pode exceder 50MB.', 'error');
+                            e.target.value = '';
+                            return;
+                          }
+                          setClonedVoiceFile(file);
                           setHasRecorded(true);
                           setRecordingSeconds(18);
                         }
@@ -2726,7 +2739,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                   disabled={!validateStep()}
                   className={`px-5 py-3 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer select-none ${
                     validateStep()
-                      ? 'bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 shadow-lg shadow-amber-500/10 active:scale-97'
+                      ? 'bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 shadow-lg shadow-amber-500/10 active:scale-[0.97]'
                       : 'bg-stone-850 text-stone-500 cursor-not-allowed border border-stone-800/80'
                   }`}
                 >

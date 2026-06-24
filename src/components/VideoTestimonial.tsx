@@ -34,7 +34,8 @@ export default function VideoTestimonial() {
   const [likesCount, setLikesCount] = useState(1420);
   const [hasLiked, setHasLiked] = useState(false);
   const [isCustomLoaded, setIsCustomLoaded] = useState(false);
-  const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const [videoSrc, setVideoSrc] = useState<string | null>('/assets/prova_social.mp4');
+  const [videoError, setVideoError] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -151,7 +152,7 @@ export default function VideoTestimonial() {
 
             <div className="relative w-full h-full rounded-[30px] overflow-hidden bg-gradient-to-br from-stone-900 via-stone-950 to-amber-950/30 flex flex-col items-center justify-center p-5">
               {/* Video player if custom video loaded */}
-              {videoSrc && (
+              {videoSrc && !videoError && (
                 <>
                   <video
                     ref={videoRef}
@@ -159,21 +160,24 @@ export default function VideoTestimonial() {
                     loop
                     muted={isMuted}
                     src={videoSrc}
+                    onError={() => setVideoError(true)}
+                    preload="metadata"
+                    poster="/assets/seubeat_card.svg"
                     className="absolute inset-0 w-full h-full object-cover z-0"
                   />
                   <div className="absolute bottom-0 inset-x-0 h-10 bg-stone-950/80 z-20 flex items-center justify-between px-4 border-t border-stone-900">
-                    <button onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="text-stone-400 hover:text-white p-1 cursor-pointer">
+                    <button aria-label={isPlaying ? 'Pausar' : 'Reproduzir'} onClick={(e) => { e.stopPropagation(); togglePlay(); }} className="text-stone-400 hover:text-white p-1 cursor-pointer">
                       {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
                     </button>
                     <div className="flex-grow mx-3 bg-stone-800 h-1 rounded-full overflow-hidden">
                       <div className="bg-gradient-to-r from-amber-500 to-rose-500 h-full rounded-full" style={{ width: `${progress}%` }} />
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); toggleMute(); }} className="text-stone-400 hover:text-white p-1 cursor-pointer">
+                    <button aria-label={isMuted ? 'Ativar som' : 'Silenciar'} onClick={(e) => { e.stopPropagation(); toggleMute(); }} className="text-stone-400 hover:text-white p-1 cursor-pointer">
                       {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                     </button>
                   </div>
                   <button
-                    onClick={() => { setVideoSrc(null); setIsCustomLoaded(false); }}
+                    onClick={() => { setVideoSrc(null); setIsCustomLoaded(false); setVideoError(false); }}
                     className="absolute top-12 right-3 z-20 bg-stone-950/70 text-stone-400 text-xs px-2 py-1 rounded-full cursor-pointer"
                   >
                     Remover
@@ -181,8 +185,8 @@ export default function VideoTestimonial() {
                 </>
               )}
 
-              {/* Testimonial card (shown when no custom video) */}
-              {!videoSrc && (
+              {/* Testimonial card (shown when no custom video or video error) */}
+              {(!videoSrc || videoError) && (
                 <AnimatePresence mode="wait">
                   <motion.div
                     key={currentTestimonial}
@@ -214,15 +218,15 @@ export default function VideoTestimonial() {
                     </div>
 
                     <div className="flex items-center gap-2 mt-2">
-                      <button onClick={handleLike} className="flex flex-col items-center cursor-pointer">
+                      <button aria-label="Gostar" onClick={handleLike} className="flex flex-col items-center cursor-pointer">
                         <Heart className={`w-5 h-5 ${hasLiked ? 'text-rose-500 fill-rose-500' : 'text-stone-400'}`} />
                         <span className="text-[10px] font-mono text-stone-500 mt-0.5">{likesCount}</span>
                       </button>
-                      <button className="flex flex-col items-center cursor-pointer">
+                      <button aria-label="Partilhar" className="flex flex-col items-center cursor-pointer">
                         <Share2 className="w-5 h-5 text-stone-400" />
                         <span className="text-[10px] font-mono text-stone-500 mt-0.5">184</span>
                       </button>
-                      <button className="flex flex-col items-center cursor-pointer">
+                      <button aria-label="Comentar" className="flex flex-col items-center cursor-pointer">
                         <MessageCircle className="w-5 h-5 text-stone-400" />
                         <span className="text-[10px] font-mono text-stone-500 mt-0.5">92</span>
                       </button>
@@ -245,7 +249,7 @@ export default function VideoTestimonial() {
               )}
 
               {/* Upload button */}
-              {!videoSrc && (
+              {(!videoSrc || videoError) && (
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="mt-3 flex items-center gap-1.5 px-3 py-1.5 bg-stone-800/80 hover:bg-stone-700/80 text-stone-400 rounded-xl text-[10px] font-mono transition-all border border-stone-700/50 cursor-pointer"
@@ -266,6 +270,7 @@ export default function VideoTestimonial() {
                   blobUrlRef.current = url;
                   setVideoSrc(url);
                   setIsCustomLoaded(true);
+                  setVideoError(false);
                   setTimeout(() => {
                     if (videoRef.current) videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
                   }, 150);

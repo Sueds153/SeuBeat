@@ -17,6 +17,7 @@ function createTransport() {
     port: cfg.port,
     secure: false,
     auth: { user: cfg.user, pass: cfg.pass },
+    tls: { rejectUnauthorized: true, minVersion: 'TLSv1.2' },
   });
 }
 

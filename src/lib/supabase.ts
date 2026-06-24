@@ -3,12 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 // Retrieve credentials from environment variables
 // Supports: VITE_ prefix (Vite frontend), plain vars (server), and new publishable key format
 const supabaseUrl = 
-  (import.meta as any).env?.VITE_SUPABASE_URL || 
+  import.meta.env.VITE_SUPABASE_URL || 
   process.env.SUPABASE_URL || 
   process.env.VITE_SUPABASE_URL || '';
 
 const supabaseKey = 
-  (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
   process.env.SUPABASE_PUBLISHABLE_KEY ||
   process.env.SUPABASE_ANON_KEY || 
   process.env.VITE_SUPABASE_ANON_KEY || '';
