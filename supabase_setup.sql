@@ -2,12 +2,16 @@
 -- Copia e cola este código no "SQL Editor" do teu painel Supabase e clica em "Run"
 
 -- 1. Criação da tabela de utilizadores (clientes)
+-- NOTA: id usa gen_random_uuid() em vez de references auth.users(id)
+--       porque o SeuBeat permite encomendas sem autenticação.
+--       O backend usa service_role para bypass de RLS.
 CREATE TABLE IF NOT EXISTS public.users (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   email text UNIQUE,
   phone text,
   name text,
-  created_at timestamptz DEFAULT now()
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
 );
 
 -- Garantir que as colunas críticas existem se a tabela já tiver sido criada antes
@@ -35,7 +39,8 @@ CREATE TABLE IF NOT EXISTS public.song_requests (
   elevenlabs_voice_id text,
   final_mixed_audio_url text,
   error_details jsonb,
-  created_at timestamptz DEFAULT now()
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
 );
 
 -- Garantir que as colunas adicionais existem se a tabela já tiver sido criada antes
@@ -67,7 +72,8 @@ CREATE TABLE IF NOT EXISTS public.songs (
   duration integer,
   mureka_task_id text,
   mureka_status text DEFAULT 'not_started',
-  created_at timestamptz DEFAULT now()
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
 );
 
 -- Garantir que as colunas críticas existem se a tabela já tiver sido criada antes
@@ -96,7 +102,8 @@ CREATE TABLE IF NOT EXISTS public.payments (
   status text DEFAULT 'pending_verification',
   notes text,
   approved_at timestamptz,
-  created_at timestamptz DEFAULT now()
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
 );
 
 -- Garantir que todas as colunas críticas existem (seguro para tabelas já criadas)
@@ -167,6 +174,43 @@ CREATE POLICY "Permitir submissão de pagamento" ON public.payments FOR INSERT W
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- TRIGGER PARA UPDATED_AT
+-- ─────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY INVOKER
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_users_updated_at         ON public.users;
+DROP TRIGGER IF EXISTS trg_song_requests_updated_at ON public.song_requests;
+DROP TRIGGER IF EXISTS trg_songs_updated_at         ON public.songs;
+DROP TRIGGER IF EXISTS trg_payments_updated_at      ON public.payments;
+
+CREATE TRIGGER trg_users_updated_at
+  BEFORE UPDATE ON public.users
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TRIGGER trg_song_requests_updated_at
+  BEFORE UPDATE ON public.song_requests
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TRIGGER trg_songs_updated_at
+  BEFORE UPDATE ON public.songs
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+CREATE TRIGGER trg_payments_updated_at
+  BEFORE UPDATE ON public.payments
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- CONFIGURAÇÃO DE STORAGE (BUCKETS E POLÍTICAS)
 -- ─────────────────────────────────────────────────────────────────────────────
 
@@ -180,22 +224,42 @@ VALUES
   ('photos', 'photos', true, 52428800)
 ON CONFLICT (id) DO NOTHING;
 
--- 2. Habilitar RLS no storage
--- 3. Criar políticas para permitir uploads e leituras públicas/anon seguras
+-- 2. Criar políticas de storage:
+--    - payment-proofs → apenas service_role (dados sensíveis)
+--    - preview, photos → público (partilha de links)
+--    - voice-samples → apenas service_role
+--    - full-audio → apenas service_role
+
+DROP POLICY IF EXISTS "Permitir upload público para anon"               ON storage.objects;
+DROP POLICY IF EXISTS "Permitir leitura pública para anon"              ON storage.objects;
+DROP POLICY IF EXISTS "Leitura pública para preview e photos"           ON storage.objects;
+DROP POLICY IF EXISTS "Leitura total para service_role"                 ON storage.objects;
+DROP POLICY IF EXISTS "Upload para anon em payment-proofs, voice-samples, photos" ON storage.objects;
+DROP POLICY IF EXISTS "Upload total para service_role"                  ON storage.objects;
+
+-- Upload permitido para anon nos buckets necessários ao fluxo
+CREATE POLICY "Upload para anon nos buckets do fluxo" ON storage.objects
+  FOR INSERT TO anon
+  WITH CHECK (bucket_id IN ('payment-proofs', 'voice-samples', 'photos'));
+
+-- Leitura pública apenas para preview e photos (partilha de links)
+CREATE POLICY "Leitura pública para preview e photos" ON storage.objects
+  FOR SELECT TO anon
+  USING (bucket_id IN ('preview', 'photos'));
+
+-- Service_role tem acesso total a todos os buckets
+CREATE POLICY "Acesso total para service_role" ON storage.objects
+  FOR ALL TO service_role
+  USING (true)
+  WITH CHECK (true);
+
 -- Índices para optimização de queries comuns
-CREATE INDEX IF NOT EXISTS idx_song_requests_user_id ON public.song_requests(user_id);
-CREATE INDEX IF NOT EXISTS idx_songs_request_id ON public.songs(request_id);
-CREATE INDEX IF NOT EXISTS idx_payments_request_id ON public.payments(request_id);
-CREATE INDEX IF NOT EXISTS idx_song_requests_email ON public.song_requests(email);
-CREATE INDEX IF NOT EXISTS idx_payments_status ON public.payments(status);
-CREATE INDEX IF NOT EXISTS idx_song_requests_status ON public.song_requests(status);
-
-DROP POLICY IF EXISTS "Permitir upload público para anon" ON storage.objects;
-CREATE POLICY "Permitir upload público para anon" 
-ON storage.objects FOR INSERT TO anon 
-WITH CHECK (bucket_id IN ('payment-proofs', 'voice-samples', 'photos'));
-
-DROP POLICY IF EXISTS "Permitir leitura pública para anon" ON storage.objects;
-CREATE POLICY "Permitir leitura pública para anon" 
-ON storage.objects FOR SELECT TO anon 
-USING (bucket_id IN ('payment-proofs', 'preview', 'photos'));
+CREATE INDEX IF NOT EXISTS idx_song_requests_user_id   ON public.song_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_songs_request_id         ON public.songs(request_id);
+CREATE INDEX IF NOT EXISTS idx_payments_request_id      ON public.payments(request_id);
+CREATE INDEX IF NOT EXISTS idx_song_requests_email      ON public.song_requests(email);
+CREATE INDEX IF NOT EXISTS idx_payments_status          ON public.payments(status);
+CREATE INDEX IF NOT EXISTS idx_song_requests_status     ON public.song_requests(status);
+CREATE INDEX IF NOT EXISTS idx_song_requests_created_at ON public.song_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payments_created_at      ON public.payments(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_songs_created_at         ON public.songs(created_at DESC);
