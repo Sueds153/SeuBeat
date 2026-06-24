@@ -162,14 +162,25 @@ CREATE POLICY "Utilizadores podem editar o seu próprio perfil" ON public.users 
 
 -- 2. SONG_REQUESTS: Apenas o dono pode ver. Inserção permitida para anon (início do fluxo).
 CREATE POLICY "Clientes podem ver os seus pedidos" ON public.song_requests FOR SELECT USING (user_id IN (SELECT id FROM public.users WHERE auth_user_id = auth.uid()) OR user_id = auth.uid());
-CREATE POLICY "Permitir inserção de pedidos por anon" ON public.song_requests FOR INSERT WITH CHECK (true);
+CREATE POLICY "Permitir inserção de pedidos por anon" ON public.song_requests FOR INSERT WITH CHECK (
+  recipient_name IS NOT NULL
+  AND relationship IS NOT NULL
+  AND occasion IS NOT NULL
+  AND music_style IS NOT NULL
+  AND voice_type IS NOT NULL
+);
 
 -- 3. SONGS: Letras e previews são públicos. Áudio completo apenas se pago.
 CREATE POLICY "Músicas e previews são públicos" ON public.songs FOR SELECT USING (true);
 
 -- 4. PAYMENTS: Apenas o dono pode ver os seus pagamentos. Inserção permitida.
 CREATE POLICY "Clientes podem ver os seus pagamentos" ON public.payments FOR SELECT USING (user_email = (SELECT email FROM auth.users WHERE id = auth.uid()));
-CREATE POLICY "Permitir submissão de pagamento" ON public.payments FOR INSERT WITH CHECK (true);
+CREATE POLICY "Permitir submissão de pagamento" ON public.payments FOR INSERT WITH CHECK (
+  request_id IS NOT NULL
+  AND user_email IS NOT NULL
+  AND plan IS NOT NULL
+  AND amount IS NOT NULL
+);
 
 -- Nota: O painel Admin utiliza o "service_role" ou bypassa RLS via Server-Side, pelo que estas restrições não o afetam.
 
@@ -182,6 +193,7 @@ CREATE OR REPLACE FUNCTION public.set_updated_at()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY INVOKER
+SET search_path = ''
 AS $$
 BEGIN
   NEW.updated_at = now();
