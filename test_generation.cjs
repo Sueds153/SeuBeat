@@ -5,10 +5,11 @@ async function runTest() {
   const payload = {
     userNick: 'Sued',
     recipientName: 'Amélia',
-    recipientRelation: 'Parceira',
-    occasion: 'Dia dos Namorados',
-    musicStyle: 'Kizomba',
-    voiceType: 'Masculina',
+    recipientRelation: 'parceira',
+    occasion: 'declaração',
+    musicStyle: 'kizomba',
+    voiceType: 'masculina',
+    desiredEmotion: 'emocionante',
     email: 'sued@seubeat.com',
     phone: '999999999',
     messageFromTheHeart: 'Conhecemo-nos em Luanda numa noite quente de verão, e desde então o meu coração é teu.'

@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, Pause, Volume2, VolumeX, Heart, Share2, 
-  Download, ArrowLeft, Sparkles, Check, Copy, 
-  FileText, MessageCircle, RefreshCw, Upload, Image as ImageIcon,
-  Cloud, ExternalLink, LogOut, FolderOpen, AlertTriangle
+  Download, ArrowLeft, Sparkles, Check,
+  FileText, Upload, Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MusicStyleType, EmotionType } from '../types';
+import { MusicStyleType } from '../types';
 
 interface PersonalizedSongPageProps {
   onBackToLanding: () => void;
@@ -19,19 +18,8 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
   const [copiedType, setCopiedType] = useState<'link' | 'share' | null>(null);
   const [likesCount, setLikesCount] = useState(382);
   const [hasLiked, setHasLiked] = useState(false);
-  const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const liveAudioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Google Drive Integration States
-  const [googleToken, setGoogleToken] = useState<string | null>(null);
-  const [googleProfile, setGoogleProfile] = useState<any>(null);
-  const [isOauthConfigured, setIsOauthConfigured] = useState<boolean | null>(null);
-  const [googleDriveLoading, setGoogleDriveLoading] = useState<boolean>(false);
-  const [googleDriveError, setGoogleDriveError] = useState<string | null>(null);
-  const [driveFiles, setDriveFiles] = useState<any[]>([]);
-  const [savedFileLink, setSavedFileLink] = useState<string | null>(null);
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
 
   // Decode from URL parameters to construct fully shareable page
   const [songDetails, setSongDetails] = useState({
@@ -82,7 +70,8 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
       letter: '',
       photoUrl: savedLocalPhoto || '',
       songTitle: '',
-      lyrics: [] as string[]
+      lyrics: [] as string[],
+      audioUrl: ''
     };
 
     if (hpRecipientName) {
@@ -96,7 +85,8 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
         letter: hpLetter || '',
         photoUrl: savedLocalPhoto || '',
         songTitle: hpSongTitle || '',
-        lyrics: parsedLyrics
+        lyrics: parsedLyrics,
+        audioUrl: ''
       };
       setSongDetails(initialDetails);
     } else {
@@ -115,7 +105,8 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
             letter: parsed.messageFromTheHeart || '',
             photoUrl: parsed.photoUrl || savedLocalPhoto || '',
             songTitle: parsed.songTitle || '',
-            lyrics: parsed.lyrics || []
+            lyrics: parsed.lyrics || [],
+            audioUrl: ''
           };
           setSongDetails(initialDetails);
         } catch (e) {
@@ -152,7 +143,16 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
     }
   }, []);
 
-  // Sync real ElevenLabs audio playback and progress tracking
+  // Sync real Suno audio playback and progress tracking
+  useEffect(() => {
+    return () => {
+      if (liveAudioRef.current) {
+        liveAudioRef.current.pause();
+        liveAudioRef.current = null;
+      }
+    };
+  }, [songDetails.audioUrl]);
+
   useEffect(() => {
     if (isPlaying) {
       if (!liveAudioRef.current) {
@@ -212,258 +212,6 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
     };
   }, []);
 
-  // Check Google OAuth backend status on mount
-  useEffect(() => {
-    fetch('/api/auth/google/status')
-      .then(res => res.json())
-      .then(data => {
-        setIsOauthConfigured(data.configured);
-        if (!data.configured) {
-          setIsDemoMode(true);
-        }
-      })
-      .catch(err => {
-        console.error("Erro ao verificar Google OAuth status:", err);
-        setIsOauthConfigured(false);
-        setIsDemoMode(true);
-      });
-  }, []);
-
-  // Listen for callback popups postMessage
-  useEffect(() => {
-    const handleGoogleAuthMessage = (event: MessageEvent) => {
-      const origin = event.origin;
-      const isTrusted = origin.endsWith('.run.app') || origin.includes('localhost') || origin.includes('127.0.0.1');
-      if (!isTrusted) return;
-
-      if (event.data?.type === 'GOOGLE_DRIVE_AUTH_SUCCESS') {
-        const { accessToken, profile } = event.data;
-        setGoogleToken(accessToken);
-        setGoogleProfile(profile);
-        setGoogleDriveError(null);
-        setIsDemoMode(false);
-        fetchDriveFiles(accessToken);
-      }
-    };
-    window.addEventListener('message', handleGoogleAuthMessage);
-    return () => window.removeEventListener('message', handleGoogleAuthMessage);
-  }, []);
-
-  const fetchDriveFiles = async (token: string) => {
-    setGoogleDriveLoading(true);
-    setGoogleDriveError(null);
-    try {
-      const searchUrl = `https://www.googleapis.com/drive/v3/files?q=name contains 'SeuBeat' and trashed = false&fields=files(id, name, webViewLink, createdTime)&orderBy=createdTime desc`;
-      const res = await fetch(searchUrl, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setDriveFiles(data.files || []);
-      } else {
-        throw new Error(`Erro na API Google Drive: ${res.statusText}`);
-      }
-    } catch (err: any) {
-      console.error("Falha ao recolher ficheiros do Drive:", err);
-      setGoogleDriveError(err.message || "Erro de ligação ao recolher.");
-    } finally {
-      setGoogleDriveLoading(false);
-    }
-  };
-
-  const startGoogleOAuth = async () => {
-    setGoogleDriveLoading(true);
-    setGoogleDriveError(null);
-    
-    if (isDemoMode && !isOauthConfigured) {
-      const useMock = window.confirm(
-        "O cliente Google OAuth (OAUTH_CLIENT_ID) não está configurado. Deseja iniciar o MODO SIMULADO DE DEMONSTRAÇÃO SeuBeat para testar localmente?"
-      );
-      if (useMock) {
-        setGoogleProfile({
-          name: "Desenvolvedor SeuBeat",
-          email: "demo@seubeat.com",
-          picture: ""
-        });
-        setGoogleToken("demo-token-12345");
-        setDriveFiles([
-          {
-            id: 'demo-1',
-            name: `SeuBeat_Cancao_de_Martinha_Demo.txt`,
-            webViewLink: 'https://drive.google.com',
-            createdTime: new Date().toISOString()
-          }
-        ]);
-        setGoogleDriveLoading(false);
-        return;
-      }
-    }
-
-    try {
-      const res = await fetch('/api/auth/google/url');
-      if (!res.ok) {
-        throw new Error("Não foi possível alcançar o URL de autorização.");
-      }
-      const data = await res.json();
-      
-      const width = 500;
-      const height = 650;
-      const left = window.screenX + (window.outerWidth - width) / 2;
-      const top = window.screenY + (window.outerHeight - height) / 2;
-      
-      const authWindow = window.open(
-        data.url,
-        'seubeat_google_drive_oauth',
-        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=yes`
-      );
-
-      if (!authWindow) {
-        throw new Error("O popup foi bloqueado pelo seu browser. Por favor, permita popups para este site.");
-      }
-    } catch (err: any) {
-      console.error("Erro ao iniciar login Google OAuth:", err);
-      setGoogleDriveError(err.message || "Não foi possível iniciar o popup de autenticação.");
-    } finally {
-      setGoogleDriveLoading(false);
-    }
-  };
-
-  const handleDisconnectDrive = () => {
-    setGoogleToken(null);
-    setGoogleProfile(null);
-    setDriveFiles([]);
-    setSavedFileLink(null);
-  };
-
-  const handleSaveToGoogleDrive = async () => {
-    const confirmed = window.confirm(
-      `Deseja guardar uma cópia poética completa de "${songDetails.songTitle || `Canção de ${songDetails.recipientName}`}" no seu Google Drive pessoal?`
-    );
-    if (!confirmed) return;
-
-    setGoogleDriveLoading(true);
-    setGoogleDriveError(null);
-    setSavedFileLink(null);
-
-    if (isDemoMode || !isOauthConfigured) {
-      setTimeout(() => {
-        const mockId = `mock-file-${Math.random().toString(36).substring(4)}`;
-        const mockFile = {
-          id: mockId,
-          name: `SeuBeat_Cancao_de_${songDetails.recipientName.replace(/\s+/g, '_')}.txt`,
-          webViewLink: 'https://drive.google.com',
-          createdTime: new Date().toISOString()
-        };
-        setDriveFiles(prev => [mockFile, ...prev]);
-        setSavedFileLink('https://drive.google.com');
-        setGoogleDriveLoading(false);
-      }, 1000);
-      return;
-    }
-
-    if (!googleToken) {
-      setGoogleDriveError("Necessita de se conectar autonomamente primeiro.");
-      setGoogleDriveLoading(false);
-      return;
-    }
-
-    try {
-      let folderId = '';
-      const folderSearchUrl = `https://www.googleapis.com/drive/v3/files?q=name='SeuBeat - Canções d'Amor' and mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id)`;
-      const folderSearchRes = await fetch(folderSearchUrl, {
-        headers: { 'Authorization': `Bearer ${googleToken}` }
-      });
-      if (folderSearchRes.ok) {
-        const folderSearchData = await folderSearchRes.json();
-        if (folderSearchData.files && folderSearchData.files.length > 0) {
-          folderId = folderSearchData.files[0].id;
-        }
-      }
-
-      if (!folderId) {
-        const createFolderRes = await fetch('https://www.googleapis.com/drive/v3/files', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${googleToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            name: "SeuBeat - Canções d'Amor",
-            mimeType: "application/vnd.google-apps.folder"
-          })
-        });
-        if (createFolderRes.ok) {
-          const newFolderData = await createFolderRes.json();
-          folderId = newFolderData.id;
-        }
-      }
-
-      const lyricsLines = generateLyrics();
-      const fileContent = `================================================
-DEDICATÓRIA DE AMOR SEUBEAT
-Música: ${songDetails.songTitle || `Canção de ${songDetails.recipientName}`}
-Género: ${songDetails.musicStyle}
-Autor: ${songDetails.userNick}
-Para: ${songDetails.recipientName} (${songDetails.recipientNick})
-Criado em: ${new Date().toLocaleString('pt-AO')}
-================================================
-
-LETRA COMPLETA DA CANÇÃO:
-------------------------------------------------
-${lyricsLines.map((line) => `[Letra] ${line}`).join('\n')}
-
-------------------------------------------------
-CARTA ESCRITA DO CORAÇÃO:
-------------------------------------------------
-${getFullComposedLetter()}
-
-------------------------------------------------
-Criado com ❤️ no estúdio SeuBeat (teusom.com)
-Angola ${(new Date().getFullYear())}
-Ouve a canção online: ${getShareUrl()}
-================================================`;
-
-      const boundary = 'seubeat_multipart_boundary';
-      const metadata = {
-        name: `SeuBeat_Cancao_de_${songDetails.recipientName.replace(/\s+/g, '_')}.txt`,
-        mimeType: 'text/plain',
-        ...(folderId ? { parents: [folderId] } : {})
-      };
-
-      const multipartBody = 
-        `\r\n--${boundary}\r\n` +
-        'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-        JSON.stringify(metadata) +
-        `\r\n--${boundary}\r\n` +
-        'Content-Type: text/plain; charset=UTF-8\r\n\r\n' +
-        fileContent +
-        `\r\n--${boundary}--`;
-
-      const uploadRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink,createdTime', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${googleToken}`,
-          'Content-Type': `multipart/related; boundary=${boundary}`
-        },
-        body: multipartBody
-      });
-
-      if (!uploadRes.ok) {
-        throw new Error(`Upload falhou: ${uploadRes.statusText}`);
-      }
-
-      const uploadedFile = await uploadRes.json();
-      setSavedFileLink(uploadedFile.webViewLink);
-      fetchDriveFiles(googleToken);
-
-    } catch (err: any) {
-      console.error("Erro ao guardar no Google Drive:", err);
-      setGoogleDriveError(err.message || 'Erro ao comunicar com o Google Drive.');
-    } finally {
-      setGoogleDriveLoading(false);
-    }
-  };
-
   const handlePlayPause = () => {
     setIsPlaying(!isPlaying);
   };
@@ -506,27 +254,16 @@ Ouve a canção online: ${getShareUrl()}
     return `Minha querida ${recipientName} (${recipientNick}),\n\nEscrevo estas palavras com o coração totalmente aberto e transbordando de carinho. Há momentos na vida que ficam gravados para sempre na alma, e um deles é, sem dúvida, ${memory || 'tudo o que partilhámos juntos'} que aconteceu em ${whereItHappened || 'Angola'}.\n\nQuero que saibas que o teu sorriso ilumina os meus dias mais cinzentos e que a tua presença traz uma paz inigualável. Criar esta canção personalizada no estúdio SeuBeat foi a forma mais profunda e sincera que encontrei de eternizar o nosso companheirismo e declarar o meu carinho inabalável por ti.\n\nCom todo o amor do mundo,\n${userNick}`;
   };
 
-  // MP3 simulation helper
+  // MP3 download helper
   const handleDownloadMP3 = () => {
-    if (songDetails.audioUrl) {
-      const element = document.createElement("a");
-      element.href = songDetails.audioUrl;
-      element.target = "_blank";
-      element.download = `${songDetails.recipientName.replace(/\s+/g, '_')}_SeuBeat_Completa.mp3`;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-    } else {
-      const element = document.createElement("a");
-      const file = new Blob([
-        "ID3v2.3.0\nTIT2:SeuBeat Song\nTPE1:SeuBeat Estúdio\n\n[MOCK AUDIO DATA BINARY STREAM FOR PREMIUM MP3 AUDIO GENERATION]"
-      ], { type: 'audio/mp3' });
-      element.href = URL.createObjectURL(file);
-      element.download = `${songDetails.recipientName.replace(/\s+/g, '_')}_SeuBeat_Completa.mp3`;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-    }
+    if (!songDetails.audioUrl) return;
+    const element = document.createElement("a");
+    element.href = songDetails.audioUrl;
+    element.target = "_blank";
+    element.download = `${songDetails.recipientName.replace(/\s+/g, '_')}_SeuBeat_Completa.mp3`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
   };
 
   // PDF Lyrics simulator (plain text export formatted beautifully)
@@ -559,6 +296,7 @@ Angola ${(new Date().getFullYear())}
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
+    URL.revokeObjectURL(element.href);
   };
 
   // Generate URL for sharing
@@ -584,16 +322,11 @@ Angola ${(new Date().getFullYear())}
     setTimeout(() => setCopiedType(null), 2500);
   };
 
-  const handleWhatsAppShare = () => {
-    const shareUrl = getShareUrl();
-    const text = `Olha a surpresa linda que o(a) ${songDetails.userNick} criou para a ${songDetails.recipientName}! Uma música personalizada real! Ouve aqui: ${shareUrl}`;
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
-  };
-
   const handleCustomPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const url = URL.createObjectURL(e.target.files[0]);
-      // Save visually
+      const file = e.target.files[0];
+      if (songDetails.photoUrl?.startsWith('blob:')) URL.revokeObjectURL(songDetails.photoUrl);
+      const url = URL.createObjectURL(file);
       setSongDetails(prev => ({ ...prev, photoUrl: url }));
       // Also write base64 template to persist locally on reload
       const reader = new FileReader();
@@ -602,7 +335,7 @@ Angola ${(new Date().getFullYear())}
           localStorage.setItem('seubeat_temp_photo', reader.result);
         }
       };
-      reader.readAsDataURL(e.target.files[0]);
+      reader.readAsDataURL(file);
     }
   };
 
@@ -859,175 +592,20 @@ Angola ${(new Date().getFullYear())}
               </div>
             </div>
 
-            {/* Google Drive Integration Panel */}
-            <div className="bg-stone-950 p-4 md:p-5 rounded-2xl border border-stone-850 space-y-4">
-              <div className="flex items-center justify-between border-b border-stone-900 pb-2">
-                <div className="flex items-center gap-2">
-                  <Cloud className="w-4 h-4 text-amber-500" />
-                  <span className="text-xs font-mono font-bold text-stone-300">GOOGLE DRIVE CLOUD WORKSPACE</span>
-                </div>
-                {isDemoMode && (
-                  <span className="text-[9px] font-mono font-extrabold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                    Modo Simulado
-                  </span>
-                )}
-              </div>
-
-              {!googleToken ? (
-                <div className="space-y-3 text-left">
-                  <p className="text-xxs md:text-xs text-stone-400 font-sans leading-relaxed">
-                    Sincronize a sua conta Google para guardar com total segurança as letras, rimas, e detalhes da sua carta romântica exclusiva numa pasta dedicada no seu Drive.
-                  </p>
-                  
-                  {isOauthConfigured === false && (
-                    <div className="bg-stone-900/60 border border-stone-850 p-3 rounded-lg flex items-start gap-2 text-left">
-                      <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-bold text-amber-400 block font-mono">CONFIGURAÇÃO DE ACESSO NECESSÁRIA:</span>
-                        <p className="text-[9.5px] text-stone-400 leading-relaxed">
-                          O cliente OAuth real não está inicializado nos ambientes do AI Studio (Defina <code className="font-mono bg-stone-950 px-1 py-0.5 text-xs text-amber-500 font-bold">OAUTH_CLIENT_ID</code> nas Configurações). Poderá testar o fluxo ativando a simulação interativa no botão abaixo.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={startGoogleOAuth}
-                    disabled={googleDriveLoading}
-                    className="w-full py-2.5 bg-stone-900 hover:bg-stone-850 text-amber-400 border border-stone-800 hover:border-amber-500/30 font-mono font-bold text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors"
-                  >
-                    {googleDriveLoading ? (
-                      <span className="inline-block animate-spin border-2 border-amber-500 border-t-transparent w-3 h-3 rounded-full mr-1" />
-                    ) : (
-                      <Cloud className="w-3.5 h-3.5 text-amber-500" />
-                    )}
-                    <span>CONECTAR GOOGLE DRIVE</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4 text-left">
-                  {/* Connected profile badge */}
-                  <div className="flex items-center justify-between bg-stone-900/55 p-2 rounded-xl border border-stone-850">
-                    <div className="flex items-center gap-2">
-                      {googleProfile?.picture ? (
-                        <img 
-                          src={googleProfile.picture} 
-                          alt="Avatar" 
-                          className="w-7 h-7 rounded-full border border-stone-800"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <div className="w-7 h-7 rounded-full bg-amber-500/10 flex items-center justify-center font-bold text-amber-400 font-mono text-xs">
-                          {googleProfile?.name?.charAt(0) || 'C'}
-                        </div>
-                      )}
-                      <div className="text-left leading-tight">
-                        <span className="text-[11px] font-bold block text-stone-200">{googleProfile?.name || 'Compositor'}</span>
-                        <span className="text-[9px] text-stone-500 block font-mono">{googleProfile?.email || 'drive@seubeat.com'}</span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleDisconnectDrive}
-                      className="p-1 px-2 border border-stone-800 hover:border-red-500/30 text-stone-500 hover:text-red-400 rounded-lg text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-colors"
-                      title="Sair do Google Drive"
-                    >
-                      <LogOut className="w-3 h-3" />
-                      <span>Sair</span>
-                    </button>
-                  </div>
-
-                  {/* Actions inside Drive */}
-                  <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={handleSaveToGoogleDrive}
-                      disabled={googleDriveLoading}
-                      className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-stone-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors shadow-lg shadow-amber-500/10"
-                    >
-                      {googleDriveLoading ? (
-                        <span className="inline-block animate-spin border-2 border-stone-950 border-t-transparent w-3.5 h-3.5 rounded-full mr-1" />
-                      ) : (
-                        <Cloud className="w-4 h-4 fill-stone-950" />
-                      )}
-                      <span>GUARDAR CÓPIA COMPLETA NO GOOGLE DRIVE</span>
-                    </button>
-
-                    {savedFileLink && (
-                      <a
-                        href={savedFileLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="w-full py-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-bold text-xxs font-mono rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-colors hover:bg-emerald-500/15"
-                      >
-                        <Check className="w-3 h-3 text-emerald-400" />
-                        <span>VER FICHEIRO GRAVADO NO DRIVE</span>
-                        <ExternalLink className="w-3 h-3 text-emerald-400" />
-                      </a>
-                    )}
-                  </div>
-
-                  {googleDriveError && (
-                    <div className="p-2 border border-rose-950 bg-rose-950/20 text-red-400 text-[10px] rounded-lg text-left">
-                      <strong>Erro:</strong> {googleDriveError}
-                    </div>
-                  )}
-
-                  {/* List previously saved files */}
-                  <div className="space-y-2 pt-2 border-t border-stone-900/60">
-                    <div className="flex items-center gap-1 text-[10px] text-stone-400 font-mono font-bold uppercase tracking-wider">
-                      <FolderOpen className="w-3 h-3 text-amber-500" />
-                      <span>Ficheiros Guardados em "SeuBeat - Canções d'Amor":</span>
-                    </div>
-
-                    {driveFiles.length === 0 ? (
-                      <p className="text-[10px] text-stone-600 font-mono italic">
-                        Nenhum ficheiro detetado nesta pasta ainda. Carregue no botão superior para guardar!
-                      </p>
-                    ) : (
-                      <div className="space-y-1.5 max-h-[100px] overflow-y-auto scrollbar-thin">
-                        {driveFiles.map((file: any) => (
-                          <div 
-                            key={file.id} 
-                            className="flex items-center justify-between p-1.5 bg-stone-950 rounded border border-stone-900 text-left text-[10px] hover:border-stone-800 transition-colors"
-                          >
-                            <div className="flex items-center gap-1.5 truncate max-w-[70%]">
-                              <FileText className="w-3 h-3 text-amber-500 flex-shrink-0" />
-                              <span className="text-stone-300 font-medium truncate font-mono">{file.name}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[8px] text-stone-600 font-mono">
-                                {new Date(file.createdTime).toLocaleDateString('pt-AO')}
-                              </span>
-                              <a 
-                                href={file.webViewLink} 
-                                target="_blank" 
-                                rel="noreferrer"
-                                className="text-amber-500 hover:text-amber-400 transition-colors"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* Downloads column buttons */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
               <button
                 type="button"
                 onClick={handleDownloadMP3}
-                className="py-3 px-4 bg-stone-900 hover:bg-stone-850 text-stone-200 hover:text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 border border-stone-800 cursor-pointer transition-all"
+                disabled={!songDetails.audioUrl}
+                className={`py-3 px-4 rounded-xl flex items-center justify-center gap-2 border text-xs font-semibold transition-all ${
+                  songDetails.audioUrl
+                    ? 'bg-stone-900 hover:bg-stone-850 text-stone-200 hover:text-white border-stone-800 cursor-pointer'
+                    : 'bg-stone-950 text-stone-600 border-stone-900 cursor-not-allowed'
+                }`}
               >
-                <Download className="w-4 h-4 text-emerald-400" />
-                <span>Descarregar Áudio (MP3)</span>
+                <Download className={`w-4 h-4 ${songDetails.audioUrl ? 'text-emerald-400' : 'text-stone-700'}`} />
+                <span>{songDetails.audioUrl ? 'Descarregar Áudio (MP3)' : 'Áudio em processamento...'}</span>
               </button>
 
               <button
@@ -1062,21 +640,11 @@ Angola ${(new Date().getFullYear())}
           <div className="max-w-md mx-auto space-y-2">
             <h3 className="font-serif text-xl font-bold text-stone-100">Partilhe esta página de Dedicatória Especial 💍</h3>
             <p className="text-xs text-stone-400">
-              Copie o link individual da página ou envie diretamente no WhatsApp para que o destinatário ouça a sua composição com todo o romance merecido.
+              Copie o link individual da página para que o destinatário ouça a sua composição com todo o romance merecido.
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center items-center max-w-xl mx-auto">
-            {/* WhatsApp Share */}
-            <button
-              onClick={handleWhatsAppShare}
-              className="w-full sm:w-auto px-6 py-3.5 bg-emerald-600 hover:bg-emerald-500 text-stone-950 font-black text-xs md:text-sm rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-colors uppercase tracking-wider"
-            >
-              <MessageCircle className="w-4 h-4 fill-stone-950 text-stone-950" />
-              <span>Enviar no WhatsApp</span>
-            </button>
-
-            {/* Copy link */}
             <button
               onClick={() => copyToClipboard('link')}
               className="w-full sm:w-auto px-6 py-3.5 bg-stone-900 hover:bg-stone-850 text-stone-100 font-bold text-xs md:text-sm rounded-xl flex items-center justify-center gap-2 border border-stone-800 cursor-pointer transition-colors uppercase tracking-wider"

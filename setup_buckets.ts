@@ -1,4 +1,8 @@
 /**
+ * @deprecated Use supabase_setup.sql (na raiz do projeto) em vez deste script.
+ *             O SQL cobre tabelas, buckets e RLS de forma atómica.
+ *             Este script mantém-se apenas como referência histórica.
+ *
  * SeuBeat — Script de Criação dos Buckets no Supabase Storage
  * 
  * COMO USAR:

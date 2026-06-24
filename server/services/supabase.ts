@@ -1,13 +1,17 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import fs from 'fs';
 
-// Supabase client helper
+let supabaseClient: SupabaseClient | null = null;
+
+// Supabase client helper (singleton)
 export function getSupabase() {
+  if (supabaseClient) return supabaseClient;
   const supabaseUrl = process.env.SUPABASE_URL || '';
   // Utiliza a service_role key no backend se disponível para contornar RLS em buckets privados
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
   if (!supabaseUrl || !supabaseKey) return null;
-  return createClient(supabaseUrl, supabaseKey);
+  supabaseClient = createClient(supabaseUrl, supabaseKey);
+  return supabaseClient;
 }
 
 // Utilitário para fazer upload para o Supabase Storage
@@ -15,7 +19,7 @@ export async function uploadToSupabase(bucket: string, filename: string, filePat
   const supabase = getSupabase();
   if (!supabase) throw new Error("Supabase client não inicializado.");
   
-  const fileBuffer = fs.readFileSync(filePath);
+  const fileBuffer = await fs.promises.readFile(filePath);
   const { data, error } = await supabase.storage
     .from(bucket)
     .upload(filename, fileBuffer, {

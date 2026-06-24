@@ -1,12 +1,12 @@
 # ════════════════════════════════════════════════════════════
-#  SEUBEAT — GUIA DE EDIÇÃO DOS PROMPTS DA IA (GEMINI)
+#  SEUBEAT — GUIA DE EDIÇÃO DOS PROMPTS DA IA (CLAUDE)
 # ════════════════════════════════════════════════════════════
 #
-#  Esta pasta contém as instruções que a IA (Gemini) recebe
+#  Esta pasta contém as instruções que a IA (Claude) recebe
 #  para compor a letra da música.
 #
 #  COMO LOCALIZAR NO CÓDIGO:
-#  Ficheiro de Lógica: server/services/gemini.ts (função `selectPrompt`)
+#  Ficheiro de Lógica: server/services/claude.ts (função `selectPrompt`)
 #
 #  COMO A IA DECIDE QUAL FICHEIRO USAR:
 #  1. Primeiro ela lê "mestre.txt" (Regras globais e estrutura Verso/Refrão).

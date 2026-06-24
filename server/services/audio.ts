@@ -1,21 +1,30 @@
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from 'ffmpeg-static';
-import { pipeline } from 'stream';
-import { promisify } from 'util';
 import fs from 'fs';
-
-const streamPipeline = promisify(pipeline);
 
 if (ffmpegInstaller) {
   ffmpeg.setFfmpegPath(ffmpegInstaller);
 }
 
+const DOWNLOAD_TIMEOUT_MS = Number(process.env.DOWNLOAD_TIMEOUT_MS || 120000);
+
 // Utilitário para baixar arquivo
 export async function downloadFile(url: string, destPath: string): Promise<void> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Falha ao descarregar arquivo: ${res.statusText}`);
-  const arrayBuffer = await res.arrayBuffer();
-  fs.writeFileSync(destPath, Buffer.from(arrayBuffer));
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) throw new Error(`Falha ao descarregar arquivo: ${res.statusText}`);
+    const arrayBuffer = await res.arrayBuffer();
+    await fs.promises.writeFile(destPath, Buffer.from(arrayBuffer));
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new Error(`Download timeout after ${DOWNLOAD_TIMEOUT_MS}ms`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // Utilitário para cortar os primeiros 30s de preview
@@ -37,27 +46,4 @@ export function createPreviewAudio(inputPath: string, outputPath: string): Promi
   });
 }
 
-// Utilitário para mixar áudio da Mureka + Narração ElevenLabs
-export function mixAudio(murekaPath: string, voicePath: string, outputPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    ffmpeg()
-      .input(murekaPath)
-      .input(voicePath)
-      .complexFilter([
-        '[0:a]volume=0.25[bg]',
-        '[1:a]volume=1.1[fg]',
-        '[bg][fg]amix=inputs=2:duration=longest[out]'
-      ])
-      .map('[out]')
-      .output(outputPath)
-      .on('end', () => {
-        console.log('✅ Mixagem Premium concluída com sucesso!');
-        resolve();
-      })
-      .on('error', (err) => {
-        console.error('❌ Erro no FFmpeg ao mixar áudios:', err);
-        reject(err);
-      })
-      .run();
-  });
-}
+

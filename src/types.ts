@@ -185,7 +185,7 @@ export interface DemoSong {
   recipient: string;
   lyrics: string[];
   duration: string;
-  audioUrl: string; // visual mock
+  audioUrl: string;
 }
 
 export const DEMO_SONGS: DemoSong[] = [
@@ -196,7 +196,7 @@ export const DEMO_SONGS: DemoSong[] = [
     occasion: 'Casamento',
     recipient: 'Esposa (Cláudia)',
     duration: '3:15',
-    audioUrl: 'kizomba',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
     lyrics: [
       "Desde o dia em que te vi na Ilha de Luanda,",
       "Sabia que o meu peito tinha nova comandante.",
@@ -215,7 +215,7 @@ export const DEMO_SONGS: DemoSong[] = [
     occasion: 'Aniversário',
     recipient: 'Mãe (Dona Maria)',
     duration: '2:45',
-    audioUrl: 'semba',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
     lyrics: [
       "Mãe Maria, a senhora que tudo me deu,",
       "O maior pilar e orgulho deste peito meu.",
@@ -234,7 +234,7 @@ export const DEMO_SONGS: DemoSong[] = [
     occasion: 'Dedicatória Especial',
     recipient: 'Namorado (Yuri)',
     duration: '3:05',
-    audioUrl: 'acoustic',
+    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3',
     lyrics: [
       "O vento que sopra suave lá fora,",
       "Recorda o abraço que me deste há uma hora.",

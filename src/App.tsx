@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import LandingPage from './components/LandingPage';
 import Wizard from './components/Wizard';
 import SocialProof from './components/SocialProof';
@@ -21,6 +21,9 @@ export default function App() {
     return 'landing';
   });
 
+  const currentViewRef = useRef(currentView);
+  currentViewRef.current = currentView;
+
   // Handle browser back navigation or dynamic path change
   useEffect(() => {
     const handleLocationChange = () => {
@@ -28,13 +31,13 @@ export default function App() {
         setCurrentView('admin');
       } else if (window.location.pathname.includes('/song/')) {
         setCurrentView('song');
-      } else if (currentView === 'song' || currentView === 'admin') {
+      } else if (currentViewRef.current === 'song' || currentViewRef.current === 'admin') {
         setCurrentView('landing');
       }
     };
     window.addEventListener('popstate', handleLocationChange);
     return () => window.removeEventListener('popstate', handleLocationChange);
-  }, [currentView]);
+  }, []);
 
   const startWizard = () => {
     setCurrentView('wizard');

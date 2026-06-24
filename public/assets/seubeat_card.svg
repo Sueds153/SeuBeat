@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0f1724" />
+  <g transform="translate(80,80)">
+    <rect width="1040" height="470" rx="24" fill="#111827" />
+    <text x="40" y="120" fill="#F59E0B" font-family="Outfit, sans-serif" font-size="56" font-weight="700">SeuBeat</text>
+    <text x="40" y="180" fill="#E879F9" font-family="Plus Jakarta Sans, sans-serif" font-size="28">Canções e Dedicatórias Personalizadas</text>
+  </g>
+</svg>

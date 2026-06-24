@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Heart, Sparkles, MessageCircle } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 const NOTIFICATIONS = [
   { id: 1, text: '❤️ Mais uma canção foi criada para uma mãe', type: 'love' },
@@ -14,35 +14,31 @@ export default function SocialProof() {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // Show one notification every 12 seconds: 5s shown, 7s hidden
-    const interval = setInterval(() => {
+    let alive = true;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const show = () => {
+      if (!alive) return;
       setIsVisible(true);
-      
-      const hideTimeout = setTimeout(() => {
+      setTimeout(() => {
+        if (!alive) return;
         setIsVisible(false);
-        // Advance to next index after animation out completes
         setTimeout(() => {
+          if (!alive) return;
           setCurrentIndex((prev) => (prev + 1) % NOTIFICATIONS.length);
         }, 500);
       }, 5000);
+    };
 
-      return () => clearTimeout(hideTimeout);
-    }, 12000);
-
-    // Trigger first notification 3 seconds after load
-    const initialTimeout = setTimeout(() => {
-      setIsVisible(true);
-      const hideTimeout = setTimeout(() => {
-        setIsVisible(false);
-        setTimeout(() => {
-          setCurrentIndex((prev) => (prev + 1) % NOTIFICATIONS.length);
-        }, 500);
-      }, 5500);
+    const initial = setTimeout(() => {
+      show();
+      intervalId = setInterval(() => { show(); }, 12000);
     }, 3000);
 
     return () => {
-      clearInterval(interval);
-      clearTimeout(initialTimeout);
+      alive = false;
+      clearTimeout(initial);
+      if (intervalId !== null) clearInterval(intervalId);
     };
   }, []);
 
@@ -53,6 +49,7 @@ export default function SocialProof() {
       <AnimatePresence>
         {isVisible && (
           <motion.div
+            role="alert"
             initial={{ opacity: 0, y: 30, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 15, scale: 0.95 }}

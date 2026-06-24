@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  ArrowRight, ArrowLeft, Heart, Sparkles, Check, Upload, Music, 
-  Mic, Mail, Phone, Smile, Calendar, User, Eye, Lock, RefreshCw, Star, Play, Pause, AlertTriangle, ShieldCheck, HelpCircle, MapPin, Copy
+  ArrowRight, ArrowLeft, Heart, Sparkles, Check, Upload,
+  Mic, Mail, Phone, Eye, Lock, RefreshCw, Play, Pause, AlertTriangle, ShieldCheck, MapPin, Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -87,6 +87,9 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [rotatingMsgIndex, setRotatingMsgIndex] = useState(0);
   const [showPreviewPage, setShowPreviewPage] = useState(false);
   
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info'; id: number } | null>(null);
+  
   // Audio Player Simulation States
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0); // 0 to 20 seconds
@@ -100,7 +103,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [hasRecorded, setHasRecorded] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [clonedVoiceFile, setClonedVoiceFile] = useState<File | null>(null);
-  const [clonedVoiceUrl, setClonedVoiceUrl] = useState<string>('');
   const [copiedText, setCopiedText] = useState<'entidade' | 'referencia' | null>(null);
   const [isDone, setIsDone] = useState(false); // Order success screen
   const [generatedShareUrl, setGeneratedShareUrl] = useState('');
@@ -113,7 +115,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
   const [paymentSubmitError, setPaymentSubmitError] = useState<string>('');
 
-  // AI Song states powered by Gemini
+  // AI Song states powered by Claude
   const [aiSongTitle, setAiSongTitle] = useState('');
   const [aiLyrics, setAiLyrics] = useState<string[]>([]);
   const [aiLyricsSnippet, setAiLyricsSnippet] = useState('');
@@ -123,6 +125,18 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus>('idle');
   const [generationError, setGenerationError] = useState('');
   const [previewAudioUrl, setPreviewAudioUrl] = useState('');
+
+  // Helper para mostrar toasts
+  const showToast = (message: string, type: 'error' | 'success' | 'info' = 'info') => {
+    const id = Date.now();
+    setToast({ message, type, id });
+    setTimeout(() => {
+      setToast(null);
+    }, 4000);
+  };
+
+  const proofMountedRef = useRef(true);
+  useEffect(() => { return () => { proofMountedRef.current = false; }; }, []);
 
   const handleProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -134,7 +148,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       if (file.type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onloadend = () => {
-          setProofPreviewUrl(reader.result as string);
+          if (proofMountedRef.current) setProofPreviewUrl(reader.result as string);
         };
         reader.readAsDataURL(file);
       } else {
@@ -162,9 +176,9 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       const reader = new FileReader();
       reader.readAsDataURL(proofFile);
       reader.onloadend = async () => {
+        if (!proofMountedRef.current) return;
         const base64Data = reader.result as string;
         
-        // Se houver arquivo de voz clonada, ler como base64 também!
         let voiceBase64 = null;
         let voiceFilename = null;
         let voiceMimeType = null;
@@ -206,14 +220,23 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           const voiceReader = new FileReader();
           voiceReader.readAsDataURL(clonedVoiceFile);
           voiceReader.onloadend = async () => {
+            if (!proofMountedRef.current) return;
             voiceBase64 = voiceReader.result as string;
             voiceFilename = clonedVoiceFile.name;
             voiceMimeType = clonedVoiceFile.type;
             await postPaymentData(base64Data, voiceBase64, voiceFilename, voiceMimeType);
           };
+          voiceReader.onerror = () => {
+            setPaymentSubmitError('Erro ao ler o ficheiro de voz.');
+            setPaymentSubmitting(false);
+          };
         } else {
           await postPaymentData(base64Data, null, null, null);
         }
+      };
+      reader.onerror = () => {
+        setPaymentSubmitError('Erro ao ler o comprovativo.');
+        setPaymentSubmitting(false);
       };
     } catch (err: any) {
       setPaymentSubmitError('Erro ao processar o ficheiro: ' + err.message);
@@ -225,7 +248,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [suggestTab, setSuggestTab] = useState<'viagem' | 'romance' | 'divertido' | 'quotidiano'>('viagem');
 
   const photoFileRef = useRef<HTMLInputElement>(null);
-  const audioIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const liveAudioRef = useRef<HTMLAudioElement | null>(null);
   const submissionStartedRef = useRef(false);
 
@@ -359,8 +381,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     }
   }, [isSubmitting]);
 
+  const pollCancelledRef = useRef(false);
+
   const pollSongUntilPreview = async (songId: string, maxAttempts = 60) => {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      if (pollCancelledRef.current) return false;
       if (attempt > 0) {
         await new Promise(resolve => setTimeout(resolve, 8000));
       }
@@ -402,12 +427,17 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     return false;
   };
 
-  // Call Gemini Lyric Generator API on submission
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => { pollCancelledRef.current = true; };
+  }, []);
+
+  // Call Claude Lyric Generator API on submission
   useEffect(() => {
     if (isSubmitting) {
       if (submissionStartedRef.current) return;
       submissionStartedRef.current = true;
-      console.log('Wizard triggers real Gemini lyric generator...');
+      console.log('Wizard triggers real Claude lyric generator...');
       
       const submitData = async () => {
         setGenerationStatus('lyrics_generating');
@@ -447,15 +477,21 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
               photoMimeType
             })
           });
-          const data = await res.json();
-          console.log('Gemini writing result:', data);
 
-          if (!res.ok || !data.success) {
-            throw new Error(data.error || 'Nao foi possivel gerar a letra agora.');
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({ error: 'Erro na conexão' }));
+            throw new Error(data.error || `Erro ${res.status}: Não foi possível gerar a letra.`);
+          }
+
+          const data = await res.json();
+          console.log('Claude writing result:', data);
+
+          if (!data.success) {
+            throw new Error(data.error || 'Não foi possível gerar a letra agora.');
           }
 
           if (!data.dbSongId || !data.dbSongRequestId) {
-            throw new Error('O pedido nao foi guardado corretamente. Tente novamente.');
+            throw new Error('O pedido não foi guardado corretamente. Tente novamente.');
           }
 
           setAiSongTitle(data.songTitle);
@@ -464,15 +500,29 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           setAiLetterText(data.letterText);
           setDbSongId(data.dbSongId);
           setDbSongRequestId(data.dbSongRequestId);
-          setGenerationStatus('lyrics_ready');
-          setProcessingStage(2);
+          setShowPreviewPage(false);
 
-          await pollSongUntilPreview(data.dbSongId);
+          const initialStatus = data.status === 'music_processing' ? 'music_processing' : 'lyrics_ready';
+          setGenerationStatus(initialStatus);
+          setProcessingStage(initialStatus === 'music_processing' ? 3 : 2);
+          showToast('Letra gerada com sucesso!', 'success');
+
+          const previewReady = await pollSongUntilPreview(data.dbSongId);
+          if (!previewReady) {
+            setIsSubmitting(false);
+            setShowPreviewPage(false);
+            setGenerationStatus('music_processing');
+            setGenerationError('A letra foi criada. A música ainda está em processamento; volte a verificar em instantes.');
+            showToast('Letra pronta. Música em processamento...', 'info');
+          }
         } catch (err: any) {
           console.error('Error generating AI lyrics:', err);
           setGenerationStatus('error');
-          setGenerationError(err.message || 'Erro ao gerar. Tente novamente.');
-          setIsSubmitting(true);
+          const errorMsg = err.message || 'Erro ao gerar. Tente novamente.';
+          setGenerationError(errorMsg);
+          showToast(errorMsg, 'error');
+          setIsSubmitting(false);
+          submissionStartedRef.current = false;
         }
       };
       
@@ -480,14 +530,23 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     }
   }, [isSubmitting, formData]);
 
-  // Audio Preview Progress Clock with real ElevenLabs audio playback
+  // Audio Preview Progress Clock with real Suno audio playback
+  useEffect(() => {
+    return () => {
+      if (liveAudioRef.current) {
+        liveAudioRef.current.pause();
+        liveAudioRef.current = null;
+      }
+    };
+  }, [formData.voiceType, voiceUpsellApplied, previewAudioUrl]);
+
   useEffect(() => {
     if (audioPlaying) {
-      // Create new Audio instance if none exists
       if (!liveAudioRef.current) {
         const textToSpeech = aiLyricsSnippet || (aiLyrics && aiLyrics.join(' ')) || 'Fiz esta música para que saibas que o meu amor por ti nunca vai acabar. És o meu porto seguro, a minha luz eterna.';
-        const encodedText = encodeURIComponent(textToSpeech.substring(0, 300)); // limit TTS size for performance
-        const url = `/api/speech-preview?text=${encodedText}&voiceType=${encodeURIComponent(formData.voiceType)}&useClonedVoice=${voiceUpsellApplied}`;
+        const encodedText = encodeURIComponent(textToSpeech.substring(0, 300));
+        const speechUrl = `/api/speech-preview?text=${encodedText}&voiceType=${encodeURIComponent(formData.voiceType)}&useClonedVoice=${voiceUpsellApplied}`;
+        const url = previewAudioUrl || speechUrl;
         liveAudioRef.current = new Audio(url);
         
         liveAudioRef.current.ontimeupdate = () => {
@@ -517,7 +576,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         liveAudioRef.current.pause();
       }
     }
-  }, [audioPlaying, aiLyricsSnippet, aiLyrics, formData.voiceType, voiceUpsellApplied]);
+  }, [audioPlaying, aiLyricsSnippet, aiLyrics, previewAudioUrl]);
 
   // Cleanup live audio player on component unmount
   useEffect(() => {
@@ -535,11 +594,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     if (isRecording) {
       recTimer = setInterval(() => {
         setRecordingSeconds((prev) => {
-          if (prev >= 20) {
-            setIsRecording(false);
-            setHasRecorded(true);
-            return 20;
-          }
+          if (prev >= 20) return 20;
           return prev + 1;
         });
       }, 1000);
@@ -549,7 +604,15 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     };
   }, [isRecording]);
 
-  // Order Finalization effect: saves locally, generates query URL, and fires Resend email
+  // Stop recording when timer reaches 20s
+  useEffect(() => {
+    if (recordingSeconds >= 20 && isRecording) {
+      setIsRecording(false);
+      setHasRecorded(true);
+    }
+  }, [recordingSeconds, isRecording]);
+
+  // Order Finalization effect: saves locally, generates query URL, and fires email
   useEffect(() => {
     if (isDone) {
       // 1. Save locally to populate PersonalizedPage on immediate reload or direct visit
@@ -586,7 +649,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-0]+/g, '-')
+        .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)+/g, '');
         
       const shareUrl = `${window.location.origin}/song/${slug}?${params.toString()}`;
@@ -610,7 +673,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
             return res.json();
           })
           .then((data) => {
-            console.log('Resend integration result:', data);
+            console.log('Email integration result:', data);
             setEmailStatus('sent');
           })
           .catch((err) => {
@@ -619,18 +682,17 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           });
       }
     }
-  }, [isDone, formData, aiLetterText, aiSongTitle, aiLyrics]);
+  }, [isDone, formData, aiLetterText, aiSongTitle, aiLyrics, dbSongId]);
 
   // Handlers
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const url = URL.createObjectURL(file);
-      setFormData(prev => ({
-        ...prev,
-        photoFile: file,
-        photoUrl: url
-      }));
+      setFormData(prev => {
+        if (prev.photoUrl?.startsWith('blob:')) URL.revokeObjectURL(prev.photoUrl);
+        return { ...prev, photoFile: file, photoUrl: url };
+      });
     }
   };
 
@@ -656,7 +718,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       case 8:
         return formData.photoUrl !== '' || formData.photoFile !== null;
       case 9:
-        return formData.email.includes('@') && formData.email.length > 5;
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
       default:
         return true;
     }
@@ -670,11 +732,50 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       } else {
         // Trigger Submitting / Composition simulation
         submissionStartedRef.current = false;
+        setShowPreviewPage(false);
+        setPreviewAudioUrl('');
+        setDbSongId('');
+        setDbSongRequestId('');
         setGenerationStatus('idle');
         setGenerationError('');
+        setProcessingStage(0);
         setIsSubmitting(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
+    }
+  };
+
+  const retryGeneration = () => {
+    submissionStartedRef.current = false;
+    setDbSongId('');
+    setDbSongRequestId('');
+    setPreviewAudioUrl('');
+    setShowPreviewPage(false);
+    setGenerationStatus('idle');
+    setGenerationError('');
+    setIsSubmitting(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const recheckMusicStatus = async () => {
+    if (!dbSongId) return;
+    setIsSubmitting(true);
+    setGenerationError('');
+    setGenerationStatus('music_processing');
+    if (!dbSongId) return;
+    setIsSubmitting(true);
+    setGenerationError('');
+    try {
+      const previewReady = await pollSongUntilPreview(dbSongId, 8);
+      if (!previewReady) {
+        setIsSubmitting(false);
+        setGenerationStatus('music_processing');
+        setGenerationError('A musica ainda esta em processamento. Tente verificar novamente daqui a pouco.');
+      }
+    } catch (err: any) {
+      setIsSubmitting(false);
+      setGenerationStatus('error');
+      setGenerationError(err.message || 'Nao foi possivel consultar a musica.');
     }
   };
 
@@ -695,9 +796,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
     setSelectedPlanID(pId);
     if (pId === 'premium') {
-      // Premium = Express + Voz Clonada (14.900 Kz total)
-      // Força Express como base e activa o upsell de voz
-      setSelectedPlanID('express');
       setVoiceUpsellApplied(true);
       setShowVoiceCloningScreen(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -730,7 +828,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       <div className="max-w-7xl mx-auto w-full flex-grow flex flex-col justify-center">
         
         {/* UPPER BRAND NAV */}
-        {!isSubmitting && !showPreviewPage && !isDone && !showVoiceCloningScreen && (
+        {!isSubmitting && !showPreviewPage && !isDone && !showVoiceCloningScreen && generationStatus === 'idle' && (
           <div className="flex items-center justify-between pb-6 mb-8 border-b border-stone-900">
             <button 
               id="wizard-header-logo-btn"
@@ -836,6 +934,85 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                 </motion.p>
               </AnimatePresence>
             </div>
+          </motion.div>
+        )}
+
+        {!isSubmitting && generationStatus === 'error' && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="max-w-2xl mx-auto w-full text-center space-y-6 bg-stone-900/40 p-8 md:p-10 rounded-3xl border border-rose-900/40 shadow-2xl"
+          >
+            <div className="w-16 h-16 bg-rose-500/10 rounded-full border border-rose-500/25 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-8 h-8 text-rose-400" />
+            </div>
+            <div className="space-y-2">
+              <h3 className="font-serif text-2xl md:text-3xl font-bold text-stone-100">
+                Nao foi possivel gerar agora
+              </h3>
+              <p className="text-stone-400 text-sm max-w-md mx-auto">
+                {generationError || 'Ocorreu um erro ao criar a letra ou iniciar a musica.'}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                type="button"
+                onClick={retryGeneration}
+                className="px-5 py-3 bg-gradient-to-r from-amber-500 to-rose-600 text-stone-950 font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Tentar novamente</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setGenerationStatus('idle');
+                  setGenerationError('');
+                }}
+                className="px-5 py-3 bg-stone-850 hover:bg-stone-800 text-stone-200 font-semibold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                Rever dados
+              </button>
+            </div>
+          </motion.div>
+        )}
+
+        {!isSubmitting && generationStatus === 'music_processing' && !showPreviewPage && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-2xl mx-auto w-full text-center space-y-6 bg-stone-900/40 p-8 md:p-10 rounded-3xl border border-amber-900/30 shadow-2xl"
+          >
+            <div className="w-16 h-16 bg-amber-500/10 rounded-full border border-amber-500/25 flex items-center justify-center mx-auto">
+              <RefreshCw className="w-8 h-8 text-amber-400 animate-spin" />
+            </div>
+            <div className="space-y-2">
+              <span className="text-amber-400 text-xs font-mono font-bold tracking-widest uppercase">
+                LETRA PRONTA - MUSICA EM PROCESSAMENTO
+              </span>
+              <h3 className="font-serif text-2xl md:text-3xl font-bold text-stone-100">
+                A musica ainda esta a ser criada
+              </h3>
+              <p className="text-stone-400 text-sm max-w-md mx-auto">
+                {generationError || 'A letra foi guardada com sucesso. A pre-visualizacao so aparece quando o audio real estiver pronto.'}
+              </p>
+            </div>
+            {aiSongTitle && (
+              <div className="bg-stone-950 p-4 rounded-xl border border-stone-850 text-left space-y-2">
+                <span className="text-[10px] text-stone-500 font-mono tracking-widest uppercase block">Letra criada:</span>
+                <h4 className="font-serif text-lg font-bold text-stone-100">{aiSongTitle}</h4>
+                <p className="text-xs text-stone-400 italic line-clamp-3">{aiLyricsSnippet}</p>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={recheckMusicStatus}
+              disabled={!dbSongId}
+              className="px-5 py-3 bg-gradient-to-r from-amber-500 to-rose-600 text-stone-950 font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mx-auto"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Verificar pre-visualizacao</span>
+            </button>
           </motion.div>
         )}
 
@@ -1761,12 +1938,12 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                   </button>
                 </div>
 
-                {/* Resend email notification delivery reporter */}
+                {/* Email notification delivery reporter */}
                 <div className="text-xs pt-1 flex items-center gap-2">
                   {emailStatus === 'sending' && (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 text-amber-500 animate-spin" strokeWidth={2.5} />
-                      <span className="text-stone-400 font-mono text-xxs uppercase">A enviar email via Resend...</span>
+                      <span className="text-stone-400 font-mono text-xxs uppercase">A enviar email...</span>
                     </>
                   )}
                   {emailStatus === 'sent' && (
@@ -1825,7 +2002,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                   setHasRecorded(false);
                   setRecordingSeconds(0);
                   setClonedVoiceFile(null);
-                  setClonedVoiceUrl('');
                   setIsDone(false);
                 }}
                 className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 rounded-xl text-xs font-bold shadow-lg shadow-amber-500/10 transition-all cursor-pointer"
@@ -1842,7 +2018,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         )}
 
         {/* -------------------- FORM CONTAINER (THE 9 STEPS DESCRIPTIONS MAP) -------------------- */}
-        {!isSubmitting && !showPreviewPage && !isDone && !showVoiceCloningScreen && (
+        {!isSubmitting && !showPreviewPage && !isDone && !showVoiceCloningScreen && generationStatus === 'idle' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Left Column: Form Content */}

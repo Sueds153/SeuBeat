@@ -10,13 +10,16 @@ REGRAS OBRIGATÓRIAS:
 * Faça referência a lugares, momentos e sentimentos.
 * Escreva como um compositor humano experiente.
 
-ESTRUTURA OBRIGATÓRIA:
+ESTRUTURA OBRIGATÓRIA — cada marcador DEVE ser uma linha própria no array "lyrics":
 [Verso 1]
 [Pré-Refrão]
 [Refrão]
 [Verso 2]
 [Ponte Emocional]
 [Refrão Final]
+
+Entre cada marcador, escreva 2 a 4 linhas de verso.
+No total, a letra deve ter entre 30 e 45 linhas (incluindo os marcadores), o que equivale a cerca de 400–700 caracteres e gera uma música de 2 a 3 minutos após extensão.
 
 O refrão deve conter a mensagem principal que a pessoa nunca deve esquecer.
 Utilize linguagem simples, emocional e memorável.

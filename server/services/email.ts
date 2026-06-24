@@ -1,17 +1,52 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 
-// Remetente dos emails — configurar RESEND_FROM no .env para personalizar
-const RESEND_FROM = process.env.RESEND_FROM || 'SeuBeat <onboarding@resend.dev>';
+function getConfig() {
+  return {
+    host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+    port: Number(process.env.SMTP_PORT) || 587,
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.EMAIL_FROM || 'SeuBeat <noreply@seubeat.ao>',
+  };
+}
 
-export function sendPersonalizedEmail(emailAddress: string, recipientName: string, personalizedUrl: string, letterText: string) {
-  const apiKey = process.env.RESEND_API_KEY || '';
-  if (!apiKey) {
-    console.warn("⚠️ RESEND_API_KEY is not defined. Simulating email dispatch to:", emailAddress);
-    return { mocked: true, email: emailAddress };
+function createTransport() {
+  const cfg = getConfig();
+  return nodemailer.createTransport({
+    host: cfg.host,
+    port: cfg.port,
+    secure: false,
+    auth: { user: cfg.user, pass: cfg.pass },
+  });
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function safeStr(val: string | undefined | null, fallback = ''): string {
+  return escapeHtml(val || fallback);
+}
+
+function warnIfMissing(cfg: { user: string; pass: string }): boolean {
+  if (!cfg.user || !cfg.pass) {
+    console.warn('⚠️ SMTP_USER/SMTP_PASS não configurados. Simulando envio de email.');
+    return true;
   }
+  return false;
+}
 
-  const resend = new Resend(apiKey);
-  
+export async function sendPersonalizedEmail(emailAddress: string, recipientName: string, personalizedUrl: string, letterText: string) {
+  const cfg = getConfig();
+  if (warnIfMissing(cfg)) return { mocked: true, email: emailAddress };
+
+  const transporter = createTransport();
+
   const htmlContent = `
     <div style="font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #0b0a09; color: #e7e5e4; padding: 40px 20px; text-align: center; border-radius: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #292524;">
       <div style="margin-bottom: 24px;">
@@ -21,13 +56,13 @@ export function sendPersonalizedEmail(emailAddress: string, recipientName: strin
         A sua música está pronta ❤️
       </h1>
       <p style="font-size: 15px; color: #d6d3d1; line-height: 1.6; max-width: 480px; margin: 0 auto 30px auto;">
-        Preparamos com todo o carinho do mundo uma canção e dedicatória de amor exclusiva para alegrar o coração de <strong>${recipientName}</strong>.
+        Preparamos com todo o carinho do mundo uma canção e dedicatória de amor exclusiva para alegrar o coração de <strong>${safeStr(recipientName)}</strong>.
       </p>
       
       <div style="background-color: #1c1917; border: 1px solid #44403c; border-radius: 12px; padding: 20px; text-align: left; margin-bottom: 30px;">
         <span style="font-size: 10px; font-family: monospace; color: #f59e0b; display: block; margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase;">Trecho da Carta Dedicatória:</span>
         <p style="font-size: 13px; font-style: italic; color: #a8a29e; line-height: 1.5; margin: 0;">
-          "${letterText.length > 140 ? letterText.substring(0, 140) + '...' : letterText}"
+          "${safeStr(letterText).length > 140 ? safeStr(letterText).substring(0, 140) + '...' : safeStr(letterText)}"
         </p>
       </div>
 
@@ -43,44 +78,27 @@ export function sendPersonalizedEmail(emailAddress: string, recipientName: strin
     </div>
   `;
 
-  return resend.emails.send({
-    from: RESEND_FROM,
+  return transporter.sendMail({
+    from: cfg.from,
     to: emailAddress,
     subject: 'A sua música está pronta ❤️',
     html: htmlContent,
   });
 }
 
-export function sendPaymentNotificationEmail(adminEmail: string, clientEmail: string, plan: string, amount: string) {
-  const apiKey = process.env.RESEND_API_KEY || '';
-  if (!apiKey) return;
-  const resend = new Resend(apiKey);
-  return resend.emails.send({
-    from: RESEND_FROM,
-    to: adminEmail,
-    subject: '💳 Novo comprovativo de pagamento recebido!',
-    html: `<div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
-      <h2 style="color:#f59e0b">💳 Novo Pagamento Submetido!</h2>
-      <p>O cliente <strong>${clientEmail}</strong> submeteu um comprovativo de pagamento.</p>
-      <p>Plano: <strong>${plan}</strong> — Valor: <strong>${amount}</strong></p>
-      <p>Acesse o painel de administração para verificar e aprovar.</p>
-    </div>`
-  });
-}
-
-export function sendPaymentRejectionEmail(userEmail: string, notes?: string) {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
-  const resend = new Resend(apiKey);
-  return resend.emails.send({
-    from: RESEND_FROM,
+export async function sendPaymentRejectionEmail(userEmail: string, notes?: string) {
+  const cfg = getConfig();
+  if (warnIfMissing(cfg)) return;
+  const transporter = createTransport();
+  return transporter.sendMail({
+    from: cfg.from,
     to: userEmail,
     subject: 'Verificação de comprovativo — SeuBeat',
     html: `<div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
       <h2 style="color:#f59e0b">ℹ️ Comprovativo não validado</h2>
       <p>Não conseguimos validar o seu comprovativo de pagamento.</p>
-      ${notes ? `<p>Motivo: <strong>${notes}</strong></p>` : ''}
-      <p>Por favor, submeta novamente ou contacte-nos pelo WhatsApp para assistência.</p>
+      ${notes ? `<p>Motivo: <strong>${safeStr(notes)}</strong></p>` : ''}
+      <p>Por favor, submeta novamente ou contacte-nos em suporte@seubeat.ao para assistência.</p>
     </div>`
   });
 }

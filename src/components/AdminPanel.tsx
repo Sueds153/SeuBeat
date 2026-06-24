@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   BarChart3, Users, Music, CreditCard, CheckCircle, XCircle,
   Clock, RefreshCw, Eye, LogOut, ChevronDown, ChevronRight,
   Download, Play, AlertTriangle, Sparkles, TrendingUp, Shield,
-  Activity, RotateCcw, Mic, Mail, Pencil, Upload, Zap, Info
+  Activity, RotateCcw, Mic, Mail, Pencil, Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -74,10 +74,10 @@ interface Song {
 
 interface DiagnosticsResult {
   supabase: { ok: boolean; error?: string; buckets?: { name: string; public: boolean }[] };
-  gemini: { ok: boolean; error?: string };
-  elevenlabs: { ok: boolean; error?: string; info?: { characterCount: number; characterLimit: number; tier: string } };
-  mureka: { ok: boolean; error?: string };
-  resend: { ok: boolean; error?: string; domains?: any[] };
+  claude: { ok: boolean; error?: string };
+  suno: { ok: boolean; error?: string; credits?: number };
+  sunoVoice: { ok: boolean; error?: string };
+  email: { ok: boolean; error?: string; provider?: string; host?: string };
 }
 
 interface ProgressEntry {
@@ -189,10 +189,12 @@ export default function AdminPanel() {
 
   const fetchStats = useCallback(async () => {
     if (!adminPassword) return;
+    setLoading(true);
     try {
       const res = await fetch('/api/admin/stats', { headers: apiHeaders });
       if (res.ok) setStats(await res.json());
     } catch (e) { console.error(e); }
+    setLoading(false);
   }, [adminPassword]);
 
   const fetchPayments = useCallback(async () => {
@@ -410,7 +412,12 @@ export default function AdminPanel() {
     try {
       const reader = new FileReader();
       reader.onload = async (e) => {
-        const base64 = e.target?.result as string;
+        if (!e.target?.result) {
+          showToast('Erro ao ler o arquivo.', 'error');
+          setActionLoading(null);
+          return;
+        }
+        const base64 = e.target.result as string;
         const res = await fetch(`/api/admin/song/${songId}/upload-audio`, {
           method: 'POST', headers: apiHeaders,
           body: JSON.stringify({ audioBase64: base64, audioFilename: file.name, audioMimeType: file.type })
@@ -418,6 +425,10 @@ export default function AdminPanel() {
         const data = await res.json();
         if (res.ok) { showToast('📤 Áudio carregado com sucesso!'); fetchSongs(); setUploadingSongId(null); }
         else showToast(data.error || 'Erro ao carregar áudio.', 'error');
+        setActionLoading(null);
+      };
+      reader.onerror = () => {
+        showToast('Erro ao ler o arquivo.', 'error');
         setActionLoading(null);
       };
       reader.readAsDataURL(file);
@@ -560,22 +571,28 @@ export default function AdminPanel() {
                 <button onClick={() => setProofModal(null)} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer">✕ Fechar</button>
               </div>
               <div className="p-4">
-                <img
-                  src={proofModal}
-                  alt="Comprovativo"
-                  className="w-full rounded-xl object-contain max-h-[70vh]"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-                <a
-                  href={proofModal}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 flex items-center gap-2 text-xs text-amber-400 hover:underline font-mono"
-                >
-                  <Download className="w-3.5 h-3.5" /> Abrir em nova aba / Descarregar
-                </a>
+                {proofModal?.startsWith('https://') ? (
+                  <>
+                    <img
+                      src={proofModal}
+                      alt="Comprovativo"
+                      className="w-full rounded-xl object-contain max-h-[70vh]"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <a
+                      href={proofModal}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 flex items-center gap-2 text-xs text-amber-400 hover:underline font-mono"
+                    >
+                      <Download className="w-3.5 h-3.5" /> Abrir em nova aba / Descarregar
+                    </a>
+                  </>
+                ) : (
+                  <p className="text-stone-400 text-sm text-center py-8">URL do comprovativo inválida</p>
+                )}
               </div>
             </motion.div>
           </motion.div>
@@ -663,7 +680,7 @@ export default function AdminPanel() {
                       <StatCard icon={Clock} label="Pagamentos Pendentes" value={stats.pendingPayments} color="bg-amber-500/15 text-amber-400" subtitle="Aguardando verificação" />
                       <StatCard icon={CheckCircle} label="Pagamentos Aprovados" value={stats.approvedPayments} color="bg-emerald-500/15 text-emerald-400" />
                       <StatCard icon={TrendingUp} label="Receita Total" value={stats.totalRevenue} color="bg-rose-500/15 text-rose-400" subtitle="Pagamentos aprovados" />
-                      <StatCard icon={Sparkles} label="Músicas Geradas" value={stats.musicGenerated} color="bg-amber-500/15 text-amber-400" subtitle="Com áudio Mureka" />
+                      <StatCard icon={Sparkles} label="Músicas Geradas" value={stats.musicGenerated} color="bg-amber-500/15 text-amber-400" subtitle="Com áudio Suno" />
                     </div>
                   ) : (
                     <div className="flex items-center justify-center h-32">
@@ -761,7 +778,7 @@ export default function AdminPanel() {
                                   ) : (
                                     <div className="flex items-center gap-2 text-xs text-stone-500 font-mono">
                                       <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
-                                      Nenhum comprovativo anexado (pode ter sido enviado por WhatsApp)
+                                      Nenhum comprovativo anexado
                                     </div>
                                   )}
 
@@ -797,7 +814,7 @@ export default function AdminPanel() {
                                           ) : (
                                             <CheckCircle className="w-3.5 h-3.5" />
                                           )}
-                                          Aprovar + Gerar Música (Mureka)
+                                          Aprovar + Gerar Música (Suno)
                                         </button>
                                         <button
                                           onClick={() => handleReject(payment.id)}
@@ -818,7 +835,7 @@ export default function AdminPanel() {
                                   {payment.status === 'approved' && (
                                     <div className="flex items-center gap-2 text-xs text-emerald-400 font-mono bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
                                       <CheckCircle className="w-4 h-4" />
-                                      Aprovado em {formatDate(payment.approved_at || '')} — Música Mureka em processamento.
+                                      Aprovado em {formatDate(payment.approved_at || '')} — Música Suno em processamento.
                                     </div>
                                   )}
                                 </div>
@@ -949,7 +966,7 @@ export default function AdminPanel() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Músicas</h1>
-                      <p className="text-stone-500 text-sm mt-1">Letras geradas e áudio Mureka</p>
+                      <p className="text-stone-500 text-sm mt-1">Letras geradas e áudio Suno</p>
                     </div>
                     <button onClick={fetchSongs} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
                       <RefreshCw className="w-3.5 h-3.5" /> Atualizar
@@ -992,7 +1009,7 @@ export default function AdminPanel() {
                                 <button onClick={() => handleGenerateMusic(song.id)}
                                   disabled={actionLoading === song.id + '_music' || song.mureka_status === 'generating' || song.mureka_status === 'processing'}
                                   className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs rounded-xl hover:bg-amber-500/25 transition-colors disabled:opacity-50 cursor-pointer font-mono">
-                                  {actionLoading === song.id + '_music' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Gerar Mureka
+                                  {actionLoading === song.id + '_music' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Gerar Suno
                                 </button>
                               )}
                             </div>
@@ -1036,16 +1053,14 @@ export default function AdminPanel() {
                     <div className="space-y-3">
                       <DiagBadge ok={diagnostics.supabase.ok} label="Supabase (Base de Dados & Storage)"
                         detail={diagnostics.supabase.ok ? `Buckets: ${diagnostics.supabase.buckets?.map(b => b.name).join(', ')}` : diagnostics.supabase.error} />
-                      <DiagBadge ok={diagnostics.gemini.ok} label="Google Gemini (Geração de Letras)"
-                        detail={diagnostics.gemini.error} />
-                      <DiagBadge ok={diagnostics.elevenlabs.ok} label="ElevenLabs (Clonagem de Voz)"
-                        detail={diagnostics.elevenlabs.ok
-                          ? `Plano: ${diagnostics.elevenlabs.info?.tier} • ${diagnostics.elevenlabs.info?.characterCount?.toLocaleString()}/${diagnostics.elevenlabs.info?.characterLimit?.toLocaleString()} caracteres`
-                          : diagnostics.elevenlabs.error} />
-                      <DiagBadge ok={diagnostics.mureka.ok} label="Mureka AI (Geração de Música)"
-                        detail={diagnostics.mureka.error} />
-                      <DiagBadge ok={diagnostics.resend.ok} label="Resend (Envio de Emails)"
-                        detail={diagnostics.resend.ok ? `Domínios: ${diagnostics.resend.domains?.length || 0}` : diagnostics.resend.error} />
+                      <DiagBadge ok={diagnostics.claude.ok} label="Anthropic Claude (Geração de Letras)"
+                        detail={diagnostics.claude.error} />
+                      <DiagBadge ok={diagnostics.suno?.ok} label="Suno AI (Geração de Música)"
+                        detail={diagnostics.suno?.ok ? `Créditos: ${diagnostics.suno?.credits || 'N/A'}` : diagnostics.suno?.error} />
+                      <DiagBadge ok={diagnostics.sunoVoice?.ok} label="Suno Voice (Clonagem de Voz)"
+                        detail={diagnostics.sunoVoice?.error} />
+                      <DiagBadge ok={diagnostics.email.ok} label="Brevo SMTP (Envio de Emails)"
+                        detail={diagnostics.email.ok ? `Servidor: ${diagnostics.email.host || 'configurado'}` : diagnostics.email.error} />
                     </div>
                   )}
                 </div>

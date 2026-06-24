@@ -14,7 +14,7 @@ const FAQ_ITEMS: FAQItem[] = [
   },
   {
     question: "Quanto tempo demora a entrega da minha música?",
-    answer: "Depende do plano selecionado. O plano Standard é entregue em até 24 dias úteis. No plano SeuBeat Express ⚡ a entrega é ultrarrápida. O plano Premium Voice 👑 (com som de estúdio personalizado) demora as mesmas gravações válidas."
+    answer: "Depende do plano selecionado. O plano Standard é entregue em até 24 horas. No plano SeuBeat Express ⚡ a entrega é ultrarrápida. O plano Premium Voice 👑 (com som de estúdio personalizado) demora as mesmas gravações válidas."
   },
   {
     question: "Posso sugerir alterações se não gostar de algum detalhe?",
@@ -26,7 +26,7 @@ const FAQ_ITEMS: FAQItem[] = [
   },
   {
     question: "De que forma recebo a música pronta?",
-    answer: "A música é entregue através de um link exclusivo no seu e-mail e WhatsApp. Esse link abre uma página de dedicatória lindíssima, personalizada com a foto que carregou, as letras a passar em formato animado, e um leitor premium para carregar no play e emocionar a pessoa especial instantaneamente. Também daremos a opção de descarregar em ficheiro de áudio padrão de alta definição (MP3 e WAV)."
+    answer: "A música é entregue através de um link exclusivo no seu e-mail. Esse link abre uma página de dedicatória lindíssima, personalizada com a foto que carregou, as letras a passar em formato animado, e um leitor premium para carregar no play e emocionar a pessoa especial instantaneamente. Também daremos a opção de descarregar em ficheiro de áudio padrão de alta definição (MP3 e WAV)."
   },
   {
     question: "Como posso efetuar o pagamento seguro em Angola?",

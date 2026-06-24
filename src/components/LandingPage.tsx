@@ -1,5 +1,4 @@
-import { ArrowRight, Sparkles, Check, Heart, Play, Star, Music, Headset, StarOff, Coffee } from 'lucide-react';
-import { motion } from 'motion/react';
+import { ArrowRight, Sparkles, Check, Play, Coffee } from 'lucide-react';
 import AudioDemo from './AudioDemo';
 import Testimonials from './Testimonials';
 import VideoTestimonial from './VideoTestimonial';
@@ -310,10 +309,10 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           <div className="text-left space-y-3">
             <h4 className="text-xs font-bold text-stone-300 uppercase tracking-widest">Parcerias e Legal</h4>
             <ul className="space-y-2 font-medium text-stone-500">
-              <li>Termos de Utilização</li>
-              <li>Políticas de Privacidade</li>
+              <li><a href="/terms.html" className="hover:underline">Termos de Utilização</a></li>
+              <li><a href="/privacy.html" className="hover:underline">Políticas de Privacidade</a></li>
               <li>Compositores Associados</li>
-              <li>Contactar Suporte VIP</li>
+              <li><a href="mailto:suporte@seubeat.ao" className="hover:underline">Contactar Suporte VIP</a></li>
             </ul>
           </div>
 
