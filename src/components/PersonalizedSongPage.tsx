@@ -12,6 +12,7 @@ interface PersonalizedSongPageProps {
 }
 
 export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSongPageProps) {
+  const [isLoading, setIsLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
@@ -139,7 +140,10 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
               }));
           }
         })
-        .catch(err => console.error("Could not fetch song from Supabase:", err));
+        .catch(err => console.error("Could not fetch song from Supabase:", err))
+        .finally(() => setIsLoading(false));
+    } else {
+      setIsLoading(false);
     }
   }, []);
 
@@ -338,6 +342,17 @@ Angola ${(new Date().getFullYear())}
       reader.readAsDataURL(file);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#090807] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-stone-400 font-mono">A carregar a tua dedicatória...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#090807] text-stone-100 flex flex-col justify-between selection:bg-amber-500/20 selection:text-amber-300 relative overflow-hidden">

@@ -184,6 +184,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       userNick,
       recipientName,
       recipientRelation,
+      recipientNick,
       occasion,
       musicStyle,
       voiceType,
@@ -194,8 +195,11 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       phone,
       unforgettableMemory,
       whatMakesSpecial,
+      onlySheDoes,
+      whereItHappened,
       messageFromTheHeart,
-      desiredEmotion
+      desiredEmotion,
+      language
     } = validation.data;
 
     if (!supabase) {
@@ -245,11 +249,11 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       relationship: recipientRelation || 'Parceiro',
       occasion: occasion || 'Homenagem',
       music_style: musicStyle || 'Kizomba',
-      voice_type: voiceType || 'Masculina',
+      voice_type: voiceType || 'masculina',
       special_traits: whatMakesSpecial || '',
       memory: unforgettableMemory || '',
       heart_message: messageFromTheHeart || '',
-      desired_emotion: desiredEmotion || 'Emocionante',
+      desired_emotion: desiredEmotion || 'Amor',
       email: userEmail,
       phone: phone || null,
       status: 'lyrics_generating',
@@ -269,13 +273,17 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       userNick: userNick || 'Autor',
       recipientName: recipientName || 'Destinatario',
       recipientRelation: recipientRelation || 'Parceiro',
+      recipientNick: recipientNick || '',
       occasion: occasion || 'Homenagem',
       musicStyle: musicStyle || 'Kizomba',
       voiceType: voiceType || 'Masculina',
       unforgettableMemory: unforgettableMemory || '',
       whatMakesSpecial: whatMakesSpecial || '',
+      onlySheDoes: onlySheDoes || '',
+      whereItHappened: whereItHappened || '',
       messageFromTheHeart: messageFromTheHeart || '',
-      desiredEmotion: desiredEmotion || 'Emocionante'
+      desiredEmotion: desiredEmotion || 'Emocionante',
+      language: language || 'Português'
     });
 
     const { data: songData, error: songError } = await supabase.from('songs').insert([{
@@ -423,7 +431,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
 });
 
 router.get('/speech-preview', emailLimiter, async (req, res) => {
-  res.redirect('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3');
+  res.status(501).json({ error: 'Preview de voz indisponivel de momento.' });
 });
 
 router.post('/submit-payment', paymentLimiter, async (req, res) => {

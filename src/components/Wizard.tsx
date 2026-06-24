@@ -402,7 +402,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
       const statusData = await statusRes.json();
       const song = statusData.data;
-      const requestStatus = song?.song_requests?.status;
+      const requestStatus = song?.status ?? song?.song_requests?.status;
       const previewUrl = song?.preview_url;
 
       if (requestStatus === 'failed' || song?.mureka_status === 'failed') {
