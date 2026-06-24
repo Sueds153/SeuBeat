@@ -335,7 +335,45 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
         <Testimonials />
       </section>
 
-      {/* ─── 8. FAQ ─── */}
+      {/* ─── 8. CTA FINAL ─── */}
+      <section className="py-24 px-4 md:px-8 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-950/10 to-transparent pointer-events-none" />
+        <div className="max-w-2xl mx-auto text-center space-y-8 relative z-10">
+          <div className="space-y-4">
+            <h2 className="font-serif text-3xl md:text-5xl text-stone-100 font-bold tracking-tight leading-[1.15]">
+              Pronto a começar?
+            </h2>
+            <p className="text-stone-400 text-base md:text-lg leading-relaxed">
+              A canção já existe. <span className="text-amber-400 font-semibold">Falta só ouvi-la.</span>
+            </p>
+            <p className="text-stone-500 text-xs font-mono">
+              Pré-visualização grátis · Pagas só quando ouvires e adorares · Garantia de devolução
+            </p>
+          </div>
+
+          <button
+            onClick={onStartWizard}
+            className="inline-flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-extrabold text-base md:text-lg rounded-full shadow-2xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer"
+          >
+            <span>♪ Criar a minha canção</span>
+            <ArrowRight className="w-5 h-5" />
+          </button>
+
+          <div className="flex flex-wrap justify-center gap-4 text-[10px] text-stone-600 font-mono uppercase tracking-wider">
+            <span className="flex items-center gap-1.5">
+              <Check className="w-3 h-3 text-amber-500" /> Sem cartão
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Check className="w-3 h-3 text-amber-500" /> Sem subscrição
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Check className="w-3 h-3 text-amber-500" /> Entrega por email
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── 9. FAQ ─── */}
       <section id="faq-section" className="py-20 border-t border-stone-900/60 bg-stone-950 px-4 md:px-8 text-center space-y-12">
         <div className="max-w-2xl mx-auto space-y-3">
           <span className="text-amber-500 text-xs font-mono font-bold uppercase tracking-widest block">Centro de Ajuda</span>
