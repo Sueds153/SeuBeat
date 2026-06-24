@@ -36,9 +36,9 @@ export default function VideoTestimonial() {
   const [isCustomLoaded, setIsCustomLoaded] = useState(false);
   const [videoSrc, setVideoSrc] = useState<string | null>('/assets/SeuBeat.mp4');
   const [videoError, setVideoError] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
   const [progress, setProgress] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const blobUrlRef = useRef<string | null>(null);
@@ -158,6 +158,7 @@ export default function VideoTestimonial() {
                     ref={videoRef}
                     playsInline
                     loop
+                    autoPlay
                     muted={isMuted}
                     src={videoSrc}
                     onError={() => setVideoError(true)}
@@ -176,12 +177,6 @@ export default function VideoTestimonial() {
                       {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                     </button>
                   </div>
-                  <button
-                    onClick={() => { setVideoSrc(null); setIsCustomLoaded(false); setVideoError(false); }}
-                    className="absolute top-12 right-3 z-20 bg-stone-950/70 text-stone-400 text-xs px-2 py-1 rounded-full cursor-pointer"
-                  >
-                    Remover
-                  </button>
                 </>
               )}
 
