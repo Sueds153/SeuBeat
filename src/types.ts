@@ -190,60 +190,60 @@ export interface DemoSong {
 
 export const DEMO_SONGS: DemoSong[] = [
   {
-    id: 'kizomba-love',
-    title: 'Minha Rainha',
+    id: 'kizomba-mae',
+    title: 'Para a Lúcia',
     style: 'Kizomba',
-    occasion: 'Casamento',
-    recipient: 'Esposa (Cláudia)',
-    duration: '3:15',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    occasion: '60º Aniversário',
+    recipient: 'Mãe (Lúcia)',
+    duration: '4:30',
+    audioUrl: '/assets/kizomba_lucia.mp3',
     lyrics: [
-      "Desde o dia em que te vi na Ilha de Luanda,",
-      "Sabia que o meu peito tinha nova comandante.",
-      "O teu sorriso brilha mais que o sol do deserto,",
-      "Cláudia, o meu mundo é perfeito se te tenho por perto.",
-      "No ritmo lento deste tarraxar doce,",
-      "Parece que o tempo parou, que o amanhã já fosse.",
-      "Prometo amar-te a cada bater do meu coração,",
-      "És a minha kizomba, a minha mais linda canção."
+      "Lúcia, nos teus sessenta anos de luz,",
+      "cada ruga é um mapa do amor que me conduziu.",
+      "No kizomba lento que o teu coração tece,",
+      "vejo a mulher mais forte que a vida me merece.",
+      "Mãe, és o primeiro som que o meu mundo soube ouvir,",
+      "o teu nome é a canção que me ensinaste a sorrir.",
+      "Sessenta anos de graça, de força e de paz,",
+      "és a minha rainha — ontem, hoje e sempre mais."
     ]
   },
   {
-    id: 'semba-bday',
-    title: 'Sorriso de Mãe',
+    id: 'semba-avo',
+    title: 'Para o Avô Carlos',
     style: 'Semba',
-    occasion: 'Aniversário',
-    recipient: 'Mãe (Dona Maria)',
-    duration: '2:45',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+    occasion: 'Memorial — 1 ano',
+    recipient: 'Avô (Carlos)',
+    duration: '3:45',
+    audioUrl: '/assets/semba_carlos.mp3',
     lyrics: [
-      "Mãe Maria, a senhora que tudo me deu,",
-      "O maior pilar e orgulho deste peito meu.",
-      "Na cozinha o cheiro a mufete a espalhar,",
-      "A sua gargalhada alta sempre a nos confortar.",
-      "Hoje o semba rebate vivo no nosso quintal,",
-      "Para celebrar a força da rainha principal.",
-      "Parabéns, minha mãe, pelo seu lindo dia,",
-      "Angola inteira canta em sua harmonia!"
+      "Um ano passou, mas o teu semba ainda toca,",
+      "ressoa lá no quintal onde a família se convoca.",
+      "Avô Carlos, a tua voz ainda aqui está,",
+      "no cheiro do funje, no sorriso de quem ficou cá.",
+      "A terra levou o teu corpo, mas não o teu calor,",
+      "cada filho que dançou contigo guarda o teu amor.",
+      "Hoje o semba é saudade, é choro, é memória viva —",
+      "és presença eterna, Carlos, e a nossa alma revive."
     ]
   },
   {
-    id: 'acoustic-heart',
-    title: 'Meu Porto Seguro',
-    style: 'Romantic Pop',
-    occasion: 'Dedicatória Especial',
-    recipient: 'Namorado (Yuri)',
-    duration: '3:05',
-    audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3',
+    id: 'gospel-marido',
+    title: 'Para o Paulo',
+    style: 'Gospel',
+    occasion: 'Declaração de Amor',
+    recipient: 'Marido (Paulo)',
+    duration: '4:35',
+    audioUrl: '/assets/gospel_paulo.mp3',
     lyrics: [
-      "O vento que sopra suave lá fora,",
-      "Recorda o abraço que me deste há uma hora.",
-      "Yuri, teu olhar é farol na minha escuridão,",
-      "Acalmas a tempestade com um toque de mão.",
-      "Sei que às vezes o percurso tem pedras no chão,",
-      "Mas contigo a caminhar, toda rampa é canção.",
-      "Este som é para ti, meu abrigo, meu bem,",
-      "Como este nosso amor, sei que não há ninguém."
+      "Paulo, há um amor que Deus pôs no meu caminho,",
+      "e esse amor tem o teu sorriso e o teu carinho.",
+      "No evangelho que a vida nos escreveu juntos,",
+      "cada capítulo confirma: somos um, não dois — mas juntos.",
+      "Agradeço ao Senhor por me ter guiado até ti,",
+      "és a oração respondida que sempre pedi.",
+      "Paulo, meu marido, meu companheiro de fé,",
+      "este amor que Deus abençoou — eterno ele é."
     ]
   }
 ];
