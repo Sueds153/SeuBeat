@@ -7,7 +7,7 @@ ffmpeg.setFfmpegPath(ffmpegStatic);
 
 const inputPath = 'C:\\Users\\Pagora\\Videos\\TeuSom criativos\\SeuBeat.mp4';
 const outputDir = path.join(__dirname, 'public', 'assets');
-const outputPath = path.join(outputDir, 'prova_social.mp4');
+const outputPath = path.join(outputDir, 'SeuBeat.mp4');
 
 // Create directory if it doesn't exist
 if (!fs.existsSync(outputDir)){

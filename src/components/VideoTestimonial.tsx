@@ -34,7 +34,7 @@ export default function VideoTestimonial() {
   const [likesCount, setLikesCount] = useState(1420);
   const [hasLiked, setHasLiked] = useState(false);
   const [isCustomLoaded, setIsCustomLoaded] = useState(false);
-  const [videoSrc, setVideoSrc] = useState<string | null>('/assets/prova_social.mp4');
+  const [videoSrc, setVideoSrc] = useState<string | null>('/assets/SeuBeat.mp4');
   const [videoError, setVideoError] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
