@@ -36,10 +36,12 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       {/* ─── NAV ─── */}
       <header className="max-w-7xl mx-auto px-4 md:px-8 py-5 flex items-center justify-between sticky top-0 bg-stone-950/80 backdrop-blur-md z-40 border-b border-stone-900/40">
         <div className="flex items-center gap-2">
-          <LogoIcon size={42} className="drop-shadow-[0_0_10px_rgba(245,158,11,0.35)] animate-[pulse_4s_ease-in-out_infinite]" />
+          <LogoIcon size={44} className="drop-shadow-[0_0_12px_rgba(245,158,11,0.4)] shrink-0" />
           <div>
-            <span className="font-serif text-xl font-black text-stone-100 tracking-tight block">SeuBeat</span>
-            <span className="text-[10px] text-stone-500 block tracking-widest font-mono uppercase">Sua Música. Seu Momento.</span>
+            <span className="font-sans text-2xl font-black tracking-tight block leading-none">
+              <span className="text-stone-100">Seu</span><span className="bg-gradient-to-r from-amber-400 to-rose-500 bg-clip-text text-transparent">Beat</span>
+            </span>
+            <span className="text-[9px] text-stone-500 block tracking-[0.18em] font-mono uppercase mt-0.5">Sua Música. Seu Momento.</span>
           </div>
         </div>
 
@@ -394,7 +396,9 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           <div className="flex items-center gap-3">
             <LogoIcon size={36} />
             <div>
-              <span className="font-serif text-base font-bold text-stone-200 block">SeuBeat</span>
+              <span className="font-sans text-lg font-black tracking-tight block leading-none">
+                <span className="text-stone-100">Seu</span><span className="bg-gradient-to-r from-amber-400 to-rose-500 bg-clip-text text-transparent">Beat</span>
+              </span>
               <span className="text-[10px] font-mono text-stone-500">© 2026 · Todos os direitos reservados</span>
             </div>
           </div>

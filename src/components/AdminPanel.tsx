@@ -820,7 +820,9 @@ export default function AdminPanel() {
             <div className="flex items-center gap-2">
               <LogoIcon size={32} />
               <div>
-                <span className="text-sm font-bold text-stone-100 font-serif block">SeuBeat</span>
+                <span className="font-sans text-base font-black tracking-tight block leading-none">
+                  <span className="text-stone-100">Seu</span><span className="bg-gradient-to-r from-amber-400 to-rose-500 bg-clip-text text-transparent">Beat</span>
+                </span>
                 <span className="text-[9px] text-stone-500 font-mono uppercase tracking-wider">Admin Panel</span>
               </div>
             </div>
@@ -841,7 +843,9 @@ export default function AdminPanel() {
                 >
                   <item.icon className="w-4 h-4 shrink-0" />
                   {item.label}
-                  {item.id === 'payments' && stats?.pendingPayments ? (
+                  {item.id === 'dashboard' && notifDot ? (
+                    <span className="ml-auto w-2 h-2 rounded-full bg-amber-500 animate-pulse" title="Novas atividades" />
+                  ) : item.id === 'payments' && stats?.pendingPayments ? (
                     <span className="ml-auto bg-amber-500 text-stone-950 text-[9px] font-black px-1.5 py-0.5 rounded-full">
                       {stats.pendingPayments}
                     </span>
@@ -927,9 +931,14 @@ export default function AdminPanel() {
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Pagamentos</h1>
                       <p className="text-stone-500 text-sm mt-1">Gerir comprovativos e aprovações</p>
                     </div>
-                    <button onClick={fetchPayments} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
-                      <RefreshCw className="w-3.5 h-3.5" /> Atualizar
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => exportCSV('payments')} className="flex items-center gap-1.5 px-3 py-2 bg-stone-900 border border-stone-800 text-stone-400 text-xs rounded-xl hover:text-emerald-400 hover:border-emerald-500/30 transition-colors cursor-pointer font-mono">
+                        <Download className="w-3.5 h-3.5" /> CSV
+                      </button>
+                      <button onClick={fetchPayments} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
+                        <RefreshCw className="w-3.5 h-3.5" /> Atualizar
+                      </button>
+                    </div>
                   </div>
 
                   {loading ? (
@@ -1316,6 +1325,20 @@ export default function AdminPanel() {
                               <button onClick={() => { setForceStatusModal({ id: song.id, table: 'songs', currentStatus: song.mureka_status || 'not_started' }); setForceStatusValue(''); }} className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-xl hover:bg-rose-500/20 transition-colors cursor-pointer font-mono">
                                 <AlertTriangle className="w-3 h-3" /> Forçar
                               </button>
+                              {song.song_requests && (
+                                <a
+                                  href={`/song/${(song.song_requests as any).recipient_name?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') || 'especial'}?id=${song.id}`}
+                                  target="_blank" rel="noopener noreferrer"
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-amber-400 hover:border-amber-500/30 transition-colors cursor-pointer font-mono"
+                                >
+                                  <ExternalLink className="w-3 h-3" /> Ver
+                                </a>
+                              )}
+                              {song.lyrics && song.lyrics.length > 0 && (
+                                <button onClick={() => setPreviewLyrics({ title: song.title, lyrics: song.lyrics || [], letterText: song.letter_text || '' })} className="flex items-center gap-1 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-blue-400 hover:border-blue-500/30 transition-colors cursor-pointer font-mono">
+                                  <FileText className="w-3 h-3" /> Letra
+                                </button>
+                              )}
                               {song.audio_url ? (
                                 <a href={song.audio_url} target="_blank" rel="noopener noreferrer"
                                   className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 border border-emerald-600/30 text-emerald-400 text-xs rounded-xl hover:bg-emerald-600/30 transition-colors font-mono">
