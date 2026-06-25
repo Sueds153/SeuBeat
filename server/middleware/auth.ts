@@ -1,7 +1,9 @@
 import express from 'express';
 import { timingSafeEqual } from 'crypto';
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+function getAdminPassword(): string | undefined {
+  return process.env.ADMIN_PASSWORD;
+}
 
 const ATTEMPT_LIMIT = 10;
 const WINDOW_MS = 15 * 60 * 1000;
@@ -50,11 +52,13 @@ export function adminAuth(req: express.Request, res: express.Response, next: exp
 
   const password = req.headers['x-admin-password'] as string | undefined;
 
-  if (!ADMIN_PASSWORD) {
+  const adminPassword = getAdminPassword();
+
+  if (!adminPassword) {
     return res.status(500).json({ error: 'ADMIN_PASSWORD não configurado no servidor.' });
   }
 
-  if (!password || !timingSafeCompare(password, ADMIN_PASSWORD)) {
+  if (!password || !timingSafeCompare(password, adminPassword)) {
     return res.status(401).json({ error: 'Acesso não autorizado.' });
   }
 

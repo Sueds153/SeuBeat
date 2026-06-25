@@ -1,11 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   BarChart3, Users, Music, CreditCard, CheckCircle, XCircle,
   Clock, RefreshCw, Eye, LogOut, ChevronDown, ChevronRight,
   Download, Play, AlertTriangle, Sparkles, TrendingUp, Shield,
-  Activity, RotateCcw, Mic, Mail, Pencil, Upload
+  Activity, RotateCcw, Mic, Mail, Pencil, Upload, Search, FileText, ExternalLink, List, Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import LogoIcon from './LogoIcon';
 
 const ADMIN_PASSWORD_KEY = 'seubeat_admin_auth';
 
@@ -80,6 +81,11 @@ interface DiagnosticsResult {
   email: { ok: boolean; error?: string; provider?: string; host?: string };
 }
 
+interface CreditsResult {
+  suno: { ok: boolean; error?: string; credits?: number; low?: boolean };
+  claude: { ok: boolean; error?: string; model?: string; quota_exceeded?: boolean };
+}
+
 interface ProgressEntry {
   status: string;
   progress: number;
@@ -87,7 +93,7 @@ interface ProgressEntry {
   error?: string;
 }
 
-type AdminView = 'dashboard' | 'payments' | 'requests' | 'songs' | 'clients' | 'diagnostics';
+type AdminView = 'dashboard' | 'payments' | 'requests' | 'songs' | 'clients' | 'credits' | 'diagnostics' | 'metrics';
 
 const STATUS_COLORS: Record<string, string> = {
   pending_verification: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
@@ -151,6 +157,32 @@ function formatDate(dateStr: string) {
   });
 }
 
+const VALID_STATUSES_FRONTEND: Record<string, { label: string; value: string }[]> = {
+  song_requests: [
+    { label: '📝 A gerar letra', value: 'lyrics_generating' },
+    { label: '📝 Letra pronta', value: 'lyrics_ready' },
+    { label: '🎵 A processar música', value: 'music_processing' },
+    { label: '🎙️ A processar voz', value: 'voice_processing' },
+    { label: '🎶 Música pronta', value: 'music_ready' },
+    { label: '🎁 Entregue', value: 'delivered' },
+    { label: '❌ Falhou', value: 'failed' },
+    { label: '💳 Pagamento rejeitado', value: 'payment_rejected' },
+    { label: '💳 Comprovativo enviado', value: 'payment_submitted' },
+  ],
+  payments: [
+    { label: '⏳ A aguardar verificação', value: 'pending_verification' },
+    { label: '✅ Aprovado', value: 'approved' },
+    { label: '❌ Rejeitado', value: 'rejected' },
+  ],
+  songs: [
+    { label: '⏸ Não iniciado', value: 'not_started' },
+    { label: '🎵 A gerar', value: 'generating' },
+    { label: '⏳ Em processamento', value: 'processing' },
+    { label: '✅ Concluído', value: 'completed' },
+    { label: '❌ Falhou', value: 'failed' },
+  ],
+};
+
 export default function AdminPanel() {
   const [authenticated, setAuthenticated] = useState(() => {
     return !!sessionStorage.getItem('seubeat_admin_password');
@@ -179,6 +211,21 @@ export default function AdminPanel() {
   const [editingSong, setEditingSong] = useState<{ id: string; title: string; lyrics: string; letterText: string } | null>(null);
   const [uploadingSongId, setUploadingSongId] = useState<string | null>(null);
   const progressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [credits, setCredits] = useState<CreditsResult | null>(null);
+  const [creditsLoading, setCreditsLoading] = useState(false);
+  const [forceStatusModal, setForceStatusModal] = useState<{ id: string; table: string; currentStatus: string } | null>(null);
+  const [forceStatusValue, setForceStatusValue] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchFilter, setSearchFilter] = useState<'all' | 'name' | 'email' | 'status' | 'style'>('all');
+  const [notifCount, setNotifCount] = useState(0);
+  const [notifDot, setNotifDot] = useState(false);
+  const [metrics, setMetrics] = useState<any>(null);
+  const [metricsLoading, setMetricsLoading] = useState(false);
+  const [logsModal, setLogsModal] = useState<{ id: string; loading: boolean; logs: any[] } | null>(null);
+  const [previewLyrics, setPreviewLyrics] = useState<{ title: string; lyrics: string[]; letterText?: string } | null>(null);
+  const [notification, setNotification] = useState<{ message: string } | null>(null);
+  const prevCountsRef = useRef({ requests: 0, payments: 0 });
+  const notifIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -237,6 +284,119 @@ export default function AdminPanel() {
     setDiagLoading(false);
   }, [adminPassword]);
 
+  const fetchCredits = useCallback(async () => {
+    if (!adminPassword) return;
+    setCreditsLoading(true);
+    try {
+      const res = await fetch('/api/admin/credits', { headers: apiHeaders });
+      if (res.ok) setCredits(await res.json());
+    } catch (e) { console.error(e); }
+    setCreditsLoading(false);
+  }, [adminPassword]);
+
+  const handleForceStatus = useCallback(async () => {
+    if (!forceStatusModal || !forceStatusValue) return;
+    setActionLoading(forceStatusModal.id + '_force');
+    try {
+      const res = await fetch(`/api/admin/request/${forceStatusModal.id}/force-status`, {
+        method: 'POST', headers: apiHeaders,
+        body: JSON.stringify({ table: forceStatusModal.table, status: forceStatusValue })
+      });
+      const data = await res.json();
+      if (res.ok) { showToast(`Estado forçado para "${forceStatusValue}"`); setForceStatusModal(null); setForceStatusValue(''); }
+      else showToast(data.error || 'Erro ao forçar estado.', 'error');
+    } catch (e: any) { showToast(e.message, 'error'); }
+    setActionLoading(null);
+    fetchRequests(); fetchPayments(); fetchSongs();
+  }, [forceStatusModal, forceStatusValue, adminPassword]);
+
+  const handleUpdateStyle = useCallback(async (requestId: string, musicStyle?: string, voiceType?: string) => {
+    setActionLoading(requestId + '_style');
+    try {
+      const res = await fetch(`/api/admin/request/${requestId}/update-style`, {
+        method: 'POST', headers: apiHeaders,
+        body: JSON.stringify({ music_style: musicStyle, voice_type: voiceType })
+      });
+      const data = await res.json();
+      if (res.ok) { showToast('🎵 Estilo atualizado!'); fetchRequests(); }
+      else showToast(data.error || 'Erro ao atualizar.', 'error');
+    } catch (e: any) { showToast(e.message, 'error'); }
+    setActionLoading(null);
+  }, [adminPassword]);
+
+  const handleRegenerateLyrics = useCallback(async (requestId: string) => {
+    setActionLoading(requestId + '_reg');
+    try {
+      const res = await fetch(`/api/admin/request/${requestId}/regenerate-lyrics`, {
+        method: 'POST', headers: apiHeaders
+      });
+      const data = await res.json();
+      if (res.ok) { showToast('✏️ Letra regenerada com sucesso!'); fetchRequests(); }
+      else showToast(data.error || 'Erro ao regenerar.', 'error');
+    } catch (e: any) { showToast(e.message, 'error'); }
+    setActionLoading(null);
+  }, [adminPassword]);
+
+  const fetchMetrics = useCallback(async () => {
+    if (!adminPassword) return;
+    setMetricsLoading(true);
+    try {
+      const res = await fetch('/api/admin/metrics', { headers: apiHeaders });
+      if (res.ok) setMetrics(await res.json());
+    } catch (e) { console.error(e); }
+    setMetricsLoading(false);
+  }, [adminPassword]);
+
+  const fetchLogs = useCallback(async (requestId: string) => {
+    setLogsModal({ id: requestId, loading: true, logs: [] });
+    try {
+      const res = await fetch(`/api/admin/request/${requestId}/logs`, { headers: apiHeaders });
+      if (res.ok) { const d = await res.json(); setLogsModal({ id: requestId, loading: false, logs: d.logs || [] }); }
+      else setLogsModal(null);
+    } catch (e) { setLogsModal(null); }
+  }, [adminPassword]);
+
+  const checkNewData = useCallback(async () => {
+    if (!adminPassword) return;
+    try {
+      const res = await fetch('/api/admin/stats', { headers: apiHeaders });
+      if (!res.ok) return;
+      const statsData = await res.json();
+      const prev = prevCountsRef.current;
+      const currentRequests = statsData.totalRequests || 0;
+      const currentPayments = statsData.pendingPayments || 0;
+
+      if (prev.requests > 0 && currentRequests > prev.requests) {
+        setNotification({ message: `📦 Novo pedido de música recebido!` });
+        setNotifCount(c => c + 1);
+        setNotifDot(true);
+      }
+      if (prev.payments >= 0 && currentPayments > prev.payments) {
+        setNotification({ message: `💳 Novo pagamento pendente!` });
+        setNotifCount(c => c + 1);
+        setNotifDot(true);
+      }
+      prevCountsRef.current = { requests: currentRequests, payments: currentPayments };
+    } catch (e) {}
+  }, [adminPassword]);
+
+  // Notification polling when on admin panel
+  useEffect(() => {
+    if (authenticated) {
+      notifIntervalRef.current = setInterval(checkNewData, 15000);
+      checkNewData();
+    }
+    return () => { if (notifIntervalRef.current) clearInterval(notifIntervalRef.current); };
+  }, [authenticated, checkNewData]);
+
+  // Clear notification after 5s
+  useEffect(() => {
+    if (notification) {
+      const t = setTimeout(() => setNotification(null), 5000);
+      return () => clearTimeout(t);
+    }
+  }, [notification]);
+
   const fetchProgress = useCallback(async () => {
     if (!adminPassword) return;
     try {
@@ -251,7 +411,9 @@ export default function AdminPanel() {
     if (activeView === 'payments') fetchPayments();
     else if (activeView === 'requests') { fetchRequests(); fetchProgress(); }
     else if (activeView === 'songs') fetchSongs();
+    else if (activeView === 'credits') fetchCredits();
     else if (activeView === 'diagnostics') fetchDiagnostics();
+    else if (activeView === 'metrics') fetchMetrics();
   }, [authenticated, activeView]);
 
   // Poll progress every 5s when on requests tab
@@ -504,7 +666,9 @@ export default function AdminPanel() {
     { id: 'requests', label: 'Pedidos', icon: Music },
     { id: 'songs', label: 'Músicas', icon: Sparkles },
     { id: 'clients', label: 'Clientes', icon: Users },
-    { id: 'diagnostics', label: 'Diagnóstico', icon: Activity },
+    { id: 'metrics', label: 'Métricas', icon: TrendingUp },
+    { id: 'credits', label: 'Créditos API', icon: Activity },
+    { id: 'diagnostics', label: 'Diagnóstico', icon: Shield },
   ];
 
   const PLAN_COLORS: Record<string, string> = {
@@ -530,6 +694,41 @@ export default function AdminPanel() {
     </div>
   );
 
+  const filteredRequests = useMemo(() => {
+    if (!searchQuery) return requests;
+    const q = searchQuery.toLowerCase();
+    return requests.filter(r => {
+      const name = (r.users?.name || '').toLowerCase();
+      const email = (r.users?.email || '').toLowerCase();
+      const status = r.status.toLowerCase();
+      const style = (r.music_style || '').toLowerCase();
+      const recipient = (r.recipient_name || '').toLowerCase();
+      if (searchFilter === 'name') return name.includes(q) || recipient.includes(q);
+      if (searchFilter === 'email') return email.includes(q);
+      if (searchFilter === 'status') return status.includes(q);
+      if (searchFilter === 'style') return style.includes(q);
+      return name.includes(q) || email.includes(q) || status.includes(q) || style.includes(q) || recipient.includes(q);
+    });
+  }, [requests, searchQuery, searchFilter]);
+
+  const REJECT_TEMPLATES = [
+    { label: 'Comprovativo ilegível', value: 'O comprovativo enviado está ilegível. Por favor, envie uma foto mais nítida do comprovativo de pagamento.' },
+    { label: 'Valor incorreto', value: 'O valor do pagamento não corresponde ao plano selecionado. Por favor, verifique e envie o valor correto.' },
+    { label: 'Dados incompletos', value: 'Os dados enviados estão incompletos. Por favor, preencha todos os campos obrigatórios e tente novamente.' },
+  ];
+
+  const exportCSV = async (type: string) => {
+    try {
+      const res = await fetch(`/api/admin/export/${type}`, { headers: apiHeaders });
+      if (!res.ok) { showToast('Erro ao exportar.', 'error'); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = `${type}_${Date.now()}.csv`; a.click();
+      URL.revokeObjectURL(url);
+      showToast(`📥 ${type} exportado com sucesso!`);
+    } catch (e: any) { showToast(e.message, 'error'); }
+  };
+
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100">
       {/* Toast notification */}
@@ -546,6 +745,20 @@ export default function AdminPanel() {
             }`}
           >
             {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Notification banner */}
+      <AnimatePresence>
+        {notification && (
+          <motion.div
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -40 }}
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl font-mono text-sm shadow-2xl border bg-amber-900/90 border-amber-500/30 text-amber-300 backdrop-blur"
+          >
+            {notification.message}
           </motion.div>
         )}
       </AnimatePresence>
@@ -605,7 +818,7 @@ export default function AdminPanel() {
         <aside className="w-56 min-h-screen bg-stone-900/40 border-r border-stone-800 flex flex-col py-6 px-3 sticky top-0">
           <div className="px-2 mb-8">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-tr from-amber-500 to-rose-600 rounded-lg flex items-center justify-center text-stone-950 font-black text-xs shadow">SB</div>
+              <LogoIcon size={32} />
               <div>
                 <span className="text-sm font-bold text-stone-100 font-serif block">SeuBeat</span>
                 <span className="text-[9px] text-stone-500 font-mono uppercase tracking-wider">Admin Panel</span>
@@ -632,6 +845,8 @@ export default function AdminPanel() {
                     <span className="ml-auto bg-amber-500 text-stone-950 text-[9px] font-black px-1.5 py-0.5 rounded-full">
                       {stats.pendingPayments}
                     </span>
+                  ) : item.id === 'credits' && credits && (credits.suno.low || credits.claude.quota_exceeded) ? (
+                    <span className="ml-auto w-2 h-2 rounded-full bg-rose-500 animate-pulse" title="API com créditos baixos" />
                   ) : null}
                 </button>
               );
@@ -640,7 +855,7 @@ export default function AdminPanel() {
 
           <div className="mt-6 px-2 space-y-2">
             <button
-              onClick={() => { fetchStats(); if (activeView === 'payments') fetchPayments(); else if (activeView === 'requests') { fetchRequests(); fetchProgress(); } else if (activeView === 'songs') fetchSongs(); else if (activeView === 'diagnostics') fetchDiagnostics(); }}
+              onClick={() => { fetchStats(); if (activeView === 'payments') fetchPayments(); else if (activeView === 'requests') { fetchRequests(); fetchProgress(); } else if (activeView === 'songs') fetchSongs(); else if (activeView === 'credits') fetchCredits(); else if (activeView === 'diagnostics') fetchDiagnostics(); else if (activeView === 'metrics') fetchMetrics(); }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-stone-500 hover:text-stone-300 hover:bg-stone-800/50 transition-all cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" /> Atualizar Dados
@@ -794,7 +1009,7 @@ export default function AdminPanel() {
                                   {payment.status === 'pending_verification' && (
                                     <div className="space-y-3">
                                       <div>
-                                        <label className="text-[10px] font-mono text-stone-500 uppercase tracking-wider block mb-1.5">Motivo de Rejeição (opcional)</label>
+                                        <label className="text-[10px] font-mono text-stone-500 uppercase tracking-wider block mb-1.5">Motivo de Rejeição</label>
                                         <input
                                           type="text"
                                           value={rejectNotes[payment.id] || ''}
@@ -802,6 +1017,17 @@ export default function AdminPanel() {
                                           placeholder="Ex: Comprovativo ilegível, valor incorreto..."
                                           className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2 text-xs text-stone-300 focus:outline-none focus:border-rose-500/50 transition-colors font-mono"
                                         />
+                                      </div>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {REJECT_TEMPLATES.map(t => (
+                                          <button
+                                            key={t.value}
+                                            onClick={() => setRejectNotes(prev => ({ ...prev, [payment.id]: t.value }))}
+                                            className="px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-[10px] rounded-xl hover:text-rose-400 hover:border-rose-500/30 transition-colors cursor-pointer font-mono"
+                                          >
+                                            {t.label}
+                                          </button>
+                                        ))}
                                       </div>
                                       <div className="flex gap-2">
                                         <button
@@ -838,6 +1064,10 @@ export default function AdminPanel() {
                                       Aprovado em {formatDate(payment.approved_at || '')} — Música Suno em processamento.
                                     </div>
                                   )}
+
+                                  <button onClick={() => { setForceStatusModal({ id: payment.id, table: 'payments', currentStatus: payment.status }); setForceStatusValue(''); }} className="flex items-center gap-1.5 px-3 py-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-xl hover:bg-rose-500/20 transition-colors cursor-pointer font-mono">
+                                    <AlertTriangle className="w-3 h-3" /> Forçar Estado
+                                  </button>
                                 </div>
                               </motion.div>
                             )}
@@ -852,21 +1082,56 @@ export default function AdminPanel() {
               {/* REQUESTS */}
               {activeView === 'requests' && (
                 <div className="space-y-5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-3">
                     <div>
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Pedidos</h1>
                       <p className="text-stone-500 text-sm mt-1">Todos os pedidos de música recebidos</p>
                     </div>
-                    <button onClick={() => { fetchRequests(); fetchProgress(); }} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
-                      <RefreshCw className="w-3.5 h-3.5" /> Atualizar
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => exportCSV('requests')} className="flex items-center gap-1.5 px-3 py-2 bg-stone-900 border border-stone-800 text-stone-400 text-xs rounded-xl hover:text-emerald-400 hover:border-emerald-500/30 transition-colors cursor-pointer font-mono">
+                        <Download className="w-3.5 h-3.5" /> CSV
+                      </button>
+                      <button onClick={() => { fetchRequests(); fetchProgress(); }} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
+                        <RefreshCw className="w-3.5 h-3.5" /> Atualizar
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search bar */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-600" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="Pesquisar por nome, email, estado, estilo..."
+                        className="w-full bg-stone-950 border border-stone-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-stone-300 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
+                      />
+                    </div>
+                    <select
+                      value={searchFilter}
+                      onChange={e => setSearchFilter(e.target.value as any)}
+                      className="bg-stone-950 border border-stone-800 rounded-xl px-3 py-2.5 text-xs text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
+                    >
+                      <option value="all">Todos</option>
+                      <option value="name">Nome</option>
+                      <option value="email">Email</option>
+                      <option value="status">Estado</option>
+                      <option value="style">Estilo</option>
+                    </select>
+                    {searchQuery && (
+                      <button onClick={() => setSearchQuery('')} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer">
+                        Limpar
+                      </button>
+                    )}
                   </div>
 
                   {loading ? (
                     <div className="flex items-center justify-center h-40"><RefreshCw className="w-6 h-6 text-stone-600 animate-spin" /></div>
                   ) : (
                     <div className="space-y-3">
-                      {requests.map(req => {
+                      {filteredRequests.map(req => {
                         const plan = req.payments?.[0]?.plan;
                         const progress = progressMap[req.id];
                         const isExpanded = expandedRequest === req.id;
@@ -932,6 +1197,31 @@ export default function AdminPanel() {
                                         <div className="flex items-center gap-2 mt-1"><StatusBadge status={song.mureka_status || 'not_started'} /></div>
                                       </div>
                                     )}
+                                    {/* Style Editor */}
+                                    <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
+                                      <p className="text-stone-500 font-mono text-[9px] uppercase mb-2">✏️ Editor de Estilo & Voz</p>
+                                      <div className="flex gap-2 items-center">
+                                        <select
+                                          defaultValue={req.music_style}
+                                          onChange={e => handleUpdateStyle(req.id, e.target.value)}
+                                          className="flex-1 bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2 text-xs text-stone-300 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
+                                        >
+                                          {['Kizomba', 'Semba', 'Kuduro', 'Afrobeat', 'Rap', 'R&B', 'Pop', 'Rock', 'Bossa Nova', 'MPB', 'Sertanejo', 'Gospel', 'Eletrónica', 'Fado', 'Outro'].map(s => (
+                                            <option key={s} value={s}>{s}</option>
+                                          ))}
+                                        </select>
+                                        <select
+                                          defaultValue={req.voice_type}
+                                          onChange={e => handleUpdateStyle(req.id, undefined, e.target.value)}
+                                          className="flex-1 bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2 text-xs text-stone-300 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
+                                        >
+                                          {['masculina', 'feminina', 'neutra'].map(v => (
+                                            <option key={v} value={v}>{v}</option>
+                                          ))}
+                                        </select>
+                                        <span className="text-stone-600 text-[9px]">(auto-save)</span>
+                                      </div>
+                                    </div>
                                     <div className="flex flex-wrap gap-2 pt-1">
                                       <button onClick={() => handleRetry(req.id)} disabled={!!actionLoading} className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs rounded-xl hover:bg-amber-500/20 disabled:opacity-50 cursor-pointer font-mono transition-colors">
                                         {actionLoading === req.id + '_retry' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />} Tentar Novamente
@@ -944,6 +1234,29 @@ export default function AdminPanel() {
                                       <button onClick={() => handleResendEmail(req.id)} disabled={!!actionLoading} className="flex items-center gap-1.5 px-3 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs rounded-xl hover:bg-blue-500/20 disabled:opacity-50 cursor-pointer font-mono transition-colors">
                                         {actionLoading === req.id + '_email' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Mail className="w-3 h-3" />} Reenviar Email
                                       </button>
+                                      <button onClick={() => { setForceStatusModal({ id: req.id, table: 'song_requests', currentStatus: req.status }); setForceStatusValue(''); }} className="flex items-center gap-1.5 px-3 py-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-xl hover:bg-rose-500/20 disabled:opacity-50 cursor-pointer font-mono transition-colors">
+                                        <AlertTriangle className="w-3 h-3" /> Forçar Estado
+                                      </button>
+                                      <button onClick={() => handleRegenerateLyrics(req.id)} disabled={!!actionLoading} className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs rounded-xl hover:bg-amber-500/20 disabled:opacity-50 cursor-pointer font-mono transition-colors">
+                                        {actionLoading === req.id + '_reg' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />} Regenerar Letra
+                                      </button>
+                                      <button onClick={() => fetchLogs(req.id)} className="flex items-center gap-1.5 px-3 py-2 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-stone-300 transition-colors cursor-pointer font-mono">
+                                        <List className="w-3 h-3" /> Logs
+                                      </button>
+                                      {req.songs?.[0] && (
+                                        <>
+                                          <button onClick={() => setPreviewLyrics({ title: req.songs![0].title, lyrics: req.songs![0].lyrics || [], letterText: req.songs![0].letter_text })} className="flex items-center gap-1.5 px-3 py-2 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-blue-400 transition-colors cursor-pointer font-mono">
+                                            <FileText className="w-3 h-3" /> Pré-visualizar Letra
+                                          </button>
+                                          <a
+                                            href={`/song/${(req.recipient_name || 'especial').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')}?id=${req.songs![0].id}`}
+                                            target="_blank" rel="noopener noreferrer"
+                                            className="flex items-center gap-1.5 px-3 py-2 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-amber-400 transition-colors cursor-pointer font-mono"
+                                          >
+                                            <ExternalLink className="w-3 h-3" /> Ver como Cliente
+                                          </a>
+                                        </>
+                                      )}
                                     </div>
                                   </div>
                                 </motion.div>
@@ -952,8 +1265,8 @@ export default function AdminPanel() {
                           </div>
                         );
                       })}
-                      {requests.length === 0 && (
-                        <div className="text-center py-12 text-stone-600 font-mono text-sm">Nenhum pedido encontrado.</div>
+                      {filteredRequests.length === 0 && (
+                        <div className="text-center py-12 text-stone-600 font-mono text-sm">{searchQuery ? 'Nenhum pedido corresponde à pesquisa.' : 'Nenhum pedido encontrado.'}</div>
                       )}
                     </div>
                   )}
@@ -1000,6 +1313,9 @@ export default function AdminPanel() {
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-blue-400 hover:border-blue-500/30 transition-colors cursor-pointer font-mono">
                                 <Upload className="w-3 h-3" /> Upload
                               </button>
+                              <button onClick={() => { setForceStatusModal({ id: song.id, table: 'songs', currentStatus: song.mureka_status || 'not_started' }); setForceStatusValue(''); }} className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-xl hover:bg-rose-500/20 transition-colors cursor-pointer font-mono">
+                                <AlertTriangle className="w-3 h-3" /> Forçar
+                              </button>
                               {song.audio_url ? (
                                 <a href={song.audio_url} target="_blank" rel="noopener noreferrer"
                                   className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 border border-emerald-600/30 text-emerald-400 text-xs rounded-xl hover:bg-emerald-600/30 transition-colors font-mono">
@@ -1028,6 +1344,113 @@ export default function AdminPanel() {
                       {songs.length === 0 && (
                         <div className="text-center py-12 text-stone-600 font-mono text-sm">Nenhuma música encontrada.</div>
                       )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* CRÉDITOS API */}
+              {activeView === 'credits' && (
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="font-serif text-2xl font-bold text-stone-100">Créditos das APIs</h1>
+                      <p className="text-stone-500 text-sm mt-1">Saldo e estado dos serviços externos</p>
+                    </div>
+                    <button onClick={fetchCredits} disabled={creditsLoading} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
+                      <RefreshCw className={`w-3.5 h-3.5 ${creditsLoading ? 'animate-spin' : ''}`} /> {creditsLoading ? 'A verificar...' : 'Atualizar'}
+                    </button>
+                  </div>
+
+                  {creditsLoading && (
+                    <div className="flex items-center justify-center h-40"><RefreshCw className="w-6 h-6 text-stone-600 animate-spin" /></div>
+                  )}
+
+                  {!credits && !creditsLoading && (
+                    <div className="text-center py-16 text-stone-600 font-mono text-sm">Clique em "Atualizar" para verificar os créditos.</div>
+                  )}
+
+                  {credits && !creditsLoading && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Suno Card */}
+                      <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center">
+                            <Sparkles className="w-5 h-5 text-purple-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-stone-200">Suno AI</p>
+                            <p className="text-[10px] font-mono text-stone-500">Geração de Música</p>
+                          </div>
+                        </div>
+
+                        {credits.suno.ok ? (
+                          <>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-mono text-stone-400">Créditos Restantes</span>
+                                <span className={`text-lg font-mono font-black ${credits.suno.low ? 'text-rose-400' : credits.suno.credits! < 50 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                  {credits.suno.credits}
+                                </span>
+                              </div>
+                              <div className="w-full bg-stone-800 rounded-full h-2">
+                                <div
+                                  className={`h-2 rounded-full transition-all ${credits.suno.low ? 'bg-rose-500' : credits.suno.credits! < 50 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                  style={{ width: `${Math.min(100, (credits.suno.credits || 0) / 10)}%` }}
+                                />
+                              </div>
+                              <p className="text-[10px] font-mono text-stone-600">
+                                {credits.suno.low
+                                  ? '⚠️ Créditos baixos! Compra mais em sunoapi.org'
+                                  : credits.suno.credits! < 50
+                                    ? '⚡ A ficar baixo. Considera recarregar em breve.'
+                                    : '✅ Saldo saudável'}
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
+                            <p className="text-xs text-rose-400 font-mono">{credits.suno.error || 'Indisponível'}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Claude Card */}
+                      <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                            <Sparkles className="w-5 h-5 text-amber-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-stone-200">Anthropic Claude</p>
+                            <p className="text-[10px] font-mono text-stone-500">Geração de Letras</p>
+                          </div>
+                        </div>
+
+                        {credits.claude.ok ? (
+                          <div className="space-y-2">
+                            <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-mono text-stone-500">Modelo</span>
+                                <span className="text-xs font-mono text-stone-300">{credits.claude.model || '—'}</span>
+                              </div>
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-mono text-stone-500">Estado</span>
+                                <span className={`text-xs font-mono font-bold ${credits.claude.quota_exceeded ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                  {credits.claude.quota_exceeded ? '⚠️ Quota excedida' : '✅ Operacional'}
+                                </span>
+                              </div>
+                            </div>
+                            {credits.claude.quota_exceeded && (
+                              <p className="text-[10px] font-mono text-rose-400">A clave pode estar sem saldo. Verifica em console.anthropic.com</p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
+                            <p className="text-xs text-rose-400 font-mono">{credits.claude.error || 'Indisponível'}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1066,12 +1489,101 @@ export default function AdminPanel() {
                 </div>
               )}
 
+              {/* MÉTRICAS */}
+              {activeView === 'metrics' && (
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="font-serif text-2xl font-bold text-stone-100">Métricas Avançadas</h1>
+                      <p className="text-stone-500 text-sm mt-1">Conversão, prazos, estilos e receita</p>
+                    </div>
+                    <button onClick={fetchMetrics} disabled={metricsLoading} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
+                      <RefreshCw className={`w-3.5 h-3.5 ${metricsLoading ? 'animate-spin' : ''}`} /> Atualizar
+                    </button>
+                  </div>
+
+                  {metricsLoading && (
+                    <div className="flex items-center justify-center h-40"><RefreshCw className="w-6 h-6 text-stone-600 animate-spin" /></div>
+                  )}
+
+                  {!metrics && !metricsLoading && (
+                    <div className="text-center py-16 text-stone-600 font-mono text-sm">Clique em "Atualizar" para carregar as métricas.</div>
+                  )}
+
+                  {metrics && !metricsLoading && (
+                    <div className="space-y-6">
+                      {/* KPI Cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <StatCard icon={BarChart3} label="Conversão" value={metrics.conversionRate} color="bg-emerald-500/15 text-emerald-400" subtitle={`${metrics.paidRequests} de ${metrics.totalRequests} pagaram`} />
+                        <StatCard icon={Clock} label="Tempo Médio (entrega)" value={`${metrics.avgDeliveryHours}h`} color="bg-blue-500/15 text-blue-400" subtitle={metrics.avgDeliveryHours > 0 ? 'Da criação à aprovação' : 'Sem dados'} />
+                        <StatCard icon={TrendingUp} label="Receita Total" value={metrics.totalRevenue?.toLocaleString('pt') + ' Kz' || '0 Kz'} color="bg-rose-500/15 text-rose-400" subtitle="Pagamentos aprovados" />
+                        <StatCard icon={Music} label="Pedidos Pendentes" value={metrics.pendingCount} color="bg-amber-500/15 text-amber-400" subtitle="Aguardando pagamento" />
+                      </div>
+
+                      {/* Popular Styles */}
+                      <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5">
+                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4">🎵 Estilos Musicais Populares</h3>
+                        {metrics.popularStyles?.length > 0 ? (
+                          <div className="space-y-2">
+                            {metrics.popularStyles.map((s: any, i: number) => {
+                              const maxCount = metrics.popularStyles[0]?.count || 1;
+                              const pct = (s.count / maxCount) * 100;
+                              return (
+                                <div key={i} className="flex items-center gap-3">
+                                  <span className="text-xs font-mono text-stone-400 w-24 text-right">{s.style}</span>
+                                  <div className="flex-1 bg-stone-800 rounded-full h-4 overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <span className="text-xs font-mono text-stone-500 w-8">{s.count}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-stone-600 text-sm">Nenhum estilo registado.</p>
+                        )}
+                      </div>
+
+                      {/* Monthly Revenue Chart */}
+                      <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5">
+                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4">💰 Receita por Mês</h3>
+                        {metrics.revenueByMonth?.length > 0 ? (
+                          <div className="space-y-2">
+                            {metrics.revenueByMonth.map((r: any, i: number) => {
+                              const maxRev = Math.max(...metrics.revenueByMonth.map((x: any) => x.revenue), 1);
+                              const pct = (r.revenue / maxRev) * 100;
+                              return (
+                                <div key={i} className="flex items-center gap-3">
+                                  <span className="text-xs font-mono text-stone-500 w-16">{r.month}</span>
+                                  <div className="flex-1 bg-stone-800 rounded-full h-5 overflow-hidden">
+                                    <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all flex items-center justify-end pr-2" style={{ width: `${pct}%`, minWidth: pct > 0 ? '2rem' : '0' }}>
+                                      <span className="text-[9px] font-mono font-bold text-stone-950">{r.revenue.toLocaleString('pt')} Kz</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-stone-600 text-sm">Nenhuma receita registada.</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* CLIENTS */}
               {activeView === 'clients' && (
                 <div className="space-y-5">
-                  <div>
-                    <h1 className="font-serif text-2xl font-bold text-stone-100">Clientes</h1>
-                    <p className="text-stone-500 text-sm mt-1">Base de dados de clientes registados</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="font-serif text-2xl font-bold text-stone-100">Clientes</h1>
+                      <p className="text-stone-500 text-sm mt-1">Base de dados de clientes registados</p>
+                    </div>
+                    <button onClick={() => exportCSV('clients')} className="flex items-center gap-1.5 px-3 py-2 bg-stone-900 border border-stone-800 text-stone-400 text-xs rounded-xl hover:text-emerald-400 hover:border-emerald-500/30 transition-colors cursor-pointer font-mono">
+                      <Download className="w-3.5 h-3.5" /> Exportar CSV
+                    </button>
                   </div>
 
                   <div className="overflow-hidden rounded-2xl border border-stone-800">
@@ -1173,6 +1685,165 @@ export default function AdminPanel() {
                     Cancelar
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Logs Modal */}
+      <AnimatePresence>
+        {logsModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => setLogsModal(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-stone-900 border border-stone-800 rounded-2xl p-6 w-full max-w-lg space-y-4 max-h-[80vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <List className="w-4 h-4 text-amber-400" />
+                  <h3 className="font-serif text-lg font-bold text-stone-100">Histórico do Pedido</h3>
+                </div>
+                <button onClick={() => setLogsModal(null)} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer">✕ Fechar</button>
+              </div>
+
+              {logsModal.loading ? (
+                <div className="flex items-center justify-center h-32"><RefreshCw className="w-5 h-5 text-stone-600 animate-spin" /></div>
+              ) : logsModal.logs.length === 0 ? (
+                <p className="text-center text-stone-500 text-sm py-8">Nenhum evento registado.</p>
+              ) : (
+                <div className="space-y-0">
+                  {logsModal.logs.map((log, i) => (
+                    <div key={i} className="flex gap-3 py-3 border-b border-stone-800 last:border-0">
+                      <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-stone-300 font-medium">{log.event}</p>
+                        {log.detail && <p className="text-[10px] text-stone-500 font-mono mt-0.5">{log.detail}</p>}
+                        <p className="text-[9px] text-stone-600 font-mono mt-0.5">{formatDate(log.timestamp)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Preview Lyrics Modal */}
+      <AnimatePresence>
+        {previewLyrics && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => setPreviewLyrics(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-stone-900 border border-stone-800 rounded-2xl p-6 w-full max-w-xl space-y-4 max-h-[80vh] overflow-y-auto"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-amber-400" />
+                  <h3 className="font-serif text-lg font-bold text-stone-100">{previewLyrics.title}</h3>
+                </div>
+                <button onClick={() => setPreviewLyrics(null)} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer">✕ Fechar</button>
+              </div>
+
+              <div className="bg-stone-950 rounded-xl p-4 border border-stone-800 space-y-3">
+                {previewLyrics.lyrics.map((line, i) => (
+                  <p key={i} className={`text-sm font-mono leading-relaxed ${line.startsWith('[') ? 'text-amber-400 font-bold mt-4' : 'text-stone-300'}`}>
+                    {line}
+                  </p>
+                ))}
+              </div>
+
+              {previewLyrics.letterText && (
+                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4">
+                  <p className="text-[10px] font-mono text-amber-500 uppercase tracking-wider mb-2">Dedicatória</p>
+                  <p className="text-sm text-stone-300 italic leading-relaxed">"{previewLyrics.letterText}"</p>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Force Status Modal */}
+      <AnimatePresence>
+        {forceStatusModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => { setForceStatusModal(null); setForceStatusValue(''); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-stone-900 border border-stone-800 rounded-2xl p-6 w-full max-w-sm space-y-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-rose-400" />
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-stone-100">Forçar Estado</h3>
+                  <p className="text-[10px] font-mono text-stone-500">Tabela: {forceStatusModal.table}</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-stone-400">Estado atual: <span className="font-mono text-stone-300">{forceStatusModal.currentStatus}</span></p>
+
+              <select
+                value={forceStatusValue}
+                onChange={e => setForceStatusValue(e.target.value)}
+                className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2.5 text-xs text-stone-300 focus:outline-none focus:border-rose-500/50 transition-colors font-mono"
+              >
+                <option value="">— Selecione um estado —</option>
+                {(VALID_STATUSES_FRONTEND[forceStatusModal.table] || []).map(opt => (
+                  <option key={opt.value} value={opt.value} disabled={opt.value === forceStatusModal.currentStatus}>
+                    {opt.label} {opt.value === forceStatusModal.currentStatus ? '(atual)' : ''}
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setForceStatusModal(null)}
+                  className="flex-1 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-400 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleForceStatus}
+                  disabled={!forceStatusValue || actionLoading === forceStatusModal.id + '_force'}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  {actionLoading === forceStatusModal.id + '_force' ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                  )}
+                  Forçar
+                </button>
               </div>
             </motion.div>
           </motion.div>

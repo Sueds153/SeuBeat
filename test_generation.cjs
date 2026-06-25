@@ -6,10 +6,10 @@ async function runTest() {
     userNick: 'Sued',
     recipientName: 'Amélia',
     recipientRelation: 'parceira',
-    occasion: 'declaração',
+    occasion: 'saudade',
     musicStyle: 'kizomba',
     voiceType: 'masculina',
-    desiredEmotion: 'emocionante',
+    desiredEmotion: 'amor',
     email: 'sued@seubeat.com',
     phone: '999999999',
     messageFromTheHeart: 'Conhecemo-nos em Luanda numa noite quente de verão, e desde então o meu coração é teu.'

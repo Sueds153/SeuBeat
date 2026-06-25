@@ -241,8 +241,107 @@ router.post('/song/:id/generate-music', adminAuth, async (req, res) => {
   }
 });
 
-router.get('/progress', adminAuth, (req, res) => {
-  res.json(requestProgressMap);
+// I. API Credits
+router.get('/credits', adminAuth, async (req, res) => {
+  try {
+    const [sunoResult, claudeResult] = await Promise.all([
+      (async () => {
+        const key = process.env.SUNO_API_KEY;
+        if (!key) return { ok: false, error: 'SUNO_API_KEY em falta' };
+        try {
+          const creditsRes = await fetch('https://api.sunoapi.org/api/v1/generate/credit', { headers: { 'Authorization': `Bearer ${key}` } });
+          if (!creditsRes.ok) return { ok: false, error: `HTTP ${creditsRes.status}` };
+          const creditsData = await creditsRes.json();
+          const credits = creditsData.data || 0;
+          return { ok: true, credits, low: credits < 20 };
+        } catch (e: any) { return { ok: false, error: e.message }; }
+      })(),
+      (async () => {
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY em falta' };
+        try {
+          const client = new Anthropic({ apiKey });
+          const response = await client.messages.create({
+            model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022',
+            max_tokens: 1,
+            messages: [{ role: 'user', content: 'ping' }]
+          });
+          return { ok: !!(response && response.content), model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022' };
+        } catch (e: any) {
+          if (e.message?.includes('quota') || e.message?.includes('limit') || e.message?.includes('429')) {
+            return { ok: true, quota_exceeded: true, error: e.message, model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022' };
+          }
+          return { ok: false, error: e.message };
+        }
+      })()
+    ]);
+
+    res.json({ suno: sunoResult, claude: claudeResult });
+  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+});
+
+// J. Force status override
+const VALID_STATUSES: Record<string, string[]> = {
+  song_requests: ['lyrics_generating', 'lyrics_ready', 'music_processing', 'voice_processing', 'music_ready', 'delivered', 'failed', 'payment_rejected', 'payment_submitted'],
+  payments: ['pending_verification', 'approved', 'rejected'],
+  songs: ['not_started', 'generating', 'processing', 'completed', 'failed']
+};
+
+router.post('/request/:id/force-status', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { table, status, field } = req.body;
+
+    if (!table || !status) {
+      return res.status(400).json({ error: 'Parâmetros "table" e "status" são obrigatórios.' });
+    }
+
+    const allowed = VALID_STATUSES[table];
+    if (!allowed) {
+      return res.status(400).json({ error: `Tabela inválida. Use: ${Object.keys(VALID_STATUSES).join(', ')}` });
+    }
+
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ error: `Status inválido para "${table}". Permitidos: ${allowed.join(', ')}` });
+    }
+
+    const statusField = field || (table === 'songs' ? 'mureka_status' : 'status');
+
+    const supabase = getSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    const { data, error } = await supabase
+      .from(table)
+      .update({ [statusField]: status })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) return res.status(500).json({ error: safeMessage(error) });
+    if (!data) return res.status(404).json({ error: 'Registo não encontrado.' });
+
+    logInfo('[Admin] Status forçado manualmente', { table, id, status, field: statusField });
+
+    if (table === 'song_requests' && status === 'delivered') {
+      const { data: songRequest } = await supabase
+        .from('song_requests')
+        .select('*, songs(*), users(*)')
+        .eq('id', id)
+        .single();
+
+      if (songRequest?.users?.email && songRequest?.songs?.[0]) {
+        const song = songRequest.songs[0];
+        const slug = (songRequest.recipient_name || 'especial')
+          .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+        const url = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${song.id}`;
+        sendPersonalizedEmail(songRequest.users.email, songRequest.recipient_name, url, song.letter_text || 'Dedicatória.')
+          .catch(err => logWarn('[Admin] Falha ao enviar email após force-status delivered', { error: err?.message }));
+      }
+    }
+
+    res.json({ success: true, message: `Status atualizado para "${status}" em "${table}".`, data });
+  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
 });
 
 // H. Diagnostics
@@ -406,6 +505,236 @@ router.get('/clients', adminAuth, async (req, res) => {
     const { data, error } = await supabase.from('users').select('*, song_requests(id, status, created_at)').order('created_at', { ascending: false });
     if (error) return res.status(500).json({ error: safeMessage(error) });
     res.json({ success: true, clients: data });
+  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+});
+
+// K. Update request style/voice
+router.post('/request/:id/update-style', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { music_style, voice_type } = req.body;
+    const supabase = getSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    const updateData: Record<string, string> = {};
+    if (music_style) updateData.music_style = music_style;
+    if (voice_type) updateData.voice_type = voice_type;
+    if (Object.keys(updateData).length === 0) return res.status(400).json({ error: 'Nada para atualizar.' });
+    const { data, error } = await supabase.from('song_requests').update(updateData).eq('id', id).select().single();
+    if (error) return res.status(500).json({ error: safeMessage(error) });
+    res.json({ success: true, data });
+  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+});
+
+// L. Regenerate lyrics (re-call Claude)
+router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const supabase = getSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    const { data: requestData, error: reqError } = await supabase
+      .from('song_requests')
+      .select('*, songs(id, title, lyrics, letter_text), users(name, email, phone)')
+      .eq('id', id)
+      .single();
+
+    if (reqError || !requestData) return res.status(404).json({ error: 'Pedido não encontrado' });
+    if (!requestData.songs?.[0]) return res.status(400).json({ error: 'Música associada em falta.' });
+
+    const existingSong = requestData.songs[0];
+    const formData = {
+      userNick: requestData.users?.name || 'Autor',
+      recipientName: requestData.recipient_name,
+      recipientRelation: requestData.relationship,
+      recipientNick: '',
+      occasion: requestData.occasion,
+      musicStyle: requestData.music_style,
+      voiceType: requestData.voice_type,
+      unforgettableMemory: requestData.memory || '',
+      whatMakesSpecial: requestData.special_traits || '',
+      onlySheDoes: '',
+      whereItHappened: '',
+      messageFromTheHeart: requestData.heart_message || '',
+      desiredEmotion: 'Emocionante',
+      language: 'Português'
+    };
+
+    const { generateLyricsWithClaude } = await import('../services/claude');
+    const parsedData = await generateLyricsWithClaude(formData);
+
+    const { data: updatedSong, error: songError } = await supabase
+      .from('songs')
+      .update({
+        title: parsedData.songTitle,
+        lyrics: parsedData.lyrics,
+        lyrics_snippet: parsedData.lyricsSnippet,
+        letter_text: parsedData.letterText
+      })
+      .eq('id', existingSong.id)
+      .select()
+      .single();
+
+    if (songError) return res.status(500).json({ error: safeMessage(songError) });
+    res.json({ success: true, song: updatedSong });
+  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+});
+
+// M. Request event logs
+router.get('/request/:id/logs', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const supabase = getSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    const { data: requestData } = await supabase.from('song_requests').select('*, songs(*), payments(*)').eq('id', id).single();
+    if (!requestData) return res.status(404).json({ error: 'Pedido não encontrado' });
+
+    const logs: { timestamp: string; event: string; detail: string }[] = [];
+    const push = (ts: string, event: string, detail: string) => logs.push({ timestamp: ts, event, detail });
+
+    if (requestData.created_at) push(requestData.created_at, 'Pedido Criado', `Por ${requestData.users?.name || '—'} (${requestData.users?.email || '—'})`);
+    if (requestData.status) push(requestData.updated_at || requestData.created_at, `Status: ${requestData.status}`, '');
+    if (requestData.songs?.[0]?.created_at) push(requestData.songs[0].created_at, 'Letra Gerada', `Título: ${requestData.songs[0].title}`);
+    if (requestData.payments?.length) {
+      requestData.payments.forEach((p: any) => {
+        push(p.created_at, 'Pagamento Submetido', `${p.plan} — ${p.amount}`);
+        if (p.status === 'approved') push(p.approved_at || p.created_at, 'Pagamento Aprovado', '');
+        if (p.status === 'rejected') push(p.updated_at || p.created_at, 'Pagamento Rejeitado', p.notes || '');
+      });
+    }
+    if (requestData.songs?.[0]?.audio_url) push(requestData.songs[0].created_at, 'Áudio Gerado', 'URL do áudio disponível');
+
+    logs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    res.json({ success: true, logs });
+  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+});
+
+// N. Advanced metrics
+router.get('/metrics', adminAuth, async (req, res) => {
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    const [requestsRes, paymentsRes, songsRes] = await Promise.all([
+      supabase.from('song_requests').select('id, status, created_at, music_style', { count: 'exact' }),
+      supabase.from('payments').select('id, status, amount, plan, created_at, approved_at'),
+      supabase.from('songs').select('id, created_at, request_id')
+    ]);
+
+    const requests = requestsRes.data || [];
+    const payments = paymentsRes.data || [];
+    const songs = songsRes.data || [];
+
+    // Conversion rate
+    const totalRequests = requests.length;
+    const paidRequests = new Set(payments.filter(p => p.status === 'approved').map(p => p.id)).size;
+    const conversionRate = totalRequests > 0 ? (paidRequests / totalRequests * 100).toFixed(1) : '0.0';
+
+    // Average time to delivery
+    const approvedPayments = payments.filter(p => p.status === 'approved' && p.approved_at);
+    let avgHours = 0;
+    if (approvedPayments.length > 0) {
+      const totalHours = approvedPayments.reduce((sum, p) => {
+        const created = new Date(p.created_at).getTime();
+        const approved = new Date(p.approved_at!).getTime();
+        return sum + (approved - created) / (1000 * 60 * 60);
+      }, 0);
+      avgHours = Math.round(totalHours / approvedPayments.length);
+    }
+
+    // Popular music styles
+    const styleCount: Record<string, number> = {};
+    requests.forEach(r => {
+      const style = r.music_style || 'Outro';
+      styleCount[style] = (styleCount[style] || 0) + 1;
+    });
+    const popularStyles = Object.entries(styleCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([style, count]) => ({ style, count }));
+
+    // Monthly revenue
+    const monthlyRevenue: Record<string, number> = {};
+    approvedPayments.forEach(p => {
+      const month = new Date(p.approved_at!).toISOString().slice(0, 7);
+      const num = typeof p.amount === 'number' ? p.amount : parseInt(String(p.amount || '0').replace(/\D/g, ''), 10) / 100;
+      monthlyRevenue[month] = (monthlyRevenue[month] || 0) + num;
+    });
+    const revenueByMonth = Object.entries(monthlyRevenue)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([month, revenue]) => ({ month, revenue }));
+
+    // Pending requests count
+    const pendingCount = requests.filter(r => r.status === 'payment_submitted' || r.status === 'pending_verification').length;
+
+    res.json({
+      totalRequests,
+      paidRequests,
+      conversionRate: `${conversionRate}%`,
+      avgDeliveryHours: avgHours,
+      popularStyles,
+      revenueByMonth,
+      pendingCount,
+      totalRevenue: approvedPayments
+        .reduce((sum, p) => {
+          const num = typeof p.amount === 'number' ? p.amount : parseInt(String(p.amount || '0').replace(/\D/g, ''), 10) / 100;
+          return sum + num;
+        }, 0)
+    });
+  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+});
+
+// O. Export CSV
+router.get('/export/:type', adminAuth, async (req, res) => {
+  try {
+    const { type } = req.params;
+    const supabase = getSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    let rows: Record<string, any>[] = [];
+    let headers: string[] = [];
+
+    if (type === 'requests') {
+      const { data } = await supabase.from('song_requests').select('*, users(name, email)').order('created_at', { ascending: false });
+      if (data) {
+        headers = ['ID', 'Criado em', 'Cliente', 'Email', 'Destinatário', 'Relação', 'Ocasião', 'Estilo', 'Status'];
+        rows = data.map(r => ({
+          ID: r.id, 'Criado em': r.created_at, Cliente: r.users?.name || '', Email: r.users?.email || '',
+          Destinatário: r.recipient_name, Relação: r.relationship, Ocasião: r.occasion, Estilo: r.music_style, Status: r.status
+        }));
+      }
+    } else if (type === 'payments') {
+      const { data } = await supabase.from('payments').select('*, song_requests(recipient_name)').order('created_at', { ascending: false });
+      if (data) {
+        headers = ['ID', 'Criado em', 'Email', 'Plano', 'Valor', 'Status', 'Destinatário', 'Notas'];
+        rows = data.map(p => ({
+          ID: p.id, 'Criado em': p.created_at, Email: p.user_email, Plano: p.plan,
+          Valor: p.amount, Status: p.status, Destinatário: (p.song_requests as any)?.recipient_name || '', Notas: p.notes || ''
+        }));
+      }
+    } else if (type === 'clients') {
+      const { data } = await supabase.from('users').select('*, song_requests(id)').order('created_at', { ascending: false });
+      if (data) {
+        headers = ['ID', 'Nome', 'Email', 'Telefone', 'Criado em', 'Total Pedidos'];
+        rows = data.map(u => ({
+          ID: u.id, Nome: u.name || '', Email: u.email || '', Telefone: u.phone || '',
+          'Criado em': u.created_at || '', 'Total Pedidos': (u.song_requests as any[])?.length || 0
+        }));
+      }
+    } else {
+      return res.status(400).json({ error: 'Tipo inválido. Use: requests, payments, clients' });
+    }
+
+    const csvHeader = headers.join(',');
+    const csvRows = rows.map(row => headers.map(h => {
+      const val = String(row[h] || '').replace(/"/g, '""');
+      return `"${val}"`;
+    }).join(','));
+    const csv = [csvHeader, ...csvRows].join('\n');
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${type}_${Date.now()}.csv"`);
+    res.send('\uFEFF' + csv);
   } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
 });
 

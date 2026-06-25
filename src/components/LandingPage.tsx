@@ -1,4 +1,5 @@
 import { ArrowRight, Sparkles, Check, Play, MessageCircle } from 'lucide-react';
+import LogoIcon from './LogoIcon';
 import AudioDemo from './AudioDemo';
 import Testimonials from './Testimonials';
 import VideoTestimonial from './VideoTestimonial';
@@ -35,12 +36,10 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       {/* ─── NAV ─── */}
       <header className="max-w-7xl mx-auto px-4 md:px-8 py-5 flex items-center justify-between sticky top-0 bg-stone-950/80 backdrop-blur-md z-40 border-b border-stone-900/40">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-gradient-to-tr from-amber-500 to-rose-600 rounded-xl flex items-center justify-center text-stone-950 font-black shadow-lg shadow-amber-500/10 animate-[pulse_3s_infinite]">
-            SB
-          </div>
+          <LogoIcon size={42} className="drop-shadow-[0_0_10px_rgba(245,158,11,0.35)] animate-[pulse_4s_ease-in-out_infinite]" />
           <div>
             <span className="font-serif text-xl font-black text-stone-100 tracking-tight block">SeuBeat</span>
-            <span className="text-[10px] text-stone-500 block tracking-widest font-mono uppercase">Música com Emoção</span>
+            <span className="text-[10px] text-stone-500 block tracking-widest font-mono uppercase">Sua Música. Seu Momento.</span>
           </div>
         </div>
 
@@ -393,7 +392,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
           {/* Brand */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-tr from-amber-500 to-rose-600 rounded-xl flex items-center justify-center text-stone-950 font-black text-xs">SB</div>
+            <LogoIcon size={36} />
             <div>
               <span className="font-serif text-base font-bold text-stone-200 block">SeuBeat</span>
               <span className="text-[10px] font-mono text-stone-500">© 2026 · Todos os direitos reservados</span>
