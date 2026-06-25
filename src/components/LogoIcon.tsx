@@ -3,56 +3,48 @@ import { useId } from 'react';
 interface LogoIconProps {
   size?: number;
   className?: string;
+  showBg?: boolean;
 }
 
 /**
- * SeuBeat logo icon — replicates the reference design:
- *  • Thin heart outline
- *  • 4 equalizer bars (lower-left inside heart)
- *  • Large quarter-note with flag (right side inside heart)
- * Gradient: amber → coral → rose  (matches site palette)
+ * SeuBeat logo icon — app-style rounded square with:
+ *  •  Heart + music note + equalizer fused
+ *  •  Amber → coral → rose neon gradient (site palette)
+ *  •  Dark rounded-square background
  */
-export default function LogoIcon({ size = 40, className = '' }: LogoIconProps) {
+export default function LogoIcon({ size = 40, className = '', showBg = true }: LogoIconProps) {
   const uid = useId().replace(/:/g, '');
-  const gMain  = `sbgm-${uid}`;   // main gradient
-  const gVert  = `sbgv-${uid}`;   // vertical gradient for bars
-  const clip   = `sbc-${uid}`;
+  const gMain = `sbgm-${uid}`;
+  const clip  = `sbc-${uid}`;
 
-  // Heart path shared between outline and clip
   const heartPath =
-    'M50,84 C50,84 7,57 7,32 C7,17 18,7 32,7 C40,7 47,12 50,20 C53,12 60,7 68,7 C82,7 93,17 93,32 C93,57 50,84 50,84Z';
+    'M77,60 C77,60 88,44 88,28 C88,14 78,7 66,7 C59,7 53,12 50,17 C47,12 41,7 34,7 C22,7 12,14 12,28 C12,44 23,60 23,60 C23,60 47,88 50,88 C53,88 77,60 77,60Z';
 
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 100 92"
+      viewBox="0 0 100 100"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       aria-label="SeuBeat logo"
       role="img"
     >
       <defs>
-        {/* Diagonal amber → coral → rose gradient (matches CTA buttons) */}
-        <linearGradient id={gMain} x1="0%" y1="100%" x2="100%" y2="0%">
+        {/* Neon gradient: amber → coral → rose */}
+        <linearGradient id={gMain} x1="20%" y1="0%" x2="80%" y2="100%">
           <stop offset="0%"   stopColor="#f59e0b" />
-          <stop offset="45%"  stopColor="#fb923c" />
+          <stop offset="40%"  stopColor="#fb923c" />
           <stop offset="100%" stopColor="#e11d48" />
         </linearGradient>
-
-        {/* Vertical gradient for the waveform bars */}
-        <linearGradient id={gVert} x1="0%" y1="100%" x2="0%" y2="0%">
-          <stop offset="0%"   stopColor="#f59e0b" />
-          <stop offset="100%" stopColor="#fb923c" />
-        </linearGradient>
-
-        {/* Clip to keep waveform bars inside the heart */}
-        <clipPath id={clip}>
-          <path d={heartPath} />
-        </clipPath>
       </defs>
 
-      {/* ── Heart outline ── */}
+      {/* ── App-style rounded square background ── */}
+      {showBg && (
+        <rect x="2" y="2" width="96" height="96" rx="20" ry="20" fill="#0c0a09" />
+      )}
+
+      {/* ── Heart outline (neon) ── */}
       <path
         d={heartPath}
         fill="none"
@@ -62,37 +54,34 @@ export default function LogoIcon({ size = 40, className = '' }: LogoIconProps) {
         strokeLinecap="round"
       />
 
-      {/* ── Equalizer / waveform bars — lower-left inside heart ── */}
-      <g clipPath={`url(#${clip})`}>
-        {/* bar 1 – shortest */}
-        <rect x="14"  y="61" width="5.5" height="9"  rx="2.75" fill={`url(#${gVert})`} />
-        {/* bar 2 – medium */}
-        <rect x="21"  y="52" width="5.5" height="18" rx="2.75" fill={`url(#${gVert})`} />
-        {/* bar 3 – tallest */}
-        <rect x="28"  y="45" width="5.5" height="25" rx="2.75" fill={`url(#${gVert})`} />
-        {/* bar 4 – medium-short */}
-        <rect x="35"  y="56" width="5.5" height="14" rx="2.75" fill={`url(#${gVert})`} />
+      {/* ── Equalizer bars (5 bars) inside left half of heart ── */}
+      <g>
+        <rect x="17" y="68" width="4.5" height="7"   rx="2.25" fill={`url(#${gMain})`} opacity="1" />
+        <rect x="24" y="60" width="4.5" height="15"  rx="2.25" fill={`url(#${gMain})`} opacity="1" />
+        <rect x="31" y="50" width="4.5" height="25"  rx="2.25" fill={`url(#${gMain})`} opacity="1" />
+        <rect x="38" y="54" width="4.5" height="21"  rx="2.25" fill={`url(#${gMain})`} opacity="0.85" />
+        <rect x="45" y="60" width="4.5" height="15"  rx="2.25" fill={`url(#${gMain})`} opacity="0.7" />
       </g>
 
-      {/* ── Music note — right side ── */}
-      {/* Notehead: large filled ellipse, slightly tilted */}
+      {/* ── Music note integrated into right side of heart ── */}
+      {/* Notehead */}
       <ellipse
-        cx="65" cy="69"
-        rx="9"  ry="6.5"
+        cx="64" cy="72"
+        rx="8"  ry="6"
         fill={`url(#${gMain})`}
-        transform="rotate(-20 65 69)"
+        transform="rotate(-15 64 72)"
       />
-      {/* Stem: vertical from right of notehead up to top-right of heart */}
+      {/* Stem */}
       <line
-        x1="73"  y1="64"
-        x2="73"  y2="29"
+        x1="71" y1="67"
+        x2="71" y2="26"
         stroke={`url(#${gMain})`}
-        strokeWidth="5.5"
+        strokeWidth="5"
         strokeLinecap="round"
       />
-      {/* Flag: elegant curve to the right from stem top */}
+      {/* Flag */}
       <path
-        d="M73,29 C87,36 88,54 73,59"
+        d="M71,26 C84,32 86,48 72,54"
         fill="none"
         stroke={`url(#${gMain})`}
         strokeWidth="5"
