@@ -1,30 +1,56 @@
 import { SunoResult } from './types';
 
 const SUNO_TIMEOUT_MS = Number(process.env.SUNO_TIMEOUT_MS || 45000);
+const MAX_RETRIES = Number(process.env.SUNO_MAX_RETRIES || 3);
 const SUCCESS_STATUSES = new Set(['success', 'completed', 'done', 'finished', 'succeeded']);
 const FAILED_STATUSES = new Set(['failed', 'failure', 'error', 'cancelled', 'canceled']);
 
-async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = SUNO_TIMEOUT_MS, retries = 3) {
+function isQuotaError(status: number, body: string): boolean {
+  return status === 429 || body.includes('quota') || body.includes('rate limit') || body.includes('exceeded');
+}
+
+function getRetryDelay(attempt: number, retryAfter?: string | null): number {
+  if (retryAfter) {
+    const seconds = parseInt(retryAfter, 10);
+    if (!isNaN(seconds) && seconds > 0) return seconds * 1000;
+  }
+  return Math.min(1000 * Math.pow(2, attempt - 1) + Math.random() * 500, 30000);
+}
+
+export class SunoQuotaError extends Error {
+  constructor(msg: string) {
+    super(msg);
+    this.name = 'SunoQuotaError';
+  }
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = SUNO_TIMEOUT_MS, retries = MAX_RETRIES) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(url, { ...init, signal: controller.signal });
-      if (res.status === 429 && attempt < retries) {
-        const backoff = 1000 * Math.pow(2, attempt - 1);
-        console.warn(`[Suno] 429 Too Frequent, retry ${attempt}/${retries} in ${backoff}ms`);
+      const partialBody = await res.clone().text().then(t => t.slice(0, 500)).catch(() => '');
+      if (isQuotaError(res.status, partialBody) && attempt < retries) {
+        const backoff = getRetryDelay(attempt, res.headers.get('retry-after'));
+        console.warn(`[Suno] Quota/rate limit (${res.status}), retry ${attempt}/${retries} in ${backoff}ms`);
         clearTimeout(timeout);
         await new Promise(r => setTimeout(r, backoff));
         continue;
       }
+      if (isQuotaError(res.status, partialBody) && attempt >= retries) {
+        throw new SunoQuotaError(`Suno quota excedida: ${res.status}. Verifica o teu plano em sunoapi.org.`);
+      }
       return res;
     } catch (err: any) {
+      if (err instanceof SunoQuotaError) throw err;
       if (err?.name === 'AbortError') {
         throw new Error(`Suno request timeout after ${timeoutMs}ms`);
       }
       if (attempt < retries) {
-        console.warn(`[Suno] Attempt ${attempt}/${retries} failed: ${err.message}, retrying...`);
-        await new Promise(r => setTimeout(r, 1000 * attempt));
+        const delay = getRetryDelay(attempt);
+        console.warn(`[Suno] Attempt ${attempt}/${retries} failed: ${err.message}, retrying in ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
         continue;
       }
       throw err;
@@ -126,6 +152,9 @@ export async function querySunoTask(taskId: string): Promise<SunoResult> {
 
   if (!statusRes.ok) {
     const errText = await safeResponseText(statusRes);
+    if (isQuotaError(statusRes.status, errText)) {
+      throw new SunoQuotaError(`Suno query falhou (quota): ${statusRes.status} - Verifica o teu plano em sunoapi.org`);
+    }
     throw new Error(`Suno query failed: ${statusRes.status} - ${errText}`);
   }
 
@@ -147,6 +176,24 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
 
   const lyricsText = lyrics.filter(Boolean).join('\n').trim();
   if (!lyricsText) throw new Error('Letra em falta para gerar musica no Suno.');
+
+  // Verificação rápida de créditos (não bloqueante)
+  try {
+    const creditRes = await fetch('https://api.sunoapi.org/api/v1/generate/credit', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (creditRes.ok) {
+      const creditData = await creditRes.json();
+      const remaining = creditData?.data?.remaining ?? creditData?.remaining ?? -1;
+      if (remaining === 0) {
+        console.warn('[Suno] Créditos esgotados (0 restantes)');
+      } else if (remaining > 0) {
+        console.log(`[Suno] Créditos restantes: ${remaining}`);
+      }
+    }
+  } catch {
+    // Falha na verificação de créditos não impede o fluxo
+  }
 
   const styleMap: Record<string, string> = {
     kizomba: 'kizomba, slow tempo, romantic vocal, african beats, sensual rhythm',
@@ -203,6 +250,9 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
 
   if (!generateRes.ok) {
     const errText = await safeResponseText(generateRes);
+    if (isQuotaError(generateRes.status, errText)) {
+      throw new SunoQuotaError(`Suno geração falhou (quota excedida): ${generateRes.status}. Renova os créditos em sunoapi.org.`);
+    }
     throw new Error(`Suno generation failed: ${generateRes.status} - ${errText}`);
   }
 
@@ -291,7 +341,11 @@ export async function generateFullSong(lyrics: string[], musicStyle: string, son
       return secondResult;
     }
   } catch (err: any) {
-    console.warn(`[Suno] Continue falhou, a devolver primeiro clip: ${err.message}`);
+    if (err instanceof SunoQuotaError) {
+      console.warn(`[Suno] Continue sem créditos, a devolver primeiro clip.`);
+    } else {
+      console.warn(`[Suno] Continue falhou, a devolver primeiro clip: ${err.message}`);
+    }
   }
 
   return firstResult;

@@ -14,4 +14,17 @@ export default defineConfig({
     hmr: process.env.DISABLE_HMR !== 'true',
     watch: process.env.DISABLE_HMR === 'true' ? null : undefined,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-anthropic': ['@anthropic-ai/sdk'],
+          'vendor-motion': ['motion'],
+          'vendor-lucide': ['lucide-react'],
+        },
+      },
+    },
+  },
 });
