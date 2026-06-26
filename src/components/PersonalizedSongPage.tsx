@@ -19,6 +19,8 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
   const [copiedType, setCopiedType] = useState<'link' | 'share' | null>(null);
   const [likesCount, setLikesCount] = useState(382);
   const [hasLiked, setHasLiked] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
+  const [notFound, setNotFound] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const liveAudioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -120,7 +122,10 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
     const dbSongId = params.get('id');
     if (dbSongId) {
       fetch(`/api/song/${dbSongId}`)
-        .then(res => res.json())
+        .then(res => {
+          if (res.status === 404) { setNotFound(true); throw new Error('Not found'); }
+          return res.json();
+        })
         .then(data => {
           if (data.success && data.data) {
              const dbSong = data.data;
@@ -140,10 +145,42 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
               }));
           }
         })
-        .catch(err => console.error("Could not fetch song from Supabase:", err))
+        .catch(err => {
+          if (!notFound) setFetchError(true);
+          console.error("Could not fetch song from Supabase:", err);
+        })
         .finally(() => setIsLoading(false));
     } else {
-      setIsLoading(false);
+      // Try to find last created song in localStorage as fallback
+      const fallbackId = localStorage.getItem('seubeat_last_song_id');
+      if (fallbackId) {
+        fetch(`/api/song/${fallbackId}`)
+          .then(res => {
+            if (res.status === 404) { setNotFound(true); return null; }
+            return res.json();
+          })
+          .then(data => {
+            if (data && data.success && data.data) {
+              const dbSong = data.data;
+              const dbRequest = dbSong.song_requests;
+              setSongDetails(prev => ({
+                ...prev,
+                recipientName: dbRequest?.recipient_name || prev.recipientName,
+                userNick: dbRequest?.users?.name || prev.userNick,
+                musicStyle: (dbRequest?.music_style as MusicStyleType) || prev.musicStyle,
+                letter: dbSong.letter_text || dbSong.dedication_letter || prev.letter,
+                songTitle: dbSong.title || prev.songTitle,
+                lyrics: dbSong.lyrics || prev.lyrics,
+                audioUrl: dbSong.audio_url || prev.audioUrl,
+                photoUrl: dbRequest?.photo_url || prev.photoUrl
+              }));
+            }
+          })
+          .catch(() => {})
+          .finally(() => setIsLoading(false));
+      } else {
+        setIsLoading(false);
+      }
     }
   }, []);
 
@@ -354,6 +391,25 @@ Angola ${(new Date().getFullYear())}
     );
   }
 
+  if (notFound) {
+    return (
+      <div className="min-h-screen bg-[#090807] flex items-center justify-center p-4">
+        <div className="text-center space-y-4 max-w-md">
+          <div className="w-16 h-16 mx-auto rounded-full bg-amber-500/10 flex items-center justify-center">
+            <span className="text-3xl">🎵</span>
+          </div>
+          <h1 className="font-serif text-2xl text-stone-100 font-bold">Música não encontrada</h1>
+          <p className="text-stone-400 text-sm">
+            O link que abriste não é válido ou a música foi removida.
+          </p>
+          <a href="/" className="inline-block px-6 py-2 bg-amber-500 text-stone-950 rounded-xl font-bold text-sm hover:bg-amber-400">
+            Criar a minha música
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#090807] text-stone-100 flex flex-col justify-between selection:bg-amber-500/20 selection:text-amber-300 relative overflow-hidden">
       {/* Visual background glows */}
@@ -380,6 +436,14 @@ Angola ${(new Date().getFullYear())}
           </div>
         </div>
       </header>
+
+      {fetchError && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 md:px-8 py-3">
+          <p className="text-xs text-amber-400 text-center max-w-6xl mx-auto">
+            Não foi possível carregar os dados mais recentes. A página pode mostrar informações limitadas.
+          </p>
+        </div>
+      )}
 
       {/* Main Grid Content */}
       <main className="max-w-6xl mx-auto w-full px-4 md:px-8 py-10 md:py-16 flex-grow flex flex-col justify-center space-y-12 relative z-10">
