@@ -6,7 +6,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   WizardData, INITIAL_WIZARD_DATA, RecipientType, OccasionType, 
-  MusicStyleType, VoiceType, EmotionType, PRICING_PLANS 
+  MusicStyleType, VoiceType, EmotionType 
 } from '../types';
 import {
   Step1Relation, Step2Occasion, Step3Style, Step4Voice,

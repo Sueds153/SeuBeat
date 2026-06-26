@@ -4,7 +4,7 @@ import AudioDemo from './AudioDemo';
 import Testimonials from './Testimonials';
 import VideoTestimonial from './VideoTestimonial';
 import FAQ from './FAQ';
-import { PRICING_PLANS } from '../types';
+import { PRICING_PLANS } from '../constants/pricing';
 
 interface LandingPageProps {
   onStartWizard: () => void;

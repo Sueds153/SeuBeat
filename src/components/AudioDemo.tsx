@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Volume2, VolumeX, Music, Heart, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
-import { DEMO_SONGS, DemoSong } from '../types';
+import { DEMO_SONGS } from '../constants/demoSongs';
+import type { DemoSong } from '../constants/demoSongs';
 
 export default function AudioDemo() {
   const [selectedSong, setSelectedSong] = useState<DemoSong>(DEMO_SONGS[0]);
