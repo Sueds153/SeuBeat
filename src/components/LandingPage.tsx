@@ -21,7 +21,7 @@ const OCCASIONS = [
 
 export default function LandingPage({ onStartWizard }: LandingPageProps) {
   return (
-    <div id="landing-page-root" className="min-h-screen bg-stone-950 text-stone-100 selection:bg-amber-500/30 selection:text-amber-200">
+    <div id="landing-page-root" className="relative min-h-screen overflow-x-hidden bg-stone-950 text-stone-100 selection:bg-amber-500/30 selection:text-amber-200">
 
       {/* ─── PROMO BAR ─── */}
       <div className="w-full bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-stone-950 text-center py-2 px-4 text-xs font-bold tracking-wide animate-pulse-slow z-50 relative">
@@ -35,7 +35,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
       {/* ─── NAV ─── */}
       <header className="max-w-7xl mx-auto px-4 md:px-8 py-5 flex items-center justify-between sticky top-0 bg-stone-950/80 backdrop-blur-md z-40 border-b border-stone-900/40">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <LogoIcon size={44} className="drop-shadow-[0_0_12px_rgba(245,158,11,0.4)] shrink-0" />
           <div>
             <span className="font-sans text-2xl font-black tracking-tight block leading-none">
@@ -68,6 +68,15 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
           {/* Left: Text */}
           <div className="space-y-8 text-left">
+            <div className="inline-flex items-center gap-3 rounded-2xl border border-stone-800/80 bg-stone-900/35 px-4 py-3 shadow-lg shadow-black/20">
+              <LogoIcon size={44} className="shrink-0" />
+              <div>
+                <p className="text-[10px] font-mono font-bold uppercase tracking-[0.22em] text-amber-400">
+                  SeuBeat Studio
+                </p>
+                <p className="text-xs text-stone-400">Sua Música. Seu Momento.</p>
+              </div>
+            </div>
 
             {/* Citation Quote — Emotional Hook */}
             <div className="inline-flex flex-col gap-1 pl-4 border-l-2 border-amber-500/60">
@@ -126,7 +135,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             </div>
 
             {/* Social proof micro-stats */}
-            <div className="flex items-center gap-6 text-xs text-stone-500 font-mono">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-stone-500 font-mono">
               <div className="flex items-center gap-1.5">
                 <span className="text-amber-400 font-bold text-base">+200</span>
                 <span>músicas criadas</span>
@@ -159,12 +168,21 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 <div className="absolute bottom-0 inset-x-0 h-32 bg-gradient-to-t from-stone-950/80 to-transparent" />
                 {/* Floating tag over photo */}
                 <div className="absolute bottom-4 left-4 right-4 flex items-center gap-3 bg-stone-950/80 backdrop-blur-md rounded-2xl p-3 border border-stone-800/60">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-500 to-rose-600 flex items-center justify-center text-stone-950 font-black text-xs shrink-0">❤️</div>
+                  <LogoIcon size={36} className="shrink-0 shadow-lg shadow-amber-500/15" />
                   <div>
                     <p className="text-stone-200 text-xs font-semibold">"Chorámos juntos ao ouvir."</p>
                     <p className="text-stone-500 text-[10px] font-mono">Faustino · Benguela · Semba</p>
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-4 overflow-hidden rounded-2xl border border-stone-800/70 bg-black/70 px-4 py-3 shadow-xl shadow-black/30">
+                <img
+                  src="/assets/seubeat-logo-lockup-main.png"
+                  alt="SeuBeat - Sua Música. Seu Momento."
+                  className="mx-auto h-20 w-full object-contain"
+                  loading="eager"
+                />
               </div>
 
               {/* Floating badge top-right */}
