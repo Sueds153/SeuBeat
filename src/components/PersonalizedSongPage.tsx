@@ -118,67 +118,75 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
       }
     }
 
-    // Now, if there is a dbSongId, fetch from Supabase to guarantee data consistency
+    const FETCH_TIMEOUT = 10000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+
+    function fetchSong(id: string): Promise<any> {
+      return fetch(`/api/song/${id}`, { signal: controller.signal })
+        .then(res => {
+          if (res.status === 404) return null;
+          return res.json();
+        });
+    }
+
+    function applySongData(data: any): boolean {
+      if (!data || !data.success || !data.data) return false;
+      const dbSong = data.data;
+      const dbRequest = dbSong.song_requests;
+      setSongDetails(prev => ({
+        ...prev,
+        recipientName: dbRequest?.recipient_name || prev.recipientName,
+        userNick: dbRequest?.users?.name || prev.userNick,
+        musicStyle: (dbRequest?.music_style as MusicStyleType) || prev.musicStyle,
+        letter: dbSong.letter_text || dbSong.dedication_letter || prev.letter,
+        songTitle: dbSong.title || prev.songTitle,
+        lyrics: dbSong.lyrics || prev.lyrics,
+        audioUrl: dbSong.audio_url || prev.audioUrl,
+        photoUrl: dbRequest?.photo_url || prev.photoUrl
+      }));
+      return true;
+    }
+
     const dbSongId = params.get('id');
     if (dbSongId) {
-      fetch(`/api/song/${dbSongId}`)
-        .then(res => {
-          if (res.status === 404) { setNotFound(true); throw new Error('Not found'); }
-          return res.json();
-        })
+      fetchSong(dbSongId)
         .then(data => {
-          if (data.success && data.data) {
-             const dbSong = data.data;
-             const dbRequest = dbSong.song_requests;
-             const dbUser = dbRequest?.users;
-             
-             setSongDetails(prev => ({
-                ...prev,
-                recipientName: dbRequest?.recipient_name || prev.recipientName,
-                userNick: dbUser?.name || prev.userNick,
-                musicStyle: (dbRequest?.music_style as MusicStyleType) || prev.musicStyle,
-                letter: dbSong.letter_text || dbSong.dedication_letter || prev.letter,
-                songTitle: dbSong.title || prev.songTitle,
-                lyrics: dbSong.lyrics || prev.lyrics,
-                audioUrl: dbSong.audio_url || prev.audioUrl,
-                photoUrl: dbRequest?.photo_url || prev.photoUrl
-              }));
+          if (data === null) {
+            setNotFound(true);
+          } else if (!applySongData(data)) {
+            setFetchError(true);
           }
         })
         .catch(err => {
-          if (!notFound) setFetchError(true);
+          if (err?.name === 'AbortError') {
+            console.warn('Fetch timeout for /api/song/', dbSongId);
+          }
+          setFetchError(true);
           console.error("Could not fetch song from Supabase:", err);
         })
-        .finally(() => setIsLoading(false));
+        .finally(() => {
+          clearTimeout(timeoutId);
+          setIsLoading(false);
+        });
     } else {
-      // Try to find last created song in localStorage as fallback
       const fallbackId = localStorage.getItem('seubeat_last_song_id');
       if (fallbackId) {
-        fetch(`/api/song/${fallbackId}`)
-          .then(res => {
-            if (res.status === 404) { setNotFound(true); return null; }
-            return res.json();
-          })
+        fetchSong(fallbackId)
           .then(data => {
-            if (data && data.success && data.data) {
-              const dbSong = data.data;
-              const dbRequest = dbSong.song_requests;
-              setSongDetails(prev => ({
-                ...prev,
-                recipientName: dbRequest?.recipient_name || prev.recipientName,
-                userNick: dbRequest?.users?.name || prev.userNick,
-                musicStyle: (dbRequest?.music_style as MusicStyleType) || prev.musicStyle,
-                letter: dbSong.letter_text || dbSong.dedication_letter || prev.letter,
-                songTitle: dbSong.title || prev.songTitle,
-                lyrics: dbSong.lyrics || prev.lyrics,
-                audioUrl: dbSong.audio_url || prev.audioUrl,
-                photoUrl: dbRequest?.photo_url || prev.photoUrl
-              }));
+            if (data === null) {
+              setNotFound(true);
+            } else {
+              applySongData(data);
             }
           })
-          .catch(() => {})
-          .finally(() => setIsLoading(false));
+          .catch(() => setFetchError(true))
+          .finally(() => {
+            clearTimeout(timeoutId);
+            setIsLoading(false);
+          });
       } else {
+        clearTimeout(timeoutId);
         setIsLoading(false);
       }
     }

@@ -222,7 +222,8 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
     style: musicStyle,
     titleLength: songTitle?.length || 0,
     lyricsLines: lyrics.length,
-    hasPersonaId: !!personaId
+    hasPersonaId: !!personaId,
+    personaIdDebug: personaId ? `${personaId.slice(0, 8)}...` : undefined,
   });
 
   const payload: Record<string, any> = {
@@ -238,6 +239,10 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
   if (personaId) {
     payload.personaId = personaId;
     payload.personaModel = 'voice_persona';
+  }
+
+  if (personaId) {
+    console.log(`[Suno] Payload inclui personaId=${JSON.stringify(payload.personaId).slice(0, 60)} e personaModel=${payload.personaModel}`);
   }
 
   const generateRes = await fetchWithTimeout('https://api.sunoapi.org/api/v1/generate', {
@@ -264,6 +269,14 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
   if (!taskId) {
     if (immediateAudioUrl) return { taskId: `instant_${Date.now()}`, audioUrl: immediateAudioUrl };
     throw new Error(`Suno did not return a task ID: ${JSON.stringify(generateData)}`);
+  }
+
+  if (personaId) {
+    console.log(`[Suno] Response for personaId task:`, JSON.stringify({
+      taskId,
+      hasImmediateAudio: !!immediateAudioUrl,
+      dataKeys: Object.keys(generateData),
+    }));
   }
 
   console.log(`[Suno] Task created: ${taskId}`);
@@ -309,6 +322,7 @@ export async function continueSunoMusic(taskId: string, personaId?: string): Pro
   if (personaId) {
     payload.personaId = personaId;
     payload.personaModel = 'voice_persona';
+    console.log(`[Suno] Continue payload inclui personaId=${JSON.stringify(payload.personaId).slice(0, 60)}`);
   }
 
   const continueRes = await fetchWithTimeout('https://api.sunoapi.org/api/v1/generate/continue', {
