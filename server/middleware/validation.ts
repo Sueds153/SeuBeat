@@ -21,6 +21,7 @@ const OCCASIONS = [
 
 const MUSIC_STYLES = [
   'kizomba', 'semba', 'afrobeat', 'gospel', 'acoustic', 'romantic pop',
+  'zouk', 'balada', 'pop', 'r&b', 'rap',
 ] as const;
 
 const VOICE_TYPES = [

@@ -213,6 +213,7 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
     gospel: 'gospel, choral harmonies, organ backing, inspirational vocal',
     acoustic: 'acoustic guitar, intimate vocals, soft unplugged ballad',
     'romantic pop': 'romantic pop ballad, emotional strings, modern radio melody',
+    'r&b': 'r&b, smooth vocals, groovy bassline, soulful rhythm, sensual melody',
   };
 
   const stylePrompt = styleMap[musicStyle.trim().toLowerCase()] || 'romantic, emotional pop';

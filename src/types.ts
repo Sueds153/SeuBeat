@@ -37,7 +37,12 @@ export type MusicStyleType =
   | 'Afrobeat'
   | 'Gospel'
   | 'Acoustic'
-  | 'Romantic Pop';
+  | 'Romantic Pop'
+  | 'Zouk'
+  | 'Balada'
+  | 'Pop'
+  | 'R&B'
+  | 'Rap';
 
 export type VoiceType =
   | 'Masculina'
