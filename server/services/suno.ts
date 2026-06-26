@@ -269,7 +269,7 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
   return { taskId, audioUrl: immediateAudioUrl, status: extractStatus(generateData) };
 }
 
-async function pollSunoTask(taskId: string, immediateAudioUrl: string | null, label = 'Suno', maxAttempts = 60): Promise<SunoResult> {
+async function pollSunoTask(taskId: string, immediateAudioUrl: string | null, label = 'Suno', maxAttempts = 30): Promise<SunoResult> {
   if (immediateAudioUrl) {
     return { taskId, audioUrl: immediateAudioUrl };
   }
@@ -341,7 +341,7 @@ export async function generateFullSong(lyrics: string[], musicStyle: string, son
 
   try {
     const { taskId: continueTaskId } = await continueSunoMusic(firstResult.taskId, personaId);
-    const secondResult = await pollSunoTask(continueTaskId, null, 'Suno Gen2 (continue)', 60);
+    const secondResult = await pollSunoTask(continueTaskId, null, 'Suno Gen2 (continue)');
     if (secondResult.audioUrl) {
       console.log(`[Suno] Extended song ready: ${secondResult.audioUrl}`);
       return secondResult;
