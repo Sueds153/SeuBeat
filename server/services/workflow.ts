@@ -234,6 +234,16 @@ export async function runBackgroundSunoWorkflow(
         }
       } catch (voiceErr: any) {
         console.error(`[Background Suno] Suno Voice falhou, a gerar música sem voz personalizada:`, voiceErr);
+        await supabase
+          .from('song_requests')
+          .update({
+            error_details: JSON.stringify({
+              stage: 'voice_cloning',
+              message: voiceErr?.message || String(voiceErr),
+              at: new Date().toISOString()
+            })
+          })
+          .eq('id', requestId);
       }
 
       setProgress(requestId, { status: 'music_processing', progress: 30, message: 'Voz processada. A gerar música...' });
@@ -379,7 +389,7 @@ export async function processSunoVoice(
       `SeuBeat_${requestId}`,
       'Custom voice from SeuBeat',
       '',
-      'beginner'
+      'professional'
     );
     console.log(`[Suno Voice] Voice creation task: ${voiceResult.taskId}`);
 

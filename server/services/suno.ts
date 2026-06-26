@@ -297,12 +297,18 @@ async function pollSunoTask(taskId: string, immediateAudioUrl: string | null, la
   throw new Error(`${label} generation timed out after ${(maxAttempts * 10) / 60} minutes.`);
 }
 
-export async function continueSunoMusic(taskId: string): Promise<SunoResult> {
+export async function continueSunoMusic(taskId: string, personaId?: string): Promise<SunoResult> {
   const apiKey = process.env.SUNO_API_KEY;
   if (!apiKey) throw new Error('SUNO_API_KEY nao configurada.');
   if (!taskId) throw new Error('Task Suno em falta para continuar.');
 
-  console.log(`[Suno] Extending task ${taskId} via continue endpoint...`);
+  console.log(`[Suno] Extending task ${taskId} via continue endpoint...${personaId ? ' (com personaId)' : ''}`);
+
+  const payload: Record<string, any> = { task_id: taskId };
+  if (personaId) {
+    payload.personaId = personaId;
+    payload.personaModel = 'voice_persona';
+  }
 
   const continueRes = await fetchWithTimeout('https://api.sunoapi.org/api/v1/generate/continue', {
     method: 'POST',
@@ -310,7 +316,7 @@ export async function continueSunoMusic(taskId: string): Promise<SunoResult> {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({ task_id: taskId }),
+    body: JSON.stringify(payload),
   });
 
   if (!continueRes.ok) {
@@ -334,7 +340,7 @@ export async function generateFullSong(lyrics: string[], musicStyle: string, son
   console.log(`[Suno] First clip ready: ${firstResult.audioUrl}`);
 
   try {
-    const { taskId: continueTaskId } = await continueSunoMusic(firstResult.taskId);
+    const { taskId: continueTaskId } = await continueSunoMusic(firstResult.taskId, personaId);
     const secondResult = await pollSunoTask(continueTaskId, null, 'Suno Gen2 (continue)', 60);
     if (secondResult.audioUrl) {
       console.log(`[Suno] Extended song ready: ${secondResult.audioUrl}`);
