@@ -1,24 +1,35 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import fs from 'fs';
 
-let supabaseClient: SupabaseClient | null = null;
+let adminClient: SupabaseClient | null = null;
+let publicClient: SupabaseClient | null = null;
 
-// Supabase client helper (singleton)
-export function getSupabase() {
-  if (supabaseClient) return supabaseClient;
-  const supabaseUrl = process.env.SUPABASE_URL || '';
-  // Utiliza a service_role key no backend se disponível para contornar RLS em buckets privados
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
-  if (!supabaseUrl || !supabaseKey) return null;
-  supabaseClient = createClient(supabaseUrl, supabaseKey);
-  return supabaseClient;
+function getSupabaseUrl(): string {
+  return process.env.SUPABASE_URL || '';
 }
 
-// Utilitário para fazer upload para o Supabase Storage
+export function getAdminSupabase(): SupabaseClient | null {
+  if (adminClient) return adminClient;
+  const url = getSupabaseUrl();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+  if (!url || !key) return null;
+  adminClient = createClient(url, key);
+  return adminClient;
+}
+
+export function getPublicSupabase(): SupabaseClient | null {
+  if (publicClient) return publicClient;
+  const url = getSupabaseUrl();
+  const key = process.env.SUPABASE_ANON_KEY || '';
+  if (!url || !key) return null;
+  publicClient = createClient(url, key);
+  return publicClient;
+}
+
 export async function uploadToSupabase(bucket: string, filename: string, filePath: string, mimeType: string): Promise<string> {
-  const supabase = getSupabase();
+  const supabase = getAdminSupabase();
   if (!supabase) throw new Error("Supabase client não inicializado.");
-  
+
   const fileBuffer = await fs.promises.readFile(filePath);
   const { data, error } = await supabase.storage
     .from(bucket)
@@ -26,15 +37,15 @@ export async function uploadToSupabase(bucket: string, filename: string, filePat
       contentType: mimeType,
       upsert: true
     });
-    
+
   if (error) {
     throw new Error(`Erro ao enviar ficheiro para o storage (${bucket}/${filename}): ${error.message}`);
   }
-  
+
   const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filename);
   if (!urlData || !urlData.publicUrl) {
     throw new Error(`Não foi possível obter a URL pública para o ficheiro ${filename}`);
   }
-  
+
   return urlData.publicUrl;
 }

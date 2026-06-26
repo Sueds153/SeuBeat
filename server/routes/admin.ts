@@ -1,5 +1,5 @@
 import express from 'express';
-import { getSupabase } from '../services/supabase';
+import { getAdminSupabase } from '../services/supabase';
 import { adminAuth } from '../middleware/auth';
 import { 
   requestProgressMap, 
@@ -21,7 +21,7 @@ function safeMessage(err: any): string {
 // A. Admin dashboard stats
 router.get('/stats', adminAuth, async (req, res) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
     const [usersRes, requestsRes, paymentsRes, songsRes] = await Promise.all([
@@ -69,7 +69,7 @@ router.get('/stats', adminAuth, async (req, res) => {
 // B. Admin list payments
 router.get('/payments', adminAuth, async (req, res) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
     const { data, error } = await supabase
@@ -90,7 +90,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
     const { id } = req.params;
     const { notes } = req.body;
 
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
     const { data: payment, error: paymentError } = await supabase
@@ -146,7 +146,7 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { notes } = req.body;
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
     const { data: payment } = await supabase.from('payments').select('user_email, request_id').eq('id', id).single();
@@ -169,7 +169,7 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
 // E. Admin list requests
 router.get('/requests', adminAuth, async (req, res) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
     const { data, error } = await supabase
@@ -187,7 +187,7 @@ router.get('/requests', adminAuth, async (req, res) => {
 // F. Admin list songs
 router.get('/songs', adminAuth, async (req, res) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
     const { data, error } = await supabase
@@ -206,7 +206,7 @@ router.get('/songs', adminAuth, async (req, res) => {
 router.post('/song/:id/generate-music', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
     const { data: songData, error } = await supabase
@@ -307,7 +307,7 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
 
     const statusField = field || (table === 'songs' ? 'mureka_status' : 'status');
 
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
     const { data, error } = await supabase
@@ -349,7 +349,7 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
   try {
     const [supabaseDiag, claudeDiag, sunoDiag, sunoVoiceDiag, emailDiag] = await Promise.all([
       (async () => {
-        const supabase = getSupabase();
+        const supabase = getAdminSupabase();
         if (!supabase) return { ok: false, error: 'Cliente não inicializado' };
         try {
           const { data, error } = await supabase.storage.listBuckets();
@@ -403,7 +403,7 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
 router.post('/request/:id/retry', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
     const { data: requestData } = await supabase.from('song_requests').select('*, songs(*)').eq('id', id).single();
     if (!requestData) return res.status(404).json({ error: 'Pedido não encontrado' });
@@ -425,7 +425,7 @@ router.post('/request/:id/retry', adminAuth, async (req, res) => {
 router.post('/request/:id/force-voice', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
     const { data: requestData } = await supabase.from('song_requests').select('*, songs(*)').eq('id', id).single();
     if (!requestData || !requestData.songs?.[0]) return res.status(404).json({ error: 'Pedido ou música não encontrada' });
@@ -441,7 +441,7 @@ router.post('/request/:id/force-voice', adminAuth, async (req, res) => {
 router.post('/request/:id/resend-email', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
     const { data: requestData } = await supabase.from('song_requests').select('*, songs(*), users(*)').eq('id', id).single();
     if (!requestData || !requestData.songs?.[0] || !requestData.users?.email) return res.status(404).json({ error: 'Dados insuficientes.' });
@@ -457,7 +457,7 @@ router.post('/song/:id/edit-lyrics', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, lyrics, letterText } = req.body;
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
     const lyricsArray = Array.isArray(lyrics) ? lyrics : typeof lyrics === 'string' ? lyrics.split('\n').filter((l: string) => l.trim().length > 0) : [];
     const { data, error } = await supabase.from('songs').update({ title, lyrics: lyricsArray, letter_text: letterText || null }).eq('id', id).select().single();
@@ -471,7 +471,7 @@ router.post('/song/:id/upload-audio', adminAuth, async (req, res) => {
     const { id } = req.params;
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return res.status(400).json({ error: 'ID inválido.' });
     const { audioBase64, audioFilename, audioMimeType } = req.body;
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
     if (typeof audioBase64 !== 'string') return res.status(400).json({ error: 'Áudio ausente ou inválido.' });
@@ -500,7 +500,7 @@ router.post('/song/:id/upload-audio', adminAuth, async (req, res) => {
 
 router.get('/clients', adminAuth, async (req, res) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
     const { data, error } = await supabase.from('users').select('*, song_requests(id, status, created_at)').order('created_at', { ascending: false });
     if (error) return res.status(500).json({ error: safeMessage(error) });
@@ -513,7 +513,7 @@ router.post('/request/:id/update-style', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { music_style, voice_type } = req.body;
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
     const updateData: Record<string, string> = {};
     if (music_style) updateData.music_style = music_style;
@@ -529,7 +529,7 @@ router.post('/request/:id/update-style', adminAuth, async (req, res) => {
 router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
     const { data: requestData, error: reqError } = await supabase
@@ -583,7 +583,7 @@ router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
 router.get('/request/:id/logs', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
     const { data: requestData } = await supabase.from('song_requests').select('*, songs(*), payments(*)').eq('id', id).single();
@@ -612,7 +612,7 @@ router.get('/request/:id/logs', adminAuth, async (req, res) => {
 // N. Advanced metrics
 router.get('/metrics', adminAuth, async (req, res) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
     const [requestsRes, paymentsRes, songsRes] = await Promise.all([
@@ -688,7 +688,7 @@ router.get('/metrics', adminAuth, async (req, res) => {
 router.get('/export/:type', adminAuth, async (req, res) => {
   try {
     const { type } = req.params;
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
     let rows: Record<string, any>[] = [];

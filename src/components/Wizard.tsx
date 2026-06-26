@@ -12,6 +12,7 @@ import {
   Step1Relation, Step2Occasion, Step3Style, Step4Voice,
   Step5Traits, Step6Memory, Step7Message, Step8Photo, Step9Contact
 } from './WizardSteps';
+import { validateStep as zodValidateStep, FieldErrors } from '../lib/validation';
 
 interface WizardProps {
   onBackToLanding: () => void;
@@ -129,6 +130,12 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus>('idle');
   const [generationError, setGenerationError] = useState('');
   const [previewAudioUrl, setPreviewAudioUrl] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  const wrappedSetFormData: React.Dispatch<React.SetStateAction<WizardData>> = (action) => {
+    setFormData(action);
+    setFieldErrors({});
+  };
 
   // Helper para mostrar toasts
   const showToast = (message: string, type: 'error' | 'success' | 'info' = 'info') => {
@@ -709,7 +716,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         return;
       }
       const url = URL.createObjectURL(file);
-      setFormData(prev => {
+      wrappedSetFormData(prev => {
         if (prev.photoUrl?.startsWith('blob:')) URL.revokeObjectURL(prev.photoUrl);
         return { ...prev, photoFile: file, photoUrl: url };
       });
@@ -733,7 +740,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         const blob = new Blob([ab], { type: mimeString });
         const file = new File([blob], 'foto.' + (mimeString.split('/')[1] || 'jpg'), { type: mimeString });
         const url = URL.createObjectURL(file);
-        setFormData(prev => ({ ...prev, photoFile: file, photoUrl: url }));
+        wrappedSetFormData(prev => ({ ...prev, photoFile: file, photoUrl: url }));
       } catch (e) {
         sessionStorage.removeItem('seubeat_photo_base64');
       }
@@ -777,23 +784,25 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   };
 
   const handleNext = () => {
-    if (validateStep()) {
-      if (step < 9) {
-        setStep(step + 1);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        // Trigger Submitting / Composition simulation
-        submissionStartedRef.current = false;
-        setShowPreviewPage(false);
-        setPreviewAudioUrl('');
-        setDbSongId('');
-        setDbSongRequestId('');
-        setGenerationStatus('idle');
-        setGenerationError('');
-        setProcessingStage(0);
-        setIsSubmitting(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+    const errors = zodValidateStep(step, formData as unknown as Record<string, unknown>);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    if (step < 9) {
+      setStep(step + 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // Trigger Submitting / Composition simulation
+      submissionStartedRef.current = false;
+      setShowPreviewPage(false);
+      setPreviewAudioUrl('');
+      setDbSongId('');
+      setDbSongRequestId('');
+      setGenerationStatus('idle');
+      setGenerationError('');
+      setProcessingStage(0);
+      setIsSubmitting(true);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -2047,7 +2056,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
               <button
                 id="create-new-song-success-btn"
                 onClick={() => {
-                  setFormData(INITIAL_WIZARD_DATA);
+                  wrappedSetFormData(INITIAL_WIZARD_DATA);
                   setStep(1);
                   setIsSubmitting(false);
                   setShowPreviewPage(false);
@@ -2109,57 +2118,64 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                   {step === 1 && (
                     <Step1Relation
                       formData={formData}
-                      setFormData={setFormData}
+                      setFormData={wrappedSetFormData}
                       relationshipCards={RELATIONSHIP_CARDS}
+                      fieldErrors={fieldErrors}
                     />
                   )}
 
                   {step === 2 && (
                     <Step2Occasion
                       formData={formData}
-                      setFormData={setFormData}
+                      setFormData={wrappedSetFormData}
                       occasionCards={OCCASION_CARDS}
+                      fieldErrors={fieldErrors}
                     />
                   )}
 
                   {step === 3 && (
                     <Step3Style
                       formData={formData}
-                      setFormData={setFormData}
+                      setFormData={wrappedSetFormData}
                       musicStyleCards={MUSIC_STYLE_CARDS}
                       artistCards={ARTIST_CARDS}
+                      fieldErrors={fieldErrors}
                     />
                   )}
 
                   {step === 4 && (
                     <Step4Voice
                       formData={formData}
-                      setFormData={setFormData}
+                      setFormData={wrappedSetFormData}
                       voiceCards={VOICE_CARDS}
+                      fieldErrors={fieldErrors}
                     />
                   )}
 
                   {step === 5 && (
                     <Step5Traits
                       formData={formData}
-                      setFormData={setFormData}
+                      setFormData={wrappedSetFormData}
+                      fieldErrors={fieldErrors}
                     />
                   )}
 
                   {step === 6 && (
                     <Step6Memory
                       formData={formData}
-                      setFormData={setFormData}
+                      setFormData={wrappedSetFormData}
                       suggestTab={suggestTab}
                       setSuggestTab={setSuggestTab}
+                      fieldErrors={fieldErrors}
                     />
                   )}
 
                   {step === 7 && (
                     <Step7Message
                       formData={formData}
-                      setFormData={setFormData}
+                      setFormData={wrappedSetFormData}
                       emotionCards={EMOTION_CARDS}
+                      fieldErrors={fieldErrors}
                     />
                   )}
 
@@ -2168,13 +2184,15 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                       formData={formData}
                       photoFileRef={photoFileRef}
                       handlePhotoChange={handlePhotoChange}
+                      fieldErrors={fieldErrors}
                     />
                   )}
 
                   {step === 9 && (
                     <Step9Contact
                       formData={formData}
-                      setFormData={setFormData}
+                      setFormData={wrappedSetFormData}
+                      fieldErrors={fieldErrors}
                     />
                   )}
 

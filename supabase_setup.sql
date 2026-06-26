@@ -295,6 +295,19 @@ CREATE POLICY "Acesso total para service_role" ON storage.objects
   USING (true)
   WITH CHECK (true);
 
+-- 5. Políticas para client anon (página pública de dedicatória)
+-- A anon key é usada no GET /api/song/:id para reduzir o blast radius (vs service_role)
+DROP POLICY IF EXISTS "Anon pode ler song_requests para dedicatória" ON public.song_requests;
+DROP POLICY IF EXISTS "Anon pode ler nome do utilizador" ON public.users;
+
+CREATE POLICY "Anon pode ler song_requests para dedicatória" ON public.song_requests
+  FOR SELECT TO anon
+  USING (true);
+
+CREATE POLICY "Anon pode ler nome do utilizador" ON public.users
+  FOR SELECT TO anon
+  USING (true);
+
 -- Índices para optimização de queries comuns
 CREATE INDEX IF NOT EXISTS idx_song_requests_user_id   ON public.song_requests(user_id);
 CREATE INDEX IF NOT EXISTS idx_songs_request_id         ON public.songs(request_id);

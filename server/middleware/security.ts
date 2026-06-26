@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import helmet from 'helmet';
 import { getEnv } from '../config/env';
 import { logHttp } from '../utils/logger';
 
@@ -13,17 +14,26 @@ export function corsMiddleware(req: Request, res: Response, next: NextFunction):
   next();
 }
 
-export function securityHeaders(req: Request, res: Response, next: NextFunction): void {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '0');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
-  if (process.env.NODE_ENV === 'production') {
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' blob: https:; connect-src 'self' https://*.supabase.co; frame-ancestors 'none'");
-  }
-  next();
+export function helmetMiddleware() {
+  return helmet({
+    contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+        mediaSrc: ["'self'", 'blob:', 'https:'],
+        connectSrc: ["'self'", 'https://*.supabase.co'],
+        frameAncestors: ["'none'"],
+      },
+    } : false,
+    strictTransportSecurity: process.env.NODE_ENV === 'production' ? {
+      maxAge: 31536000,
+      includeSubDomains: true,
+    } : false,
+    crossOriginEmbedderPolicy: false,
+  });
 }
 
 export function httpLogger(req: Request, res: Response, next: NextFunction): void {

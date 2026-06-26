@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { getSupabase, uploadToSupabase } from './supabase';
+import { getAdminSupabase, uploadToSupabase } from './supabase';
 import { downloadFile, createPreviewAudio } from './audio';
 import { querySunoTask, generateFullSong } from './suno';
 import { generateValidationPhrase, waitForValidationPhrase, createCustomVoice, waitForVoiceId, checkVoiceAvailability } from './suno-voice';
@@ -58,7 +58,7 @@ function adminErrorDetails(stage: string, err: any) {
 }
 
 export async function updateRequestStatus(requestId: string, status: string, err?: any) {
-  const supabase = getSupabase();
+  const supabase = getAdminSupabase();
   if (!supabase) throw new Error('Supabase client nao inicializado.');
 
   const payload: Record<string, any> = { status };
@@ -105,7 +105,7 @@ export async function completeSunoWorkflowFromAudio(
   taskId: string,
   audioUrl: string
 ) {
-  const supabase = getSupabase();
+  const supabase = getAdminSupabase();
   if (!supabase) throw new Error('Supabase client nao inicializado.');
 
   setProgress(requestId, { status: 'generating', progress: 60, message: 'Geração concluída no Suno. A descarregar ficheiro...' });
@@ -133,7 +133,7 @@ export async function completeSunoWorkflowFromAudio(
 }
 
 export async function resumeSunoTaskWorkflow(requestId: string, songId: string, taskId: string) {
-  const supabase = getSupabase();
+  const supabase = getAdminSupabase();
   if (!supabase) throw new Error('Supabase client nao inicializado.');
 
   try {
@@ -182,7 +182,7 @@ export async function runBackgroundSunoWorkflow(
   songTitle: string,
   lyrics: string[]
 ) {
-  const supabase = getSupabase();
+  const supabase = getAdminSupabase();
   if (!supabase) throw new Error('Supabase client nao inicializado.');
 
   try {
@@ -341,7 +341,7 @@ export async function processSunoVoice(
   songId: string,
   voiceSampleUrl: string
 ): Promise<string | null> {
-  const supabase = getSupabase();
+  const supabase = getAdminSupabase();
   if (!supabase) return null;
 
   try {

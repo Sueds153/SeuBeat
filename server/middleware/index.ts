@@ -2,4 +2,5 @@ export { globalLimiter, adminLimiter, generateLyricsLimiter } from './rateLimite
 export { errorHandler } from './errorHandler';
 export { adminAuth } from './auth';
 export { validateInput } from './validation';
-export { corsMiddleware, securityHeaders, httpLogger } from './security';
+export { corsMiddleware, helmetMiddleware, httpLogger } from './security';
+export { adminIpRestriction } from './adminIpRestriction';

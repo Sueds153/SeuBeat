@@ -10,6 +10,7 @@ import {
 interface StepProps {
   formData: WizardData;
   setFormData: React.Dispatch<React.SetStateAction<WizardData>>;
+  fieldErrors?: Record<string, string>;
   relationshipCards: readonly { type: string; label: string; icon: string }[];
   occasionCards: readonly { type: string; label: string; icon: string }[];
   musicStyleCards: readonly { style: string; label: string; desc: string; icon: string }[];
@@ -23,8 +24,8 @@ interface StepProps {
 }
 
 export function Step1Relation({
-  formData, setFormData, relationshipCards
-}: Pick<StepProps, 'formData' | 'setFormData' | 'relationshipCards'>) {
+  formData, setFormData, relationshipCards, fieldErrors
+}: Pick<StepProps, 'formData' | 'setFormData' | 'relationshipCards' | 'fieldErrors'>) {
   return (
     <div className="space-y-4 pt-2">
       <label className="text-xs font-mono text-stone-400 block font-semibold">Para quem é esta canção? (Selecione)</label>
@@ -49,6 +50,9 @@ export function Step1Relation({
           );
         })}
       </div>
+      {fieldErrors?.recipientRelation && (
+        <p className="text-red-400 text-xs mt-1">{fieldErrors.recipientRelation}</p>
+      )}
 
       <div className="space-y-3 pt-3 border-t border-stone-900">
         <div>
@@ -63,6 +67,9 @@ export function Step1Relation({
             onChange={(e) => setFormData(prev => ({ ...prev, recipientName: e.target.value }))}
             className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300"
           />
+          {fieldErrors?.recipientName && (
+            <p className="text-red-400 text-xs mt-1">{fieldErrors.recipientName}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -78,6 +85,9 @@ export function Step1Relation({
               onChange={(e) => setFormData(prev => ({ ...prev, userNick: e.target.value }))}
               className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300"
             />
+            {fieldErrors?.userNick && (
+              <p className="text-red-400 text-xs mt-1">{fieldErrors.userNick}</p>
+            )}
           </div>
 
           <div>
@@ -92,6 +102,9 @@ export function Step1Relation({
               onChange={(e) => setFormData(prev => ({ ...prev, recipientNick: e.target.value }))}
               className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300"
             />
+            {fieldErrors?.recipientNick && (
+              <p className="text-red-400 text-xs mt-1">{fieldErrors.recipientNick}</p>
+            )}
           </div>
         </div>
 
@@ -104,8 +117,8 @@ export function Step1Relation({
 }
 
 export function Step2Occasion({
-  formData, setFormData, occasionCards
-}: Pick<StepProps, 'formData' | 'setFormData' | 'occasionCards'>) {
+  formData, setFormData, occasionCards, fieldErrors
+}: Pick<StepProps, 'formData' | 'setFormData' | 'occasionCards' | 'fieldErrors'>) {
   return (
     <div className="space-y-4 pt-2">
       <label className="text-xs font-mono text-stone-400 block font-semibold">Selecione a Ocasião</label>
@@ -130,6 +143,9 @@ export function Step2Occasion({
           );
         })}
       </div>
+      {fieldErrors?.occasion && (
+        <p className="text-red-400 text-xs mt-1">{fieldErrors.occasion}</p>
+      )}
 
       <div className="space-y-2 pt-3 border-t border-stone-900">
         <label className="text-xs font-mono text-stone-400 block font-semibold">
@@ -143,6 +159,9 @@ export function Step2Occasion({
           onChange={(e) => setFormData(prev => ({ ...prev, whyCreatedToday: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
         />
+        {fieldErrors?.whyCreatedToday && (
+          <p className="text-red-400 text-xs mt-1">{fieldErrors.whyCreatedToday}</p>
+        )}
         <p className="text-xxs text-stone-500 italic mt-1 font-mono">
           "Explique rapidamente porque decidiu criar esta música."
         </p>
@@ -152,8 +171,8 @@ export function Step2Occasion({
 }
 
 export function Step3Style({
-  formData, setFormData, musicStyleCards, artistCards
-}: Pick<StepProps, 'formData' | 'setFormData' | 'musicStyleCards' | 'artistCards'>) {
+  formData, setFormData, musicStyleCards, artistCards, fieldErrors
+}: Pick<StepProps, 'formData' | 'setFormData' | 'musicStyleCards' | 'artistCards' | 'fieldErrors'>) {
   return (
     <div className="space-y-4 pt-2">
       <div>
@@ -182,6 +201,9 @@ export function Step3Style({
             );
           })}
         </div>
+        {fieldErrors?.musicStyle && (
+          <p className="text-red-400 text-xs mt-1">{fieldErrors.musicStyle}</p>
+        )}
       </div>
 
       <div className="pt-3 border-t border-stone-900 space-y-2">
@@ -209,6 +231,9 @@ export function Step3Style({
             );
           })}
         </div>
+        {fieldErrors?.referenceArtist && (
+          <p className="text-red-400 text-xs mt-1">{fieldErrors.referenceArtist}</p>
+        )}
         <p className="text-xxs text-amber-500 italic pt-1 font-mono">
           "Isso ajuda-nos a criar algo mais próximo do gosto da pessoa."
         </p>
@@ -218,8 +243,8 @@ export function Step3Style({
 }
 
 export function Step4Voice({
-  formData, setFormData, voiceCards
-}: Pick<StepProps, 'formData' | 'setFormData' | 'voiceCards'>) {
+  formData, setFormData, voiceCards, fieldErrors
+}: Pick<StepProps, 'formData' | 'setFormData' | 'voiceCards' | 'fieldErrors'>) {
   return (
     <div className="space-y-4 pt-2">
       <label className="text-xs font-mono text-stone-400 block font-semibold">Quem deve cantar?</label>
@@ -246,13 +271,16 @@ export function Step4Voice({
           );
         })}
       </div>
+      {fieldErrors?.voiceType && (
+        <p className="text-red-400 text-xs mt-1">{fieldErrors.voiceType}</p>
+      )}
     </div>
   );
 }
 
 export function Step5Traits({
-  formData, setFormData
-}: Pick<StepProps, 'formData' | 'setFormData'>) {
+  formData, setFormData, fieldErrors
+}: Pick<StepProps, 'formData' | 'setFormData' | 'fieldErrors'>) {
   return (
     <div className="space-y-4 pt-2">
       <div className="space-y-2">
@@ -267,6 +295,9 @@ export function Step5Traits({
           onChange={(e) => setFormData(prev => ({ ...prev, whatMakesSpecial: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
         />
+        {fieldErrors?.whatMakesSpecial && (
+          <p className="text-red-400 text-xs mt-1">{fieldErrors.whatMakesSpecial}</p>
+        )}
       </div>
 
       <div className="space-y-2 pt-2 border-t border-stone-900">
@@ -281,6 +312,9 @@ export function Step5Traits({
           onChange={(e) => setFormData(prev => ({ ...prev, onlySheDoes: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
         />
+        {fieldErrors?.onlySheDoes && (
+          <p className="text-red-400 text-xs mt-1">{fieldErrors.onlySheDoes}</p>
+        )}
         <p className="text-xxs text-amber-500 italic mt-1 font-mono">
           "São estes pequenos detalhes que transformam uma música comum numa música inesquecível."
         </p>
@@ -290,8 +324,8 @@ export function Step5Traits({
 }
 
 export function Step6Memory({
-  formData, setFormData, suggestTab, setSuggestTab
-}: Pick<StepProps, 'formData' | 'setFormData' | 'suggestTab' | 'setSuggestTab'>) {
+  formData, setFormData, suggestTab, setSuggestTab, fieldErrors
+}: Pick<StepProps, 'formData' | 'setFormData' | 'suggestTab' | 'setSuggestTab' | 'fieldErrors'>) {
   return (
     <div className="space-y-4 pt-2">
       <div className="space-y-2">
@@ -307,6 +341,9 @@ export function Step6Memory({
           onChange={(e) => setFormData(prev => ({ ...prev, unforgettableMemory: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
         />
+        {fieldErrors?.unforgettableMemory && (
+          <p className="text-red-400 text-xs mt-1">{fieldErrors.unforgettableMemory}</p>
+        )}
       </div>
 
       <div className="bg-stone-900 border border-stone-850 rounded-xl p-3.5 space-y-3.5">
@@ -532,6 +569,9 @@ export function Step6Memory({
             onChange={(e) => setFormData(prev => ({ ...prev, whereItHappened: e.target.value }))}
             className="w-full pl-10 pr-4 py-3.5 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700"
           />
+          {fieldErrors?.whereItHappened && (
+            <p className="text-red-400 text-xs mt-1">{fieldErrors.whereItHappened}</p>
+          )}
         </div>
         <p className="text-xxs text-stone-500 italic mt-1 font-mono">
           "Lugares reais ajudam-nos a criar letras mais emocionantes."
@@ -542,8 +582,8 @@ export function Step6Memory({
 }
 
 export function Step7Message({
-  formData, setFormData, emotionCards
-}: Pick<StepProps, 'formData' | 'setFormData' | 'emotionCards'>) {
+  formData, setFormData, emotionCards, fieldErrors
+}: Pick<StepProps, 'formData' | 'setFormData' | 'emotionCards' | 'fieldErrors'>) {
   return (
     <div className="space-y-4 pt-2">
       <div className="space-y-2">
@@ -558,6 +598,9 @@ export function Step7Message({
           onChange={(e) => setFormData(prev => ({ ...prev, messageFromTheHeart: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
         />
+        {fieldErrors?.messageFromTheHeart && (
+          <p className="text-red-400 text-xs mt-1">{fieldErrors.messageFromTheHeart}</p>
+        )}
       </div>
 
       <div className="space-y-2 pt-3 border-t border-stone-900">
@@ -583,14 +626,17 @@ export function Step7Message({
             );
           })}
         </div>
+        {fieldErrors?.desiredEmotion && (
+          <p className="text-red-400 text-xs mt-1">{fieldErrors.desiredEmotion}</p>
+        )}
       </div>
     </div>
   );
 }
 
 export function Step8Photo({
-  formData, photoFileRef, handlePhotoChange
-}: Pick<StepProps, 'formData' | 'photoFileRef' | 'handlePhotoChange'>) {
+  formData, photoFileRef, handlePhotoChange, fieldErrors
+}: Pick<StepProps, 'formData' | 'photoFileRef' | 'handlePhotoChange' | 'fieldErrors'>) {
   return (
     <div className="space-y-4 pt-2">
       <div
@@ -636,6 +682,9 @@ export function Step8Photo({
           </div>
         )}
       </div>
+      {fieldErrors?.photoUrl && (
+        <p className="text-red-400 text-xs mt-1 text-center">{fieldErrors.photoUrl}</p>
+      )}
       <p className="text-xxs text-stone-400 italic text-center font-mono">
         "Esta foto será exibida na página personalizada da música."
       </p>
@@ -644,8 +693,8 @@ export function Step8Photo({
 }
 
 export function Step9Contact({
-  formData, setFormData
-}: Pick<StepProps, 'formData' | 'setFormData'>) {
+  formData, setFormData, fieldErrors
+}: Pick<StepProps, 'formData' | 'setFormData' | 'fieldErrors'>) {
   return (
     <div className="space-y-4 pt-2">
       <div className="space-y-4 max-w-md">
@@ -675,6 +724,9 @@ export function Step9Contact({
             onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
             className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300"
           />
+          {fieldErrors?.email && (
+            <p className="text-red-400 text-xs mt-1">{fieldErrors.email}</p>
+          )}
         </div>
 
         <div className="space-y-1.5">

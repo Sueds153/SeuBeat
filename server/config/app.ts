@@ -2,7 +2,8 @@ import express from 'express';
 import { ENV, validateEnv } from './env';
 import { globalLimiter, adminLimiter } from '../middleware/rateLimiter';
 import { errorHandler } from '../middleware/errorHandler';
-import { securityHeaders, corsMiddleware, httpLogger } from '../middleware/security';
+import { helmetMiddleware, corsMiddleware, httpLogger } from '../middleware/security';
+import { adminIpRestriction } from '../middleware/adminIpRestriction';
 import { logHttp, logFatal } from '../utils/logger';
 import adminRouter from '../routes/admin';
 import publicRouter from '../routes/public';
@@ -16,7 +17,7 @@ export function createApp(): express.Application {
   app.use(express.urlencoded({ extended: false, limit: '10mb' }));
   app.use(globalLimiter);
   app.use(corsMiddleware);
-  app.use(securityHeaders);
+  app.use(helmetMiddleware());
   app.use(httpLogger);
 
   app.get('/health', (_req, res) => {
@@ -24,7 +25,7 @@ export function createApp(): express.Application {
   });
 
   app.use('/api', publicRouter);
-  app.use('/api/admin', adminLimiter, adminRouter);
+  app.use('/api/admin', adminLimiter, adminIpRestriction, adminRouter);
   app.use(errorHandler);
 
   return app;

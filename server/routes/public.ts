@@ -1,6 +1,6 @@
 import express from 'express';
 import { randomUUID } from 'crypto';
-import { getSupabase } from '../services/supabase';
+import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
 import { generateLyricsWithClaude } from '../services/claude';
 import { sendPersonalizedEmail } from '../services/email';
 import { runBackgroundSunoWorkflow, setProgress, updateRequestStatus } from '../services/workflow';
@@ -47,7 +47,7 @@ function parseAngolanAmount(value: string): number {
   return Number(cleaned.replace(/\./g, '')) || 0;
 }
 
-function publicUrlForStoragePath(supabase: NonNullable<ReturnType<typeof getSupabase>>, bucket: string, path: string) {
+function publicUrlForStoragePath(supabase: NonNullable<ReturnType<typeof getAdminSupabase>>, bucket: string, path: string) {
   const publicUrl = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
   if (!publicUrl) {
     throw new Error(`Não foi possível obter a URL pública para o ficheiro ${bucket}/${path}.`);
@@ -55,7 +55,7 @@ function publicUrlForStoragePath(supabase: NonNullable<ReturnType<typeof getSupa
   return publicUrl;
 }
 
-async function findAuthUserIdByEmail(supabase: NonNullable<ReturnType<typeof getSupabase>>, email: string) {
+async function findAuthUserIdByEmail(supabase: NonNullable<ReturnType<typeof getAdminSupabase>>, email: string) {
   let page = 1;
   const perPage = 200;
   const targetEmail = email.toLowerCase();
@@ -78,7 +78,7 @@ async function findAuthUserIdByEmail(supabase: NonNullable<ReturnType<typeof get
 }
 
 async function ensureUserProfile(
-  supabase: NonNullable<ReturnType<typeof getSupabase>>,
+  supabase: NonNullable<ReturnType<typeof getAdminSupabase>>,
   params: { email: string; name: string; phone?: string | null }
 ) {
   const { data: existingUser, error: userLookupError } = await supabase
@@ -165,7 +165,7 @@ router.post('/send-email', emailLimiter, async (req, res) => {
 });
 
 router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
-  const supabase = getSupabase();
+  const supabase = getAdminSupabase();
   let dbSongRequestId: string | null = null;
   let dbSongId: string | null = null;
 
@@ -384,7 +384,8 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
 
 router.get('/song/:id', getSongLimiter, async (req, res) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getPublicSupabase();
+    const adminSupabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });
 
     logDebug('Fetching song', { songId: req.params.id });
@@ -405,8 +406,8 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       const fullUrl = sr?.final_mixed_audio_url || songData.full_song_url || songData.audio_url;
       if (fullUrl) {
         const match = fullUrl.match(/full-audio\/(.+)/);
-        if (match) {
-          const { data } = await supabase.storage.from('full-audio').createSignedUrl(match[1], 3600);
+        if (match && adminSupabase) {
+          const { data } = await adminSupabase.storage.from('full-audio').createSignedUrl(match[1], 3600);
           audioUrl = data?.signedUrl || fullUrl;
         } else {
           audioUrl = fullUrl;
@@ -437,7 +438,7 @@ router.get('/speech-preview', emailLimiter, async (req, res) => {
 router.post('/submit-payment', paymentLimiter, async (req, res) => {
   try {
     const { songRequestId, userEmail, plan, amount, proofBase64, proofFilename, proofMimeType, voiceSampleBase64, voiceSampleFilename, voiceSampleMimeType } = req.body;
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });
     if (!songRequestId) return res.status(400).json({ error: 'ID do pedido em falta.' });
     if (!userEmail) return res.status(400).json({ error: 'Email do cliente em falta.' });
@@ -496,7 +497,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
 
 router.get('/payment-status', paymentLimiter, async (req, res) => {
   try {
-    const supabase = getSupabase();
+    const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });
 
     const { email, requestId } = req.query;

@@ -79,14 +79,30 @@ CREATE POLICY "Upload total para service_role" ON storage.objects
   WITH CHECK (true);
 
 -- ───────────────────────────────────────────────────────────────────────────────
--- 3. Índices em falta recomendados pelo Advisor (foreign key coverage)
+-- 3. Políticas para client anon (página pública de dedicatória)
+--    O GET /api/song/:id usa anon key (em vez de service_role) para reduzir
+--    o blast radius em caso de vulnerabilidade server-side.
+-- ───────────────────────────────────────────────────────────────────────────────
+DROP POLICY IF EXISTS "Anon pode ler song_requests para dedicatória" ON public.song_requests;
+DROP POLICY IF EXISTS "Anon pode ler nome do utilizador" ON public.users;
+
+CREATE POLICY "Anon pode ler song_requests para dedicatória" ON public.song_requests
+  FOR SELECT TO anon
+  USING (true);
+
+CREATE POLICY "Anon pode ler nome do utilizador" ON public.users
+  FOR SELECT TO anon
+  USING (true);
+
+-- ───────────────────────────────────────────────────────────────────────────────
+-- 4. Índices em falta recomendados pelo Advisor (foreign key coverage)
 -- ───────────────────────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_song_requests_created_at ON public.song_requests(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_payments_created_at      ON public.payments(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_songs_created_at         ON public.songs(created_at DESC);
 
 -- ───────────────────────────────────────────────────────────────────────────────
--- 4. Nota sobre users.id e auth.users
+-- 5. Nota sobre users.id e auth.users
 --    O Advisor pode avisar que users.id não referencia auth.users(id).
 --    Isto é intencional: o SeuBeat permite encomendas sem autenticação,
 --    usando service_role no backend. Se no futuro houver login com Supabase Auth,
