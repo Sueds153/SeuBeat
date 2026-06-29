@@ -223,6 +223,8 @@ export default function AdminPanel() {
   const [notifDot, setNotifDot] = useState(false);
   const [metrics, setMetrics] = useState<any>(null);
   const [metricsLoading, setMetricsLoading] = useState(false);
+  const [profitability, setProfitability] = useState<any>(null);
+  const [profitLoading, setProfitLoading] = useState(false);
   const [logsModal, setLogsModal] = useState<{ id: string; loading: boolean; logs: any[] } | null>(null);
   const [previewLyrics, setPreviewLyrics] = useState<{ title: string; lyrics: string[]; letterText?: string } | null>(null);
   const [notification, setNotification] = useState<{ message: string } | null>(null);
@@ -367,6 +369,16 @@ export default function AdminPanel() {
     setMetricsLoading(false);
   }, [adminPassword]);
 
+  const fetchProfitability = useCallback(async () => {
+    if (!adminPassword) return;
+    setProfitLoading(true);
+    try {
+      const res = await fetch('/api/admin/profitability', { headers: apiHeaders });
+      if (res.ok) setProfitability(await res.json());
+    } catch (e) { console.error(e); }
+    setProfitLoading(false);
+  }, [adminPassword]);
+
   const fetchLogs = useCallback(async (requestId: string) => {
     setLogsModal({ id: requestId, loading: true, logs: [] });
     try {
@@ -433,7 +445,7 @@ export default function AdminPanel() {
     else if (activeView === 'songs') fetchSongs();
     else if (activeView === 'credits') fetchCredits();
     else if (activeView === 'diagnostics') fetchDiagnostics();
-    else if (activeView === 'metrics') fetchMetrics();
+    else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
     else if (activeView === 'clients') fetchClientsList();
   }, [authenticated, activeView]);
 
@@ -1745,7 +1757,7 @@ export default function AdminPanel() {
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Métricas Avançadas</h1>
                       <p className="text-stone-500 text-sm mt-1">Conversão, prazos, estilos e receita</p>
                     </div>
-                    <button onClick={fetchMetrics} disabled={metricsLoading} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
+                    <button onClick={() => { fetchMetrics(); fetchProfitability(); }} disabled={metricsLoading} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
                       <RefreshCw className={`w-3.5 h-3.5 ${metricsLoading ? 'animate-spin' : ''}`} /> Atualizar
                     </button>
                   </div>
@@ -1835,6 +1847,122 @@ export default function AdminPanel() {
                           </div>
                         ) : (
                           <p className="text-stone-600 text-sm">Nenhuma receita registada.</p>
+                        )}
+                      </div>
+
+                      {/* Profitability */}
+                      <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5">
+                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4">📈 Rentabilidade</h3>
+                        {profitability && !profitLoading ? (
+                          <div className="space-y-5">
+                            {/* Summary cards */}
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
+                                <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Receita Total</p>
+                                <p className="text-lg font-bold text-emerald-400">{profitability.summary.totalRevenue.toLocaleString('pt')} Kz</p>
+                                <p className="text-[9px] font-mono text-stone-600">{profitability.summary.songCount} músicas geradas</p>
+                              </div>
+                              <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
+                                <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Custos API</p>
+                                <p className="text-lg font-bold text-rose-400">{profitability.summary.totalCosts.toLocaleString('pt')} Kz</p>
+                                <p className="text-[9px] font-mono text-stone-600">${profitability.costs.totalUSD} USD</p>
+                              </div>
+                              <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
+                                <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Lucro Líquido</p>
+                                <p className={`text-lg font-bold ${profitability.summary.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                  {profitability.summary.netProfit >= 0 ? '+' : ''}{profitability.summary.netProfit.toLocaleString('pt')} Kz
+                                </p>
+                              </div>
+                              <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
+                                <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Margem</p>
+                                <p className={`text-lg font-bold ${parseFloat(profitability.summary.margin) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                  {profitability.summary.margin}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Revenue vs Cost bar */}
+                            {profitability.summary.totalRevenue > 0 && (
+                              <div className="space-y-2">
+                                <p className="text-[10px] font-mono text-stone-500 uppercase">Receita vs Custos</p>
+                                <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
+                                  <div className="flex items-center gap-3 mb-2">
+                                    <span className="text-[10px] font-mono text-emerald-400 w-12">Receita</span>
+                                    <div className="flex-1 bg-stone-800 rounded-full h-5 overflow-hidden">
+                                      <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full flex items-center justify-end pr-2" style={{ width: '100%', minWidth: '2rem' }}>
+                                        <span className="text-[8px] font-mono font-bold text-stone-950">{profitability.summary.totalRevenue.toLocaleString('pt')} Kz</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-[10px] font-mono text-rose-400 w-12">Custos</span>
+                                    <div className="flex-1 bg-stone-800 rounded-full h-5 overflow-hidden">
+                                      <div className="h-full bg-gradient-to-r from-rose-500 to-rose-400 rounded-full flex items-center justify-end pr-2" style={{ width: `${Math.min((profitability.summary.totalCosts / profitability.summary.totalRevenue) * 100, 100)}%`, minWidth: '2rem' }}>
+                                        <span className="text-[8px] font-mono font-bold text-stone-950">{profitability.summary.totalCosts.toLocaleString('pt')} Kz</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Cost breakdown per song */}
+                            <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
+                              <p className="text-[10px] font-mono text-stone-500 uppercase mb-2">Custo por Música</p>
+                              <div className="grid grid-cols-3 gap-3 text-center">
+                                <div>
+                                  <p className="text-[18px] font-bold text-amber-400">{profitability.costs.costPerSong.sunoKz} Kz</p>
+                                  <p className="text-[9px] font-mono text-stone-500">Suno (2 créditos)</p>
+                                </div>
+                                <div>
+                                  <p className="text-[18px] font-bold text-violet-400">{profitability.costs.costPerSong.claudeKz} Kz</p>
+                                  <p className="text-[9px] font-mono text-stone-500">Claude (letra)</p>
+                                </div>
+                                <div>
+                                  <p className="text-[18px] font-bold text-stone-300">{profitability.costs.costPerSong.totalKz} Kz</p>
+                                  <p className="text-[9px] font-mono text-stone-500">Total</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* By plan */}
+                            {profitability.byPlan?.length > 0 && (
+                              <div>
+                                <p className="text-[10px] font-mono text-stone-500 uppercase mb-2">Lucro por Plano</p>
+                                <div className="space-y-2">
+                                  {profitability.byPlan.map((p: any, i: number) => {
+                                    const maxRev = Math.max(...profitability.byPlan.map((x: any) => x.revenue), 1);
+                                    return (
+                                      <div key={i} className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
+                                        <div className="flex items-center justify-between mb-1.5">
+                                          <span className="text-stone-300 font-medium capitalize">{p.plan}</span>
+                                          <span className={`font-mono font-bold ${p.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {p.profit >= 0 ? '+' : ''}{p.profit.toLocaleString('pt')} Kz
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500">
+                                          <span>💰 {p.revenue.toLocaleString('pt')} Kz</span>
+                                          <span>→</span>
+                                          <span>💸 {p.cost.toLocaleString('pt')} Kz</span>
+                                          <span>•</span>
+                                          <span>{p.songCount} músicas</span>
+                                        </div>
+                                        <div className="mt-1.5 w-full bg-stone-800 rounded-full h-1.5 overflow-hidden">
+                                          <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full" style={{ width: `${(p.revenue / maxRev) * 100}%` }} />
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : profitLoading ? (
+                          <RefreshCw className="w-5 h-5 text-stone-600 animate-spin mx-auto" />
+                        ) : (
+                          <div className="text-center py-6 text-stone-600 font-mono text-xs">
+                            <button onClick={fetchProfitability} className="text-amber-400 hover:text-amber-300 transition-colors cursor-pointer">Clique aqui</button> para carregar rentabilidade.
+                          </div>
                         )}
                       </div>
                     </div>

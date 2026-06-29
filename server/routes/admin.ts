@@ -802,6 +802,117 @@ router.get('/metrics', adminAuth, async (req, res) => {
   } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
 });
 
+// P. Profitability
+router.get('/profitability', adminAuth, async (req, res) => {
+  try {
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    const { ENV } = await import('../config/env');
+    const sunoCostPerCreditUSD = ENV.SUNO_COST_PER_CREDIT_USD;
+    const claudeCostPerGenUSD = ENV.CLAUDE_COST_PER_GENERATION_USD;
+    const usdToKz = ENV.USD_TO_KZ_RATE;
+    const monthlyFixedKz = ENV.MONTHLY_FIXED_COSTS_KZ;
+
+    const [paymentsRes, songsRes] = await Promise.all([
+      supabase.from('payments').select('amount, plan, created_at, approved_at').eq('status', 'approved'),
+      supabase.from('songs').select('id, created_at, request_id', { count: 'exact' }).not('lyrics', 'is', null)
+    ]);
+
+    const approvedPayments = paymentsRes.data || [];
+    const songsGenerated = songsRes.data || [];
+    const songCount = songsGenerated.length;
+
+    // Revenue
+    const totalRevenue = approvedPayments.reduce((sum, p) => {
+      const num = typeof p.amount === 'number' ? p.amount : parseInt(String(p.amount || '0').replace(/\D/g, ''), 10) / 100;
+      return sum + num;
+    }, 0);
+
+    // Revenue by plan
+    const revenueByPlanBreakdown: Record<string, number> = {};
+    approvedPayments.forEach(p => {
+      const plan = p.plan || 'standard';
+      const num = typeof p.amount === 'number' ? p.amount : parseInt(String(p.amount || '0').replace(/\D/g, ''), 10) / 100;
+      revenueByPlanBreakdown[plan] = (revenueByPlanBreakdown[plan] || 0) + num;
+    });
+
+    // Costs — each song: 2 Suno credits (generate + continue) + 1 Claude generation
+    const sunoCreditsUsed = songCount * 2;
+    const sunoCostUSD = sunoCreditsUsed * sunoCostPerCreditUSD;
+    const claudeCostUSD = songCount * claudeCostPerGenUSD;
+    const totalAPIcostUSD = sunoCostUSD + claudeCostUSD;
+    const totalAPIcostKz = totalAPIcostUSD * usdToKz;
+    const totalCostsKz = totalAPIcostKz + monthlyFixedKz;
+
+    // Profit
+    const netProfitKz = totalRevenue - totalCostsKz;
+    const profitMargin = totalRevenue > 0 ? ((netProfitKz / totalRevenue) * 100).toFixed(1) : '0.0';
+
+    // Cost per song breakdown
+    const costPerSong = {
+      suno: (sunoCostUSD * usdToKz / Math.max(songCount, 1)).toFixed(0),
+      claude: (claudeCostUSD * usdToKz / Math.max(songCount, 1)).toFixed(0),
+      total: (totalAPIcostKz / Math.max(songCount, 1)).toFixed(0),
+    };
+
+    // Profitability by plan (assuming costs split equally per song, then grouped by plan)
+    const planSongCount: Record<string, number> = {};
+    const planRevenue = revenueByPlanBreakdown;
+    // Count songs per plan by matching request_id to payment plan
+    const paymentsWithRequest = await supabase
+      .from('payments')
+      .select('plan, request_id')
+      .eq('status', 'approved')
+      .not('request_id', 'is', null);
+    const planCount: Record<string, number> = {};
+    if (paymentsWithRequest.data) {
+      paymentsWithRequest.data.forEach((p: any) => {
+        const pl = p.plan || 'standard';
+        planCount[pl] = (planCount[pl] || 0) + 1;
+      });
+    }
+    // If we have no request_id mapping, fallback: split songs proportionally by plan revenue share
+    const totalPlanCount = Object.values(planCount).reduce((a, b) => a + b, 0);
+    const planDetails = Object.entries(planRevenue).map(([plan, rev]) => {
+      const count = planCount[plan] || 0;
+      const share = totalPlanCount > 0 ? count / totalPlanCount : 0;
+      const cost = totalPlanCount > 0 ? totalAPIcostKz * share : 0;
+      return {
+        plan,
+        revenue: rev,
+        cost: Math.round(cost),
+        profit: Math.round(rev - cost),
+        songCount: count,
+      };
+    });
+
+    res.json({
+      summary: {
+        totalRevenue,
+        totalCosts: Math.round(totalCostsKz),
+        netProfit: Math.round(netProfitKz),
+        margin: `${profitMargin}%`,
+        songCount,
+        totalAPIcostUSD: +totalAPIcostUSD.toFixed(2),
+      },
+      costs: {
+        sunoUSD: +sunoCostUSD.toFixed(2),
+        claudeUSD: +claudeCostUSD.toFixed(2),
+        totalUSD: +totalAPIcostUSD.toFixed(2),
+        apiKz: Math.round(totalAPIcostKz),
+        fixedKz: monthlyFixedKz,
+        costPerSong: {
+          sunoKz: +costPerSong.suno,
+          claudeKz: +costPerSong.claude,
+          totalKz: +costPerSong.total,
+        },
+      },
+      byPlan: planDetails,
+    });
+  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+});
+
 // O. Export CSV
 router.get('/export/:type', adminAuth, async (req, res) => {
   try {

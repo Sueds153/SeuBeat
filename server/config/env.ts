@@ -21,4 +21,8 @@ export const ENV = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   SUNO_API_KEY: process.env.SUNO_API_KEY || '',
   ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || '',
+  SUNO_COST_PER_CREDIT_USD: Number(process.env.SUNO_COST_PER_CREDIT_USD) || 0.15,
+  CLAUDE_COST_PER_GENERATION_USD: Number(process.env.CLAUDE_COST_PER_GENERATION_USD) || 0.03,
+  USD_TO_KZ_RATE: Number(process.env.USD_TO_KZ_RATE) || 900,
+  MONTHLY_FIXED_COSTS_KZ: Number(process.env.MONTHLY_FIXED_COSTS_KZ) || 0,
 };
