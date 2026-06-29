@@ -30,6 +30,7 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Signed URL** de `full-audio` gerado com admin client (não expõe bucket privado ao anon key).
 - **RLS policies** adicionadas para anon SELECT em `song_requests` e `users` (apenas nome).
 - **Helmet.js** substitui headers de segurança manuais (CSP, HSTS, etc.).
+- **Admin audit log**: `admin_audit_log` tabela + undo endpoint.
 - **Admin IP-restrição** via `ADMIN_ALLOWED_IPS` env var (opcional, fallback para password).
 - **CI pipeline**: `.github/workflows/ci.yml` corre lint + testes em push/PR.
 - **Validação frontend com Zod**: schemas partilhados, erros inline nos WizardSteps (mensagens vermelhas por campo).
@@ -37,13 +38,16 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Commit**: `27538ef` com todas as melhorias de segurança e testes.
 
 ### Done (latest)
+- **5 melhorias no Admin Panel**: confirmação antes de aprovar/rejeitar, barra de progresso funcional, clientes corrigido, search nos pagamentos, undo com audit log.
 - **Bugfix: Ocasião "Declaração de amor" partida**: frontend (`Wizard.tsx`) enviava `"Declaração de amor"` mas backend esperava `"declaração"`. Fix: type do card alterado para `"Declaração"`.
 - **Telefone aceita formato internacional**: regex do server-side validation atualizado para aceitar `+`, espaços, `()`, `-`.
-- **Mensagens de erro 500 melhoradas**: `publicErrorMessage` agora captura erros de auth (401/403), bucket storage, rate-limit, etc. com mensagens específicas para o utilizador.
-- **Commit**: (pendente)
+- **Mensagens de erro 500 melhoradas**: `publicErrorMessage` agora captura erros de auth (401/403), bucket storage, rate-limit, créditos insuficientes, etc.
+- **Sentry MCP configurado**: `opencode.json` com `@sentry/mcp-server` via STDIO (+ env var `SENTRY_ACCESS_TOKEN`).
+- **API testadas**: Suno ✅ (26 créditos), Brevo SMTP ✅, Claude ❌ (sem créditos), Supabase ✅.
+- **Env vars actualizadas no Render**: ANTHROPIC_API_KEY (PUT API + redeploy).
 
 ### Blocked
-- (none)
+- **Anthropic API sem créditos**: chave `sk-ant-api03-...` válida mas retorna `"Your credit balance is too low"`. Necessário recarregar em https://console.anthropic.com/settings/billing
 
 ## Sentry SDK (Monitorização de Erros)
 - **Versão**: `@sentry/node` e `@sentry/react` v10.62.0
@@ -57,7 +61,7 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **ErrorBoundary.tsx**: mantém UI fallback com WhatsApp Help; erro capturado pelo React 19 → `reactErrorHandler()`
 - **Ativar**: Adicionar `SENTRY_DSN` e `VITE_SENTRY_DSN` nas env vars do Render
 - **Source maps**: `sourcemap: 'hidden'` no Vite. Para upload automático, instalar `@sentry/vite-plugin`, adicionar `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`
-- **MCP (Model Context Protocol)**: Configurado em `opencode.json` via STDIO com token de acesso para AI agents consultarem issues/eventos. Org: `sugolden`, Project: `javascript-react`.
+- **MCP (Model Context Protocol)**: Configurado em `opencode.json` via STDIO com token de acesso para AI agents consultarem issues/eventos. Org: `sugolden`, Project: `javascript-react`. Token lido da env var `SENTRY_ACCESS_TOKEN` (não hardcoded).
 
 ## Key Decisions
 - **Wizard.tsx e AdminPanel.tsx mantidos** — acoplamento interno alto, refactor adiado. Files grandes não causam problemas operacionais.
@@ -65,10 +69,11 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Zod no frontend**: usa os mesmos padrões do server-side validation mas com schemas separados em `src/lib/validation.ts`.
 - **CI corre em ubuntu-latest com Node 22**, npm ci, lint, test.
 
-## Next Steps (baixa prioridade)
-1. **Custom domain** apontar `seubeat.ao` para Render.
-2. **E2E tests completos** com API reais (Wizard → pagamento → dedicatória).
-3. **Admin dashboard testes** (component tests para AdminPanel).
+## Next Steps
+1. **Recarregar créditos Anthropic** em https://console.anthropic.com/settings/billing — bloqueia geração de letras no wizard.
+2. **Custom domain** apontar `seubeat.ao` para Render.
+3. **E2E tests completos** com API reais (Wizard → pagamento → dedicatória).
+4. **Admin dashboard testes** (component tests para AdminPanel).
 
 ## Critical Context
 - **82 testes passam sempre** após cada mudança (vitest).
@@ -80,6 +85,7 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - `server/services/supabase.ts`: `getAdminSupabase()`, `getPublicSupabase()`, `uploadToSupabase()`.
 - `server/middleware/security.ts`: Helmet, CORS, logger.
 - `server/middleware/adminIpRestriction.ts`: IP whitelist opcional para admin.
+- `server/utils/audit.ts`: log de acções admin para undo.
 - `.github/workflows/ci.yml`: CI pipeline (lint + test + e2e).
 - `vitest.config.ts`: config jsdom + React plugin.
 - `src/lib/validation.ts`: Zod schemas partilhados para frontend.

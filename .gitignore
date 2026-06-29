@@ -8,3 +8,7 @@ dist-server/
 *.log
 .env*
 !.env.example
+.playwright-mcp/
+playwright-report/
+test-results/
+

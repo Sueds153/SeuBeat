@@ -319,3 +319,18 @@ CREATE INDEX IF NOT EXISTS idx_song_requests_status     ON public.song_requests(
 CREATE INDEX IF NOT EXISTS idx_song_requests_created_at ON public.song_requests(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_payments_created_at      ON public.payments(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_songs_created_at         ON public.songs(created_at DESC);
+
+-- Admin audit log para undo/rollback
+CREATE TABLE IF NOT EXISTS public.admin_audit_log (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  action text NOT NULL,
+  entity_type text NOT NULL,
+  entity_id uuid,
+  previous_data jsonb,
+  new_data jsonb,
+  notes text,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_log_entity ON public.admin_audit_log(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_log_created ON public.admin_audit_log(created_at DESC);

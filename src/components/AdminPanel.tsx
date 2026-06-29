@@ -228,6 +228,9 @@ export default function AdminPanel() {
   const [notification, setNotification] = useState<{ message: string } | null>(null);
   const prevCountsRef = useRef({ requests: 0, payments: 0 });
   const notifIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ action: 'approve' | 'reject'; paymentId: string } | null>(null);
+  const [clients, setClients] = useState<any[]>([]);
+  const [paymentSearchQuery, setPaymentSearchQuery] = useState('');
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -272,6 +275,16 @@ export default function AdminPanel() {
     try {
       const res = await fetch('/api/admin/songs', { headers: apiHeaders });
       if (res.ok) { const d = await res.json(); setSongs(d.songs || []); }
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  }, [adminPassword]);
+
+  const fetchClientsList = useCallback(async () => {
+    if (!adminPassword) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/clients', { headers: apiHeaders });
+      if (res.ok) { const d = await res.json(); setClients(d.clients || []); }
     } catch (e) { console.error(e); }
     setLoading(false);
   }, [adminPassword]);
@@ -416,6 +429,7 @@ export default function AdminPanel() {
     else if (activeView === 'credits') fetchCredits();
     else if (activeView === 'diagnostics') fetchDiagnostics();
     else if (activeView === 'metrics') fetchMetrics();
+    else if (activeView === 'clients') fetchClientsList();
   }, [authenticated, activeView]);
 
   // Poll progress every 5s when on requests tab
@@ -457,7 +471,10 @@ export default function AdminPanel() {
     setLoading(false);
   };
 
-  const handleApprove = async (paymentId: string) => {
+  const handleConfirmApprove = async () => {
+    if (!confirmAction) return;
+    const paymentId = confirmAction.paymentId;
+    setConfirmAction(null);
     setActionLoading(paymentId + '_approve');
     try {
       const res = await fetch(`/api/admin/payment/${paymentId}/approve`, {
@@ -479,8 +496,11 @@ export default function AdminPanel() {
     setActionLoading(null);
   };
 
-  const handleReject = async (paymentId: string) => {
+  const handleConfirmReject = async () => {
+    if (!confirmAction) return;
+    const paymentId = confirmAction.paymentId;
     const notes = rejectNotes[paymentId] || '';
+    setConfirmAction(null);
     setActionLoading(paymentId + '_reject');
     try {
       const res = await fetch(`/api/admin/payment/${paymentId}/reject`, {
@@ -718,6 +738,18 @@ export default function AdminPanel() {
     });
   }, [requests, searchQuery, searchFilter]);
 
+  const filteredPayments = useMemo(() => {
+    if (!paymentSearchQuery) return payments;
+    const q = paymentSearchQuery.toLowerCase();
+    return payments.filter(p => {
+      const email = (p.user_email || '').toLowerCase();
+      const plan = (p.plan || '').toLowerCase();
+      const status = p.status.toLowerCase();
+      const recipient = (p.song_requests?.recipient_name || '').toLowerCase();
+      return email.includes(q) || plan.includes(q) || status.includes(q) || recipient.includes(q);
+    });
+  }, [payments, paymentSearchQuery]);
+
   const REJECT_TEMPLATES = [
     { label: 'Comprovativo ilegível', value: 'O comprovativo enviado está ilegível. Por favor, envie uma foto mais nítida do comprovativo de pagamento.' },
     { label: 'Valor incorreto', value: 'O valor do pagamento não corresponde ao plano selecionado. Por favor, verifique e envie o valor correto.' },
@@ -866,7 +898,7 @@ export default function AdminPanel() {
 
           <div className="mt-6 px-2 space-y-2">
             <button
-              onClick={() => { fetchStats(); if (activeView === 'payments') fetchPayments(); else if (activeView === 'requests') { fetchRequests(); fetchProgress(); } else if (activeView === 'songs') fetchSongs(); else if (activeView === 'credits') fetchCredits(); else if (activeView === 'diagnostics') fetchDiagnostics(); else if (activeView === 'metrics') fetchMetrics(); }}
+              onClick={() => { fetchStats(); if (activeView === 'payments') fetchPayments(); else if (activeView === 'requests') { fetchRequests(); fetchProgress(); } else if (activeView === 'songs') fetchSongs(); else if (activeView === 'credits') fetchCredits(); else if (activeView === 'diagnostics') fetchDiagnostics(); else if (activeView === 'metrics') fetchMetrics(); else if (activeView === 'clients') fetchClientsList(); }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-stone-500 hover:text-stone-300 hover:bg-stone-800/50 transition-all cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" /> Atualizar Dados
@@ -950,11 +982,29 @@ export default function AdminPanel() {
 
                   {loading ? (
                     <div className="flex items-center justify-center h-40"><RefreshCw className="w-6 h-6 text-stone-600 animate-spin" /></div>
-                  ) : payments.length === 0 ? (
-                    <div className="text-center py-16 text-stone-600 font-mono text-sm">Nenhum pagamento encontrado.</div>
+                  ) : !filteredPayments.length ? (
+                    <div className="text-center py-16 text-stone-600 font-mono text-sm">{paymentSearchQuery ? 'Nenhum pagamento corresponde à pesquisa.' : 'Nenhum pagamento encontrado.'}</div>
                   ) : (
-                    <div className="space-y-3">
-                      {payments.map(payment => (
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-600" />
+                          <input
+                            type="text"
+                            value={paymentSearchQuery}
+                            onChange={e => setPaymentSearchQuery(e.target.value)}
+                            placeholder="Pesquisar por email, plano, estado, destinatário..."
+                            className="w-full bg-stone-950 border border-stone-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-stone-300 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
+                          />
+                        </div>
+                        {paymentSearchQuery && (
+                          <button onClick={() => setPaymentSearchQuery('')} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer shrink-0">
+                            Limpar
+                          </button>
+                        )}
+                      </div>
+                      <div className="space-y-3">
+                      {filteredPayments.map(payment => (
                         <div key={payment.id} className="bg-stone-900/50 border border-stone-800 rounded-2xl overflow-hidden">
                           <div
                             className="flex items-center justify-between p-4 cursor-pointer hover:bg-stone-800/30 transition-colors"
@@ -1032,6 +1082,34 @@ export default function AdminPanel() {
                                     </div>
                                   )}
 
+                                  {payment.status === 'rejected' && (
+                                    <div className="flex items-center justify-between text-xs text-rose-400 font-mono bg-rose-500/5 border border-rose-500/20 rounded-xl p-3">
+                                      <div className="flex items-center gap-2">
+                                        <XCircle className="w-4 h-4" />
+                                        Rejeitado
+                                      </div>
+                                      <button
+                                        onClick={async () => {
+                                          if (!confirm('Tem a certeza que quer desfazer esta rejeição?')) return;
+                                          setActionLoading(payment.id + '_undo');
+                                          try {
+                                            const res = await fetch('/api/admin/undo', {
+                                              method: 'POST', headers: apiHeaders,
+                                              body: JSON.stringify({ entityType: 'payment', entityId: payment.id, action: 'reject' })
+                                            });
+                                            const data = await res.json();
+                                            if (res.ok) { showToast('↩️ ' + (data.message || 'Rejeição desfeita.')); fetchPayments(); fetchStats(); }
+                                            else showToast(data.error || 'Erro ao desfazer.', 'error');
+                                          } catch (e: any) { showToast(e.message, 'error'); }
+                                          setActionLoading(null);
+                                        }}
+                                        className="flex items-center gap-1 px-2 py-1 bg-stone-800 hover:bg-emerald-500/20 border border-stone-700 text-emerald-400 text-[10px] rounded-lg transition-colors cursor-pointer font-mono"
+                                      >
+                                        {actionLoading === payment.id + '_undo' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />} Desfazer Rejeição
+                                      </button>
+                                    </div>
+                                  )}
+
                                   {/* Actions */}
                                   {payment.status === 'pending_verification' && (
                                     <div className="space-y-3">
@@ -1058,7 +1136,7 @@ export default function AdminPanel() {
                                       </div>
                                       <div className="flex gap-2">
                                         <button
-                                          onClick={() => handleApprove(payment.id)}
+                                          onClick={() => setConfirmAction({ action: 'approve', paymentId: payment.id })}
                                           disabled={actionLoading === payment.id + '_approve'}
                                           className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
                                         >
@@ -1070,7 +1148,7 @@ export default function AdminPanel() {
                                           Aprovar + Gerar Música (Suno)
                                         </button>
                                         <button
-                                          onClick={() => handleReject(payment.id)}
+                                          onClick={() => setConfirmAction({ action: 'reject', paymentId: payment.id })}
                                           disabled={actionLoading === payment.id + '_reject'}
                                           className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-rose-900/50 hover:bg-rose-800/50 border border-rose-800/50 disabled:opacity-50 text-rose-400 text-xs font-bold rounded-xl transition-colors cursor-pointer"
                                         >
@@ -1086,9 +1164,30 @@ export default function AdminPanel() {
                                   )}
 
                                   {payment.status === 'approved' && (
-                                    <div className="flex items-center gap-2 text-xs text-emerald-400 font-mono bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
-                                      <CheckCircle className="w-4 h-4" />
-                                      Aprovado em {formatDate(payment.approved_at || '')} — Música Suno em processamento.
+                                    <div className="flex items-center justify-between text-xs text-emerald-400 font-mono bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-3">
+                                      <div className="flex items-center gap-2">
+                                        <CheckCircle className="w-4 h-4" />
+                                        Aprovado em {formatDate(payment.approved_at || '')}
+                                      </div>
+                                      <button
+                                        onClick={async () => {
+                                          if (!confirm('Tem a certeza que quer desfazer esta aprovação?')) return;
+                                          setActionLoading(payment.id + '_undo');
+                                          try {
+                                            const res = await fetch('/api/admin/undo', {
+                                              method: 'POST', headers: apiHeaders,
+                                              body: JSON.stringify({ entityType: 'payment', entityId: payment.id, action: 'approve' })
+                                            });
+                                            const data = await res.json();
+                                            if (res.ok) { showToast('↩️ ' + (data.message || 'Acção desfeita.')); fetchPayments(); fetchStats(); }
+                                            else showToast(data.error || 'Erro ao desfazer.', 'error');
+                                          } catch (e: any) { showToast(e.message, 'error'); }
+                                          setActionLoading(null);
+                                        }}
+                                        className="flex items-center gap-1 px-2 py-1 bg-stone-800 hover:bg-rose-500/20 border border-stone-700 text-rose-400 text-[10px] rounded-lg transition-colors cursor-pointer font-mono"
+                                      >
+                                        {actionLoading === payment.id + '_undo' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />} Desfazer
+                                      </button>
                                     </div>
                                   )}
 
@@ -1099,8 +1198,9 @@ export default function AdminPanel() {
                               </motion.div>
                             )}
                           </AnimatePresence>
-                        </div>
-                      ))}
+                      </div>
+                    ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1622,11 +1722,19 @@ export default function AdminPanel() {
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Clientes</h1>
                       <p className="text-stone-500 text-sm mt-1">Base de dados de clientes registados</p>
                     </div>
-                    <button onClick={() => exportCSV('clients')} className="flex items-center gap-1.5 px-3 py-2 bg-stone-900 border border-stone-800 text-stone-400 text-xs rounded-xl hover:text-emerald-400 hover:border-emerald-500/30 transition-colors cursor-pointer font-mono">
-                      <Download className="w-3.5 h-3.5" /> Exportar CSV
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={fetchClientsList} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
+                        <RefreshCw className="w-3.5 h-3.5" /> Atualizar
+                      </button>
+                      <button onClick={() => exportCSV('clients')} className="flex items-center gap-1.5 px-3 py-2 bg-stone-900 border border-stone-800 text-stone-400 text-xs rounded-xl hover:text-emerald-400 hover:border-emerald-500/30 transition-colors cursor-pointer font-mono">
+                        <Download className="w-3.5 h-3.5" /> Exportar CSV
+                      </button>
+                    </div>
                   </div>
 
+                  {loading ? (
+                    <div className="flex items-center justify-center h-40"><RefreshCw className="w-6 h-6 text-stone-600 animate-spin" /></div>
+                  ) : (
                   <div className="overflow-hidden rounded-2xl border border-stone-800">
                     <table className="w-full text-xs">
                       <thead className="bg-stone-900/80">
@@ -1637,23 +1745,30 @@ export default function AdminPanel() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-stone-800/50">
-                        {requests.map(req => req.users).filter(Boolean).map((user, i) => (
-                          <tr key={i} className="hover:bg-stone-800/20 transition-colors">
-                            <td className="px-4 py-3 text-stone-300 font-medium">{(user as any)?.name || '—'}</td>
-                            <td className="px-4 py-3 text-stone-400 font-mono">{(user as any)?.email || '—'}</td>
-                            <td className="px-4 py-3 text-stone-400 font-mono">{(user as any)?.phone || '—'}</td>
-                            <td className="px-4 py-3 text-stone-500">—</td>
-                            <td className="px-4 py-3 text-stone-600 font-mono text-[10px]">—</td>
+                        {clients.map((client, i) => {
+                          const songRequests = (client as any)?.song_requests || [];
+                          return (
+                          <tr key={client.id || i} className="hover:bg-stone-800/20 transition-colors">
+                            <td className="px-4 py-3 text-stone-300 font-medium">{(client as any)?.name || '—'}</td>
+                            <td className="px-4 py-3 text-stone-400 font-mono">{(client as any)?.email || '—'}</td>
+                            <td className="px-4 py-3 text-stone-400 font-mono">{(client as any)?.phone || '—'}</td>
+                            <td className="px-4 py-3 text-stone-400">{songRequests.length}</td>
+                            <td className="px-4 py-3 text-stone-600 font-mono text-[10px]">{formatDate((client as any)?.created_at || '')}</td>
                           </tr>
-                        ))}
+                          );
+                        })}
+                        {!loading && clients.length === 0 && (
+                          <tr><td colSpan={5} className="text-center py-8 text-stone-600 text-sm">Nenhum cliente encontrado.</td></tr>
+                        )}
                       </tbody>
                     </table>
                     <div className="text-center py-4">
-                      <button onClick={fetchRequests} className="text-xs text-amber-400 hover:underline cursor-pointer font-mono">
-                        Carregar clientes
+                      <button onClick={fetchClientsList} className="text-xs text-amber-400 hover:underline cursor-pointer font-mono">
+                        {clients.length > 0 ? `Atualizar (${clients.length} clientes)` : 'Carregar clientes'}
                       </button>
                     </div>
                   </div>
+                  )}
                 </div>
               )}
 
@@ -1884,6 +1999,71 @@ export default function AdminPanel() {
                     <AlertTriangle className="w-3.5 h-3.5" />
                   )}
                   Forçar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Confirmation Modal for Approve/Reject */}
+      <AnimatePresence>
+        {confirmAction && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={() => setConfirmAction(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={e => e.stopPropagation()}
+              className="bg-stone-900 border border-stone-800 rounded-2xl p-6 w-full max-w-sm space-y-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${confirmAction.action === 'approve' ? 'bg-emerald-500/15 border-emerald-500/30' : 'bg-rose-500/15 border-rose-500/30'}`}>
+                  {confirmAction.action === 'approve'
+                    ? <CheckCircle className="w-5 h-5 text-emerald-400" />
+                    : <XCircle className="w-5 h-5 text-rose-400" />
+                  }
+                </div>
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-stone-100">
+                    {confirmAction.action === 'approve' ? 'Aprovar Pagamento' : 'Rejeitar Pagamento'}
+                  </h3>
+                  <p className="text-[10px] font-mono text-stone-500">
+                    {confirmAction.action === 'approve'
+                      ? 'A música será gerada e enviada ao cliente.'
+                      : 'O cliente será notificado por email.'}
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-stone-400">
+                {confirmAction.action === 'approve'
+                  ? 'Tem a certeza que pretende aprovar este pagamento? A música será gerada automaticamente pelo Suno e enviada ao cliente.'
+                  : 'Tem a certeza que pretende rejeitar este pagamento? O cliente receberá um email com o motivo da rejeição e poderá tentar novamente.'}
+              </p>
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setConfirmAction(null)}
+                  className="flex-1 py-2.5 bg-stone-800 hover:bg-stone-700 text-stone-400 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmAction.action === 'approve' ? handleConfirmApprove : handleConfirmReject}
+                  className={`flex-1 py-2.5 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer ${
+                    confirmAction.action === 'approve'
+                      ? 'bg-emerald-600 hover:bg-emerald-500'
+                      : 'bg-rose-600 hover:bg-rose-500'
+                  }`}
+                >
+                  {confirmAction.action === 'approve' ? '✅ Sim, Aprovar' : '❌ Sim, Rejeitar'}
                 </button>
               </div>
             </motion.div>

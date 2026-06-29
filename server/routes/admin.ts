@@ -11,6 +11,7 @@ import { sendPersonalizedEmail, sendPaymentRejectionEmail } from '../services/em
 import Anthropic from '@anthropic-ai/sdk';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { publicErrorMessage } from '../utils/helpers';
+import { logAdminAction } from '../utils/audit';
 
 const router = express.Router();
 
@@ -154,6 +155,8 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
       return res.status(400).json({ error: 'Dados da música em falta.' });
     }
 
+    logAdminAction({ action: 'approve', entityType: 'payment', entityId: id, notes: notes || undefined });
+
     const hasGeneratedAudio = !!(songData.full_song_url || songData.audio_url);
     const hasVoiceSample = !!songRequest.voice_sample_url;
 
@@ -193,8 +196,10 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
-    const { data: payment } = await supabase.from('payments').select('user_email, request_id').eq('id', id).single();
+    const { data: payment } = await supabase.from('payments').select('user_email, request_id, status, proof_path').eq('id', id).single();
     await supabase.from('payments').update({ status: 'rejected', notes: notes || null }).eq('id', id);
+
+    logAdminAction({ action: 'reject', entityType: 'payment', entityId: id, previousData: { status: payment?.status }, notes: notes || undefined });
 
     if (payment?.request_id) {
       await supabase.from('song_requests').update({ status: 'payment_rejected' }).eq('id', payment.request_id);
@@ -365,6 +370,7 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
     if (!data) return res.status(404).json({ error: 'Registo não encontrado.' });
 
     logInfo('[Admin] Status forçado manualmente', { table, id, status, field: statusField });
+    logAdminAction({ action: 'force_status', entityType: table, entityId: id, previousData: { [statusField]: data[statusField] || data.status }, newData: { [statusField]: status }, notes: `Forçado para ${status}` });
 
     if (table === 'song_requests' && status === 'delivered') {
       const { data: songRequest } = await supabase
@@ -549,6 +555,63 @@ router.get('/clients', adminAuth, async (req, res) => {
     const { data, error } = await supabase.from('users').select('*, song_requests(id, status, created_at)').order('created_at', { ascending: false });
     if (error) return res.status(500).json({ error: safeMessage(error) });
     res.json({ success: true, clients: data });
+  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+});
+
+// P. GET progress map (exposed for frontend polling)
+router.get('/progress', adminAuth, async (req, res) => {
+  try {
+    const progress = { ...requestProgressMap };
+    const now = Date.now();
+    const PROGRESS_TTL_MS = 5 * 60 * 1000;
+    for (const [id, p] of Object.entries(progress)) {
+      if (now - p.updatedAt > PROGRESS_TTL_MS) delete progress[id];
+    }
+    res.json(progress);
+  } catch (err: any) {
+    res.status(500).json({ error: safeMessage(err) });
+  }
+});
+
+// Q. Undo last admin action for an entity
+router.post('/undo', adminAuth, async (req, res) => {
+  try {
+    const { entityType, entityId, action } = req.body;
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    if (!entityType || !entityId || !action) {
+      return res.status(400).json({ error: 'Parâmetros "entityType", "entityId" e "action" obrigatórios.' });
+    }
+
+    if (action === 'approve' || action === 'reject') {
+      if (entityType === 'payment') {
+        await supabase.from('payments').update({ status: 'pending_verification', approved_at: null, notes: 'Desfeito pelo admin' }).eq('id', entityId);
+        const { data: pay } = await supabase.from('payments').select('request_id').eq('id', entityId).single();
+        if (pay?.request_id) {
+          await supabase.from('song_requests').update({ status: 'payment_submitted' }).eq('id', pay.request_id);
+        }
+        logAdminAction({ action: 'undo', entityType: 'payment', entityId, notes: `Undo: ${action}` });
+        return res.json({ success: true, message: `Acção de "${action}" revertida. Pagamento voltou a "pending_verification".` });
+      }
+    }
+
+    if (action === 'force_status') {
+      const { previousStatus } = req.body;
+      if (!previousStatus) return res.status(400).json({ error: 'Força-status undo requer "previousStatus".' });
+      if (entityType === 'song_requests' || entityType === 'payments') {
+        await supabase.from(entityType).update({ status: previousStatus }).eq('id', entityId);
+        logAdminAction({ action: 'undo', entityType, entityId, notes: `Undo force_status: revertido para ${previousStatus}` });
+        return res.json({ success: true, message: `Estado revertido para "${previousStatus}".` });
+      }
+      if (entityType === 'songs') {
+        await supabase.from('songs').update({ mureka_status: previousStatus }).eq('id', entityId);
+        logAdminAction({ action: 'undo', entityType: 'songs', entityId, notes: `Undo force_status: revertido para ${previousStatus}` });
+        return res.json({ success: true, message: `Estado revertido para "${previousStatus}".` });
+      }
+    }
+
+    res.status(400).json({ error: 'Combinação entityType/action não suportada para undo.' });
   } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
 });
 
