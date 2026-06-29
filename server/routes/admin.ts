@@ -811,8 +811,7 @@ router.get('/profitability', adminAuth, async (req, res) => {
     const { ENV } = await import('../config/env');
     const sunoCostPerCreditUSD = ENV.SUNO_COST_PER_CREDIT_USD;
     const claudeCostPerGenUSD = ENV.CLAUDE_COST_PER_GENERATION_USD;
-    const usdToKz = ENV.USD_TO_KZ_RATE;
-    const monthlyFixedKz = ENV.MONTHLY_FIXED_COSTS_KZ;
+    const monthlyFixedUSD = ENV.MONTHLY_FIXED_COST_USD;
 
     const [paymentsRes, songsRes] = await Promise.all([
       supabase.from('payments').select('amount, plan, created_at, approved_at').eq('status', 'approved'),
@@ -823,90 +822,81 @@ router.get('/profitability', adminAuth, async (req, res) => {
     const songsGenerated = songsRes.data || [];
     const songCount = songsGenerated.length;
 
-    // Revenue
-    const totalRevenue = approvedPayments.reduce((sum, p) => {
+    // Revenue (convert from Kz cents to USD using rate)
+    const totalRevenueKz = approvedPayments.reduce((sum, p) => {
       const num = typeof p.amount === 'number' ? p.amount : parseInt(String(p.amount || '0').replace(/\D/g, ''), 10) / 100;
       return sum + num;
     }, 0);
+    const totalRevenueUSD = +(totalRevenueKz / 900).toFixed(2);
 
-    // Revenue by plan
+    // Revenue by plan (in USD)
     const revenueByPlanBreakdown: Record<string, number> = {};
     approvedPayments.forEach(p => {
       const plan = p.plan || 'standard';
       const num = typeof p.amount === 'number' ? p.amount : parseInt(String(p.amount || '0').replace(/\D/g, ''), 10) / 100;
-      revenueByPlanBreakdown[plan] = (revenueByPlanBreakdown[plan] || 0) + num;
+      revenueByPlanBreakdown[plan] = (revenueByPlanBreakdown[plan] || 0) + (num / 900);
     });
 
     // Costs — each song: 2 Suno credits (generate + continue) + 1 Claude generation
     const sunoCreditsUsed = songCount * 2;
-    const sunoCostUSD = sunoCreditsUsed * sunoCostPerCreditUSD;
-    const claudeCostUSD = songCount * claudeCostPerGenUSD;
-    const totalAPIcostUSD = sunoCostUSD + claudeCostUSD;
-    const totalAPIcostKz = totalAPIcostUSD * usdToKz;
-    const totalCostsKz = totalAPIcostKz + monthlyFixedKz;
+    const sunoCostUSD = +(sunoCreditsUsed * sunoCostPerCreditUSD).toFixed(2);
+    const claudeCostUSD = +(songCount * claudeCostPerGenUSD).toFixed(2);
+    const totalAPIcostUSD = +(sunoCostUSD + claudeCostUSD).toFixed(2);
+    const totalCostsUSD = +(totalAPIcostUSD + monthlyFixedUSD).toFixed(2);
+    const apiCostPerSong = totalAPIcostUSD / Math.max(songCount, 1);
 
     // Profit
-    const netProfitKz = totalRevenue - totalCostsKz;
-    const profitMargin = totalRevenue > 0 ? ((netProfitKz / totalRevenue) * 100).toFixed(1) : '0.0';
+    const netProfitUSD = +(totalRevenueUSD - totalCostsUSD).toFixed(2);
+    const profitMargin = totalRevenueUSD > 0 ? ((netProfitUSD / totalRevenueUSD) * 100).toFixed(1) : '0.0';
 
     // Cost per song breakdown
     const costPerSong = {
-      suno: (sunoCostUSD * usdToKz / Math.max(songCount, 1)).toFixed(0),
-      claude: (claudeCostUSD * usdToKz / Math.max(songCount, 1)).toFixed(0),
-      total: (totalAPIcostKz / Math.max(songCount, 1)).toFixed(0),
+      suno: +((sunoCostPerCreditUSD * 2)).toFixed(2),
+      claude: +(claudeCostPerGenUSD).toFixed(2),
+      total: +((sunoCostPerCreditUSD * 2) + claudeCostPerGenUSD).toFixed(2),
     };
 
-    // Profitability by plan (assuming costs split equally per song, then grouped by plan)
-    const planSongCount: Record<string, number> = {};
-    const planRevenue = revenueByPlanBreakdown;
-    // Count songs per plan by matching request_id to payment plan
-    const paymentsWithRequest = await supabase
+    // Profitability by plan
+    const paymentsWithPlanCount = await supabase
       .from('payments')
       .select('plan, request_id')
       .eq('status', 'approved')
       .not('request_id', 'is', null);
     const planCount: Record<string, number> = {};
-    if (paymentsWithRequest.data) {
-      paymentsWithRequest.data.forEach((p: any) => {
+    if (paymentsWithPlanCount.data) {
+      paymentsWithPlanCount.data.forEach((p: any) => {
         const pl = p.plan || 'standard';
         planCount[pl] = (planCount[pl] || 0) + 1;
       });
     }
-    // If we have no request_id mapping, fallback: split songs proportionally by plan revenue share
-    const totalPlanCount = Object.values(planCount).reduce((a, b) => a + b, 0);
-    const planDetails = Object.entries(planRevenue).map(([plan, rev]) => {
+    const totalPlanCount = Object.values(planCount).reduce((a: number, b: number) => a + b, 0);
+    const planDetails = Object.entries(revenueByPlanBreakdown).map(([plan, rev]) => {
       const count = planCount[plan] || 0;
       const share = totalPlanCount > 0 ? count / totalPlanCount : 0;
-      const cost = totalPlanCount > 0 ? totalAPIcostKz * share : 0;
+      const cost = +(totalAPIcostUSD * share).toFixed(2);
       return {
         plan,
-        revenue: rev,
-        cost: Math.round(cost),
-        profit: Math.round(rev - cost),
+        revenueUSD: +rev.toFixed(2),
+        costUSD: cost,
+        profitUSD: +(rev - cost).toFixed(2),
         songCount: count,
       };
     });
 
     res.json({
       summary: {
-        totalRevenue,
-        totalCosts: Math.round(totalCostsKz),
-        netProfit: Math.round(netProfitKz),
+        totalRevenueUSD,
+        totalCostsUSD,
+        netProfitUSD,
         margin: `${profitMargin}%`,
         songCount,
-        totalAPIcostUSD: +totalAPIcostUSD.toFixed(2),
       },
       costs: {
-        sunoUSD: +sunoCostUSD.toFixed(2),
-        claudeUSD: +claudeCostUSD.toFixed(2),
-        totalUSD: +totalAPIcostUSD.toFixed(2),
-        apiKz: Math.round(totalAPIcostKz),
-        fixedKz: monthlyFixedKz,
-        costPerSong: {
-          sunoKz: +costPerSong.suno,
-          claudeKz: +costPerSong.claude,
-          totalKz: +costPerSong.total,
-        },
+        sunoUSD: sunoCostUSD,
+        claudeUSD: claudeCostUSD,
+        totalUSD: totalAPIcostUSD,
+        fixedUSD: monthlyFixedUSD,
+        costPerSong,
       },
       byPlan: planDetails,
     });

@@ -1859,18 +1859,18 @@ export default function AdminPanel() {
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                               <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
                                 <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Receita Total</p>
-                                <p className="text-lg font-bold text-emerald-400">{profitability.summary.totalRevenue.toLocaleString('pt')} Kz</p>
+                                <p className="text-lg font-bold text-emerald-400">${profitability.summary.totalRevenueUSD.toFixed(2)}</p>
                                 <p className="text-[9px] font-mono text-stone-600">{profitability.summary.songCount} músicas geradas</p>
                               </div>
                               <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
                                 <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Custos API</p>
-                                <p className="text-lg font-bold text-rose-400">{profitability.summary.totalCosts.toLocaleString('pt')} Kz</p>
-                                <p className="text-[9px] font-mono text-stone-600">${profitability.costs.totalUSD} USD</p>
+                                <p className="text-lg font-bold text-rose-400">${profitability.summary.totalCostsUSD.toFixed(2)}</p>
+                                <p className="text-[9px] font-mono text-stone-600">{profitability.costs.sunoUSD > 0 ? `Suno $${profitability.costs.sunoUSD}` : ''}{profitability.costs.claudeUSD > 0 ? ` + Claude $${profitability.costs.claudeUSD}` : ''}</p>
                               </div>
                               <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
                                 <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Lucro Líquido</p>
-                                <p className={`text-lg font-bold ${profitability.summary.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                  {profitability.summary.netProfit >= 0 ? '+' : ''}{profitability.summary.netProfit.toLocaleString('pt')} Kz
+                                <p className={`text-lg font-bold ${profitability.summary.netProfitUSD >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                  {profitability.summary.netProfitUSD >= 0 ? '+' : ''}${profitability.summary.netProfitUSD.toFixed(2)}
                                 </p>
                               </div>
                               <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
@@ -1882,7 +1882,7 @@ export default function AdminPanel() {
                             </div>
 
                             {/* Revenue vs Cost bar */}
-                            {profitability.summary.totalRevenue > 0 && (
+                            {profitability.summary.totalRevenueUSD > 0 && (
                               <div className="space-y-2">
                                 <p className="text-[10px] font-mono text-stone-500 uppercase">Receita vs Custos</p>
                                 <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
@@ -1890,15 +1890,15 @@ export default function AdminPanel() {
                                     <span className="text-[10px] font-mono text-emerald-400 w-12">Receita</span>
                                     <div className="flex-1 bg-stone-800 rounded-full h-5 overflow-hidden">
                                       <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full flex items-center justify-end pr-2" style={{ width: '100%', minWidth: '2rem' }}>
-                                        <span className="text-[8px] font-mono font-bold text-stone-950">{profitability.summary.totalRevenue.toLocaleString('pt')} Kz</span>
+                                        <span className="text-[8px] font-mono font-bold text-stone-950">${profitability.summary.totalRevenueUSD.toFixed(2)}</span>
                                       </div>
                                     </div>
                                   </div>
                                   <div className="flex items-center gap-3">
                                     <span className="text-[10px] font-mono text-rose-400 w-12">Custos</span>
                                     <div className="flex-1 bg-stone-800 rounded-full h-5 overflow-hidden">
-                                      <div className="h-full bg-gradient-to-r from-rose-500 to-rose-400 rounded-full flex items-center justify-end pr-2" style={{ width: `${Math.min((profitability.summary.totalCosts / profitability.summary.totalRevenue) * 100, 100)}%`, minWidth: '2rem' }}>
-                                        <span className="text-[8px] font-mono font-bold text-stone-950">{profitability.summary.totalCosts.toLocaleString('pt')} Kz</span>
+                                      <div className="h-full bg-gradient-to-r from-rose-500 to-rose-400 rounded-full flex items-center justify-end pr-2" style={{ width: `${Math.min((profitability.summary.totalCostsUSD / profitability.summary.totalRevenueUSD) * 100, 100)}%`, minWidth: '2rem' }}>
+                                        <span className="text-[8px] font-mono font-bold text-stone-950">${profitability.summary.totalCostsUSD.toFixed(2)}</span>
                                       </div>
                                     </div>
                                   </div>
@@ -1911,15 +1911,15 @@ export default function AdminPanel() {
                               <p className="text-[10px] font-mono text-stone-500 uppercase mb-2">Custo por Música</p>
                               <div className="grid grid-cols-3 gap-3 text-center">
                                 <div>
-                                  <p className="text-[18px] font-bold text-amber-400">{profitability.costs.costPerSong.sunoKz} Kz</p>
+                                  <p className="text-[18px] font-bold text-amber-400">${profitability.costs.costPerSong.suno}</p>
                                   <p className="text-[9px] font-mono text-stone-500">Suno (2 créditos)</p>
                                 </div>
                                 <div>
-                                  <p className="text-[18px] font-bold text-violet-400">{profitability.costs.costPerSong.claudeKz} Kz</p>
+                                  <p className="text-[18px] font-bold text-violet-400">${profitability.costs.costPerSong.claude}</p>
                                   <p className="text-[9px] font-mono text-stone-500">Claude (letra)</p>
                                 </div>
                                 <div>
-                                  <p className="text-[18px] font-bold text-stone-300">{profitability.costs.costPerSong.totalKz} Kz</p>
+                                  <p className="text-[18px] font-bold text-stone-300">${profitability.costs.costPerSong.total}</p>
                                   <p className="text-[9px] font-mono text-stone-500">Total</p>
                                 </div>
                               </div>
@@ -1930,25 +1930,25 @@ export default function AdminPanel() {
                               <div>
                                 <p className="text-[10px] font-mono text-stone-500 uppercase mb-2">Lucro por Plano</p>
                                 <div className="space-y-2">
-                                  {profitability.byPlan.map((p: any, i: number) => {
-                                    const maxRev = Math.max(...profitability.byPlan.map((x: any) => x.revenue), 1);
+                                  {profitability.byPlan.map((pl: any, i: number) => {
+                                    const maxRev = Math.max(...profitability.byPlan.map((x: any) => x.revenueUSD), 1);
                                     return (
                                       <div key={i} className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
                                         <div className="flex items-center justify-between mb-1.5">
-                                          <span className="text-stone-300 font-medium capitalize">{p.plan}</span>
-                                          <span className={`font-mono font-bold ${p.profit >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                            {p.profit >= 0 ? '+' : ''}{p.profit.toLocaleString('pt')} Kz
+                                          <span className="text-stone-300 font-medium capitalize">{pl.plan}</span>
+                                          <span className={`font-mono font-bold ${pl.profitUSD >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {pl.profitUSD >= 0 ? '+' : ''}${pl.profitUSD.toFixed(2)}
                                           </span>
                                         </div>
                                         <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500">
-                                          <span>💰 {p.revenue.toLocaleString('pt')} Kz</span>
+                                          <span>💰 ${pl.revenueUSD.toFixed(2)}</span>
                                           <span>→</span>
-                                          <span>💸 {p.cost.toLocaleString('pt')} Kz</span>
+                                          <span>💸 ${pl.costUSD.toFixed(2)}</span>
                                           <span>•</span>
-                                          <span>{p.songCount} músicas</span>
+                                          <span>{pl.songCount} músicas</span>
                                         </div>
                                         <div className="mt-1.5 w-full bg-stone-800 rounded-full h-1.5 overflow-hidden">
-                                          <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full" style={{ width: `${(p.revenue / maxRev) * 100}%` }} />
+                                          <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full" style={{ width: `${(pl.revenueUSD / maxRev) * 100}%` }} />
                                         </div>
                                       </div>
                                     );
@@ -1956,6 +1956,9 @@ export default function AdminPanel() {
                                 </div>
                               </div>
                             )}
+
+                            {/* Note */}
+                            <p className="text-[9px] font-mono text-stone-600 text-center">Receita convertida de Kz para USD (taxa: 1 USD ≈ 900 Kz). Custos baseados nas env vars.</p>
                           </div>
                         ) : profitLoading ? (
                           <RefreshCw className="w-5 h-5 text-stone-600 animate-spin mx-auto" />
