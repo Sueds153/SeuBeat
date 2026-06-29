@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server.js",
+    "start": "node dist/server.js",
     "clean": "npx rimraf dist dist-server",
     "lint": "tsc --noEmit",
     "test": "vitest run",
@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.2",
+    "@sentry/node": "^9.0.0",
+    "@sentry/react": "^10.62.0",
     "@supabase/server": "^1.2.0",
     "@supabase/supabase-js": "^2.107.0",
     "dotenv": "^17.2.3",
@@ -30,8 +32,6 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "winston": "^3.19.0",
-    "@sentry/node": "^9.0.0",
-    "@sentry/react": "^9.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

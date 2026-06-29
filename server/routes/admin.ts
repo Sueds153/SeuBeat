@@ -75,7 +75,7 @@ router.get('/payments', adminAuth, async (req, res) => {
 
     const { data, error } = await supabase
       .from('payments')
-      .select('*, song_requests(id, recipient_name, occasion, music_style, status, users(name, email))')
+      .select('*, song_requests(id, recipient_name, occasion, music_style, status, users(name, email, phone))')
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ error: safeMessage(error) });
@@ -771,6 +771,16 @@ router.get('/metrics', adminAuth, async (req, res) => {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([month, revenue]) => ({ month, revenue }));
 
+    // Revenue by plan
+    const planRevenue: Record<string, number> = {};
+    approvedPayments.forEach(p => {
+      const plan = p.plan || 'standard';
+      const num = typeof p.amount === 'number' ? p.amount : parseInt(String(p.amount || '0').replace(/\D/g, ''), 10) / 100;
+      planRevenue[plan] = (planRevenue[plan] || 0) + num;
+    });
+    const revenueByPlan = Object.entries(planRevenue)
+      .map(([plan, revenue]) => ({ plan, revenue }));
+
     // Pending requests count
     const pendingCount = requests.filter(r => r.status === 'payment_submitted' || r.status === 'pending_verification').length;
 
@@ -781,6 +791,7 @@ router.get('/metrics', adminAuth, async (req, res) => {
       avgDeliveryHours: avgHours,
       popularStyles,
       revenueByMonth,
+      revenueByPlan,
       pendingCount,
       totalRevenue: approvedPayments
         .reduce((sum, p) => {

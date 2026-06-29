@@ -218,7 +218,7 @@ export default function AdminPanel() {
   const [forceStatusModal, setForceStatusModal] = useState<{ id: string; table: string; currentStatus: string } | null>(null);
   const [forceStatusValue, setForceStatusValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchFilter, setSearchFilter] = useState<'all' | 'name' | 'email' | 'status' | 'style'>('all');
+  const [searchFilter, setSearchFilter] = useState<'all' | 'name' | 'email' | 'status' | 'style' | 'occasion' | 'relationship'>('all');
   const [notifCount, setNotifCount] = useState(0);
   const [notifDot, setNotifDot] = useState(false);
   const [metrics, setMetrics] = useState<any>(null);
@@ -231,6 +231,11 @@ export default function AdminPanel() {
   const [confirmAction, setConfirmAction] = useState<{ action: 'approve' | 'reject'; paymentId: string } | null>(null);
   const [clients, setClients] = useState<any[]>([]);
   const [paymentSearchQuery, setPaymentSearchQuery] = useState('');
+  const [reqSort, setReqSort] = useState('created_at_desc');
+  const [paySort, setPaySort] = useState('created_at_desc');
+  const [reqPage, setReqPage] = useState(1);
+  const [payPage, setPayPage] = useState(1);
+  const PER_PAGE = 20;
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -441,6 +446,12 @@ export default function AdminPanel() {
     }
     return () => { if (progressPollRef.current) clearInterval(progressPollRef.current); };
   }, [activeView, authenticated]);
+
+  useEffect(() => { setReqPage(1); }, [searchQuery]);
+  useEffect(() => { setPayPage(1); }, [paymentSearchQuery]);
+
+  useEffect(() => { setReqPage(1); }, [activeView]);
+  useEffect(() => { setPayPage(1); }, [activeView]);
 
   const handleLogin = async () => {
     if (!passwordInput) {
@@ -730,11 +741,15 @@ export default function AdminPanel() {
       const status = r.status.toLowerCase();
       const style = (r.music_style || '').toLowerCase();
       const recipient = (r.recipient_name || '').toLowerCase();
+      const occasion = (r.occasion || '').toLowerCase();
+      const relationship = (r.relationship || '').toLowerCase();
       if (searchFilter === 'name') return name.includes(q) || recipient.includes(q);
       if (searchFilter === 'email') return email.includes(q);
       if (searchFilter === 'status') return status.includes(q);
       if (searchFilter === 'style') return style.includes(q);
-      return name.includes(q) || email.includes(q) || status.includes(q) || style.includes(q) || recipient.includes(q);
+      if (searchFilter === 'occasion') return occasion.includes(q);
+      if (searchFilter === 'relationship') return relationship.includes(q);
+      return name.includes(q) || email.includes(q) || status.includes(q) || style.includes(q) || recipient.includes(q) || occasion.includes(q) || relationship.includes(q);
     });
   }, [requests, searchQuery, searchFilter]);
 
@@ -749,6 +764,60 @@ export default function AdminPanel() {
       return email.includes(q) || plan.includes(q) || status.includes(q) || recipient.includes(q);
     });
   }, [payments, paymentSearchQuery]);
+
+  const sortData = <T extends Record<string, any>>(items: T[], sortKey: string, fieldMap: Record<string, (item: T) => string>): T[] => {
+    const [field, dir] = sortKey.split('_');
+    const asc = dir === 'asc';
+    const getVal = fieldMap[field];
+    if (!getVal) return items;
+    return [...items].sort((a, b) => {
+      const aVal = getVal(a).toLowerCase();
+      const bVal = getVal(b).toLowerCase();
+      const cmp = aVal.localeCompare(bVal);
+      return asc ? cmp : -cmp;
+    });
+  };
+
+  const reqFieldMap: Record<string, (r: any) => string> = {
+    created_at: r => r.created_at || '',
+    name: r => r.users?.name || r.recipient_name || '',
+    status: r => r.status || '',
+  };
+  const payFieldMap: Record<string, (p: any) => string> = {
+    created_at: p => p.created_at || '',
+    email: p => p.user_email || '',
+    plan: p => p.plan || '',
+    status: p => p.status || '',
+  };
+
+  const sortedRequests = useMemo(() => sortData(filteredRequests, reqSort, reqFieldMap), [filteredRequests, reqSort]);
+  const sortedPayments = useMemo(() => sortData(filteredPayments, paySort, payFieldMap), [filteredPayments, paySort]);
+
+  const paginatedRequests = useMemo(() => {
+    const start = (reqPage - 1) * PER_PAGE;
+    return sortedRequests.slice(start, start + PER_PAGE);
+  }, [sortedRequests, reqPage]);
+
+  const paginatedPayments = useMemo(() => {
+    const start = (payPage - 1) * PER_PAGE;
+    return sortedPayments.slice(start, start + PER_PAGE);
+  }, [sortedPayments, payPage]);
+
+  const reqTotalPages = Math.ceil(sortedRequests.length / PER_PAGE);
+  const payTotalPages = Math.ceil(sortedPayments.length / PER_PAGE);
+
+  const Pagination = ({ page, totalPages, setPage }: { page: number; totalPages: number; setPage: (n: number) => void }) => {
+    if (totalPages <= 1) return null;
+    return (
+      <div className="flex items-center justify-center gap-2 py-3">
+        <button onClick={() => setPage(1)} disabled={page <= 1} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">«</button>
+        <button onClick={() => setPage(page - 1)} disabled={page <= 1} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">‹</button>
+        <span className="text-[10px] font-mono text-stone-500 px-2">{page} / {totalPages}</span>
+        <button onClick={() => setPage(page + 1)} disabled={page >= totalPages} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">›</button>
+        <button onClick={() => setPage(totalPages)} disabled={page >= totalPages} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">»</button>
+      </div>
+    );
+  };
 
   const REJECT_TEMPLATES = [
     { label: 'Comprovativo ilegível', value: 'O comprovativo enviado está ilegível. Por favor, envie uma foto mais nítida do comprovativo de pagamento.' },
@@ -982,7 +1051,7 @@ export default function AdminPanel() {
 
                   {loading ? (
                     <div className="flex items-center justify-center h-40"><RefreshCw className="w-6 h-6 text-stone-600 animate-spin" /></div>
-                  ) : !filteredPayments.length ? (
+                  ) : !paginatedPayments.length ? (
                     <div className="text-center py-16 text-stone-600 font-mono text-sm">{paymentSearchQuery ? 'Nenhum pagamento corresponde à pesquisa.' : 'Nenhum pagamento encontrado.'}</div>
                   ) : (
                     <div>
@@ -1002,9 +1071,21 @@ export default function AdminPanel() {
                             Limpar
                           </button>
                         )}
+                        <select value={paySort} onChange={e => setPaySort(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                          <option value="created_at_desc">Mais recentes</option>
+                          <option value="created_at_asc">Mais antigos</option>
+                          <option value="email_asc">Email A-Z</option>
+                          <option value="email_desc">Email Z-A</option>
+                          <option value="plan_asc">Plano A-Z</option>
+                          <option value="status_asc">Estado</option>
+                        </select>
                       </div>
+                      <Pagination page={payPage} totalPages={payTotalPages} setPage={setPayPage} />
                       <div className="space-y-3">
-                      {filteredPayments.map(payment => (
+                      {paginatedPayments.map(payment => {
+                        const phone = (payment.song_requests as any)?.users?.phone || '';
+                        const waMsg = encodeURIComponent(`Olá! O seu pagamento no SeuBeat foi ${payment.status === 'approved' ? 'aprovado ✅' : 'rejeitado ❌'}.`);
+                        return (
                         <div key={payment.id} className="bg-stone-900/50 border border-stone-800 rounded-2xl overflow-hidden">
                           <div
                             className="flex items-center justify-between p-4 cursor-pointer hover:bg-stone-800/30 transition-colors"
@@ -1072,6 +1153,19 @@ export default function AdminPanel() {
                                       <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                                       Nenhum comprovativo anexado
                                     </div>
+                                  )}
+
+                                  {/* WhatsApp notification */}
+                                  {phone && (
+                                    <a
+                                      href={`https://wa.me/${phone.replace(/\D/g, '')}?text=${waMsg}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-2 px-3 py-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-xl hover:bg-emerald-500/20 transition-colors font-mono w-fit"
+                                    >
+                                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                      Notificar via WhatsApp
+                                    </a>
                                   )}
 
                                   {/* Notes for rejection */}
@@ -1199,8 +1293,10 @@ export default function AdminPanel() {
                             )}
                           </AnimatePresence>
                       </div>
-                    ))}
+                    );
+                  })}
                       </div>
+                      <Pagination page={payPage} totalPages={payTotalPages} setPage={setPayPage} />
                     </div>
                   )}
                 </div>
@@ -1246,19 +1342,29 @@ export default function AdminPanel() {
                       <option value="email">Email</option>
                       <option value="status">Estado</option>
                       <option value="style">Estilo</option>
+                      <option value="occasion">Ocasião</option>
+                      <option value="relationship">Relação</option>
                     </select>
                     {searchQuery && (
                       <button onClick={() => setSearchQuery('')} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer">
                         Limpar
                       </button>
                     )}
+                    <select value={reqSort} onChange={e => setReqSort(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                      <option value="created_at_desc">Mais recentes</option>
+                      <option value="created_at_asc">Mais antigos</option>
+                      <option value="name_asc">Nome A-Z</option>
+                      <option value="name_desc">Nome Z-A</option>
+                      <option value="status_asc">Estado</option>
+                    </select>
                   </div>
 
                   {loading ? (
                     <div className="flex items-center justify-center h-40"><RefreshCw className="w-6 h-6 text-stone-600 animate-spin" /></div>
-                  ) : (
+                  ) : (<>
+                    <Pagination page={reqPage} totalPages={reqTotalPages} setPage={setReqPage} />
                     <div className="space-y-3">
-                      {filteredRequests.map(req => {
+                      {paginatedRequests.map(req => {
                         const plan = req.payments?.[0]?.plan;
                         const progress = progressMap[req.id];
                         const isExpanded = expandedRequest === req.id;
@@ -1392,11 +1498,12 @@ export default function AdminPanel() {
                           </div>
                         );
                       })}
-                      {filteredRequests.length === 0 && (
+                      {paginatedRequests.length === 0 && (
                         <div className="text-center py-12 text-stone-600 font-mono text-sm">{searchQuery ? 'Nenhum pedido corresponde à pesquisa.' : 'Nenhum pedido encontrado.'}</div>
                       )}
                     </div>
-                  )}
+                    <Pagination page={reqPage} totalPages={reqTotalPages} setPage={setReqPage} />
+                    </>)}
                 </div>
               )}
 
@@ -1701,6 +1808,27 @@ export default function AdminPanel() {
                                       <span className="text-[9px] font-mono font-bold text-stone-950">{r.revenue.toLocaleString('pt')} Kz</span>
                                     </div>
                                   </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-stone-600 text-sm">Nenhuma receita registada.</p>
+                        )}
+                      </div>
+
+                      {/* Revenue by Plan */}
+                      <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5">
+                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4">📊 Receita por Plano</h3>
+                        {metrics.revenueByPlan?.length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            {metrics.revenueByPlan.map((r: any, i: number) => {
+                              const colors = ['from-amber-500 to-rose-500', 'from-emerald-500 to-teal-400', 'from-violet-500 to-purple-400'];
+                              const color = colors[i % colors.length];
+                              return (
+                                <div key={i} className="bg-stone-950 rounded-xl p-4 border border-stone-800 text-center">
+                                  <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider mb-1">{r.plan}</p>
+                                  <p className={`text-lg font-bold bg-gradient-to-r ${color} bg-clip-text text-transparent`}>{r.revenue.toLocaleString('pt')} Kz</p>
                                 </div>
                               );
                             })}
