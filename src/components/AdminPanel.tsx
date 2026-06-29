@@ -84,8 +84,16 @@ interface DiagnosticsResult {
 }
 
 interface CreditsResult {
-  suno: { ok: boolean; error?: string; credits?: number; low?: boolean };
-  claude: { ok: boolean; error?: string; model?: string; quota_exceeded?: boolean };
+  suno: { ok: boolean; error?: string; credits: number; low?: boolean; lastCheck: string };
+  claude: { ok: boolean; error?: string; model?: string; quota_exceeded?: boolean; lastCheck: string };
+  usage: {
+    totalSongs: number;
+    songsThisMonth: number;
+    songsByMonth: { month: string; count: number }[];
+    estimatedSunoCreditsUsed: number;
+    estimatedSongsRemaining: number;
+    cost: { sunoUSD: number; claudeUSD: number; totalUSD: number; perSong: number };
+  };
 }
 
 interface ProgressEntry {
@@ -1615,7 +1623,7 @@ export default function AdminPanel() {
                   <div className="flex items-center justify-between">
                     <div>
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Créditos das APIs</h1>
-                      <p className="text-stone-500 text-sm mt-1">Saldo e estado dos serviços externos</p>
+                      <p className="text-stone-500 text-sm mt-1">Saldo, consumo e custos reais dos serviços</p>
                     </div>
                     <button onClick={fetchCredits} disabled={creditsLoading} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
                       <RefreshCw className={`w-3.5 h-3.5 ${creditsLoading ? 'animate-spin' : ''}`} /> {creditsLoading ? 'A verificar...' : 'Atualizar'}
@@ -1631,83 +1639,157 @@ export default function AdminPanel() {
                   )}
 
                   {credits && !creditsLoading && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Suno Card */}
-                      <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-6 space-y-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center">
-                            <Sparkles className="w-5 h-5 text-purple-400" />
+                    <div className="space-y-5">
+                      {/* API Cards */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Suno Card */}
+                        <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-6 space-y-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center">
+                              <Sparkles className="w-5 h-5 text-purple-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-stone-200">Suno AI</p>
+                              <p className="text-[10px] font-mono text-stone-500">Geração de Música</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-bold text-stone-200">Suno AI</p>
-                            <p className="text-[10px] font-mono text-stone-500">Geração de Música</p>
-                          </div>
-                        </div>
 
-                        {credits.suno.ok ? (
-                          <>
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs font-mono text-stone-400">Créditos Restantes</span>
-                                <span className={`text-lg font-mono font-black ${credits.suno.low ? 'text-rose-400' : credits.suno.credits! < 50 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                          {credits.suno.ok ? (
+                            <>
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-mono text-stone-400">Créditos Restantes</span>
+                              <span className={`text-lg font-mono font-black ${credits.suno.low ? 'text-rose-400' : credits.suno.credits < 50 ? 'text-amber-400' : 'text-emerald-400'}`}>
                                   {credits.suno.credits}
                                 </span>
                               </div>
                               <div className="w-full bg-stone-800 rounded-full h-2">
-                                <div
-                                  className={`h-2 rounded-full transition-all ${credits.suno.low ? 'bg-rose-500' : credits.suno.credits! < 50 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                                  style={{ width: `${Math.min(100, (credits.suno.credits || 0) / 10)}%` }}
-                                />
+                                <div className={`h-2 rounded-full transition-all ${credits.suno.low ? 'bg-rose-500' : credits.suno.credits < 50 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                  style={{ width: `${Math.min(100, credits.suno.credits / 10)}%` }} />
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] font-mono">
+                                  <span className={credits.suno.low ? 'text-rose-400' : 'text-stone-500'}>
+                                    {credits.suno.low ? '⚠️ Créditos baixos!' : credits.suno.credits < 50 ? '⚡ A ficar baixo' : '✅ Saldo saudável'}
+                                  </span>
+                                  <span className="text-stone-600">
+                                    ~{credits.usage?.estimatedSongsRemaining || 0} músicas
+                                  </span>
+                                </div>
                               </div>
-                              <p className="text-[10px] font-mono text-stone-600">
-                                {credits.suno.low
-                                  ? '⚠️ Créditos baixos! Compra mais em sunoapi.org'
-                                  : credits.suno.credits! < 50
-                                    ? '⚡ A ficar baixo. Considera recarregar em breve.'
-                                    : '✅ Saldo saudável'}
-                              </p>
+                              <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-[10px] font-mono space-y-1">
+                                <div className="flex justify-between text-stone-500">
+                                  <span>Última verificação</span>
+                                  <span className="text-stone-400">{new Date(credits.suno.lastCheck).toLocaleString('pt')}</span>
+                                </div>
+                                <div className="flex justify-between text-stone-500">
+                                  <span>Créditos usados (est.)</span>
+                                  <span className="text-stone-400">{credits.usage?.estimatedSunoCreditsUsed || 0}</span>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
+                              <p className="text-xs text-rose-400 font-mono">{credits.suno.error || 'Indisponível'}</p>
                             </div>
-                          </>
-                        ) : (
-                          <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
-                            <p className="text-xs text-rose-400 font-mono">{credits.suno.error || 'Indisponível'}</p>
+                          )}
+                        </div>
+
+                        {/* Claude Card */}
+                        <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-6 space-y-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                              <Sparkles className="w-5 h-5 text-amber-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-stone-200">Anthropic Claude</p>
+                              <p className="text-[10px] font-mono text-stone-500">Geração de Letras</p>
+                            </div>
                           </div>
-                        )}
+
+                          {credits.claude.ok ? (
+                            <div className="space-y-2">
+                              <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-mono text-stone-500">Modelo</span>
+                                  <span className="text-xs font-mono text-stone-300">{credits.claude.model || '—'}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-mono text-stone-500">Estado</span>
+                                  <span className={`text-xs font-mono font-bold ${credits.claude.quota_exceeded ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                    {credits.claude.quota_exceeded ? '⚠️ Quota excedida' : '✅ Operacional'}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-mono text-stone-500">Letras geradas</span>
+                                  <span className="text-xs font-mono text-stone-300">{credits.usage?.totalSongs || 0}</span>
+                                </div>
+                              </div>
+                              {credits.claude.quota_exceeded ? (
+                                <p className="text-[10px] font-mono text-rose-400">A chave está sem saldo. Recarrega em console.anthropic.com</p>
+                              ) : (
+                                <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-[10px] font-mono">
+                                  <div className="flex justify-between text-stone-500">
+                                    <span>Última verificação</span>
+                                    <span className="text-stone-400">{new Date(credits.claude.lastCheck).toLocaleString('pt')}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
+                              <p className="text-xs text-rose-400 font-mono">{credits.claude.error || 'Indisponível'}</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
-                      {/* Claude Card */}
-                      <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-6 space-y-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
-                            <Sparkles className="w-5 h-5 text-amber-400" />
+                      {/* Usage & Cost Summary */}
+                      <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5">
+                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4">📊 Consumo Real</h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                          <div className="bg-stone-950 rounded-xl p-4 border border-stone-800 text-center">
+                            <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Músicas Geradas</p>
+                            <p className="text-xl font-bold text-stone-200">{credits.usage?.totalSongs || 0}</p>
+                            <p className="text-[9px] font-mono text-stone-600">{credits.usage?.songsThisMonth || 0} este mês</p>
                           </div>
-                          <div>
-                            <p className="text-sm font-bold text-stone-200">Anthropic Claude</p>
-                            <p className="text-[10px] font-mono text-stone-500">Geração de Letras</p>
+                          <div className="bg-stone-950 rounded-xl p-4 border border-stone-800 text-center">
+                            <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Créditos Suno</p>
+                            <p className="text-xl font-bold text-purple-400">{credits.usage?.estimatedSunoCreditsUsed || 0}</p>
+                            <p className="text-[9px] font-mono text-stone-600">usados (est.)</p>
+                          </div>
+                          <div className="bg-stone-950 rounded-xl p-4 border border-stone-800 text-center">
+                            <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Custo Estimado</p>
+                            <p className="text-xl font-bold text-amber-400">${credits.usage?.cost?.totalUSD.toFixed(2) || '0.00'}</p>
+                            <p className="text-[9px] font-mono text-stone-600">${credits.usage?.cost?.perSong.toFixed(2) || '0.00'}/música</p>
+                          </div>
+                          <div className="bg-stone-950 rounded-xl p-4 border border-stone-800 text-center">
+                            <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Músicas Restantes</p>
+                            <p className="text-xl font-bold text-emerald-400">{credits.usage?.estimatedSongsRemaining || 0}</p>
+                            <p className="text-[9px] font-mono text-stone-600">com saldo atual</p>
                           </div>
                         </div>
 
-                        {credits.claude.ok ? (
-                          <div className="space-y-2">
-                            <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-mono text-stone-500">Modelo</span>
-                                <span className="text-xs font-mono text-stone-300">{credits.claude.model || '—'}</span>
-                              </div>
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-mono text-stone-500">Estado</span>
-                                <span className={`text-xs font-mono font-bold ${credits.claude.quota_exceeded ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                  {credits.claude.quota_exceeded ? '⚠️ Quota excedida' : '✅ Operacional'}
-                                </span>
-                              </div>
+                        {/* Songs by month chart */}
+                        {credits.usage?.songsByMonth?.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-mono text-stone-500 uppercase mb-2">Músicas Geradas por Mês</p>
+                            <div className="space-y-1.5">
+                              {credits.usage.songsByMonth.map((m: any, i: number) => {
+                                const maxCount = Math.max(...credits.usage.songsByMonth.map((x: any) => x.count), 1);
+                                const pct = (m.count / maxCount) * 100;
+                                return (
+                                  <div key={i} className="flex items-center gap-3">
+                                    <span className="text-[10px] font-mono text-stone-500 w-16">{m.month}</span>
+                                    <div className="flex-1 bg-stone-800 rounded-full h-5 overflow-hidden">
+                                      <div className="h-full bg-gradient-to-r from-violet-500 to-purple-400 rounded-full flex items-center justify-end pr-2 transition-all"
+                                        style={{ width: `${pct}%`, minWidth: pct > 0 ? '2rem' : '0' }}>
+                                        <span className="text-[9px] font-mono font-bold text-stone-950">{m.count}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
-                            {credits.claude.quota_exceeded && (
-                              <p className="text-[10px] font-mono text-rose-400">A clave pode estar sem saldo. Verifica em console.anthropic.com</p>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
-                            <p className="text-xs text-rose-400 font-mono">{credits.claude.error || 'Indisponível'}</p>
                           </div>
                         )}
                       </div>

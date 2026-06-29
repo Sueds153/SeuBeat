@@ -293,7 +293,14 @@ router.post('/song/:id/generate-music', adminAuth, async (req, res) => {
 // I. API Credits
 router.get('/credits', adminAuth, async (req, res) => {
   try {
-    const [sunoResult, claudeResult] = await Promise.all([
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    const [sunoResult, claudeResult, songsRes, songsMonthRes, songsByMonthRes] = await Promise.all([
+      // Suno live credit check
       (async () => {
         const key = process.env.SUNO_API_KEY;
         if (!key) return { ok: false, error: 'SUNO_API_KEY em falta' };
@@ -302,9 +309,10 @@ router.get('/credits', adminAuth, async (req, res) => {
           if (!creditsRes.ok) return { ok: false, error: `HTTP ${creditsRes.status}` };
           const creditsData = await creditsRes.json();
           const credits = creditsData.data || 0;
-          return { ok: true, credits, low: credits < 20 };
+          return { ok: true, credits, low: credits < 20, lastCheck: now.toISOString() };
         } catch (e: any) { return { ok: false, error: e.message }; }
       })(),
+      // Claude live check
       (async () => {
         const apiKey = process.env.ANTHROPIC_API_KEY;
         if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY em falta' };
@@ -315,17 +323,64 @@ router.get('/credits', adminAuth, async (req, res) => {
             max_tokens: 1,
             messages: [{ role: 'user', content: 'ping' }]
           });
-          return { ok: !!(response && response.content), model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022' };
+          return { ok: !!(response && response.content), model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022', lastCheck: now.toISOString() };
         } catch (e: any) {
           if (e.message?.includes('quota') || e.message?.includes('limit') || e.message?.includes('429')) {
-            return { ok: true, quota_exceeded: true, error: e.message, model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022' };
+            return { ok: true, quota_exceeded: true, error: e.message, model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022', lastCheck: now.toISOString() };
           }
           return { ok: false, error: e.message };
         }
-      })()
+      })(),
+      // Total songs generated
+      supabase.from('songs').select('id', { count: 'exact', head: true }).not('lyrics', 'is', null),
+      // Songs this month
+      supabase.from('songs').select('id', { count: 'exact', head: true }).not('lyrics', 'is', null).gte('created_at', firstOfMonth),
+      // Songs by month for chart
+      supabase.from('songs').select('created_at').not('lyrics', 'is', null).order('created_at', { ascending: true }),
     ]);
 
-    res.json({ suno: sunoResult, claude: claudeResult });
+    const totalSongs = songsRes.count || 0;
+    const songsThisMonth = songsMonthRes.count || 0;
+    const songsData = songsByMonthRes.data || [];
+
+    // Aggregate by month
+    const monthlyCount: Record<string, number> = {};
+    songsData.forEach((s: any) => {
+      if (s.created_at) {
+        const month = s.created_at.slice(0, 7);
+        monthlyCount[month] = (monthlyCount[month] || 0) + 1;
+      }
+    });
+    const songsByMonth = Object.entries(monthlyCount)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([month, count]) => ({ month, count }));
+
+    const sunoCredits = sunoResult.ok ? (sunoResult as any).credits : 0;
+    const estCreditsUsed = totalSongs * 2;
+    const estSongsRemaining = sunoCredits > 0 ? Math.floor(sunoCredits / 2) : 0;
+    const sunoCostPerCredit = Number(process.env.SUNO_COST_PER_CREDIT_USD) || 0.15;
+    const claudeCostPerGen = Number(process.env.CLAUDE_COST_PER_GENERATION_USD) || 0.03;
+    const estSunoCost = +(estCreditsUsed * sunoCostPerCredit).toFixed(2);
+    const estClaudeCost = +(totalSongs * claudeCostPerGen).toFixed(2);
+    const estTotalCost = +(estSunoCost + estClaudeCost).toFixed(2);
+
+    res.json({
+      suno: sunoResult,
+      claude: claudeResult,
+      usage: {
+        totalSongs,
+        songsThisMonth,
+        songsByMonth,
+        estimatedSunoCreditsUsed: estCreditsUsed,
+        estimatedSongsRemaining: estSongsRemaining,
+        cost: {
+          sunoUSD: estSunoCost,
+          claudeUSD: estClaudeCost,
+          totalUSD: estTotalCost,
+          perSong: +((sunoCostPerCredit * 2) + claudeCostPerGen).toFixed(2),
+        },
+      },
+    });
   } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
 });
 
