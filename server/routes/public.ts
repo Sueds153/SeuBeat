@@ -56,25 +56,14 @@ function publicUrlForStoragePath(supabase: NonNullable<ReturnType<typeof getAdmi
 }
 
 async function findAuthUserIdByEmail(supabase: NonNullable<ReturnType<typeof getAdminSupabase>>, email: string) {
-  let page = 1;
-  const perPage = 200;
-  const targetEmail = email.toLowerCase();
-
-  while (true) {
-    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage });
-    if (error) {
-      logWarn('[API] Falha ao listar auth.users para procurar email.', { error: error.message });
-      return null;
-    }
-
-    const users = (data?.users || []) as Array<{ id?: string; email?: string }>;
-    const found = users.find(user => user.email?.toLowerCase() === targetEmail);
-    if (found?.id) return found.id;
-
-    if (users.length < perPage) break;
-    page++;
+  const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 10000 });
+  if (error) {
+    logWarn('[API] Falha ao listar auth.users para procurar email.', { error: error.message });
+    return null;
   }
-  return null;
+  const users = (data?.users || []) as Array<{ id: string; email?: string }>;
+  const found = users.find(user => user.email?.toLowerCase() === email.toLowerCase());
+  return found?.id || null;
 }
 
 async function ensureUserProfile(
@@ -234,7 +223,10 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       photoUrl = publicUrlForStoragePath(supabase, 'photos', uploadData.path);
     }
 
-    const userEmail = email || `guest_${randomUUID()}@seubeat.com`;
+    if (!email) {
+      throw new Error('O email é obrigatório para criar o pedido.');
+    }
+    const userEmail = email;
     const userData = await ensureUserProfile(supabase, {
       email: userEmail,
       name: userNick || 'Autor',
@@ -445,7 +437,27 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
     if (typeof userEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) return res.status(400).json({ error: 'Email inválido.' });
     if (!['standard', 'express', 'premium'].includes(plan)) return res.status(400).json({ error: 'Plano invalido.' });
 
-    let proofUrl = null;
+    const parsedAmount = typeof amount === 'string' ? parseAngolanAmount(amount) : typeof amount === 'number' && !isNaN(amount) ? amount : 0;
+    const ALLOWED_AMOUNTS: Record<string, number[]> = {
+      standard: [7900],
+      express: [9900, 14900],
+      premium: [14900],
+    };
+    if (!ALLOWED_AMOUNTS[plan]?.includes(parsedAmount)) {
+      return res.status(400).json({ error: 'O montante não corresponde ao plano selecionado.' });
+    }
+
+    const { data: existingPayment } = await supabase
+      .from('payments')
+      .select('id, status')
+      .eq('request_id', songRequestId)
+      .eq('status', 'pending_verification')
+      .maybeSingle();
+    if (existingPayment) {
+      return res.status(409).json({ error: 'Já existe um comprovativo pendente para este pedido.' });
+    }
+
+    let proofPath: string | null = null;
     if (proofBase64) {
       const proofBuffer = decodeBase64Payload(proofBase64);
       if (proofBuffer.length > 10 * 1024 * 1024) throw new Error('Comprovativo demasiado grande. Máx. 10MB.');
@@ -455,7 +467,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
         .from('payment-proofs')
         .upload(filename, decodeBase64Payload(proofBase64), { contentType: proofMimeType || 'image/jpeg' });
       if (error || !data) throw new Error(`Upload do comprovativo falhou: ${error?.message || 'sem dados'}`);
-      proofUrl = publicUrlForStoragePath(supabase, 'payment-proofs', data.path);
+      proofPath = data.path;
     }
 
     let voiceSampleUrl = null;
@@ -468,15 +480,16 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
         .from('voice-samples')
         .upload(filename, decodeBase64Payload(voiceSampleBase64), { contentType: voiceSampleMimeType || 'audio/wav' });
       if (error || !data) throw new Error(`Upload da amostra de voz falhou: ${error?.message || 'sem dados'}`);
-      voiceSampleUrl = publicUrlForStoragePath(supabase, 'voice-samples', data.path);
+      // Guarda o path em vez de public URL (bucket voice-samples é privado)
+      voiceSampleUrl = data.path;
     }
 
     const { error: paymentError } = await supabase.from('payments').insert([{
       request_id: songRequestId,
       user_email: userEmail,
       plan,
-      amount: typeof amount === 'string' ? parseAngolanAmount(amount) : typeof amount === 'number' && !isNaN(amount) ? amount : 0,
-      proof_url: proofUrl,
+      amount: parsedAmount,
+      proof_path: proofPath,
       status: 'pending_verification'
     }]);
     if (paymentError) throw paymentError;

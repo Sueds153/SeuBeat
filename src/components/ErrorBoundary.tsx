@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
+import WhatsAppHelp from './WhatsAppHelp';
 
 interface Props {
   children: ReactNode;
@@ -44,6 +45,9 @@ export default class ErrorBoundary extends Component<Props, State> {
             >
               Recarregar
             </button>
+            <div className="pt-2">
+              <WhatsAppHelp context="erro_fatal" label="Falar com apoio" />
+            </div>
           </div>
         </div>
       );

@@ -36,7 +36,7 @@ if (!SUPABASE_URL) {
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
 const BUCKETS = [
-  { name: 'payment-proofs', public: true,  description: 'Comprovativos de pagamento dos clientes' },
+  { name: 'payment-proofs', public: false, description: 'Comprovativos de pagamento dos clientes (apenas admin) ' },
   { name: 'full-audio',     public: false, description: 'Músicas completas (acesso privado/pago)' },
   { name: 'preview',        public: true,  description: 'Previews de 30s das músicas (acesso público)' },
   { name: 'voice-samples',  public: false, description: 'Amostras de voz e fotos dos clientes (privado)' },

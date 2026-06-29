@@ -13,6 +13,7 @@ import {
   Step5Traits, Step6Memory, Step7Message, Step8Photo, Step9Contact
 } from './WizardSteps';
 import { validateStep as zodValidateStep, FieldErrors } from '../lib/validation';
+import WhatsAppHelp from './WhatsAppHelp';
 
 interface WizardProps {
   onBackToLanding: () => void;
@@ -111,7 +112,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [copiedText, setCopiedText] = useState<'entidade' | 'referencia' | null>(null);
   const [isDone, setIsDone] = useState(false); // Order success screen
   const [generatedShareUrl, setGeneratedShareUrl] = useState('');
-  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
 
   // Estado do upload de comprovativo de pagamento
   const [proofFile, setProofFile] = useState<File | null>(null);
@@ -331,7 +331,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     { type: 'Aniversário', label: 'Aniversário', icon: '🎂' },
     { type: 'Aniversário de namoro', label: 'Aniversário de namoro', icon: '💕' },
     { type: 'Casamento', label: 'Casamento', icon: '💍' },
-    { type: 'Declaração de amor', label: 'Declaração de amor', icon: '❤️' },
+    { type: 'Declaração', label: 'Declaração de amor', icon: '❤️' },
     { type: 'Agradecimento', label: 'Agradecimento', icon: '🙏' },
     { type: 'Homenagem', label: 'Homenagem', icon: '🏆' },
     { type: 'Pedido de desculpas', label: 'Pedido de desculpas', icon: '💔' },
@@ -563,19 +563,17 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   useEffect(() => {
     if (audioPlaying) {
       if (!liveAudioRef.current) {
-        const textToSpeech = aiLyricsSnippet || (aiLyrics && aiLyrics.join(' ')) || 'Fiz esta música para que saibas que o meu amor por ti nunca vai acabar. És o meu porto seguro, a minha luz eterna.';
-        const encodedText = encodeURIComponent(textToSpeech.substring(0, 300));
-        const speechUrl = `/api/speech-preview?text=${encodedText}&voiceType=${encodeURIComponent(formData.voiceType)}&useClonedVoice=${voiceUpsellApplied}`;
-        const url = previewAudioUrl || speechUrl;
+        const url = previewAudioUrl;
+        if (!url) return;
         liveAudioRef.current = new Audio(url);
         
         liveAudioRef.current.ontimeupdate = () => {
           if (liveAudioRef.current) {
             const current = liveAudioRef.current.currentTime;
-            if (current >= 20) {
+            if (current >= 30) {
               liveAudioRef.current.pause();
               setAudioPlaying(false);
-              setAudioProgress(20);
+              setAudioProgress(30);
             } else {
               setAudioProgress(current);
             }
@@ -584,7 +582,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
         liveAudioRef.current.onended = () => {
           setAudioPlaying(false);
-          setAudioProgress(20);
+          setAudioProgress(30);
         };
       }
       
@@ -632,10 +630,10 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     }
   }, [recordingSeconds, isRecording]);
 
-  // Order Finalization effect: saves locally, generates query URL, and fires email
+  // Order Finalization effect: saves locally and generates sharing URL
   useEffect(() => {
     if (isDone) {
-      // 1. Save locally to populate PersonalizedPage on immediate reload or direct visit
+      // 1. Save locally to populate PersonalizedSongPage on reload
       const serialData = {
         recipientName: formData.recipientName,
         recipientNick: formData.recipientNick,
@@ -650,23 +648,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       localStorage.setItem('seubeat_last_created', JSON.stringify(serialData));
       if (dbSongId) localStorage.setItem('seubeat_last_song_id', dbSongId);
 
-      // 2. Generate sharing URL
-      const params = new URLSearchParams();
-      params.set('recipientName', formData.recipientName || 'Rosa dos Santos');
-      params.set('recipientNick', formData.recipientNick || 'Meu Amor');
-      params.set('userNick', formData.userNick || 'Rui');
-      params.set('musicStyle', formData.musicStyle || 'Kizomba');
-      params.set('memory', formData.unforgettableMemory || '');
-      params.set('whereItHappened', formData.whereItHappened || '');
-      params.set('letter', aiLetterText || formData.messageFromTheHeart || '');
-      if (aiSongTitle) params.set('songTitle', aiSongTitle);
-      if (aiLyrics && aiLyrics.length > 0) {
-        params.set('lyrics', JSON.stringify(aiLyrics));
-      }
-      if (dbSongId) {
-        params.set('id', dbSongId);
-      }
-      
+      // 2. Generate sharing URL — apenas com ?id= para não expor dados pessoais na URL
       const slug = (formData.recipientName || 'especial')
         .toLowerCase()
         .normalize("NFD")
@@ -674,35 +656,10 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)+/g, '');
         
-      const shareUrl = `${window.location.origin}/song/${slug}?${params.toString()}`;
+      const shareUrl = dbSongId
+        ? `${window.location.origin}/song/${slug}?id=${dbSongId}`
+        : `${window.location.origin}/song/${slug}`;
       setGeneratedShareUrl(shareUrl);
-
-      // 3. Dispatch Email proxy call
-      if (formData.email) {
-        setEmailStatus('sending');
-        fetch('/api/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: formData.email,
-            recipientName: formData.recipientName,
-            personalizedUrl: shareUrl,
-            letterText: aiLetterText || formData.messageFromTheHeart || 'Preparámos uma canção e dedicatória de amor com o maior sentimento do mundo para o seu coração.'
-          })
-        })
-          .then((res) => {
-            if (!res.ok) throw new Error('Falha no status de envio do email');
-            return res.json();
-          })
-          .then((_data) => {
-            setEmailStatus('sent');
-          })
-          .catch((err) => {
-            console.error('Email dispatch error:', err);
-            setEmailStatus('error');
-            showToast('Não foi possível enviar o email. Mas pode partilhar o link manualmente.', 'info');
-          });
-      }
     }
   }, [isDone, formData, aiLetterText, aiSongTitle, aiLyrics, dbSongId]);
 
@@ -827,7 +784,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     setIsSubmitting(true);
     setGenerationError('');
     try {
-      const previewReady = await pollSongUntilPreview(dbSongId, 8);
+      const previewReady = await pollSongUntilPreview(dbSongId, 30);
       if (!previewReady) {
         setIsSubmitting(false);
         setGenerationStatus('music_processing');
@@ -1034,6 +991,9 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
               >
                 Rever dados
               </button>
+            </div>
+            <div className="pt-4">
+              <WhatsAppHelp context="erro_geracao" label="Falar com apoio" />
             </div>
           </motion.div>
         )}
@@ -1936,7 +1896,12 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                       )}
 
                       {paymentSubmitError && (
-                        <p className="text-rose-400 text-xs font-mono text-left">{paymentSubmitError}</p>
+                        <>
+                          <p className="text-rose-400 text-xs font-mono text-left">{paymentSubmitError}</p>
+                          <div className="flex justify-start">
+                            <WhatsAppHelp context="pagamento" label="Falar com apoio" />
+                          </div>
+                        </>
                       )}
 
                       <button
@@ -2005,29 +1970,12 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                   </button>
                 </div>
 
-                {/* Email notification delivery reporter */}
+                {/* Email notification — enviado apenas após verificação do pagamento */}
                 <div className="text-xs pt-1 flex items-center gap-2">
-                  {emailStatus === 'sending' && (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 text-amber-500 animate-spin" strokeWidth={2.5} />
-                      <span className="text-stone-400 font-mono text-xxs uppercase">A enviar email...</span>
-                    </>
-                  )}
-                  {emailStatus === 'sent' && (
-                    <>
-                      <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-emerald-400 font-mono text-xxs font-bold uppercase">Simulação: E-mail enviado para "${formData.email}" ❤️</span>
-                    </>
-                  )}
-                  {emailStatus === 'error' && (
-                    <>
-                      <AlertTriangle className="w-3.5 h-3.5 text-rose-500" />
-                      <span className="text-rose-400 font-mono text-xxs uppercase">Email pronto. Partilhe ou envie comprovativo para entrega!</span>
-                    </>
-                  )}
-                  {emailStatus === 'idle' && (
-                    <span className="text-stone-500 font-mono text-xxs uppercase">Link pronto para partilha internacional imediata!</span>
-                  )}
+                  <Mail className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-stone-400 font-mono text-xxs uppercase">
+                    Email com o link será enviado após verificação do pagamento
+                  </span>
                 </div>
 
                 {/* Web redirection button */}

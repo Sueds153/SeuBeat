@@ -84,6 +84,41 @@ router.get('/payments', adminAuth, async (req, res) => {
   }
 });
 
+// B2. Get payment proof signed URL (bucket é privado)
+router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    const { data: payment, error } = await supabase
+      .from('payments')
+      .select('proof_path, proof_url')
+      .eq('id', id)
+      .single();
+
+    if (error || !payment) return res.status(404).json({ error: 'Pagamento não encontrado.' });
+
+    let path = payment.proof_path;
+    if (!path && payment.proof_url) {
+      const match = payment.proof_url.match(/\/payment-proofs\/(.+)$/);
+      path = match ? match[1] : null;
+    }
+
+    if (!path) return res.status(404).json({ error: 'Comprovativo não encontrado.' });
+
+    const { data: signedData } = await supabase.storage
+      .from('payment-proofs')
+      .createSignedUrl(path, 3600);
+
+    if (!signedData?.signedUrl) return res.status(500).json({ error: 'Não foi possível gerar URL do comprovativo.' });
+
+    res.json({ url: signedData.signedUrl });
+  } catch (err: any) {
+    res.status(500).json({ error: safeMessage(err) });
+  }
+});
+
 // C. Admin approve payment
 router.post('/payment/:id/approve', adminAuth, async (req, res) => {
   try {
@@ -120,22 +155,31 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
     }
 
     const hasGeneratedAudio = !!(songData.full_song_url || songData.audio_url);
+    const hasVoiceSample = !!songRequest.voice_sample_url;
 
-    if (!hasGeneratedAudio) {
-      // Gera a melodia pelo Suno (incluindo Suno Voice se houver amostra)
-      await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', requestId);
-      runBackgroundSunoWorkflow(requestId, songData.id, songRequest.music_style || 'Kizomba', songData.title || 'Música SeuBeat', songData.lyrics || []).catch(err => logError('[Admin] Background Suno workflow falhou apos aprovacao', err, { requestId }));
-      return res.json({ success: true, message: 'Pagamento aprovado. Música em processamento no Suno.', hasVoiceSample: !!songRequest.voice_sample_url });
-    } else {
-      // Se a música já existe, entrega diretamente
+    // Se já tem áudio E não tem voz clonada pendente, entrega diretamente
+    if (hasGeneratedAudio && !hasVoiceSample) {
       await supabase.from('song_requests').update({ status: 'delivered' }).eq('id', requestId);
       if (userEmail) {
         const slug = (songRequest.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
         const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${songData.id}`;
         await sendPersonalizedEmail(userEmail, songRequest.recipient_name, personalizedUrl, letterText);
+        return res.json({ success: true, message: 'Pagamento aprovado. Música entregue por e-mail.' });
       }
-      return res.json({ success: true, message: 'Pagamento aprovado. Música entregue por e-mail.', hasVoiceSample: !!songRequest.voice_sample_url });
+      return res.json({ success: true, message: 'Pagamento aprovado. Música entregue (email do cliente não disponível).' });
     }
+
+    // Precisa de gerar áudio ou processar voz clonada → workflow Suno
+
+    // Evita iniciar um segundo workflow se já existe um em andamento
+    const isProcessing = songData.mureka_status === 'generating' || songData.mureka_status === 'processing' || (songData.mureka_task_id && !hasGeneratedAudio);
+    if (isProcessing) {
+      return res.json({ success: true, message: 'Música já está em processamento. A entrega será automática quando concluída.', alreadyProcessing: true });
+    }
+
+    await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', requestId);
+    runBackgroundSunoWorkflow(requestId, songData.id, songRequest.music_style || 'Kizomba', songData.title || 'Música SeuBeat', songData.lyrics || []).catch(err => logError('[Admin] Background Suno workflow falhou apos aprovacao', err, { requestId }));
+    return res.json({ success: true, message: 'Pagamento aprovado. Música em processamento no Suno.', hasVoiceSample });
   } catch (err: any) {
     res.status(500).json({ error: safeMessage(err) });
   }

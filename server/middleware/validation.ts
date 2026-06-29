@@ -35,7 +35,7 @@ const EMOTIONS = [
 export const GenerateLyricsSchema = z.object({
   userNick: z.string().min(1, 'Nome requerido').max(50, 'Nome muito longo').trim(),
   email: z.string().email('Email inválido').toLowerCase().optional(),
-  phone: z.string().regex(/^\d{9,15}$/, 'Telefone inválido').optional().nullable(),
+  phone: z.string().regex(/^\+?[\d\s()-]{7,18}$/, 'Telefone inválido').optional().nullable(),
 
   recipientName: z.string().min(1, 'Nome do destinatário requerido').max(100).trim(),
   recipientRelation: z.preprocess(lower, z.enum(RECIPIENT_RELATIONS)),

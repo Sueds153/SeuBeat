@@ -1,0 +1,6 @@
+- generic [active] [ref=e1]:
+  - link "Pular para o conteúdo" [ref=e2] [cursor=pointer]:
+    - /url: "#root"
+  - generic [ref=e4]:
+    - generic [ref=e5]
+    - alert [ref=e608]

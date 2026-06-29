@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LogoIcon from './LogoIcon';
+import WhatsAppHelp from './WhatsAppHelp';
 
 const ADMIN_PASSWORD_KEY = 'seubeat_admin_auth';
 
@@ -26,6 +27,7 @@ interface Payment {
   plan: string;
   amount: string;
   proof_url: string | null;
+  proof_path: string | null;
   proof_filename: string | null;
   status: 'pending_verification' | 'approved' | 'rejected';
   notes: string | null;
@@ -626,7 +628,12 @@ export default function AdminPanel() {
               className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-3 text-stone-100 text-sm focus:outline-none focus:border-amber-500 transition-colors font-mono"
             />
             {authError && (
-              <p className="text-rose-400 text-xs font-mono">{authError}</p>
+              <>
+                <p className="text-rose-400 text-xs font-mono">{authError}</p>
+                <div className="flex justify-start">
+                  <WhatsAppHelp context="erro_fatal" label="Falar com apoio" />
+                </div>
+              </>
             )}
             <button
               onClick={handleLogin}
@@ -988,11 +995,22 @@ export default function AdminPanel() {
                                   )}
 
                                   {/* Proof */}
-                                  {payment.proof_url ? (
+                                  {(payment.proof_path || payment.proof_url) ? (
                                     <div className="space-y-2">
                                       <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">Comprovativo Anexado:</p>
                                       <button
-                                        onClick={() => setProofModal(payment.proof_url!)}
+                                        onClick={async () => {
+                                          try {
+                                            const res = await fetch(`/api/admin/payment/${payment.id}/proof-url`, {
+                                              headers: apiHeaders
+                                            });
+                                            const data = await res.json();
+                                            if (data.url) setProofModal(data.url);
+                                            else showToast('Erro ao carregar comprovativo.', 'error');
+                                          } catch {
+                                            showToast('Erro de ligação ao servidor.', 'error');
+                                          }
+                                        }}
                                         className="flex items-center gap-2 px-3 py-2 bg-stone-950 border border-stone-800 hover:border-amber-500/40 rounded-xl text-xs text-amber-400 hover:text-amber-300 transition-colors cursor-pointer"
                                       >
                                         <Eye className="w-3.5 h-3.5" />

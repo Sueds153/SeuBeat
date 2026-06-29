@@ -336,6 +336,14 @@ export async function runBackgroundSunoWorkflow(
   }
 }
 
+async function resolveVoiceSampleUrl(supabase: NonNullable<ReturnType<typeof getAdminSupabase>>, urlOrPath: string): Promise<string> {
+  if (urlOrPath.startsWith('http')) return urlOrPath;
+  // É um path de storage — gerar signed URL para download
+  const { data } = await supabase.storage.from('voice-samples').createSignedUrl(urlOrPath, 604800);
+  if (!data?.signedUrl) throw new Error('Não foi possível gerar URL para a amostra de voz.');
+  return data.signedUrl;
+}
+
 export async function processSunoVoice(
   requestId: string,
   songId: string,
@@ -348,18 +356,22 @@ export async function processSunoVoice(
     console.log(`[Suno Voice] Starting for Request ${requestId}`);
     setProgress(requestId, { status: 'voice_processing', progress: 10, message: 'A iniciar clonagem de voz Suno Voice...' });
 
-    // Download voice sample and upload to a publicly accessible URL
-    const tempSamplePath = path.join(os.tmpdir(), `${requestId}_sample`);
-    await downloadFile(voiceSampleUrl, tempSamplePath);
+    // Resolve o URL (pode ser path ou URL completa)
+    const resolvedUrl = await resolveVoiceSampleUrl(supabase, voiceSampleUrl);
 
-    // Check file extension from URL or default to .wav
-    const ext = path.extname(new URL(voiceSampleUrl).pathname) || '.wav';
+    // Download voice sample
+    const tempSamplePath = path.join(os.tmpdir(), `${requestId}_sample`);
+    await downloadFile(resolvedUrl, tempSamplePath);
+
+    // Check file extension or default to .wav
+    const cleanUrl = resolvedUrl.split('?')[0];
+    const ext = path.extname(cleanUrl) || '.wav';
     const tempFile = `${tempSamplePath}${ext}`;
     fs.renameSync(tempSamplePath, tempFile);
 
-    // Upload to Supabase public bucket for Suno Voice to access
-    const publicFilename = `voice-samples/${requestId}_sunovoice${ext}`;
-    const publicVoiceUrl = await uploadToSupabase('voice-samples', publicFilename, tempFile, 'audio/wav');
+    // Upload para bucket público (preview) para a API Suno Voice conseguir aceder
+    const publicFilename = `sunovoice/${requestId}_${Date.now()}${ext}`;
+    const publicVoiceUrl = await uploadToSupabase('preview', publicFilename, tempFile, 'audio/wav');
 
     try { fs.unlinkSync(tempFile); } catch {}
 

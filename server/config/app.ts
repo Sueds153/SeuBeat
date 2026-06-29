@@ -1,5 +1,5 @@
 import express from 'express';
-import { ENV, validateEnv } from './env';
+import { ENV, validateEnv, getEnv } from './env';
 import { globalLimiter, adminLimiter } from '../middleware/rateLimiter';
 import { errorHandler } from '../middleware/errorHandler';
 import { helmetMiddleware, corsMiddleware, httpLogger } from '../middleware/security';
@@ -8,7 +8,9 @@ import { logHttp, logFatal } from '../utils/logger';
 import adminRouter from '../routes/admin';
 import publicRouter from '../routes/public';
 
-export function createApp(): express.Application {
+const sentryDsn = getEnv('SENTRY_DSN');
+
+export async function createApp(): Promise<express.Application> {
   validateEnv();
 
   const app = express();
@@ -26,6 +28,12 @@ export function createApp(): express.Application {
 
   app.use('/api', publicRouter);
   app.use('/api/admin', adminLimiter, adminIpRestriction, adminRouter);
+
+  if (sentryDsn) {
+    const { setupExpressErrorHandler } = await import('@sentry/node');
+    setupExpressErrorHandler(app);
+  }
+
   app.use(errorHandler);
 
   return app;

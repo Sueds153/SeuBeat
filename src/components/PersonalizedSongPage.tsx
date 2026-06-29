@@ -10,6 +10,7 @@ import SongPlayer from './SongPlayer';
 import SongLyrics from './SongLyrics';
 import SongLetter from './SongLetter';
 import SongShare from './SongShare';
+import WhatsAppHelp from './WhatsAppHelp';
 
 interface PersonalizedSongPageProps {
   onBackToLanding: () => void;
@@ -134,6 +135,9 @@ Angola ${(new Date().getFullYear())}
           <a href="/" className="inline-block px-6 py-2 bg-amber-500 text-stone-950 rounded-xl font-bold text-sm hover:bg-amber-400">
             Criar a minha música
           </a>
+          <div className="pt-2">
+            <WhatsAppHelp context="nao_encontrada" label="Preciso de ajuda" />
+          </div>
         </div>
       </div>
     );
@@ -167,6 +171,9 @@ Angola ${(new Date().getFullYear())}
           <p className="text-xs text-amber-400 text-center max-w-6xl mx-auto">
             Não foi possível carregar os dados mais recentes. A página pode mostrar informações limitadas.
           </p>
+          <div className="flex justify-center mt-2">
+            <WhatsAppHelp context="nao_encontrada" label="Preciso de ajuda" />
+          </div>
         </div>
       )}
 

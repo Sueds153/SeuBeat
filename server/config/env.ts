@@ -12,6 +12,10 @@ export function getEnv(key: string, fallback?: string): string {
   return process.env[key] || fallback || '';
 }
 
+export function hasEnv(key: string): boolean {
+  return !!process.env[key];
+}
+
 export const ENV = {
   PORT: Number(process.env.PORT) || 3000,
   NODE_ENV: process.env.NODE_ENV || 'development',

@@ -108,7 +108,7 @@ async function run() {
   const testFile = Buffer.from('seubeat-auto-check-' + Date.now());
   const testName = '.autocheck_' + Date.now() + '.txt';
   const buckets = [
-    { name: 'payment-proofs', pub: true  },
+    { name: 'payment-proofs', pub: false },
     { name: 'full-audio',     pub: false },
     { name: 'preview',        pub: true  },
     { name: 'voice-samples',  pub: false },

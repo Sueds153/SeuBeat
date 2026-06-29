@@ -117,6 +117,7 @@ ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS proof_url text;
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS proof_filename text;
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS notes text;
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS approved_at timestamptz;
+ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS proof_path text;
 
 -- Configuração de Row Level Security (RLS)
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
@@ -259,7 +260,7 @@ CREATE TRIGGER trg_payments_updated_at
 -- 1. Criar os buckets diretamente via SQL
 INSERT INTO storage.buckets (id, name, public, file_size_limit)
 VALUES 
-  ('payment-proofs', 'payment-proofs', true, 52428800),
+  ('payment-proofs', 'payment-proofs', false, 52428800),
   ('full-audio', 'full-audio', false, 52428800),
   ('preview', 'preview', true, 52428800),
   ('voice-samples', 'voice-samples', false, 52428800),
@@ -279,10 +280,10 @@ DROP POLICY IF EXISTS "Leitura total para service_role"                 ON stora
 DROP POLICY IF EXISTS "Upload para anon em payment-proofs, voice-samples, photos" ON storage.objects;
 DROP POLICY IF EXISTS "Upload total para service_role"                  ON storage.objects;
 
--- Upload permitido para anon nos buckets necessários ao fluxo
+-- Upload permitido para anon apenas nos buckets públicos do fluxo (payment-proofs é privado, usa service_role)
 CREATE POLICY "Upload para anon nos buckets do fluxo" ON storage.objects
   FOR INSERT TO anon
-  WITH CHECK (bucket_id IN ('payment-proofs', 'voice-samples', 'photos'));
+  WITH CHECK (bucket_id IN ('voice-samples', 'photos'));
 
 -- Leitura pública apenas para preview e photos (partilha de links)
 CREATE POLICY "Leitura pública para preview e photos" ON storage.objects

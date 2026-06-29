@@ -13,14 +13,23 @@ export function publicErrorMessage(err: any, fallback = 'Não foi possível conc
   if (/Supabase|database|DB|song_requests|songs|users/i.test(message)) {
     return 'Houve um erro ao guardar os seus dados. Por favor, verifique a sua ligação e tente novamente.';
   }
-  if (/timeout|excedeu/i.test(message)) {
+  if (/timeout|excedeu|timed out|ETIMEDOUT/i.test(message)) {
     return 'O sistema demorou demasiado tempo a responder. Talvez a nossa IA esteja com muito tráfego. Tente novamente.';
   }
-  if (/malformada|JSON/i.test(message)) {
+  if (/malformada|JSON|unexpected|malformed/i.test(message)) {
     return 'A IA gerou uma resposta incompleta. Por favor, tente novamente para obter uma letra perfeita.';
   }
-  if (/quota|limit|429/i.test(message)) {
-    return 'Atingimos o limite de gerações gratuitas por agora. Tente novamente daqui a uns minutos.';
+  if (/quota|limit|429|rate limit|credit.*balance|too low|insufficient.*credit/i.test(message)) {
+    return 'O saldo de créditos da API de geração de letras está esgotado. A equipa SeuBeat precisa de recarregar em https://console.anthropic.com/settings/billing.';
+  }
+  if (/401|403|authentication|unauthorized|api.key|invalid.*key/i.test(message)) {
+    return 'A geração de letras está temporariamente indisponível (Erro de autenticação com serviço externo).';
+  }
+  if (/photos?.*bucket|storage.*bucket|not found|no such bucket/i.test(message)) {
+    return 'Houve um erro ao guardar a foto. Contacte o suporte se o problema persistir.';
+  }
+  if (/carregar a foto/i.test(message)) {
+    return 'Não foi possível carregar a foto. Tente com uma imagem diferente (JPG, PNG ou WebP).';
   }
   
   return fallback;

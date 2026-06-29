@@ -55,7 +55,7 @@ async function checkAll() {
   const testFile = Buffer.from('seubeat-check');
   const testFilename = '.check_' + Date.now() + '.txt';
   const buckets = [
-    { name: 'payment-proofs', pub: true },
+    { name: 'payment-proofs', pub: false },
     { name: 'full-audio',     pub: false },
     { name: 'preview',        pub: true },
     { name: 'voice-samples',  pub: false }
