@@ -25,7 +25,7 @@ interface Payment {
   id: string;
   user_email: string;
   plan: string;
-  amount: string;
+  amount: string | number;
   proof_url: string | null;
   proof_path: string | null;
   proof_filename: string | null;
@@ -39,7 +39,7 @@ interface Payment {
     occasion: string;
     music_style: string;
     status: string;
-    users?: { name: string; email: string };
+    users?: { name: string; email: string; phone: string };
   };
 }
 
@@ -1103,7 +1103,7 @@ export default function AdminPanel() {
                       <Pagination page={payPage} totalPages={payTotalPages} setPage={setPayPage} />
                       <div className="space-y-3">
                       {paginatedPayments.map(payment => {
-                        const phone = (payment.song_requests as any)?.users?.phone || '';
+                        const phone = payment.song_requests?.users?.phone || '';
                         const waMsg = encodeURIComponent(`Olá! O seu pagamento no SeuBeat foi ${payment.status === 'approved' ? 'aprovado ✅' : 'rejeitado ❌'}.`);
                         return (
                         <div key={payment.id} className="bg-stone-900/50 border border-stone-800 rounded-2xl overflow-hidden">
@@ -1553,7 +1553,7 @@ export default function AdminPanel() {
                             <div className="flex-1 min-w-0">
                               <p className="font-serif text-sm font-bold text-stone-200 truncate">{song.title}</p>
                               <p className="text-[10px] font-mono text-stone-500">
-                                Para: {(song.song_requests as any)?.recipient_name || '—'} • {(song.song_requests as any)?.music_style || '—'}
+                                Para: {song.song_requests?.recipient_name || '—'} • {song.song_requests?.music_style || '—'}
                               </p>
                               <p className="text-[10px] font-mono text-stone-600">{formatDate(song.created_at)}</p>
                             </div>
@@ -1572,7 +1572,7 @@ export default function AdminPanel() {
                               </button>
                               {song.song_requests && (
                                 <a
-                                  href={`/song/${(song.song_requests as any).recipient_name?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') || 'especial'}?id=${song.id}`}
+                                  href={`/song/${(song.song_requests?.recipient_name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') || 'especial'}?id=${song.id}`}
                                   target="_blank" rel="noopener noreferrer"
                                   className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-amber-400 hover:border-amber-500/30 transition-colors cursor-pointer font-mono"
                                 >
