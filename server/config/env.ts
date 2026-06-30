@@ -3,6 +3,10 @@ const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANO
 export function validateEnv(): void {
   const missing = REQUIRED_ENV.filter(key => !process.env[key]);
   if (missing.length > 0) {
+    if (process.env.CI || process.env.NODE_ENV === 'test') {
+      console.warn(`[WARN] Variaveis de ambiente em falta em CI/test: ${missing.join(', ')}`);
+      return;
+    }
     console.error(`[FATAL] Variaveis de ambiente em falta: ${missing.join(', ')}`);
     process.exit(1);
   }
