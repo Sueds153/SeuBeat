@@ -4,6 +4,7 @@ import {
   Mic, Mail, Phone, Eye, Lock, RefreshCw, Play, Pause, AlertTriangle, ShieldCheck, MapPin, Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import StepErrorBoundary from './StepErrorBoundary';
 import { 
   WizardData, INITIAL_WIZARD_DATA, RecipientType, OccasionType, 
   MusicStyleType, VoiceType, EmotionType 
@@ -87,7 +88,16 @@ const STEP_META = [
 
 export default function Wizard({ onBackToLanding }: WizardProps) {
   const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState<WizardData>(INITIAL_WIZARD_DATA);
+  const [formData, setFormData] = useState<WizardData>(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_form');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...INITIAL_WIZARD_DATA, ...parsed };
+      }
+    } catch {}
+    return INITIAL_WIZARD_DATA;
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingStage, setProcessingStage] = useState(0);
   const [rotatingMsgIndex, setRotatingMsgIndex] = useState(0);
@@ -136,6 +146,23 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     setFormData(action);
     setFieldErrors({});
   };
+
+  // Persistir formData no localStorage para sobreviver a refresh
+  useEffect(() => {
+    try {
+      localStorage.setItem('seubeat_wizard_form', JSON.stringify(formData));
+    } catch {}
+  }, [formData]);
+
+  // Identificar utilizador no Sentry quando o email é preenchido
+  useEffect(() => {
+    const email = formData.email?.trim();
+    if (email && email.includes('@')) {
+      import('@sentry/react').then((mod) => {
+        try { (mod as any).setUser({ email }); } catch {}
+      }).catch(() => {});
+    }
+  }, [formData.email]);
 
   // Helper para mostrar toasts
   const showToast = (message: string, type: 'error' | 'success' | 'info' = 'info') => {
@@ -843,6 +870,25 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
   return (
     <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col justify-between py-10 px-4 md:px-8">
+      {/* Toast notification */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -40 }}
+            className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-2xl font-mono text-sm shadow-2xl border ${
+              toast.type === 'success'
+                ? 'bg-emerald-900/90 border-emerald-500/30 text-emerald-300'
+                : toast.type === 'error'
+                  ? 'bg-rose-900/90 border-rose-500/30 text-rose-300'
+                  : 'bg-stone-800/90 border-stone-600/30 text-stone-200'
+            }`}
+          >
+            {toast.message}
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="max-w-7xl mx-auto w-full flex-grow flex flex-col justify-center">
         
         {/* UPPER BRAND NAV */}
@@ -2003,22 +2049,23 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
               </button>
               <button
                 id="create-new-song-success-btn"
-                onClick={() => {
-                  wrappedSetFormData(INITIAL_WIZARD_DATA);
-                  setStep(1);
-                  setIsSubmitting(false);
-                  setShowPreviewPage(false);
-                  setAudioPlaying(false);
-                  setAudioProgress(0);
-                  setSelectedPlanID(null);
-                  setVoiceUpsellApplied(false);
-                  setShowVoiceCloningScreen(false);
-                  setIsRecording(false);
-                  setHasRecorded(false);
-                  setRecordingSeconds(0);
-                  setClonedVoiceFile(null);
-                  setIsDone(false);
-                }}
+                  onClick={() => {
+                    localStorage.removeItem('seubeat_wizard_form');
+                    wrappedSetFormData(INITIAL_WIZARD_DATA);
+                    setStep(1);
+                    setIsSubmitting(false);
+                    setShowPreviewPage(false);
+                    setAudioPlaying(false);
+                    setAudioProgress(0);
+                    setSelectedPlanID(null);
+                    setVoiceUpsellApplied(false);
+                    setShowVoiceCloningScreen(false);
+                    setIsRecording(false);
+                    setHasRecorded(false);
+                    setRecordingSeconds(0);
+                    setClonedVoiceFile(null);
+                    setIsDone(false);
+                  }}
                 className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 rounded-xl text-xs font-bold shadow-lg shadow-amber-500/10 transition-all cursor-pointer"
               >
                 Criar Outra Música ❤️
@@ -2064,84 +2111,102 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                   </div>
 
                   {step === 1 && (
-                    <Step1Relation
-                      formData={formData}
-                      setFormData={wrappedSetFormData}
-                      relationshipCards={RELATIONSHIP_CARDS}
-                      fieldErrors={fieldErrors}
-                    />
+                    <StepErrorBoundary stepName="Relação">
+                      <Step1Relation
+                        formData={formData}
+                        setFormData={wrappedSetFormData}
+                        relationshipCards={RELATIONSHIP_CARDS}
+                        fieldErrors={fieldErrors}
+                      />
+                    </StepErrorBoundary>
                   )}
 
                   {step === 2 && (
-                    <Step2Occasion
-                      formData={formData}
-                      setFormData={wrappedSetFormData}
-                      occasionCards={OCCASION_CARDS}
-                      fieldErrors={fieldErrors}
-                    />
+                    <StepErrorBoundary stepName="Ocasião">
+                      <Step2Occasion
+                        formData={formData}
+                        setFormData={wrappedSetFormData}
+                        occasionCards={OCCASION_CARDS}
+                        fieldErrors={fieldErrors}
+                      />
+                    </StepErrorBoundary>
                   )}
 
                   {step === 3 && (
-                    <Step3Style
-                      formData={formData}
-                      setFormData={wrappedSetFormData}
-                      musicStyleCards={MUSIC_STYLE_CARDS}
-                      artistCards={ARTIST_CARDS}
-                      fieldErrors={fieldErrors}
-                    />
+                    <StepErrorBoundary stepName="Estilo Musical">
+                      <Step3Style
+                        formData={formData}
+                        setFormData={wrappedSetFormData}
+                        musicStyleCards={MUSIC_STYLE_CARDS}
+                        artistCards={ARTIST_CARDS}
+                        fieldErrors={fieldErrors}
+                      />
+                    </StepErrorBoundary>
                   )}
 
                   {step === 4 && (
-                    <Step4Voice
-                      formData={formData}
-                      setFormData={wrappedSetFormData}
-                      voiceCards={VOICE_CARDS}
-                      fieldErrors={fieldErrors}
-                    />
+                    <StepErrorBoundary stepName="Voz">
+                      <Step4Voice
+                        formData={formData}
+                        setFormData={wrappedSetFormData}
+                        voiceCards={VOICE_CARDS}
+                        fieldErrors={fieldErrors}
+                      />
+                    </StepErrorBoundary>
                   )}
 
                   {step === 5 && (
-                    <Step5Traits
-                      formData={formData}
-                      setFormData={wrappedSetFormData}
-                      fieldErrors={fieldErrors}
-                    />
+                    <StepErrorBoundary stepName="Qualidades">
+                      <Step5Traits
+                        formData={formData}
+                        setFormData={wrappedSetFormData}
+                        fieldErrors={fieldErrors}
+                      />
+                    </StepErrorBoundary>
                   )}
 
                   {step === 6 && (
-                    <Step6Memory
-                      formData={formData}
-                      setFormData={wrappedSetFormData}
-                      suggestTab={suggestTab}
-                      setSuggestTab={setSuggestTab}
-                      fieldErrors={fieldErrors}
-                    />
+                    <StepErrorBoundary stepName="Memória">
+                      <Step6Memory
+                        formData={formData}
+                        setFormData={wrappedSetFormData}
+                        suggestTab={suggestTab}
+                        setSuggestTab={setSuggestTab}
+                        fieldErrors={fieldErrors}
+                      />
+                    </StepErrorBoundary>
                   )}
 
                   {step === 7 && (
-                    <Step7Message
-                      formData={formData}
-                      setFormData={wrappedSetFormData}
-                      emotionCards={EMOTION_CARDS}
-                      fieldErrors={fieldErrors}
-                    />
+                    <StepErrorBoundary stepName="Mensagem">
+                      <Step7Message
+                        formData={formData}
+                        setFormData={wrappedSetFormData}
+                        emotionCards={EMOTION_CARDS}
+                        fieldErrors={fieldErrors}
+                      />
+                    </StepErrorBoundary>
                   )}
 
                   {step === 8 && (
-                    <Step8Photo
-                      formData={formData}
-                      photoFileRef={photoFileRef}
-                      handlePhotoChange={handlePhotoChange}
-                      fieldErrors={fieldErrors}
-                    />
+                    <StepErrorBoundary stepName="Foto">
+                      <Step8Photo
+                        formData={formData}
+                        photoFileRef={photoFileRef}
+                        handlePhotoChange={handlePhotoChange}
+                        fieldErrors={fieldErrors}
+                      />
+                    </StepErrorBoundary>
                   )}
 
                   {step === 9 && (
-                    <Step9Contact
-                      formData={formData}
-                      setFormData={wrappedSetFormData}
-                      fieldErrors={fieldErrors}
-                    />
+                    <StepErrorBoundary stepName="Contacto">
+                      <Step9Contact
+                        formData={formData}
+                        setFormData={wrappedSetFormData}
+                        fieldErrors={fieldErrors}
+                      />
+                    </StepErrorBoundary>
                   )}
 
                 </motion.div>

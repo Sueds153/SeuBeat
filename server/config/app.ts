@@ -5,6 +5,7 @@ import { errorHandler } from '../middleware/errorHandler';
 import { helmetMiddleware, corsMiddleware, httpLogger, permissionsPolicyMiddleware } from '../middleware/security';
 import { adminIpRestriction } from '../middleware/adminIpRestriction';
 import { logInfo } from '../utils/logger';
+import { getAdminSupabase } from '../services/supabase';
 import adminRouter from '../routes/admin';
 import publicRouter from '../routes/public';
 
@@ -22,8 +23,36 @@ export async function createApp(): Promise<express.Application> {
   app.use(permissionsPolicyMiddleware);
   app.use(httpLogger);
 
-  app.get('/health', (_req, res) => {
-    res.status(200).json({ status: 'ok', uptime: process.uptime() });
+  app.get('/health', async (_req, res) => {
+    const checks: Record<string, string> = {};
+
+    try {
+      const supabase = getAdminSupabase();
+      if (supabase) {
+        const { error } = await supabase.from('song_requests').select('id').limit(1).maybeSingle();
+        checks.supabase = error ? `erro: ${error.message}` : 'ok';
+      } else {
+        checks.supabase = 'não configurado';
+      }
+    } catch (e: any) {
+      checks.supabase = `erro: ${e?.message || 'desconhecido'}`;
+    }
+
+    const allOk = checks.supabase === 'ok';
+
+    res.status(allOk ? 200 : 503).json({
+      status: allOk ? 'ok' : 'degradado',
+      uptime: process.uptime(),
+      checks,
+      env: {
+        sentry: !!getEnv('SENTRY_DSN'),
+        suno: !!getEnv('SUNO_API_KEY'),
+        anthropic: !!getEnv('ANTHROPIC_API_KEY'),
+        supabase: !!getEnv('SUPABASE_URL'),
+        smtp: !!getEnv('SMTP_HOST'),
+        adminPassword: !!getEnv('ADMIN_PASSWORD'),
+      },
+    });
   });
 
   app.use('/api', globalLimiter, publicRouter);

@@ -106,6 +106,30 @@ const logger = winston.createLogger({
   ]
 });
 
+let sentryModule: any = null;
+
+async function ensureSentry() {
+  if (sentryModule === undefined) {
+    try {
+      sentryModule = await import('@sentry/node');
+    } catch {
+      sentryModule = null;
+    }
+  }
+  return sentryModule;
+}
+
+async function captureSentry(level: string, message: string, err?: Error | any, metadata?: Record<string, any>) {
+  const Sentry = await ensureSentry();
+  if (!Sentry?.captureException) return;
+  const error = err instanceof Error ? err : new Error(String(err || message));
+  Sentry.captureException(error, {
+    level: level === 'fatal' ? 'fatal' : 'error',
+    tags: { source: 'winston' },
+    extra: { ...metadata, logMessage: message },
+  });
+}
+
 // Métodos de conveniência com contexto
 export function logInfo(message: string, metadata?: Record<string, any>) {
   logger.info(message, metadata);
@@ -121,6 +145,7 @@ export function logError(message: string, error?: Error | any, metadata?: Record
     : { error: String(error) };
   
   logger.error(message, { ...errorObj, ...metadata });
+  captureSentry('error', message, error, metadata);
 }
 
 export function logDebug(message: string, metadata?: Record<string, any>) {
@@ -137,7 +162,7 @@ export function logFatal(message: string, error?: Error | any, metadata?: Record
     : { error: String(error) };
   
   logger.log('fatal', message, { ...errorObj, ...metadata });
-  process.exit(1);
+  captureSentry('fatal', message, error, metadata).then(() => process.exit(1));
 }
 
 // export default logger (removed — never imported as default)
