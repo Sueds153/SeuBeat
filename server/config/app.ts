@@ -17,7 +17,6 @@ export async function createApp(): Promise<express.Application> {
 
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: false, limit: '10mb' }));
-  app.use(globalLimiter);
   app.use(corsMiddleware);
   app.use(helmetMiddleware());
   app.use(permissionsPolicyMiddleware);
@@ -27,7 +26,7 @@ export async function createApp(): Promise<express.Application> {
     res.status(200).json({ status: 'ok', uptime: process.uptime() });
   });
 
-  app.use('/api', publicRouter);
+  app.use('/api', globalLimiter, publicRouter);
   app.use('/api/admin', adminLimiter, adminIpRestriction, adminRouter);
 
   if (sentryDsn) {
