@@ -7,7 +7,7 @@ test.describe('Admin Panel', () => {
   });
 
   test('shows error on wrong password', async ({ page }) => {
-    await page.route('**/api/admin/auth', async (route) => {
+    await page.route('**/api/admin/stats', async (route) => {
       await route.fulfill({ status: 401, body: JSON.stringify({ error: 'Password incorreta.' }) });
     });
 
@@ -18,7 +18,7 @@ test.describe('Admin Panel', () => {
   });
 
   test('shows WhatsApp help on error', async ({ page }) => {
-    await page.route('**/api/admin/auth', async (route) => {
+    await page.route('**/api/admin/stats', async (route) => {
       await route.fulfill({ status: 500, body: JSON.stringify({ error: 'Erro no servidor' }) });
     });
 

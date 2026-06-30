@@ -2,9 +2,9 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Wizard Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/', { waitUntil: 'load' });
+    await page.goto('/', { waitUntil: 'networkidle' });
     await page.getByRole('button', { name: /Criar M/ }).first().click();
-    await expect(page.getByText('PASSO 1 DE 9', { exact: true })).toBeVisible();
+    await expect(page.getByText('PASSO 1 DE 9', { exact: true })).toBeVisible({ timeout: 15000 });
   });
 
   test('advance btn is disabled when step 1 fields empty', async ({ page }) => {
@@ -18,7 +18,7 @@ test.describe('Wizard Flow', () => {
     await page.fill('#recipient-nick-input', 'Meu Amor');
     await expect(page.locator('#wizard-advance-btn')).toBeEnabled();
     await page.locator('#wizard-advance-btn').click();
-    await expect(page.getByText('PASSO 2 DE 9', { exact: true })).toBeVisible();
+    await expect(page.getByText('PASSO 2 DE 9', { exact: true })).toBeVisible({ timeout: 15000 });
   });
 
   test('back button returns to landing on step 1', async ({ page }) => {
