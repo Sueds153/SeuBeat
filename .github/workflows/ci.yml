@@ -42,7 +42,18 @@ jobs:
           echo "Server test complete"
       - name: Run E2E tests
         shell: bash
-        run: npx playwright test --reporter=list 2>&1
+        run: |
+          set -o pipefail
+          npx playwright test --reporter=list 2>&1 | tee /tmp/playwright_output.txt; EXIT_CODE=$?
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "::group::Full Playwright output"
+            cat /tmp/playwright_output.txt
+            echo "::endgroup::"
+            grep -E "(FAIL|failed|Error|✗|×)" /tmp/playwright_output.txt | head -20 | while read line; do
+              echo "::error file=e2e/tests,line=1,title=E2E Test Failure::$line"
+            done
+          fi
+          exit $EXIT_CODE
         env:
           CI: true
           NODE_ENV: development
