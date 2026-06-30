@@ -21,8 +21,10 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
-      - name: Install Playwright browsers
-        run: npx playwright install chromium
+      - name: Install Playwright browsers + deps
+        run: |
+          npx playwright install chromium
+          npx playwright install-deps chromium
       - name: Start server in background
         shell: bash
         run: |
@@ -42,18 +44,7 @@ jobs:
           echo "Server test complete"
       - name: Run E2E tests
         shell: bash
-        run: |
-          set -o pipefail
-          npx playwright test --reporter=list 2>&1 | tee /tmp/playwright_output.txt; EXIT_CODE=$?
-          if [ $EXIT_CODE -ne 0 ]; then
-            echo "::group::Full Playwright output"
-            cat /tmp/playwright_output.txt
-            echo "::endgroup::"
-            grep -E "(FAIL|failed|Error|✗|×)" /tmp/playwright_output.txt | head -20 | while read line; do
-              echo "::error file=e2e/tests,line=1,title=E2E Test Failure::$line"
-            done
-          fi
-          exit $EXIT_CODE
+        run: npx playwright test --reporter=list 2>&1
         env:
           CI: true
           NODE_ENV: development
