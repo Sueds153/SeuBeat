@@ -36,3 +36,11 @@ jobs:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+      - name: Show server logs on failure
+        if: failure()
+        shell: bash
+        run: |
+          echo "=== Node processes ==="
+          ps aux | grep -E "node|tsx" | grep -v grep || echo "No node processes found"
+          echo "=== Port 3000 ==="
+          ss -tlnp 2>/dev/null | grep 3000 || echo "Port 3000 not in use"
