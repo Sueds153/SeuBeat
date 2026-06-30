@@ -27,6 +27,7 @@ export async function createApp(): Promise<express.Application> {
 
   app.get('/health', async (_req, res) => {
     const checks: Record<string, string> = {};
+    const startTime = Date.now();
 
     try {
       const supabase = getAdminSupabase();
@@ -40,19 +41,30 @@ export async function createApp(): Promise<express.Application> {
       checks.supabase = `erro: ${e?.message || 'desconhecido'}`;
     }
 
+    const mem = process.memoryUsage();
     const allOk = checks.supabase === 'ok';
 
     res.status(allOk ? 200 : 503).json({
       status: allOk ? 'ok' : 'degradado',
       uptime: process.uptime(),
+      responseTime: `${Date.now() - startTime}ms`,
       checks,
+      memory: {
+        rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
+        heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`,
+        heapTotal: `${Math.round(mem.heapTotal / 1024 / 1024)}MB`,
+      },
       env: {
+        node: process.version,
+        platform: process.platform,
         sentry: !!getEnv('SENTRY_DSN'),
         suno: !!getEnv('SUNO_API_KEY'),
         anthropic: !!getEnv('ANTHROPIC_API_KEY'),
         supabase: !!getEnv('SUPABASE_URL'),
         smtp: !!getEnv('SMTP_HOST'),
         adminPassword: !!getEnv('ADMIN_PASSWORD'),
+        jwtSecret: !!getEnv('JWT_SECRET'),
+        multicaixa: !!getEnv('MULTICAIXA_ENTIDADE') && !!getEnv('MULTICAIXA_REFERENCIA'),
       },
     });
   });

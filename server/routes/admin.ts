@@ -504,7 +504,24 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
       })()
     ]);
 
-    res.json({ supabase: supabaseDiag, claude: claudeDiag, suno: sunoDiag, sunoVoice: sunoVoiceDiag, email: emailDiag });
+    const mem = process.memoryUsage();
+    res.json({
+      supabase: supabaseDiag,
+      claude: claudeDiag,
+      suno: sunoDiag,
+      sunoVoice: sunoVoiceDiag,
+      email: emailDiag,
+      server: {
+        uptime: process.uptime(),
+        node: process.version,
+        platform: process.platform,
+        memory: {
+          rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
+          heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`,
+          heapTotal: `${Math.round(mem.heapTotal / 1024 / 1024)}MB`,
+        },
+      },
+    });
   } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
 });
 
