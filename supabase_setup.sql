@@ -280,10 +280,10 @@ DROP POLICY IF EXISTS "Leitura total para service_role"                 ON stora
 DROP POLICY IF EXISTS "Upload para anon em payment-proofs, voice-samples, photos" ON storage.objects;
 DROP POLICY IF EXISTS "Upload total para service_role"                  ON storage.objects;
 
--- Upload permitido para anon apenas nos buckets públicos do fluxo (payment-proofs é privado, usa service_role)
+-- Upload permitido para anon apenas no bucket photos (voice-samples é privado, usa service_role)
 CREATE POLICY "Upload para anon nos buckets do fluxo" ON storage.objects
   FOR INSERT TO anon
-  WITH CHECK (bucket_id IN ('voice-samples', 'photos'));
+  WITH CHECK (bucket_id IN ('photos'));
 
 -- Leitura pública apenas para preview e photos (partilha de links)
 CREATE POLICY "Leitura pública para preview e photos" ON storage.objects
@@ -303,7 +303,7 @@ DROP POLICY IF EXISTS "Anon pode ler nome do utilizador" ON public.users;
 
 CREATE POLICY "Anon pode ler song_requests para dedicatória" ON public.song_requests
   FOR SELECT TO anon
-  USING (true);
+  USING (status = 'delivered');
 
 CREATE POLICY "Anon pode ler nome do utilizador" ON public.users
   FOR SELECT TO anon

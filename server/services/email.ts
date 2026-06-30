@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { logWarn } from '../utils/logger';
 
 function getConfig() {
   return {
@@ -18,6 +19,9 @@ function createTransport() {
     secure: false,
     auth: { user: cfg.user, pass: cfg.pass },
     tls: { rejectUnauthorized: true, minVersion: 'TLSv1.2' },
+    connectionTimeout: 10000,
+    greetingTimeout: 5000,
+    socketTimeout: 15000,
   });
 }
 
@@ -36,7 +40,7 @@ function safeStr(val: string | undefined | null, fallback = ''): string {
 
 function warnIfMissing(cfg: { user: string; pass: string }): boolean {
   if (!cfg.user || !cfg.pass) {
-    console.warn('⚠️ SMTP_USER/SMTP_PASS não configurados. Simulando envio de email.');
+    logWarn('SMTP_USER/SMTP_PASS não configurados. Simulando envio de email.');
     return true;
   }
   return false;

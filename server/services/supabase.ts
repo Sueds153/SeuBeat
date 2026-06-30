@@ -11,8 +11,10 @@ function getSupabaseUrl(): string {
 export function getAdminSupabase(): SupabaseClient | null {
   if (adminClient) return adminClient;
   const url = getSupabaseUrl();
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
-  if (!url || !key) return null;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY não configurada. O admin client não pode ser inicializado.');
+  }
   adminClient = createClient(url, key);
   return adminClient;
 }

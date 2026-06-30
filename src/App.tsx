@@ -3,12 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import LandingPage from './components/LandingPage';
-import Wizard from './components/Wizard';
 import SocialProof from './components/SocialProof';
-import PersonalizedSongPage from './components/PersonalizedSongPage';
-import AdminPanel from './components/AdminPanel';
+
+const Wizard = lazy(() => import('./components/Wizard'));
+const PersonalizedSongPage = lazy(() => import('./components/PersonalizedSongPage'));
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'landing' | 'wizard' | 'song' | 'admin'>(() => {
@@ -52,21 +53,27 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const loading = (
+    <div className="flex items-center justify-center min-h-screen bg-stone-950">
+      <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
   // Admin route
   if (currentView === 'admin') {
-    return <AdminPanel />;
+    return <Suspense fallback={loading}><AdminPanel /></Suspense>;
   }
 
   return (
     <div className="bg-stone-950 min-h-screen text-stone-100 selection:bg-amber-500/25 selection:text-amber-300">
       {currentView === 'song' ? (
-        <PersonalizedSongPage onBackToLanding={backToLanding} />
+        <Suspense fallback={loading}><PersonalizedSongPage onBackToLanding={backToLanding} /></Suspense>
       ) : (
         <>
           {currentView === 'landing' ? (
             <LandingPage onStartWizard={startWizard} />
           ) : (
-            <Wizard onBackToLanding={backToLanding} />
+            <Suspense fallback={loading}><Wizard onBackToLanding={backToLanding} /></Suspense>
           )}
           <SocialProof />
         </>

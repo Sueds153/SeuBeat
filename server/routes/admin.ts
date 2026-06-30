@@ -540,7 +540,7 @@ router.post('/request/:id/force-voice', adminAuth, async (req, res) => {
     const voiceSampleUrl = requestData.voice_sample_url;
     processSunoVoice(id, requestData.songs[0].id, voiceSampleUrl).catch(err => logError('[Admin] Force Suno Voice falhou', err, { requestId: id }));
     res.json({ success: true, message: 'Processamento de voz Suno Voice forçado.' });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
 });
 
 router.post('/request/:id/resend-email', adminAuth, async (req, res) => {
@@ -968,8 +968,10 @@ router.get('/export/:type', adminAuth, async (req, res) => {
     let rows: Record<string, any>[] = [];
     let headers: string[] = [];
 
+    const MAX_EXPORT_ROWS = 5000;
+
     if (type === 'requests') {
-      const { data } = await supabase.from('song_requests').select('*, users(name, email)').order('created_at', { ascending: false });
+      const { data } = await supabase.from('song_requests').select('*, users(name, email)').order('created_at', { ascending: false }).limit(MAX_EXPORT_ROWS);
       if (data) {
         headers = ['ID', 'Criado em', 'Cliente', 'Email', 'Destinatário', 'Relação', 'Ocasião', 'Estilo', 'Status'];
         rows = data.map(r => ({
@@ -978,7 +980,7 @@ router.get('/export/:type', adminAuth, async (req, res) => {
         }));
       }
     } else if (type === 'payments') {
-      const { data } = await supabase.from('payments').select('*, song_requests(recipient_name)').order('created_at', { ascending: false });
+      const { data } = await supabase.from('payments').select('*, song_requests(recipient_name)').order('created_at', { ascending: false }).limit(MAX_EXPORT_ROWS);
       if (data) {
         headers = ['ID', 'Criado em', 'Email', 'Plano', 'Valor', 'Status', 'Destinatário', 'Notas'];
         rows = data.map(p => ({
@@ -987,7 +989,7 @@ router.get('/export/:type', adminAuth, async (req, res) => {
         }));
       }
     } else if (type === 'clients') {
-      const { data } = await supabase.from('users').select('*, song_requests(id)').order('created_at', { ascending: false });
+      const { data } = await supabase.from('users').select('*, song_requests(id)').order('created_at', { ascending: false }).limit(MAX_EXPORT_ROWS);
       if (data) {
         headers = ['ID', 'Nome', 'Email', 'Telefone', 'Criado em', 'Total Pedidos'];
         rows = data.map(u => ({

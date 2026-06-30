@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import Anthropic from '@anthropic-ai/sdk';
 import { ClaudeLyricsComposition } from './types';
+import { logWarn, logInfo, logError } from '../utils/logger';
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
 const CLAUDE_TIMEOUT_MS = Number(process.env.CLAUDE_TIMEOUT_MS || 60000);
@@ -23,7 +24,7 @@ function getPromptFromFile(filename: string, fallback: string): string {
       return repairMojibake(fs.readFileSync(filePath, 'utf-8').trim());
     }
   } catch (err: any) {
-    console.warn('[Prompt Loader] Falha ao ler prompt; usando fallback.', {
+    logWarn('[Prompt Loader] Falha ao ler prompt; usando fallback.', {
       filename,
       error: err?.message || String(err)
     });
@@ -199,10 +200,13 @@ function extractJSON(text: string): any {
   throw new Error('Não foi possível extrair um objeto JSON válido da resposta do Claude.');
 }
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string, controller?: AbortController): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`${label} excedeu o limite de ${timeoutMs}ms.`)), timeoutMs);
+    timer = setTimeout(() => {
+      if (controller) controller.abort();
+      reject(new Error(`${label} excedeu o limite de ${timeoutMs}ms.`));
+    }, timeoutMs);
   });
 
   try {
@@ -230,7 +234,9 @@ export async function generateLyricsWithClaude(formData: any): Promise<ClaudeLyr
 
   for (let attempt = 1; attempt <= CLAUDE_MAX_ATTEMPTS; attempt++) {
     try {
-      console.log(`[Claude] Tentativa ${attempt} de geração de letra...`);
+      logInfo(`[Claude] Tentativa ${attempt} de geração de letra...`);
+      
+      const abortController = new AbortController();
       
       const responsePromise = anthropic.messages.create({
         model: CLAUDE_MODEL,
@@ -265,7 +271,8 @@ O JSON gerado deve obrigatoriamente seguir esta estrutura:
       const response = await withTimeout(
         responsePromise,
         CLAUDE_TIMEOUT_MS,
-        'Geração Claude'
+        'Geração Claude',
+        abortController
       );
 
       const block = response.content[0];
@@ -277,7 +284,7 @@ O JSON gerado deve obrigatoriamente seguir esta estrutura:
       return validateClaudeComposition(json);
     } catch (err: any) {
       lastError = err;
-      console.error(`[Claude] Erro na tentativa ${attempt}:`, err.message || String(err));
+      logError(`[Claude] Erro na tentativa ${attempt}`, err);
       
       if (!shouldRetryClaude(err)) break;
       if (attempt < CLAUDE_MAX_ATTEMPTS) {

@@ -374,13 +374,18 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
   }
 });
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 router.get('/song/:id', getSongLimiter, async (req, res) => {
   try {
+    const { id } = req.params;
+    if (!UUID_REGEX.test(id)) return res.status(400).json({ error: 'ID inválido.' });
+
     const supabase = getPublicSupabase();
     const adminSupabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });
 
-    logDebug('Fetching song', { songId: req.params.id });
+    logDebug('Fetching song', { songId: id });
 
     const { data: songData, error } = await supabase
       .from('songs')
@@ -514,7 +519,13 @@ router.get('/payment-status', paymentLimiter, async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });
 
     const { email, requestId } = req.query;
-    if (!email || typeof email !== 'string') return res.status(400).json({ error: 'Email necessario.' });
+    if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Email inválido.' });
+    }
+
+    if (requestId && typeof requestId === 'string' && !UUID_REGEX.test(requestId)) {
+      return res.status(400).json({ error: 'ID inválido.' });
+    }
 
     let query;
     if (requestId && typeof requestId === 'string') {

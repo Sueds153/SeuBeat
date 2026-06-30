@@ -1,4 +1,5 @@
 import { SunoResult } from './types';
+import { logInfo, logWarn, logError } from '../utils/logger';
 
 const SUNO_TIMEOUT_MS = Number(process.env.SUNO_TIMEOUT_MS || 45000);
 const MAX_RETRIES = Number(process.env.SUNO_MAX_RETRIES || 3);
@@ -6,7 +7,7 @@ const SUCCESS_STATUSES = new Set(['success', 'completed', 'done', 'finished', 's
 const FAILED_STATUSES = new Set(['failed', 'failure', 'error', 'cancelled', 'canceled']);
 
 function isQuotaError(status: number, body: string): boolean {
-  return status === 429 || body.includes('quota') || body.includes('rate limit') || body.includes('exceeded');
+  return status === 429 || /quota|rate\s?limit|exceeded/i.test(body);
 }
 
 function getRetryDelay(attempt: number, retryAfter?: string | null): number {
@@ -33,7 +34,7 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
       const partialBody = await res.clone().text().then(t => t.slice(0, 500)).catch(() => '');
       if (isQuotaError(res.status, partialBody) && attempt < retries) {
         const backoff = getRetryDelay(attempt, res.headers.get('retry-after'));
-        console.warn(`[Suno] Quota/rate limit (${res.status}), retry ${attempt}/${retries} in ${backoff}ms`);
+        logWarn(`[Suno] Quota/rate limit, retrying`, { status: res.status, attempt, retries, backoff });
         clearTimeout(timeout);
         await new Promise(r => setTimeout(r, backoff));
         continue;
@@ -49,7 +50,7 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
       }
       if (attempt < retries) {
         const delay = getRetryDelay(attempt);
-        console.warn(`[Suno] Attempt ${attempt}/${retries} failed: ${err.message}, retrying in ${delay}ms...`);
+        logWarn(`[Suno] Attempt failed, retrying`, { attempt, retries, error: err.message, delay });
         await new Promise(r => setTimeout(r, delay));
         continue;
       }
@@ -186,9 +187,9 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
       const creditData = await creditRes.json();
       const remaining = creditData?.data?.remaining ?? creditData?.remaining ?? -1;
       if (remaining === 0) {
-        console.warn('[Suno] Créditos esgotados (0 restantes)');
+        logWarn('[Suno] Créditos esgotados (0 restantes)');
       } else if (remaining > 0) {
-        console.log(`[Suno] Créditos restantes: ${remaining}`);
+        logInfo('[Suno] Créditos restantes', { remaining });
       }
     }
   } catch {
@@ -218,7 +219,7 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
 
   const stylePrompt = styleMap[musicStyle.trim().toLowerCase()] || 'romantic, emotional pop';
 
-  console.log('[Suno] Submitting music generation task.', {
+  logInfo('[Suno] Submitting music generation task', {
     style: musicStyle,
     titleLength: songTitle?.length || 0,
     lyricsLines: lyrics.length,
@@ -242,7 +243,7 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
   }
 
   if (personaId) {
-    console.log(`[Suno] Payload inclui personaId=${JSON.stringify(payload.personaId).slice(0, 60)} e personaModel=${payload.personaModel}`);
+    logInfo('[Suno] Payload inclui personaId', { personaIdPreview: JSON.stringify(payload.personaId).slice(0, 60) });
   }
 
   const generateRes = await fetchWithTimeout('https://api.sunoapi.org/api/v1/generate', {
@@ -272,14 +273,10 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
   }
 
   if (personaId) {
-    console.log(`[Suno] Response for personaId task:`, JSON.stringify({
-      taskId,
-      hasImmediateAudio: !!immediateAudioUrl,
-      dataKeys: Object.keys(generateData),
-    }));
+    logInfo('[Suno] Response for personaId task', { taskId, hasImmediateAudio: !!immediateAudioUrl });
   }
 
-  console.log(`[Suno] Task created: ${taskId}`);
+  logInfo(`[Suno] Task created`, { taskId });
   return { taskId, audioUrl: immediateAudioUrl, status: extractStatus(generateData) };
 }
 
@@ -293,7 +290,7 @@ async function pollSunoTask(taskId: string, immediateAudioUrl: string | null, la
     try {
       const result = await querySunoTask(taskId);
       const status = result.status || 'processing';
-      console.log(`[${label} Polling] Attempt ${attempt + 1}: status = ${status}`);
+      logInfo(`[${label} Polling] Attempt`, { attempt: attempt + 1, status, taskId });
 
       if (result.audioUrl) {
         return result;
@@ -303,7 +300,7 @@ async function pollSunoTask(taskId: string, immediateAudioUrl: string | null, la
         throw new Error(`${label} task completed but no audio URL was found.`);
       }
     } catch (err: any) {
-      console.warn(`[${label} Polling] Attempt ${attempt + 1} failed: ${err.message}`);
+      logWarn(`[${label} Polling] Attempt failed`, { attempt: attempt + 1, error: err.message, taskId });
       if (attempt === maxAttempts - 1) throw err;
     }
   }
@@ -316,13 +313,13 @@ export async function continueSunoMusic(taskId: string, personaId?: string): Pro
   if (!apiKey) throw new Error('SUNO_API_KEY nao configurada.');
   if (!taskId) throw new Error('Task Suno em falta para continuar.');
 
-  console.log(`[Suno] Extending task ${taskId} via continue endpoint...${personaId ? ' (com personaId)' : ''}`);
+  logInfo(`[Suno] Extending task via continue`, { taskId, hasPersonaId: !!personaId });
 
   const payload: Record<string, any> = { task_id: taskId };
   if (personaId) {
     payload.personaId = personaId;
     payload.personaModel = 'voice_persona';
-    console.log(`[Suno] Continue payload inclui personaId=${JSON.stringify(payload.personaId).slice(0, 60)}`);
+    logInfo('[Suno] Continue payload inclui personaId', { personaIdPreview: JSON.stringify(payload.personaId).slice(0, 60) });
   }
 
   const continueRes = await fetchWithTimeout('https://api.sunoapi.org/api/v1/generate/continue', {
@@ -343,7 +340,7 @@ export async function continueSunoMusic(taskId: string, personaId?: string): Pro
   const newTaskId = extractTaskId(data);
   if (!newTaskId) throw new Error(`Suno continue did not return a task ID: ${JSON.stringify(data)}`);
 
-  console.log(`[Suno] Continue task created: ${newTaskId}`);
+  logInfo(`[Suno] Continue task created`, { taskId: newTaskId });
   return { taskId: newTaskId, audioUrl: null, status: 'processing' };
 }
 
@@ -352,20 +349,20 @@ export async function generateFullSong(lyrics: string[], musicStyle: string, son
   const firstResult = await pollSunoTask(taskId, immediateAudioUrl, 'Suno Gen1');
   if (!firstResult.audioUrl) throw new Error('Primeira geracao Suno falhou - sem URL de audio.');
 
-  console.log(`[Suno] First clip ready: ${firstResult.audioUrl}`);
+  logInfo(`[Suno] First clip ready`);
 
   try {
     const { taskId: continueTaskId } = await continueSunoMusic(firstResult.taskId, personaId);
     const secondResult = await pollSunoTask(continueTaskId, null, 'Suno Gen2 (continue)');
     if (secondResult.audioUrl) {
-      console.log(`[Suno] Extended song ready: ${secondResult.audioUrl}`);
+      logInfo(`[Suno] Extended song ready`);
       return secondResult;
     }
   } catch (err: any) {
     if (err instanceof SunoQuotaError) {
-      console.warn(`[Suno] Continue sem créditos, a devolver primeiro clip.`);
+      logWarn(`[Suno] Continue sem créditos, a devolver primeiro clip.`);
     } else {
-      console.warn(`[Suno] Continue falhou, a devolver primeiro clip: ${err.message}`);
+      logWarn(`[Suno] Continue falhou, a devolver primeiro clip`, { error: err.message });
     }
   }
 

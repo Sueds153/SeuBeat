@@ -1,12 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
-import { getEnv } from '../config/env';
+import { getEnv, ENV } from '../config/env';
 import { logHttp } from '../utils/logger';
 
-const allowedOrigin = getEnv('ALLOWED_ORIGIN', '*');
-
 export function corsMiddleware(req: Request, res: Response, next: NextFunction): void {
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  const origin = req.headers.origin;
+  const allowedOrigin = getEnv('ALLOWED_ORIGIN', ENV.NODE_ENV === 'production' ? '' : '*');
+  if (allowedOrigin === '*') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  } else if (origin && (allowedOrigin === origin || allowedOrigin.split(',').map(s => s.trim()).includes(origin))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (allowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+  }
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-password');
@@ -34,6 +40,11 @@ export function helmetMiddleware() {
     } : false,
     crossOriginEmbedderPolicy: false,
   });
+}
+
+export function permissionsPolicyMiddleware(_req: Request, res: Response, next: NextFunction): void {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
 }
 
 export function httpLogger(req: Request, res: Response, next: NextFunction): void {

@@ -1,4 +1,4 @@
-const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUNO_API_KEY', 'ANTHROPIC_API_KEY', 'SMTP_HOST', 'ADMIN_PASSWORD'] as const;
+const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANON_KEY', 'SUNO_API_KEY', 'ANTHROPIC_API_KEY', 'SMTP_HOST', 'ADMIN_PASSWORD'] as const;
 
 export function validateEnv(): void {
   const missing = REQUIRED_ENV.filter(key => !process.env[key]);
@@ -20,7 +20,6 @@ export const ENV = {
   PORT: Number(process.env.PORT) || 3000,
   NODE_ENV: process.env.NODE_ENV || 'development',
   SUNO_API_KEY: process.env.SUNO_API_KEY || '',
-  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD || '',
   SUNO_COST_PER_CREDIT_USD: Number(process.env.SUNO_COST_PER_CREDIT_USD) || 0.15,
   CLAUDE_COST_PER_GENERATION_USD: Number(process.env.CLAUDE_COST_PER_GENERATION_USD) || 0.03,
   MONTHLY_FIXED_COST_USD: Number(process.env.MONTHLY_FIXED_COST_USD) || 0,

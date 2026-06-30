@@ -2,9 +2,9 @@ import express from 'express';
 import { ENV, validateEnv, getEnv } from './env';
 import { globalLimiter, adminLimiter } from '../middleware/rateLimiter';
 import { errorHandler } from '../middleware/errorHandler';
-import { helmetMiddleware, corsMiddleware, httpLogger } from '../middleware/security';
+import { helmetMiddleware, corsMiddleware, httpLogger, permissionsPolicyMiddleware } from '../middleware/security';
 import { adminIpRestriction } from '../middleware/adminIpRestriction';
-import { logHttp, logFatal } from '../utils/logger';
+import { logInfo } from '../utils/logger';
 import adminRouter from '../routes/admin';
 import publicRouter from '../routes/public';
 
@@ -20,6 +20,7 @@ export async function createApp(): Promise<express.Application> {
   app.use(globalLimiter);
   app.use(corsMiddleware);
   app.use(helmetMiddleware());
+  app.use(permissionsPolicyMiddleware);
   app.use(httpLogger);
 
   app.get('/health', (_req, res) => {
@@ -39,7 +40,7 @@ export async function createApp(): Promise<express.Application> {
   return app;
 }
 
-export async function startServer(app: express.Application): Promise<void> {
+export async function startServer(app: express.Application): Promise<import('http').Server> {
   if (ENV.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const path = await import('path');
@@ -60,7 +61,10 @@ export async function startServer(app: express.Application): Promise<void> {
     });
   }
 
-  app.listen(ENV.PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${ENV.PORT}`);
+  return new Promise((resolve) => {
+    const server = app.listen(ENV.PORT, '0.0.0.0', () => {
+      logInfo(`Servidor iniciado na porta ${ENV.PORT}`);
+      resolve(server);
+    });
   });
 }
