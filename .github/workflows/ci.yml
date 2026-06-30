@@ -23,10 +23,29 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
       - name: Install Playwright browsers
         run: npx playwright install chromium
+      - name: Start server in background
+        shell: bash
+        run: |
+          echo "Starting server..."
+          npm run dev > /tmp/server.log 2>&1 &
+          echo "Server PID: $!"
+          echo "Waiting for server..."
+          for i in $(seq 1 60); do
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health 2>/dev/null | grep -q 200; then
+              echo "Server ready on attempt $i"
+              break
+            fi
+            sleep 3
+          done
+          curl -s http://localhost:3000/health
+          echo ""
+          echo "Server test complete"
       - name: Run E2E tests
-        run: npm run test:e2e
+        shell: bash
+        run: npx playwright test 2>&1
         env:
           CI: true
+          NODE_ENV: development
           SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -36,11 +55,16 @@ jobs:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
-      - name: Show server logs on failure
+      - name: Show debug output on failure
         if: failure()
         shell: bash
         run: |
+          echo "=== Server log ==="
+          cat /tmp/server.log 2>/dev/null || echo "No server log"
           echo "=== Node processes ==="
-          ps aux | grep -E "node|tsx" | grep -v grep || echo "No node processes found"
+          ps aux | grep -E "node|tsx" | grep -v grep || echo "No node processes"
           echo "=== Port 3000 ==="
           ss -tlnp 2>/dev/null | grep 3000 || echo "Port 3000 not in use"
+          echo "=== Playwright report ==="
+          ls -la test-results/ 2>/dev/null || echo "No test-results"
+          ls -la playwright-report/ 2>/dev/null || echo "No playwright-report"
