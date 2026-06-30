@@ -59,12 +59,24 @@ jobs:
         if: failure()
         shell: bash
         run: |
+          set -x
           echo "=== Server log ==="
           cat /tmp/server.log 2>/dev/null || echo "No server log"
           echo "=== Node processes ==="
           ps aux | grep -E "node|tsx" | grep -v grep || echo "No node processes"
           echo "=== Port 3000 ==="
           ss -tlnp 2>/dev/null | grep 3000 || echo "Port 3000 not in use"
+          echo "=== Current directory ==="
+          pwd && ls -la
           echo "=== Playwright report ==="
           ls -la test-results/ 2>/dev/null || echo "No test-results"
           ls -la playwright-report/ 2>/dev/null || echo "No playwright-report"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: debug-logs
+          path: |
+            /tmp/server.log
+            test-results/
+            playwright-report/
+          if-no-files-found: warn
