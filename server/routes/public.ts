@@ -389,7 +389,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
 
     const { data: songData, error } = await supabase
       .from('songs')
-      .select('*, song_requests!inner(id, recipient_name, status, photo_url, final_mixed_audio_url, users!inner(name))')
+      .select('*, song_requests!inner(id, recipient_name, status, photo_url, final_mixed_audio_url, elevenlabs_voice_id, users!inner(name))')
       .eq('id', req.params.id)
       .single();
 
@@ -419,6 +419,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       recipient_name: (song_requests as any)?.recipient_name,
       photo_url: (song_requests as any)?.photo_url,
       user_name: (song_requests as any)?.users?.name,
+      elevenlabs_voice_id: (song_requests as any)?.elevenlabs_voice_id,
       status: requestStatus
     };
 
@@ -464,26 +465,34 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
 
     let proofPath: string | null = null;
     if (proofBase64) {
+      const ALLOWED_PROOF_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+      if (!ALLOWED_PROOF_MIMES.includes(proofMimeType)) {
+        return res.status(400).json({ error: 'Formato de comprovativo inválido. Apenas JPG, PNG, WebP ou PDF.' });
+      }
       const proofBuffer = decodeBase64Payload(proofBase64);
       if (proofBuffer.length > 10 * 1024 * 1024) throw new Error('Comprovativo demasiado grande. Máx. 10MB.');
       const sanitizedProofFilename = String(proofFilename || 'proof.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
       const filename = `proofs/${Date.now()}_${sanitizedProofFilename}`;
       const { data, error } = await supabase.storage
         .from('payment-proofs')
-        .upload(filename, decodeBase64Payload(proofBase64), { contentType: proofMimeType || 'image/jpeg' });
+        .upload(filename, proofBuffer, { contentType: proofMimeType || 'image/jpeg' });
       if (error || !data) throw new Error(`Upload do comprovativo falhou: ${error?.message || 'sem dados'}`);
       proofPath = data.path;
     }
 
     let voiceSampleUrl = null;
     if (voiceSampleBase64) {
+      const ALLOWED_VOICE_MIMES = ['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/x-wav'];
+      if (!ALLOWED_VOICE_MIMES.includes(voiceSampleMimeType)) {
+        return res.status(400).json({ error: 'Formato de áudio inválido. Apenas WAV, MP3, MP4 ou OGG.' });
+      }
       const voiceBuffer = decodeBase64Payload(voiceSampleBase64);
-      if (voiceBuffer.length > 10 * 1024 * 1024) throw new Error('Amostra de voz demasiado grande. Máx. 10MB.');
+      if (voiceBuffer.length > 5 * 1024 * 1024) throw new Error('Amostra de voz demasiado grande. Máx. 5MB.');
       const sanitizedVoiceFilename = String(voiceSampleFilename || 'sample.wav').replace(/[^a-zA-Z0-9._-]/g, '_');
       const filename = `voices/${Date.now()}_${sanitizedVoiceFilename}`;
       const { data, error } = await supabase.storage
         .from('voice-samples')
-        .upload(filename, decodeBase64Payload(voiceSampleBase64), { contentType: voiceSampleMimeType || 'audio/wav' });
+        .upload(filename, voiceBuffer, { contentType: voiceSampleMimeType || 'audio/wav' });
       if (error || !data) throw new Error(`Upload da amostra de voz falhou: ${error?.message || 'sem dados'}`);
       // Guarda o path em vez de public URL (bucket voice-samples é privado)
       voiceSampleUrl = data.path;
@@ -552,6 +561,14 @@ router.get('/payment-status', paymentLimiter, async (req, res) => {
   } catch (err: any) {
     res.status(500).json({ error: safeMessage(err) });
   }
+});
+
+// Payment details endpoint (dados Multicaixa)
+router.get('/payment-details', (_req, res) => {
+  res.json({
+    entidade: process.env.MULTICAIXA_ENTIDADE || '10116',
+    referencia: process.env.MULTICAIXA_REFERENCIA || '929423278',
+  });
 });
 
 export default router;

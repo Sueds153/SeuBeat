@@ -33,7 +33,7 @@ export default function SongLyrics({ lyrics, audioProgress }: SongLyricsProps) {
               key={idx}
               className={`text-xs md:text-sm font-serif transition-all duration-300 ${
                 isCurrent
-                  ? 'text-amber-400 font-bold scale-102 filter drop-shadow-[0_0_6px_rgba(245,158,11,0.15)]'
+                  ? 'text-amber-400 font-bold scale-105 filter drop-shadow-[0_0_6px_rgba(245,158,11,0.15)]'
                   : isPast
                   ? 'text-stone-500 font-light line-through decoration-stone-800'
                   : 'text-stone-300'

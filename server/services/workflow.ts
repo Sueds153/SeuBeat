@@ -296,6 +296,16 @@ export async function runBackgroundSunoWorkflow(
     const userEmail = requestData.email || requestData.users?.email;
     const letterText = requestData.songs?.[0]?.letter_text || 'Dedicatória.';
 
+    await supabase
+      .from('song_requests')
+      .update({
+        final_mixed_audio_url: fullAudioUrl,
+        status: 'delivered',
+      })
+      .eq('id', requestId);
+
+    setProgress(requestId, { status: 'completed', progress: 100, message: 'Música gerada e entregue com sucesso!' });
+
     if (userEmail) {
       const slug = (requestData.recipient_name || 'especial')
         .toLowerCase()
@@ -306,23 +316,15 @@ export async function runBackgroundSunoWorkflow(
       const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${songId}`;
 
       logInfo(`[Background Suno] Sending delivery email`, { userEmail });
-      await sendPersonalizedEmail(
+      sendPersonalizedEmail(
         userEmail,
         requestData.recipient_name,
         personalizedUrl,
         letterText
-      );
+      ).catch((emailErr) => {
+        logError('[Background Suno] Delivery email failed (song already delivered)', emailErr, { requestId, userEmail });
+      });
     }
-
-    await supabase
-      .from('song_requests')
-      .update({
-        final_mixed_audio_url: fullAudioUrl,
-        status: 'delivered',
-      })
-      .eq('id', requestId);
-
-    setProgress(requestId, { status: 'completed', progress: 100, message: 'Música gerada e entregue com sucesso!' });
     logInfo(`[Background Suno] Workflow completed`, { requestId });
   } catch (err: any) {
     logError('[Background Suno] Error in background workflow', err, { requestId, songId });
@@ -430,6 +432,10 @@ export async function processSunoVoice(
   } catch (err: any) {
     logError('[Suno Voice] Error', err, { requestId });
     setProgress(requestId, { status: 'music_processing', progress: 30, message: 'Voz não disponível, a gerar música sem voz personalizada.' });
+    const supabase2 = getAdminSupabase();
+    if (supabase2) {
+      await supabase2.from('song_requests').update({ elevenlabs_voice_id: '{"failed":true}' }).eq('id', requestId).maybeSingle();
+    }
     return null;
   }
 }

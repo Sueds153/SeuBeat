@@ -30,8 +30,8 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
       {/* Ambient Background */}
       <div className="absolute top-0 inset-x-0 h-[600px] bg-gradient-to-b from-amber-950/15 via-rose-950/10 to-transparent pointer-events-none" />
-      <div className="absolute top-[20%] right-[-10%] w-[500px] h-[500px] bg-amber-550/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[20%] left-[-15%] w-[600px] h-[600px] bg-rose-550/5 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-[20%] right-[-10%] w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[20%] left-[-15%] w-[600px] h-[600px] bg-rose-600/5 rounded-full blur-[140px] pointer-events-none" />
 
       {/* ─── NAV ─── */}
       <header className="max-w-7xl mx-auto px-4 md:px-8 py-5 flex items-center justify-between sticky top-0 bg-stone-950/80 backdrop-blur-md z-40 border-b border-stone-900/40">
@@ -56,7 +56,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
         <button
           id="nav-cta-btn"
           onClick={onStartWizard}
-          className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-550 text-stone-950 text-xs md:text-sm font-extrabold rounded-full shadow-lg shadow-amber-500/10 active:scale-95 transition-all shrink-0 cursor-pointer"
+          className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 text-xs md:text-sm font-extrabold rounded-full shadow-lg shadow-amber-500/10 active:scale-95 transition-all shrink-0 cursor-pointer"
         >
           Criar Música ❤️
         </button>

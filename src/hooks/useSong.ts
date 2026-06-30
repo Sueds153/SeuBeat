@@ -148,6 +148,8 @@ export function useSong(): UseSongResult {
                 audioUrl: dbSong.audio_url || prev.audioUrl,
                 photoUrl: dbRequest?.photo_url || prev.photoUrl,
               }));
+            } else {
+              setFetchError(true);
             }
           })
           .catch(() => setFetchError(true))

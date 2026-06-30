@@ -206,7 +206,7 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
     }
 
     if (payment?.user_email) {
-      sendPaymentRejectionEmail(payment.user_email, notes).catch(err => logWarn('[Admin] Falha ao enviar email de rejeicao', { userId: payment.user_email, error: err?.message || String(err) }));
+      sendPaymentRejectionEmail(payment.user_email, notes).catch(err => logError('[Admin] Falha ao enviar email de rejeicao', err, { userId: payment.user_email }));
     }
 
     res.json({ success: true, message: 'Pagamento rejeitado.' });

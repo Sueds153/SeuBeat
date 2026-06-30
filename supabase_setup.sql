@@ -320,6 +320,11 @@ CREATE INDEX IF NOT EXISTS idx_song_requests_created_at ON public.song_requests(
 CREATE INDEX IF NOT EXISTS idx_payments_created_at      ON public.payments(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_songs_created_at         ON public.songs(created_at DESC);
 
+-- Partial unique index: apenas 1 pagamento pendente por pedido (race condition guard)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_pending_request
+  ON public.payments (request_id)
+  WHERE status = 'pending_verification';
+
 -- Admin audit log para undo/rollback
 CREATE TABLE IF NOT EXISTS public.admin_audit_log (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,

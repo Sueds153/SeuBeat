@@ -98,6 +98,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     } catch {}
     return INITIAL_WIZARD_DATA;
   });
+  const [paymentDetails, setPaymentDetails] = useState({ entidade: '10116', referencia: '929423278' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingStage, setProcessingStage] = useState(0);
   const [rotatingMsgIndex, setRotatingMsgIndex] = useState(0);
@@ -153,6 +154,14 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       localStorage.setItem('seubeat_wizard_form', JSON.stringify(formData));
     } catch {}
   }, [formData]);
+
+  // Buscar dados Multicaixa do servidor
+  useEffect(() => {
+    fetch('/api/payment-details')
+      .then(r => r.json())
+      .then(d => { if (d.entidade && d.referencia) setPaymentDetails(d); })
+      .catch(() => {});
+  }, []);
 
   // Identificar utilizador no Sentry quando o email é preenchido
   useEffect(() => {
@@ -689,6 +698,20 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       setGeneratedShareUrl(shareUrl);
     }
   }, [isDone, formData, aiLetterText, aiSongTitle, aiLyrics, dbSongId]);
+
+  // 7. Check voice cloning failure after song is done
+  const [voiceCloningFailed, setVoiceCloningFailed] = useState(false);
+  useEffect(() => {
+    if (!isDone || !dbSongId) return;
+    fetch(`/api/song/${dbSongId}?checkVoice=true`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.elevenlabs_voice_id && d.elevenlabs_voice_id.includes('"failed"')) {
+          setVoiceCloningFailed(true);
+        }
+      })
+      .catch(() => {});
+  }, [isDone, dbSongId]);
 
   // Handlers
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1818,11 +1841,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-stone-550 font-mono text-[10px] uppercase">Entidade</span>
                     <div className="flex items-center gap-1.5 font-mono">
-                      <strong className="text-white text-sm font-bold tracking-wider">10116</strong>
+                      <strong className="text-white text-sm font-bold tracking-wider">{paymentDetails.entidade}</strong>
                       <button
                         type="button"
                         onClick={() => {
-                          navigator.clipboard.writeText('10116');
+                          navigator.clipboard.writeText(paymentDetails.entidade);
                           setCopiedText('entidade');
                           setTimeout(() => setCopiedText(null), 2000);
                         }}
@@ -1837,11 +1860,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                   <div className="flex justify-between items-center text-xs border-t border-stone-900/60 pt-2.5">
                     <span className="text-stone-555 font-mono text-[10px] uppercase">Referência</span>
                     <div className="flex items-center gap-1.5 font-mono">
-                      <strong className="text-amber-400 text-sm font-bold tracking-wider">929423278</strong>
+                      <strong className="text-amber-400 text-sm font-bold tracking-wider">{paymentDetails.referencia}</strong>
                       <button
                         type="button"
                         onClick={() => {
-                          navigator.clipboard.writeText('929423278');
+                          navigator.clipboard.writeText(paymentDetails.referencia);
                           setCopiedText('referencia');
                           setTimeout(() => setCopiedText(null), 2000);
                         }}
@@ -1881,7 +1904,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                     <div className="flex items-start gap-2.5">
                       <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono">3</div>
                       <p>
-                        Introduza a Entidade <strong className="text-white">10116</strong>, a Referência <strong className="text-white">929423278</strong> e o valor exato do plano: <strong className="text-amber-400 font-mono font-medium">{getPrice()}</strong>.
+                        Introduza a Entidade <strong className="text-white">{paymentDetails.entidade}</strong>, a Referência <strong className="text-white">{paymentDetails.referencia}</strong> e o valor exato do plano: <strong className="text-amber-400 font-mono font-medium">{getPrice()}</strong>.
                       </p>
                     </div>
                   </div>
@@ -1970,22 +1993,57 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                       </button>
                     </div>
                   ) : (
-                    <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 text-left space-y-2">
+                    <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 text-left space-y-3">
                       <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold font-mono">
                         <Check className="w-4 h-4" />
                         <span>COMPROVATIVO SUBMETIDO COM SUCESSO!</span>
                       </div>
                       <p className="text-stone-400 text-xs font-sans leading-relaxed">
-                        Recebemos o seu comprovativo e associamos ao seu pedido. O nosso sistema ou equipa validará o pagamento nos próximos minutos. Acompanhe o estado da sua música no painel de acompanhamento!
+                        Recebemos o seu comprovativo e associamos ao seu pedido. O nosso sistema ou equipa validará o pagamento nos próximos minutos.
                       </p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(`/api/payment-status?email=${encodeURIComponent(formData.email)}&requestId=${dbSongRequestId}`);
+                            const data = await res.json();
+                            if (data.status === 'approved') {
+                              showToast('Pagamento confirmado! A sua música será entregue em breve.', 'success');
+                            } else if (data.status === 'rejected') {
+                              showToast('Pagamento rejeitado. Fale connosco pelo WhatsApp.', 'error');
+                            } else {
+                              showToast('Pagamento ainda pendente. Voltamos a verificar mais tarde.', 'info');
+                            }
+                          } catch {
+                            showToast('Erro ao verificar estado. Tente novamente.', 'error');
+                          }
+                        }}
+                        className="px-4 py-2 bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-300 hover:text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer w-full"
+                      >
+                        Verificar Estado do Pagamento
+                      </button>
                     </div>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Personalized Song Page generated success dashboard card */}
-            {generatedShareUrl && (
+            {/* Voice cloning failure warning */}
+            {voiceCloningFailed && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-left max-w-md mx-auto">
+                <div className="flex items-center gap-2 text-amber-400 text-xs font-bold font-mono mb-1">
+                  <span>⚠️</span>
+                  <span>CLONAGEM DE VOZ INDISPONÍVEL</span>
+                </div>
+                <p className="text-stone-400 text-xs leading-relaxed">
+                  Não foi possível clonar a sua voz neste momento. A música foi gerada com a voz padrão do Suno.
+                  Pode tentar novamente mais tarde.
+                </p>
+              </div>
+            )}
+
+            {/* Personalized Song Page generated success dashboard card — só após pagamento submetido */}
+            {generatedShareUrl && paymentSubmitted && (
               <div className="bg-stone-950 rounded-2xl p-5 border border-stone-850 text-left max-w-md mx-auto space-y-4">
                 <div className="border-b border-stone-900 pb-2 flex items-center gap-2">
                   <span className="text-xl">🎉</span>
