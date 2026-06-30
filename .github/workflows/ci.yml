@@ -21,17 +21,17 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
-      - name: Install Playwright browsers + deps
+      - name: Install Playwright + deps
         run: |
           npx playwright install chromium
           npx playwright install-deps chromium
-      - name: Start server in background
+      - name: Start server & run E2E
         shell: bash
         run: |
-          echo "Starting server..."
+          echo "Starting server in background..."
           NODE_ENV=production npm run dev > /tmp/server.log 2>&1 &
-          echo "Server PID: $!"
-          echo "Waiting for server..."
+          SERVER_PID=$!
+          echo "Server PID: $SERVER_PID"
           for i in $(seq 1 60); do
             if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health 2>/dev/null | grep -q 200; then
               echo "Server ready on attempt $i"
@@ -39,12 +39,12 @@ jobs:
             fi
             sleep 3
           done
-          curl -s http://localhost:3000/health
-          echo ""
-          echo "Server test complete"
-      - name: Run E2E tests
-        shell: bash
-        run: npx playwright test --reporter=list 2>&1
+          echo "Running E2E tests..."
+          npx playwright test --reporter=list 2>&1
+          EXIT_CODE=$?
+          echo "E2E exit code: $EXIT_CODE"
+          kill $SERVER_PID 2>/dev/null || true
+          exit $EXIT_CODE
         env:
           CI: true
           NODE_ENV: development
@@ -57,34 +57,11 @@ jobs:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
-      - name: Show debug output on failure
+      - name: Debug logs
         if: failure()
         shell: bash
         run: |
-          echo "::group::Server log"
-          tail -50 /tmp/server.log 2>/dev/null || echo "No server log"
-          echo "::endgroup::"
-          echo "::group::Node processes & port"
-          ps aux | grep -E "node|tsx" | grep -v grep || echo "No node processes"
-          ss -tlnp 2>/dev/null | grep 3000 || echo "Port 3000 not in use"
-          echo "::endgroup::"
-          echo "::group::Playwright test-results"
-          if [ -d "test-results" ]; then
-            find test-results -type f 2>/dev/null | while read f; do
-              echo "--- $f ---"
-              head -50 "$f" 2>/dev/null
-            done
-          else
-            echo "No test-results dir"
-          fi
-          ls -la playwright-report/ 2>/dev/null || echo "No playwright-report dir"
-          echo "::endgroup::"
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: debug-logs
-          path: |
-            /tmp/server.log
-            test-results/
-            playwright-report/
-          if-no-files-found: warn
+          echo "=== Server log ==="
+          cat /tmp/server.log 2>/dev/null || echo "(empty)"
+          echo "=== Playwright report ==="
+          ls -la playwright-report/ 2>/dev/null || echo "(empty)"
