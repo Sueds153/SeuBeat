@@ -4,6 +4,7 @@ import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
 import { generateLyricsWithClaude } from '../services/claude';
 import { sendPersonalizedEmail } from '../services/email';
 import { csrfTokenEndpoint } from '../middleware/csrf';
+import { logError } from '../utils/logger';
 import DOMPurify from 'isomorphic-dompurify';
 
 function sanitize(str: string): string {
@@ -575,6 +576,13 @@ router.get('/payment-details', (_req, res) => {
     entidade: process.env.MULTICAIXA_ENTIDADE || '10116',
     referencia: process.env.MULTICAIXA_REFERENCIA || '929423278',
   });
+});
+
+// Log client-side errors
+router.post('/log-error', (req, res) => {
+  const { message, stack, componentStack, url, userAgent } = req.body;
+  logError('[ClientError]', { message, stack: stack?.slice(0, 500), componentStack: componentStack?.slice(0, 500), url, userAgent });
+  res.json({ ok: true });
 });
 
 // CSRF token endpoint

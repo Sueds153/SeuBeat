@@ -22,7 +22,12 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[ErrorBoundary]', error, info.componentStack);
+    console.error('[ErrorBoundary]', error.message, error.stack, info.componentStack);
+    fetch('/api/log-error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: error.message, stack: error.stack, componentStack: info.componentStack, url: window.location.href, userAgent: navigator.userAgent })
+    }).catch(() => {});
   }
 
   render() {
