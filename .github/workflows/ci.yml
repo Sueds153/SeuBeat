@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           echo "Starting server..."
-          npm run dev > /tmp/server.log 2>&1 &
+          NODE_ENV=production npm run dev > /tmp/server.log 2>&1 &
           echo "Server PID: $!"
           echo "Waiting for server..."
           for i in $(seq 1 60); do
