@@ -654,6 +654,80 @@ export default function AdminPanel() {
     } catch (e: any) { showToast(e.message, 'error'); setActionLoading(null); }
   };
 
+  const sortData = <T extends Record<string, any>>(items: T[], sortKey: string, fieldMap: Record<string, (item: T) => string>): T[] => {
+    const [field, dir] = sortKey.split('_');
+    const asc = dir === 'asc';
+    const getVal = fieldMap[field];
+    if (!getVal) return items;
+    return [...items].sort((a, b) => {
+      const aVal = getVal(a).toLowerCase();
+      const bVal = getVal(b).toLowerCase();
+      const cmp = aVal.localeCompare(bVal);
+      return asc ? cmp : -cmp;
+    });
+  };
+
+  const reqFieldMap: Record<string, (r: any) => string> = {
+    created_at: r => r.created_at || '',
+    name: r => r.users?.name || r.recipient_name || '',
+    status: r => r.status || '',
+  };
+  const payFieldMap: Record<string, (p: any) => string> = {
+    created_at: p => p.created_at || '',
+    email: p => p.user_email || '',
+    plan: p => p.plan || '',
+    status: p => p.status || '',
+  };
+
+  const filteredRequests = useMemo(() => {
+    if (!searchQuery) return requests;
+    const q = searchQuery.toLowerCase();
+    return requests.filter(r => {
+      const name = (r.users?.name || '').toLowerCase();
+      const email = (r.users?.email || '').toLowerCase();
+      const status = r.status.toLowerCase();
+      const style = (r.music_style || '').toLowerCase();
+      const recipient = (r.recipient_name || '').toLowerCase();
+      const occasion = (r.occasion || '').toLowerCase();
+      const relationship = (r.relationship || '').toLowerCase();
+      if (searchFilter === 'name') return name.includes(q) || recipient.includes(q);
+      if (searchFilter === 'email') return email.includes(q);
+      if (searchFilter === 'status') return status.includes(q);
+      if (searchFilter === 'style') return style.includes(q);
+      if (searchFilter === 'occasion') return occasion.includes(q);
+      if (searchFilter === 'relationship') return relationship.includes(q);
+      return name.includes(q) || email.includes(q) || status.includes(q) || style.includes(q) || recipient.includes(q) || occasion.includes(q) || relationship.includes(q);
+    });
+  }, [requests, searchQuery, searchFilter]);
+
+  const filteredPayments = useMemo(() => {
+    if (!paymentSearchQuery) return payments;
+    const q = paymentSearchQuery.toLowerCase();
+    return payments.filter(p => {
+      const email = (p.user_email || '').toLowerCase();
+      const plan = (p.plan || '').toLowerCase();
+      const status = p.status.toLowerCase();
+      const recipient = (p.song_requests?.recipient_name || '').toLowerCase();
+      return email.includes(q) || plan.includes(q) || status.includes(q) || recipient.includes(q);
+    });
+  }, [payments, paymentSearchQuery]);
+
+  const sortedRequests = useMemo(() => sortData(filteredRequests, reqSort, reqFieldMap), [filteredRequests, reqSort]);
+  const sortedPayments = useMemo(() => sortData(filteredPayments, paySort, payFieldMap), [filteredPayments, paySort]);
+
+  const paginatedRequests = useMemo(() => {
+    const start = (reqPage - 1) * PER_PAGE;
+    return sortedRequests.slice(start, start + PER_PAGE);
+  }, [sortedRequests, reqPage]);
+
+  const paginatedPayments = useMemo(() => {
+    const start = (payPage - 1) * PER_PAGE;
+    return sortedPayments.slice(start, start + PER_PAGE);
+  }, [sortedPayments, payPage]);
+
+  const reqTotalPages = Math.ceil(sortedRequests.length / PER_PAGE);
+  const payTotalPages = Math.ceil(sortedPayments.length / PER_PAGE);
+
   // ─── LOGIN SCREEN ───
   if (!authenticated) {
     return (
@@ -756,80 +830,6 @@ export default function AdminPanel() {
       </div>
     </div>
   );
-
-  const filteredRequests = useMemo(() => {
-    if (!searchQuery) return requests;
-    const q = searchQuery.toLowerCase();
-    return requests.filter(r => {
-      const name = (r.users?.name || '').toLowerCase();
-      const email = (r.users?.email || '').toLowerCase();
-      const status = r.status.toLowerCase();
-      const style = (r.music_style || '').toLowerCase();
-      const recipient = (r.recipient_name || '').toLowerCase();
-      const occasion = (r.occasion || '').toLowerCase();
-      const relationship = (r.relationship || '').toLowerCase();
-      if (searchFilter === 'name') return name.includes(q) || recipient.includes(q);
-      if (searchFilter === 'email') return email.includes(q);
-      if (searchFilter === 'status') return status.includes(q);
-      if (searchFilter === 'style') return style.includes(q);
-      if (searchFilter === 'occasion') return occasion.includes(q);
-      if (searchFilter === 'relationship') return relationship.includes(q);
-      return name.includes(q) || email.includes(q) || status.includes(q) || style.includes(q) || recipient.includes(q) || occasion.includes(q) || relationship.includes(q);
-    });
-  }, [requests, searchQuery, searchFilter]);
-
-  const filteredPayments = useMemo(() => {
-    if (!paymentSearchQuery) return payments;
-    const q = paymentSearchQuery.toLowerCase();
-    return payments.filter(p => {
-      const email = (p.user_email || '').toLowerCase();
-      const plan = (p.plan || '').toLowerCase();
-      const status = p.status.toLowerCase();
-      const recipient = (p.song_requests?.recipient_name || '').toLowerCase();
-      return email.includes(q) || plan.includes(q) || status.includes(q) || recipient.includes(q);
-    });
-  }, [payments, paymentSearchQuery]);
-
-  const sortData = <T extends Record<string, any>>(items: T[], sortKey: string, fieldMap: Record<string, (item: T) => string>): T[] => {
-    const [field, dir] = sortKey.split('_');
-    const asc = dir === 'asc';
-    const getVal = fieldMap[field];
-    if (!getVal) return items;
-    return [...items].sort((a, b) => {
-      const aVal = getVal(a).toLowerCase();
-      const bVal = getVal(b).toLowerCase();
-      const cmp = aVal.localeCompare(bVal);
-      return asc ? cmp : -cmp;
-    });
-  };
-
-  const reqFieldMap: Record<string, (r: any) => string> = {
-    created_at: r => r.created_at || '',
-    name: r => r.users?.name || r.recipient_name || '',
-    status: r => r.status || '',
-  };
-  const payFieldMap: Record<string, (p: any) => string> = {
-    created_at: p => p.created_at || '',
-    email: p => p.user_email || '',
-    plan: p => p.plan || '',
-    status: p => p.status || '',
-  };
-
-  const sortedRequests = useMemo(() => sortData(filteredRequests, reqSort, reqFieldMap), [filteredRequests, reqSort]);
-  const sortedPayments = useMemo(() => sortData(filteredPayments, paySort, payFieldMap), [filteredPayments, paySort]);
-
-  const paginatedRequests = useMemo(() => {
-    const start = (reqPage - 1) * PER_PAGE;
-    return sortedRequests.slice(start, start + PER_PAGE);
-  }, [sortedRequests, reqPage]);
-
-  const paginatedPayments = useMemo(() => {
-    const start = (payPage - 1) * PER_PAGE;
-    return sortedPayments.slice(start, start + PER_PAGE);
-  }, [sortedPayments, payPage]);
-
-  const reqTotalPages = Math.ceil(sortedRequests.length / PER_PAGE);
-  const payTotalPages = Math.ceil(sortedPayments.length / PER_PAGE);
 
   const Pagination = ({ page, totalPages, setPage }: { page: number; totalPages: number; setPage: (n: number) => void }) => {
     if (totalPages <= 1) return null;
