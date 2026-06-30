@@ -580,8 +580,8 @@ router.get('/payment-details', (_req, res) => {
 
 // Log client-side errors
 router.post('/log-error', (req, res) => {
-  const { message, stack, componentStack, url, userAgent } = req.body;
-  logError('[ClientError]', undefined, { clientMessage: message, stack: stack?.slice(0, 500), componentStack: componentStack?.slice(0, 500), url, userAgent });
+  const { message: m, stack: s, componentStack, url: u, userAgent } = req.body;
+  console.error(`[ClientError] message="${m}" stack="${(s||'').slice(0,500)}" componentStack="${(componentStack||'').slice(0,500)}" url="${u}" ua="${userAgent}"`);
   res.json({ ok: true });
 });
 
