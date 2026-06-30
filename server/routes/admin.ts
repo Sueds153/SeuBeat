@@ -1,6 +1,6 @@
 import express from 'express';
 import { getAdminSupabase } from '../services/supabase';
-import { adminAuth } from '../middleware/auth';
+import { adminAuth, adminLogin } from '../middleware/auth';
 import { 
   requestProgressMap, 
   resumeSunoTaskWorkflow, 
@@ -14,6 +14,9 @@ import { publicErrorMessage } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
 
 const router = express.Router();
+
+// Login endpoint — devolve JWT
+router.post('/login', (req, res) => adminLogin(req, res));
 
 function safeMessage(err: any): string {
   return publicErrorMessage(err);

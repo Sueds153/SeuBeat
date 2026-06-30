@@ -3,6 +3,12 @@ import { randomUUID } from 'crypto';
 import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
 import { generateLyricsWithClaude } from '../services/claude';
 import { sendPersonalizedEmail } from '../services/email';
+import { csrfTokenEndpoint } from '../middleware/csrf';
+import DOMPurify from 'isomorphic-dompurify';
+
+function sanitize(str: string): string {
+  return DOMPurify.sanitize(str.trim().slice(0, 5000));
+}
 import { runBackgroundSunoWorkflow, setProgress, updateRequestStatus } from '../services/workflow';
 import { publicErrorMessage } from '../utils/helpers';
 import { 
@@ -242,9 +248,9 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       occasion: occasion || 'Homenagem',
       music_style: musicStyle || 'Kizomba',
       voice_type: voiceType || 'masculina',
-      special_traits: whatMakesSpecial || '',
-      memory: unforgettableMemory || '',
-      heart_message: messageFromTheHeart || '',
+      special_traits: sanitize(whatMakesSpecial || ''),
+      memory: sanitize(unforgettableMemory || ''),
+      heart_message: sanitize(messageFromTheHeart || ''),
       desired_emotion: desiredEmotion || 'Amor',
       email: userEmail,
       phone: phone || null,
@@ -570,5 +576,8 @@ router.get('/payment-details', (_req, res) => {
     referencia: process.env.MULTICAIXA_REFERENCIA || '929423278',
   });
 });
+
+// CSRF token endpoint
+router.get('/csrf-token', csrfTokenEndpoint);
 
 export default router;

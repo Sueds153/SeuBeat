@@ -1,8 +1,13 @@
 import express from 'express';
 import { timingSafeEqual } from 'crypto';
+import jwt from 'jsonwebtoken';
 
 function getAdminPassword(): string | undefined {
   return process.env.ADMIN_PASSWORD;
+}
+
+function getJwtSecret(): string {
+  return process.env.JWT_SECRET || 'dev-secret-do-not-use-in-production';
 }
 
 const ATTEMPT_LIMIT = 10;
@@ -33,7 +38,6 @@ function isRateLimited(ip: string): boolean {
   return false;
 }
 
-// Periodic cleanup of stale IP entries
 setInterval(() => {
   const now = Date.now();
   for (const [ip, entry] of attempts) {
@@ -43,24 +47,48 @@ setInterval(() => {
   }
 }, CLEANUP_MS).unref();
 
-export function adminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+export function adminLogin(req: express.Request, res: express.Response) {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
 
   if (isRateLimited(ip)) {
     return res.status(429).json({ error: 'Demasiadas tentativas. Tente novamente mais tarde.' });
   }
 
-  const password = req.headers['x-admin-password'] as string | undefined;
-
+  const { password } = req.body;
   const adminPassword = getAdminPassword();
 
   if (!adminPassword) {
     return res.status(500).json({ error: 'ADMIN_PASSWORD não configurado no servidor.' });
   }
 
-  if (!password || !timingSafeCompare(password, adminPassword)) {
-    return res.status(401).json({ error: 'Acesso não autorizado.' });
+  if (!password || !timingSafeCompare(String(password), adminPassword)) {
+    return res.status(401).json({ error: 'Password inválida.' });
   }
 
-  next();
+  const token = jwt.sign({ role: 'admin', iat: Date.now() }, getJwtSecret(), { expiresIn: '2h' });
+  res.json({ success: true, token, expiresIn: 7200 });
 }
+
+export function adminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers['authorization'] as string | undefined;
+
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7);
+    try {
+      jwt.verify(token, getJwtSecret());
+      return next();
+    } catch {
+      return res.status(401).json({ error: 'Sessão expirada. Faça login novamente.' });
+    }
+  }
+
+  const legacyPassword = req.headers['x-admin-password'] as string | undefined;
+  const adminPassword = getAdminPassword();
+  if (legacyPassword && adminPassword && timingSafeCompare(legacyPassword, adminPassword)) {
+    return next();
+  }
+
+  return res.status(401).json({ error: 'Acesso não autorizado.' });
+}
+
+export { getJwtSecret };

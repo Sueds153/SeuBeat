@@ -195,13 +195,14 @@ const VALID_STATUSES_FRONTEND: Record<string, { label: string; value: string }[]
 
 export default function AdminPanel() {
   const [authenticated, setAuthenticated] = useState(() => {
-    return !!sessionStorage.getItem('seubeat_admin_password');
+    return !!sessionStorage.getItem('seubeat_admin_token');
   });
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
-  const [adminPassword, setAdminPassword] = useState(() => {
-    return sessionStorage.getItem('seubeat_admin_password') || '';
+  const [adminToken, setAdminToken] = useState(() => {
+    return sessionStorage.getItem('seubeat_admin_token') || '';
   });
+  const [loginLoading, setLoginLoading] = useState(false);
 
   const [activeView, setActiveView] = useState<AdminView>('dashboard');
   const [stats, setStats] = useState<Stats | null>(null);
@@ -252,77 +253,107 @@ export default function AdminPanel() {
     setTimeout(() => setToast(null), 4000);
   };
 
-  const apiHeaders = { 'x-admin-password': adminPassword, 'Content-Type': 'application/json' };
+  const apiHeaders: Record<string, string> = adminToken 
+    ? { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' }
+    : { 'Content-Type': 'application/json' };
+
+  const handleLogin = async () => {
+    setAuthError('');
+    setLoginLoading(true);
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: passwordInput }),
+      });
+      const data = await res.json();
+      if (res.ok && data.token) {
+        sessionStorage.setItem('seubeat_admin_token', data.token);
+        setAdminToken(data.token);
+        setAuthenticated(true);
+        setPasswordInput('');
+      } else {
+        setAuthError(data.error || 'Password inválida.');
+        setLoginLoading(false);
+        return;
+      }
+    } catch {
+      setAuthError('Erro de ligação ao servidor.');
+      setLoginLoading(false);
+      return;
+    }
+    setLoginLoading(false);
+  };  
 
   const fetchStats = useCallback(async () => {
-    if (!adminPassword) return;
+    if (!adminToken) return;
     setLoading(true);
     try {
       const res = await fetch('/api/admin/stats', { headers: apiHeaders });
       if (res.ok) setStats(await res.json());
     } catch (e) { console.error(e); }
     setLoading(false);
-  }, [adminPassword]);
+  }, [adminToken]);
 
   const fetchPayments = useCallback(async () => {
-    if (!adminPassword) return;
+    if (!adminToken) return;
     setLoading(true);
     try {
       const res = await fetch('/api/admin/payments', { headers: apiHeaders });
       if (res.ok) { const d = await res.json(); setPayments(d.payments || []); }
     } catch (e) { console.error(e); }
     setLoading(false);
-  }, [adminPassword]);
+  }, [adminToken]);
 
   const fetchRequests = useCallback(async () => {
-    if (!adminPassword) return;
+    if (!adminToken) return;
     setLoading(true);
     try {
       const res = await fetch('/api/admin/requests', { headers: apiHeaders });
       if (res.ok) { const d = await res.json(); setRequests(d.requests || []); }
     } catch (e) { console.error(e); }
     setLoading(false);
-  }, [adminPassword]);
+  }, [adminToken]);
 
   const fetchSongs = useCallback(async () => {
-    if (!adminPassword) return;
+    if (!adminToken) return;
     setLoading(true);
     try {
       const res = await fetch('/api/admin/songs', { headers: apiHeaders });
       if (res.ok) { const d = await res.json(); setSongs(d.songs || []); }
     } catch (e) { console.error(e); }
     setLoading(false);
-  }, [adminPassword]);
+  }, [adminToken]);
 
   const fetchClientsList = useCallback(async () => {
-    if (!adminPassword) return;
+    if (!adminToken) return;
     setLoading(true);
     try {
       const res = await fetch('/api/admin/clients', { headers: apiHeaders });
       if (res.ok) { const d = await res.json(); setClients(d.clients || []); }
     } catch (e) { console.error(e); }
     setLoading(false);
-  }, [adminPassword]);
+  }, [adminToken]);
 
   const fetchDiagnostics = useCallback(async () => {
-    if (!adminPassword) return;
+    if (!adminToken) return;
     setDiagLoading(true);
     try {
       const res = await fetch('/api/admin/diagnostics', { headers: apiHeaders });
       if (res.ok) setDiagnostics(await res.json());
     } catch (e) { console.error(e); }
     setDiagLoading(false);
-  }, [adminPassword]);
+  }, [adminToken]);
 
   const fetchCredits = useCallback(async () => {
-    if (!adminPassword) return;
+    if (!adminToken) return;
     setCreditsLoading(true);
     try {
       const res = await fetch('/api/admin/credits', { headers: apiHeaders });
       if (res.ok) setCredits(await res.json());
     } catch (e) { console.error(e); }
     setCreditsLoading(false);
-  }, [adminPassword]);
+  }, [adminToken]);
 
   const handleForceStatus = useCallback(async () => {
     if (!forceStatusModal || !forceStatusValue) return;
@@ -338,7 +369,7 @@ export default function AdminPanel() {
     } catch (e: any) { showToast(e.message, 'error'); }
     setActionLoading(null);
     fetchRequests(); fetchPayments(); fetchSongs();
-  }, [forceStatusModal, forceStatusValue, adminPassword]);
+  }, [forceStatusModal, forceStatusValue, adminToken]);
 
   const handleUpdateStyle = useCallback(async (requestId: string, musicStyle?: string, voiceType?: string) => {
     setActionLoading(requestId + '_style');
@@ -352,7 +383,7 @@ export default function AdminPanel() {
       else showToast(data.error || 'Erro ao atualizar.', 'error');
     } catch (e: any) { showToast(e.message, 'error'); }
     setActionLoading(null);
-  }, [adminPassword]);
+  }, [adminToken]);
 
   const handleRegenerateLyrics = useCallback(async (requestId: string) => {
     setActionLoading(requestId + '_reg');
@@ -365,27 +396,27 @@ export default function AdminPanel() {
       else showToast(data.error || 'Erro ao regenerar.', 'error');
     } catch (e: any) { showToast(e.message, 'error'); }
     setActionLoading(null);
-  }, [adminPassword]);
+  }, [adminToken]);
 
   const fetchMetrics = useCallback(async () => {
-    if (!adminPassword) return;
+    if (!adminToken) return;
     setMetricsLoading(true);
     try {
       const res = await fetch('/api/admin/metrics', { headers: apiHeaders });
       if (res.ok) setMetrics(await res.json());
     } catch (e) { console.error(e); }
     setMetricsLoading(false);
-  }, [adminPassword]);
+  }, [adminToken]);
 
   const fetchProfitability = useCallback(async () => {
-    if (!adminPassword) return;
+    if (!adminToken) return;
     setProfitLoading(true);
     try {
       const res = await fetch('/api/admin/profitability', { headers: apiHeaders });
       if (res.ok) setProfitability(await res.json());
     } catch (e) { console.error(e); }
     setProfitLoading(false);
-  }, [adminPassword]);
+  }, [adminToken]);
 
   const fetchLogs = useCallback(async (requestId: string) => {
     setLogsModal({ id: requestId, loading: true, logs: [] });
@@ -394,10 +425,10 @@ export default function AdminPanel() {
       if (res.ok) { const d = await res.json(); setLogsModal({ id: requestId, loading: false, logs: d.logs || [] }); }
       else setLogsModal(null);
     } catch (e) { setLogsModal(null); }
-  }, [adminPassword]);
+  }, [adminToken]);
 
   const checkNewData = useCallback(async () => {
-    if (!adminPassword) return;
+    if (!adminToken) return;
     try {
       const res = await fetch('/api/admin/stats', { headers: apiHeaders });
       if (!res.ok) return;
@@ -418,7 +449,7 @@ export default function AdminPanel() {
       }
       prevCountsRef.current = { requests: currentRequests, payments: currentPayments };
     } catch (e) {}
-  }, [adminPassword]);
+  }, [adminToken]);
 
   // Notification polling when on admin panel
   useEffect(() => {
@@ -438,12 +469,12 @@ export default function AdminPanel() {
   }, [notification]);
 
   const fetchProgress = useCallback(async () => {
-    if (!adminPassword) return;
+    if (!adminToken) return;
     try {
       const res = await fetch('/api/admin/progress', { headers: apiHeaders });
       if (res.ok) setProgressMap(await res.json());
     } catch (e) {}
-  }, [adminPassword]);
+  }, [adminToken]);
 
   useEffect(() => {
     if (!authenticated) return;
@@ -473,34 +504,7 @@ export default function AdminPanel() {
   useEffect(() => { setReqPage(1); }, [activeView]);
   useEffect(() => { setPayPage(1); }, [activeView]);
 
-  const handleLogin = async () => {
-    if (!passwordInput) {
-      setAuthError('Por favor introduza a password.');
-      return;
-    }
-    setLoading(true);
-    setAuthError('');
-    try {
-      const res = await fetch('/api/admin/stats', {
-        headers: { 'x-admin-password': passwordInput }
-      });
-      if (res.ok) {
-        setAdminPassword(passwordInput);
-        setAuthenticated(true);
-        sessionStorage.setItem('seubeat_admin_password', passwordInput);
-      } else if (res.status === 401) {
-        setAuthError('Password incorreta. Tente novamente.');
-      } else if (res.status === 500) {
-        // 500 = servidor com erro interno (ex: variáveis de ambiente em falta no Render)
-        setAuthError(`⚠️ Erro no servidor (500). Verifique as variáveis de ambiente no Render (SUPABASE_URL, SUPABASE_ANON_KEY, etc).`);
-      } else {
-        setAuthError(`Erro inesperado (${res.status}). Tente novamente.`);
-      }
-    } catch (e) {
-      setAuthError('Erro ao ligar ao servidor. Verifique se o Render está online.');
-    }
-    setLoading(false);
-  };
+  // login handler removido — ver handleLogin acima
 
   const handleConfirmApprove = async () => {
     if (!confirmAction) return;
@@ -688,9 +692,10 @@ export default function AdminPanel() {
             )}
             <button
               onClick={handleLogin}
-              className="w-full py-3 bg-gradient-to-r from-amber-500 to-rose-600 text-stone-950 font-bold text-sm rounded-xl hover:opacity-95 transition-opacity cursor-pointer"
+              disabled={loginLoading}
+              className="w-full py-3 bg-gradient-to-r from-amber-500 to-rose-600 text-stone-950 font-bold text-sm rounded-xl hover:opacity-95 disabled:opacity-50 transition-opacity cursor-pointer flex items-center justify-center gap-2"
             >
-              Entrar no Painel
+              {loginLoading ? <><RefreshCw className="w-4 h-4 animate-spin" /> A autenticar...</> : 'Entrar no Painel'}
             </button>
           </div>
 
