@@ -772,7 +772,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       case 2:
         return formData.occasion !== '' && formData.whyCreatedToday.trim().length >= 5;
       case 3:
-        return formData.musicStyle !== '' && formData.referenceArtist !== '';
+        return formData.musicStyle !== '';
       case 4:
         return formData.voiceType !== '';
       case 5:

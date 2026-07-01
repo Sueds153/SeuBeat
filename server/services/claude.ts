@@ -57,6 +57,24 @@ function languageDisplayName(lang: string): string {
   return names[lang] || 'Português de Angola';
 }
 
+const ARTIST_LYRICAL_STYLES: Record<string, string> = {
+  'Anselmo Ralph': 'Use vocabulário romântico urbano, refrões fortes e repetitivos, linguagem direta ao coração. As letras devem soar como uma canção do Anselmo Ralph.',
+  'Matias Damásio': 'Use tom poético e nostálgico, metáforas sobre amor, perda e reencontro. Refrões emocionais. As letras devem soar como uma canção do Matias Damásio.',
+  'Gerilson Insrael': 'Use flow afro-pop, refrões contagiantes, linguagem jovem e atual com vibe dançante mas conteúdo romântico. As letras devem soar como uma canção do Gerilson Insrael.',
+  'Chelsea Dinorath': 'Use tom neo-kizomba moderno com influência R&B, voz suave e refrões melódicos envolventes. As letras devem soar como uma canção da Chelsea Dinorath.',
+  'Ary': 'Use batida rítmica de semba com alma, letra dançante mas com conteúdo emocional profundo e autêntico. As letras devem soar como uma canção do Ary.',
+  'Cef': 'Use flow ghetto zouk, refrões pegajosos e repetitivos, vibe romântica com batida dançante e linguagem acessível. As letras devem soar como uma canção do Cef.',
+  'Nelson Freitas': 'Use estilo zouk internacional com R&B, refrões que alternam português e inglês, produção lírica polida e romântica. As letras devem soar como uma canção do Nelson Freitas.',
+  'Outro': 'Crie uma letra original com identidade própria, adaptando o tom e vocabulário ao estilo musical escolhido sem se prender a um artista específico.',
+};
+
+function referenceArtistInstruction(artistName: string): string {
+  if (!artistName || artistName === 'Outro') return '';
+  const instruction = ARTIST_LYRICAL_STYLES[artistName];
+  if (instruction) return `- ${instruction}.`;
+  return '';
+}
+
 function languageInstruction(lang: string): string {
   const instructions: Record<string, string> = {
     'português': 'Escreva a letra COMPLETAMENTE em português de Angola, com expressões naturais e autênticas.',
@@ -162,7 +180,7 @@ ${buildFormContext(formData)}
 
 INSTRUÇÕES ADICIONAIS DE PERSONALIZAÇÃO E QUALIDADE:
 - A letra DEVE usar o nome do destinatário ("${formData.recipientName || 'Destinatário'}"), apelidos carinhosos ("${formData.recipientNick || ''}"), local ("${formData.whereItHappened || ''}") e memórias detalhadas ("${formData.unforgettableMemory || ''}") de forma natural e emocionante.
-- Evite letras genéricas. O tom e vocabulário devem refletir a emoção desejada ("${formData.desiredEmotion || 'Emocionante'}"), o estilo musical ("${formData.musicStyle || 'Kizomba'}"), e respeitar as características líricas do artista de referência ("${formData.referenceArtist || 'Artista'}").
+- Evite letras genéricas. O tom e vocabulário devem refletir a emoção desejada ("${formData.desiredEmotion || 'Emocionante'}") e o estilo musical ("${formData.musicStyle || 'Kizomba'}").${referenceArtistInstruction(formData.referenceArtist) ? '\n' + referenceArtistInstruction(formData.referenceArtist) : ''}
 - O campo "letterText" é uma dedicatória CURTA (2-3 frases) em prosa emocionante, sem repetir a letra.
 
 INSTRUÇÃO DE IDIOMA (CUMPRA OBRIGATORIAMENTE):

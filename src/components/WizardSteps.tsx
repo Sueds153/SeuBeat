@@ -208,7 +208,7 @@ export function Step3Style({
 
       <div className="pt-3 border-t border-stone-900 space-y-2">
         <label className="text-xs font-mono text-stone-400 block font-semibold">
-          Escolha um Artista de Referência
+          Escolha um Artista de Referência <span className="text-stone-600 font-normal">(Opcional)</span>
         </label>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {artistCards.map((artist) => {
@@ -231,11 +231,8 @@ export function Step3Style({
             );
           })}
         </div>
-        {fieldErrors?.referenceArtist && (
-          <p className="text-red-400 text-xs mt-1">{fieldErrors.referenceArtist}</p>
-        )}
-        <p className="text-xxs text-amber-500 italic pt-1 font-mono">
-          "Isso ajuda-nos a criar algo mais próximo do gosto da pessoa."
+        <p className="text-xxs text-stone-500 italic pt-1 font-mono">
+          Se escolher, ajuda-nos a criar algo mais próximo do gosto da pessoa.
         </p>
       </div>
     </div>

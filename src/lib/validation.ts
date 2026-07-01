@@ -14,7 +14,7 @@ export const Step2Schema = z.object({
 
 export const Step3Schema = z.object({
   musicStyle: z.string().min(1, 'Selecione o estilo'),
-  referenceArtist: z.string().min(1, 'Indique um artista'),
+  referenceArtist: z.string().optional(),
 });
 
 export const Step4Schema = z.object({
