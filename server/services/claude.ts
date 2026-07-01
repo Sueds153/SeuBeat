@@ -45,6 +45,30 @@ function normalizeLower(value: unknown): string {
     .toLowerCase();
 }
 
+function languageDisplayName(lang: string): string {
+  const names: Record<string, string> = {
+    'português': 'Português de Angola',
+    'kimbundu': 'Português mesclado com Kimbundu (língua nacional angolana)',
+    'umbundu': 'Português mesclado com UmBundu (língua nacional angolana)',
+    'kikongo': 'Português mesclado com Kikongo (língua nacional angolana)',
+    'lingala': 'Português mesclado com Lingala',
+    'inglês': 'Inglês',
+  };
+  return names[lang] || 'Português de Angola';
+}
+
+function languageInstruction(lang: string): string {
+  const instructions: Record<string, string> = {
+    'português': 'Escreva a letra COMPLETAMENTE em português de Angola, com expressões naturais e autênticas.',
+    'kimbundu': 'Escreva a letra MESCLANDO português com palavras e expressões em Kimbundu (língua nacional angolana). Incorpore termos como "muene", "kota", "kibai", "ngana", "kizua" naturalmente na letra.',
+    'umbundu': 'Escreva a letra MESCLANDO português com palavras e expressões em UmBundu (língua nacional angolana). Incorpore termos como "ochi", "suku", "etu", "ociwa" naturalmente na letra.',
+    'kikongo': 'Escreva a letra MESCLANDO português com palavras e expressões em Kikongo (língua nacional angolana). Incorpore termos como "ngolo", "kiese", "zola", "kamba" naturalmente na letra.',
+    'lingala': 'Escreva a letra MESCLANDO português com palavras e expressões em Lingala. Incorpore termos como "bolingo", "moto", "kolela", "zala" naturalmente na letra.',
+    'inglês': 'Escreva a letra COMPLETAMENTE em INGLÊS. Use inglês natural, poético e autêntico.',
+  };
+  return instructions[lang] || 'Escreva a letra em português de Angola.';
+}
+
 function buildFormContext(formData: any) {
   const c = (val: any) => clean(val, 'Não informado');
   return [
@@ -62,7 +86,7 @@ function buildFormContext(formData: any) {
     ['Memória inesquecível', c(formData.unforgettableMemory)],
     ['Local da memória', c(formData.whereItHappened)],
     ['O que nunca deve esquecer (Mensagem do Coração)', c(formData.messageFromTheHeart)],
-    ['Variante do Idioma', c(formData.language || 'Português de Angola/Portugal')]
+    ['Variante do Idioma', languageDisplayName(c(formData.language))]
   ]
     .map(([label, value]) => `- ${label}: ${value}`)
     .join('\n');
@@ -139,7 +163,10 @@ ${buildFormContext(formData)}
 INSTRUÇÕES ADICIONAIS DE PERSONALIZAÇÃO E QUALIDADE:
 - A letra DEVE usar o nome do destinatário ("${formData.recipientName || 'Destinatário'}"), apelidos carinhosos ("${formData.recipientNick || ''}"), local ("${formData.whereItHappened || ''}") e memórias detalhadas ("${formData.unforgettableMemory || ''}") de forma natural e emocionante.
 - Evite letras genéricas. O tom e vocabulário devem refletir a emoção desejada ("${formData.desiredEmotion || 'Emocionante'}"), o estilo musical ("${formData.musicStyle || 'Kizomba'}"), e respeitar as características líricas do artista de referência ("${formData.referenceArtist || 'Artista'}").
-- O campo "letterText" é uma dedicatória CURTA (2-3 frases) em prosa emocionante, sem repetir a letra.`;
+- O campo "letterText" é uma dedicatória CURTA (2-3 frases) em prosa emocionante, sem repetir a letra.
+
+INSTRUÇÃO DE IDIOMA (CUMPRA OBRIGATORIAMENTE):
+${languageInstruction(formData.language || 'português')}`;
 }
 
 export function validateClaudeComposition(value: unknown): ClaudeLyricsComposition {

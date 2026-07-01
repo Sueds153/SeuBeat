@@ -738,7 +738,7 @@ router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
       whereItHappened: '',
       messageFromTheHeart: requestData.heart_message || '',
       desiredEmotion: 'Emocionante',
-      language: 'Português'
+      language: requestData.language || 'português'
     };
 
     const { generateLyricsWithClaude } = await import('../services/claude');

@@ -256,7 +256,8 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       email: userEmail,
       phone: phone || null,
       status: 'lyrics_generating',
-      photo_url: photoUrl
+      photo_url: photoUrl,
+      language: language || 'português'
     }]).select().single();
 
     if (requestError || !requestData?.id) {
@@ -282,7 +283,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       whereItHappened: whereItHappened || '',
       messageFromTheHeart: messageFromTheHeart || '',
       desiredEmotion: desiredEmotion || 'Emocionante',
-      language: language || 'Português'
+      language: language || 'português'
     });
 
     const { data: songData, error: songError } = await supabase.from('songs').insert([{

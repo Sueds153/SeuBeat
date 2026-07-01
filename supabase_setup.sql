@@ -57,6 +57,7 @@ ALTER TABLE public.song_requests ADD COLUMN IF NOT EXISTS voice_sample_url text;
 ALTER TABLE public.song_requests ADD COLUMN IF NOT EXISTS elevenlabs_voice_id text;
 ALTER TABLE public.song_requests ADD COLUMN IF NOT EXISTS final_mixed_audio_url text;
 ALTER TABLE public.song_requests ADD COLUMN IF NOT EXISTS error_details jsonb;
+ALTER TABLE public.song_requests ADD COLUMN IF NOT EXISTS language text DEFAULT 'português';
 ALTER TABLE public.song_requests ALTER COLUMN status SET DEFAULT 'draft';
 
 -- 3. Criação da tabela de músicas geradas

@@ -32,6 +32,10 @@ const EMOTIONS = [
   'amor', 'emoção', 'gratidão', 'carinho', 'saudade', 'inspiração',
 ] as const;
 
+const LANGUAGES = [
+  'português', 'kimbundu', 'umbundu', 'inglês', 'kikongo', 'lingala',
+] as const;
+
 export const GenerateLyricsSchema = z.object({
   userNick: z.string().min(1, 'Nome requerido').max(50, 'Nome muito longo').trim(),
   email: z.string().email('Email inválido').toLowerCase().optional(),
@@ -53,7 +57,7 @@ export const GenerateLyricsSchema = z.object({
   whereItHappened: z.string().max(500).trim().optional(),
   messageFromTheHeart: z.string().max(1000).trim().optional(),
   desiredEmotion: z.preprocess(lower, z.enum(EMOTIONS)),
-  language: z.string().max(50).trim().default('Português'),
+  language: z.preprocess(lower, z.enum(LANGUAGES)).default('português'),
 
   photoBase64: z.string().max(5 * 1024 * 1024, 'Foto muito grande (max 5MB)').optional().nullable(),
   photoFilename: z.string().max(255).trim().optional(),

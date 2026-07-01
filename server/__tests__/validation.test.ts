@@ -86,7 +86,7 @@ describe('GenerateLyricsSchema', () => {
 
   it('defaults language to Português', () => {
     const result = GenerateLyricsSchema.parse(validData);
-    expect(result.language).toBe('Português');
+    expect(result.language).toBe('português');
   });
 
   it('rejects photo larger than 5MB', () => {

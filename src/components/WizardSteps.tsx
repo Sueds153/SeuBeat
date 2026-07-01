@@ -708,6 +708,8 @@ export function Step9Contact({
             <option value="Português">Português (Nacional)</option>
             <option value="Kimbundu">Mesclado com Kimbundu</option>
             <option value="UmBundu">Mesclado com UmBundu</option>
+            <option value="Kikongo">Mesclado com Kikongo</option>
+            <option value="Lingala">Mesclado com Lingala</option>
             <option value="Inglês">Inglês</option>
           </select>
         </div>
