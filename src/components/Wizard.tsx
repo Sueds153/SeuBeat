@@ -87,13 +87,24 @@ const STEP_META = [
 ];
 
 export default function Wizard({ onBackToLanding }: WizardProps) {
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState<WizardData>(() => {
+  const [step, setStep] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem('seubeat_wizard_form');
+      const saved = localStorage.getItem('seubeat_wizard_progress');
       if (saved) {
         const parsed = JSON.parse(saved);
-        return { ...INITIAL_WIZARD_DATA, ...parsed };
+        return parsed?.step && parsed.step >= 1 ? parsed.step : 1;
+      }
+    } catch {}
+    return 1;
+  });
+  const [formData, setFormData] = useState<WizardData>(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.formData) {
+          return { ...INITIAL_WIZARD_DATA, ...parsed.formData };
+        }
       }
     } catch {}
     return INITIAL_WIZARD_DATA;
@@ -148,12 +159,13 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     setFieldErrors({});
   };
 
-  // Persistir formData no localStorage para sobreviver a refresh
+  // Persistir progresso no localStorage (formData + step) para sobreviver a refresh
   useEffect(() => {
     try {
-      localStorage.setItem('seubeat_wizard_form', JSON.stringify(formData));
+      const { photoFile, ...rest } = formData;
+      localStorage.setItem('seubeat_wizard_progress', JSON.stringify({ formData: rest, step }));
     } catch {}
-  }, [formData]);
+  }, [formData, step]);
 
   // Buscar dados Multicaixa do servidor
   useEffect(() => {
@@ -2108,7 +2120,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
               <button
                 id="create-new-song-success-btn"
                   onClick={() => {
-                    localStorage.removeItem('seubeat_wizard_form');
+                    localStorage.removeItem('seubeat_wizard_progress');
                     wrappedSetFormData(INITIAL_WIZARD_DATA);
                     setStep(1);
                     setIsSubmitting(false);
