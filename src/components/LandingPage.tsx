@@ -1,4 +1,5 @@
-import { ArrowRight, Sparkles, Check, Play, MessageCircle } from 'lucide-react';
+import { ArrowRight, Sparkles, Check, Play, MessageCircle, Menu, X } from 'lucide-react';
+import { useState } from 'react';
 import LogoIcon from './LogoIcon';
 import AudioDemo from './AudioDemo';
 import Testimonials from './Testimonials';
@@ -10,6 +11,14 @@ interface LandingPageProps {
   onStartWizard: () => void;
 }
 
+const NAV_LINKS = [
+  { href: '#how-it-works-section', label: 'Como Funciona' },
+  { href: '#occasions-section', label: 'Ocasiões' },
+  { href: '#audio-demo-section', label: 'Demos' },
+  { href: '#pricing-section', label: 'Preços' },
+  { href: '#faq-section', label: 'Perguntas' },
+];
+
 const OCCASIONS = [
   { icon: '💍', label: 'Aniversário de Casamento', desc: 'Para quem partilha uma vida' },
   { icon: '❤️', label: 'Declaração de Amor', desc: 'Diz o que sentes em música' },
@@ -20,6 +29,7 @@ const OCCASIONS = [
 ];
 
 export default function LandingPage({ onStartWizard }: LandingPageProps) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   return (
     <div id="landing-page-root" className="relative min-h-screen overflow-x-hidden bg-stone-950 text-stone-100 selection:bg-amber-500/30 selection:text-amber-200">
 
@@ -45,13 +55,55 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           </div>
         </div>
 
-        <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-stone-400">
-          <a href="#how-it-works-section" className="hover:text-amber-400 transition-colors">Como Funciona</a>
-          <a href="#occasions-section" className="hover:text-amber-400 transition-colors">Ocasiões</a>
-          <a href="#audio-demo-section" className="hover:text-amber-400 transition-colors">Demos</a>
-          <a href="#pricing-section" className="hover:text-amber-400 transition-colors">Preços</a>
-          <a href="#faq-section" className="hover:text-amber-400 transition-colors">Perguntas</a>
+        <nav className="hidden md:flex items-center gap-4 lg:gap-8 text-sm font-medium text-stone-400">
+          {NAV_LINKS.slice(0, 3).map(l => (
+            <a key={l.href} href={l.href} className="hover:text-amber-400 transition-colors whitespace-nowrap">{l.label}</a>
+          ))}
+          <span className="hidden lg:flex lg:gap-8">
+            {NAV_LINKS.slice(3).map(l => (
+              <a key={l.href} href={l.href} className="hover:text-amber-400 transition-colors whitespace-nowrap">{l.label}</a>
+            ))}
+          </span>
         </nav>
+
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          className="md:hidden p-2.5 text-stone-400 hover:text-stone-100 transition-colors touch-target"
+          aria-label="Abrir menu"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+
+        {mobileMenuOpen && (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <div className="absolute inset-0 bg-stone-950/95 backdrop-blur-md" onClick={() => setMobileMenuOpen(false)} />
+            <div className="relative flex flex-col items-center justify-center h-full gap-8 p-8">
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="absolute top-6 right-6 p-2.5 text-stone-400 hover:text-stone-100 transition-colors touch-target"
+                aria-label="Fechar menu"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              {NAV_LINKS.map(l => (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="text-2xl font-serif text-stone-200 hover:text-amber-400 transition-colors"
+                >
+                  {l.label}
+                </a>
+              ))}
+              <button
+                onClick={() => { setMobileMenuOpen(false); onStartWizard(); }}
+                className="mt-4 px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 text-stone-950 font-bold text-lg rounded-full shadow-xl"
+              >
+                Criar Música ❤️
+              </button>
+            </div>
+          </div>
+        )}
 
         <button
           id="nav-cta-btn"
@@ -186,7 +238,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               </div>
 
               {/* Floating badge top-right */}
-              <div className="absolute -top-4 -right-4 bg-gradient-to-br from-amber-500 to-rose-600 text-stone-950 rounded-2xl px-4 py-2 text-xs font-black shadow-xl shadow-amber-500/30 rotate-3">
+              <div className="absolute -top-4 right-4 md:-right-4 bg-gradient-to-br from-amber-500 to-rose-600 text-stone-950 rounded-2xl px-4 py-2 text-xs font-black shadow-xl shadow-amber-500/30 rotate-0 md:rotate-3">
                 🎵 Entrega em 24–72h
               </div>
             </div>
@@ -241,7 +293,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
             {OCCASIONS.map((occ, idx) => (
               <button
                 key={idx}

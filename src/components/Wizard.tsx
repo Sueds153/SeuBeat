@@ -945,11 +945,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
               </div>
             </button>
 
-            <div className="flex items-center gap-4 text-right">
-              <span className="text-xs text-stone-400 font-mono">
+            <div className="flex items-center gap-2 sm:gap-4 text-right">
+              <span className="hidden sm:inline text-xs text-stone-400 font-mono">
                 PASSO <span className="text-amber-400 font-bold">{step}</span> DE 9
               </span>
-              <div className="w-24 md:w-36 h-2 bg-stone-900 rounded-full overflow-hidden relative">
+              <div className="w-20 sm:w-24 md:w-36 h-2 bg-stone-900 rounded-full overflow-hidden relative">
                 <motion.div 
                   className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full"
                   animate={{ width: `${(step / 9) * 100}%` }}
@@ -1206,7 +1206,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                   <div className="bg-stone-950 rounded-2xl p-6 border border-stone-850 space-y-4 relative">
                     
                     {/* The Waveform Mock Visual representation */}
-                    <div className="h-12 flex items-end gap-1 px-2 pt-2">
+                    <div className="h-12 flex items-end gap-0.5 sm:gap-1 px-2 pt-2">
                       {Array.from({ length: 30 }).map((_, idx) => {
                         // random waves or wave peaks
                         const activeIndex = Math.floor((audioProgress / 20) * 30);
@@ -1342,7 +1342,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                 {/* PLAN 2: EXPRESS */}
                 <div className="bg-stone-900/40 rounded-2.5xl p-6 border-2 border-amber-500/70 shadow-2xl transition-all flex flex-col justify-between relative space-y-6">
                   {/* Badge */}
-                  <div className="absolute -top-3.5 right-4 bg-gradient-to-r from-amber-500 to-rose-500 text-stone-950 font-mono text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 md:left-auto md:right-4 md:translate-x-0 bg-gradient-to-r from-amber-500 to-rose-500 text-stone-950 font-mono text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
                     🔥 MAIS POPULAR
                   </div>
 
@@ -2315,7 +2315,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
             </div>
 
             {/* Right Column: Emotive Live Studio Console Visual Deck */}
-            <div className="lg:col-span-5 bg-gradient-to-b from-stone-900/60 to-stone-950/80 border border-amber-900/10 rounded-3xl p-6 shadow-xl space-y-5 sticky top-8">
+            <div className="lg:col-span-5 bg-gradient-to-b from-stone-900/60 to-stone-950/80 border border-amber-900/10 rounded-3xl p-4 md:p-6 shadow-xl space-y-5 lg:sticky lg:top-8">
               <div className="flex items-center gap-2 justify-between border-b border-stone-900 pb-3">
                 <div className="flex items-center gap-1.5 text-xxs text-stone-400 font-mono">
                   <Eye className="w-3.5 h-3.5 text-amber-500/80" />

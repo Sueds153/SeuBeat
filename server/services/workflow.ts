@@ -354,6 +354,15 @@ export async function processSunoVoice(
   if (!supabase) return null;
 
   try {
+    const { data: voiceRequestData, error: voiceReqError } = await supabase
+      .from('song_requests')
+      .select('language')
+      .eq('id', requestId)
+      .single();
+    if (voiceReqError || !voiceRequestData) {
+      throw new Error(`Failed to fetch song request: ${voiceReqError?.message}`);
+    }
+
     logInfo(`[Suno Voice] Starting voice cloning`, { requestId });
     setProgress(requestId, { status: 'voice_processing', progress: 10, message: 'A iniciar clonagem de voz Suno Voice...' });
 
@@ -383,7 +392,7 @@ export async function processSunoVoice(
     logInfo(`[Suno Voice] Voice sample uploaded`, { requestId, publicVoiceUrl });
     setProgress(requestId, { status: 'voice_processing', progress: 25, message: 'A gerar frase de validação...' });
 
-    const voiceLang = requestData.language === 'inglês' ? 'en' : 'pt';
+    const voiceLang = voiceRequestData.language === 'inglês' ? 'en' : 'pt';
     const validationResult = await generateValidationPhrase(publicVoiceUrl, 0, 30, voiceLang);
     logInfo(`[Suno Voice] Validation task created`, { taskId: validationResult.taskId, requestId });
 

@@ -96,7 +96,7 @@ export default function Testimonials() {
           </div>
 
           {/* Small music tag */}
-          <div className="absolute top-6 right-6 text-xxs font-mono text-amber-500 bg-amber-500/5 px-2 py-1 rounded border border-amber-500/10 uppercase">
+          <div className="absolute bottom-6 right-6 text-xxs font-mono text-amber-500 bg-amber-500/5 px-2 py-1 rounded border border-amber-500/10 uppercase">
             {t.songCreated}
           </div>
         </motion.div>

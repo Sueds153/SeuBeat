@@ -29,13 +29,13 @@ export default forwardRef<HTMLInputElement, SongPlayerProps>(function SongPlayer
 
       <div className="bg-stone-950 rounded-2xl p-5 md:p-6 border border-stone-850/80 space-y-4">
         <div className="flex justify-between items-center">
-          <span className="text-[10px] text-stone-500 font-mono uppercase tracking-widest">AUDIO PLAYER INTEGRADO</span>
+          <span className="hidden sm:inline text-[10px] text-stone-500 font-mono uppercase tracking-widest">AUDIO PLAYER INTEGRADO</span>
           <span className="text-[10px] text-rose-500 font-mono tracking-widest uppercase font-bold flex items-center gap-1.5 p-1 bg-rose-500/5 rounded border border-rose-500/10">
             <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping" /> FULL SONG COMPACT
           </span>
         </div>
 
-        <div className="h-14 flex items-end gap-1.5 px-3 pt-3">
+        <div className="h-14 flex items-end gap-0.5 sm:gap-1.5 px-3 pt-3">
           {Array.from({ length: 40 }).map((_, idx) => {
             const heights = [20, 35, 12, 45, 60, 20, 75, 40, 50, 65, 15, 42, 55, 30, 65, 45, 25, 55, 70, 40, 80, 22, 50, 60, 30, 68, 48, 20, 38, 55, 12, 35, 45, 20, 58, 38, 14, 25, 42, 55];
             const activeStep = Math.floor((audioProgress / 100) * 40);
@@ -73,9 +73,9 @@ export default forwardRef<HTMLInputElement, SongPlayerProps>(function SongPlayer
             className="flex-grow py-3.5 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-95 text-stone-950 font-black text-xs md:text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10 cursor-pointer active:scale-[0.99] transition-transform"
           >
             {isPlaying ? (
-              <><Pause className="w-4 h-4 fill-stone-950 text-stone-950" /><span>PAUSAR MÚSICA</span></>
+              <><Pause className="w-4 h-4 fill-stone-950 text-stone-950 shrink-0" /><span className="sm:inline hidden">PAUSAR MÚSICA</span><span className="sm:hidden">PAUSAR</span></>
             ) : (
-              <><Play className="w-4 h-4 fill-stone-950 text-stone-950" /><span>REPRODUZIR MÚSICA COMPLETA</span></>
+              <><Play className="w-4 h-4 fill-stone-950 text-stone-950 shrink-0" /><span className="sm:inline hidden">REPRODUZIR MÚSICA COMPLETA</span><span className="sm:hidden">REPRODUZIR</span></>
             )}
           </button>
 
@@ -101,8 +101,9 @@ export default forwardRef<HTMLInputElement, SongPlayerProps>(function SongPlayer
               : 'bg-stone-950 text-stone-600 border-stone-900 cursor-not-allowed'
           }`}
         >
-          <Download className={`w-4 h-4 ${hasAudio ? 'text-emerald-400' : 'text-stone-700'}`} />
-          <span>{hasAudio ? 'Descarregar Áudio (MP3)' : 'Áudio em processamento...'}</span>
+          <Download className={`w-4 h-4 shrink-0 ${hasAudio ? 'text-emerald-400' : 'text-stone-700'}`} />
+          <span className="sm:inline hidden">{hasAudio ? 'Descarregar Áudio (MP3)' : 'Áudio em processamento...'}</span>
+          <span className="sm:hidden">{hasAudio ? 'MP3' : '...'}</span>
         </button>
 
         <button
@@ -110,8 +111,9 @@ export default forwardRef<HTMLInputElement, SongPlayerProps>(function SongPlayer
           onClick={onDownloadLyrics}
           className="py-3 px-4 bg-stone-900 hover:bg-stone-850 text-stone-200 hover:text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 border border-stone-800 cursor-pointer transition-all"
         >
-          <FileText className="w-4 h-4 text-amber-500" />
-          <span>Descarregar Letra (PDF/Texto)</span>
+          <FileText className="w-4 h-4 shrink-0 text-amber-500" />
+          <span className="sm:inline hidden">Descarregar Letra (PDF/Texto)</span>
+          <span className="sm:hidden">Letra</span>
         </button>
       </div>
 

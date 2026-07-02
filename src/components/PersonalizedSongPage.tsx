@@ -161,7 +161,10 @@ Angola ${(new Date().getFullYear())}
 
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-mono text-stone-500 uppercase tracking-widest font-bold">PÁGINA DEDICADA EXCLUSIVA</span>
+            <span className="text-[10px] font-mono text-stone-500 uppercase tracking-widest font-bold">
+              <span className="hidden sm:inline">PÁGINA DEDICADA EXCLUSIVA</span>
+              <span className="sm:hidden">DEDICATÓRIA</span>
+            </span>
           </div>
         </div>
       </header>
@@ -184,7 +187,7 @@ Angola ${(new Date().getFullYear())}
             <Sparkles className="w-3.5 h-3.5" />
             <span>Uma surpresa feita com a alma</span>
           </div>
-          <h1 className="font-serif text-4xl md:text-6xl text-white font-black tracking-tight max-w-3xl mx-auto leading-none">
+          <h1 className="font-serif text-3xl sm:text-4xl md:text-6xl text-white font-black tracking-tight max-w-3xl mx-auto leading-none break-words">
             {songDetails.songTitle || `Música de ${songDetails.recipientName}`} 💝
           </h1>
           <p className="text-xs md:text-sm text-stone-400 font-mono tracking-wide uppercase">
@@ -197,7 +200,7 @@ Angola ${(new Date().getFullYear())}
           <div className="lg:col-span-5 bg-gradient-to-b from-stone-900/50 to-stone-950/80 rounded-[32px] p-6 border border-stone-850/60 flex flex-col justify-between items-center text-center space-y-8 relative overflow-hidden">
             <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-500 to-rose-500 opacity-20" />
 
-            <div className="relative w-56 h-56 md:w-64 md:h-64 flex items-center justify-center">
+            <div className="relative w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 flex items-center justify-center">
               <AnimatePresence>
                 {isPlaying && (
                   <motion.div

@@ -18,7 +18,7 @@ export default function SongLyrics({ lyrics, audioProgress }: SongLyricsProps) {
   ];
 
   return (
-    <div className="bg-stone-950/40 p-5 rounded-2xl border border-stone-850 text-center space-y-3">
+    <div className="bg-stone-950/40 p-5 rounded-2xl border border-stone-850 text-left md:text-center space-y-3">
       <span className="text-[9px] font-mono text-stone-550 tracking-widest uppercase block border-b border-stone-900 pb-1.5">
         LETRA COMPLICADA SÍNCRONA:
       </span>

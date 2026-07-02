@@ -45,7 +45,7 @@ export function Step1Relation({
               }`}
             >
               <span className="text-xl mb-1">{card.icon}</span>
-              <span className="text-xxs sm:text-xs font-medium truncate max-w-full">{card.label}</span>
+              <span className="text-xxs sm:text-xs font-medium leading-tight">{card.label}</span>
             </button>
           );
         })}
@@ -138,7 +138,7 @@ export function Step2Occasion({
               }`}
             >
               <span className="text-xl mb-1">{card.icon}</span>
-              <span className="text-xxs sm:text-xs font-medium truncate max-w-full">{card.label}</span>
+              <span className="text-xxs sm:text-xs font-medium leading-tight">{card.label}</span>
             </button>
           );
         })}
@@ -225,8 +225,8 @@ export function Step3Style({
                     : 'bg-stone-950/40 border-stone-850 text-stone-400 hover:text-stone-300'
                 }`}
               >
-                <span className="text-xs font-semibold block truncate">{artist.name}</span>
-                <span className="text-[8px] text-stone-550 block truncate font-mono">{artist.style}</span>
+                <span className="text-xs font-semibold leading-tight block">{artist.name}</span>
+                <span className="text-[8px] text-stone-550 leading-tight block font-mono">{artist.style}</span>
               </button>
             );
           })}
@@ -618,7 +618,7 @@ export function Step7Message({
                 }`}
               >
                 <span className="text-xs sm:text-sm shrink-0">{card.icon}</span>
-                <span className="text-xxs sm:text-xs font-medium truncate">{card.label}</span>
+                <span className="text-xxs sm:text-xs font-medium leading-tight">{card.label}</span>
               </button>
             );
           })}

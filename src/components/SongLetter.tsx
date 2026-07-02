@@ -21,7 +21,7 @@ export default function SongLetter(props: SongLetterProps) {
 
       <div className="border-b border-stone-850/60 pb-4">
         <span className="text-[10px] font-mono text-amber-500 uppercase tracking-widest font-bold">A Carta Dedicatória Escrita do Coração</span>
-        <h2 className="font-serif text-2xl md:text-3xl font-bold text-stone-100 mt-1">Palavras De Sentimento Verdadeiro ✍️</h2>
+        <h2 className="font-serif text-xl sm:text-2xl md:text-3xl font-bold text-stone-100 mt-1">Palavras De Sentimento Verdadeiro ✍️</h2>
       </div>
 
       <div className="bg-stone-950 p-6 md:p-8 rounded-2xl border border-stone-850 font-serif text-sm md:text-base leading-relaxed text-stone-300 max-w-3xl whitespace-pre-wrap italic">

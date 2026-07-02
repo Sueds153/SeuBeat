@@ -4,7 +4,6 @@ import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
 import { generateLyricsWithClaude } from '../services/claude';
 import { sendPersonalizedEmail } from '../services/email';
 import { csrfTokenEndpoint } from '../middleware/csrf';
-import { logError } from '../utils/logger';
 import DOMPurify from 'isomorphic-dompurify';
 
 function sanitize(str: string): string {

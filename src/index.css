@@ -39,3 +39,30 @@
 @keyframes pulse-slow { 50% { opacity: .7; } }
 .animate-pulse-slow { animation: pulse-slow 3s infinite; }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@media (max-width: 639px) {
+  html { font-size: 15px; }
+  .touch-target { min-height: 44px; min-width: 44px; }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  html { font-size: 15.5px; }
+}
+
+@media (max-width: 380px) {
+  html { font-size: 14px; }
+  .hide-on-mobile-sm { display: none !important; }
+}
+

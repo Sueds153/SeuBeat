@@ -150,7 +150,7 @@ export default function AudioDemo() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-xxs text-stone-500 block font-mono">Dedicado a</span>
+                    <span className="hidden sm:block text-xxs text-stone-500 font-mono">Dedicado a</span>
                     <span className="text-xs font-serif text-amber-400/90">{song.recipient.split(' ')[0]}</span>
                   </div>
                 </button>
@@ -216,7 +216,7 @@ export default function AudioDemo() {
             })}
           </div>
 
-          <div className="flex items-end justify-center gap-1.5 h-10 mb-4 px-10">
+          <div className="flex items-end justify-center gap-0.5 sm:gap-1.5 h-10 mb-4 px-2 sm:px-10">
             {Array.from({ length: 28 }).map((_, i) => {
               const randomHeight = isPlaying 
                 ? [20, 60, 40, 80, 50, 95, 30, 70, 20][(i + i * 3) % 9] 
@@ -290,8 +290,8 @@ export default function AudioDemo() {
                 )}
               </button>
 
-              <div className="text-[10px] text-amber-500 font-mono tracking-wider flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-ping" />
+              <div className="text-[10px] text-amber-500 font-mono tracking-wider flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded whitespace-nowrap">
+                <span className="hidden sm:inline w-1.5 h-1.5 bg-green-500 rounded-full animate-ping" />
                 <span>EXEMPLO REAL</span>
               </div>
             </div>

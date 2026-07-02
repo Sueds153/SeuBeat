@@ -15,7 +15,7 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **ErrorBanner + Toast** para erros no frontend.
 - **Logger estruturado** Winston com níveis e rotação.
 - **WizardSteps.tsx** extraído (Wizard.tsx caiu de 2865→2296 linhas).
-- **82 testes** (validation, validation-frontend, email-utils, suno-utils, SongPlayer, song-api, useAudioPlayer, smoke).
+- **107 testes** (validation, validation-frontend, email-utils, suno-utils, SongPlayer, song-api, useAudioPlayer, smoke, AdminPanel).
 - **Logging personaId** adicionado em start e continue (truncado + payload).
 - **DedicationPage fetch** com AbortController (10s timeout) + race condition `notFound`/`fetchError` corrigida.
 - **Fase 1a**: Constantes `PRICING_PLANS`, `DEMO_SONGS` extraídas de `types.ts` para `src/constants/`.
@@ -45,6 +45,7 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Sentry MCP configurado**: `opencode.json` com `@sentry/mcp-server` via STDIO (+ env var `SENTRY_ACCESS_TOKEN`).
 - **API testadas**: Suno ✅ (26 créditos), Brevo SMTP ✅, Claude ❌ (sem créditos), Supabase ✅.
 - **Env vars actualizadas no Render**: ANTHROPIC_API_KEY (PUT API + redeploy).
+- **AdminPanel 25 testes a passar**: fixes — confirm dialog texto correcto (`pretende`), `window.confirm` mockado, toast/expand verificados via `body.textContent` (AnimatePresence não renderiza texto pesquisável em jsdom).
 
 ### Blocked
 - **Anthropic API sem créditos**: chave `sk-ant-api03-...` válida mas retorna `"Your credit balance is too low"`. Necessário recarregar em https://console.anthropic.com/settings/billing
@@ -73,10 +74,10 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 1. **Recarregar créditos Anthropic** em https://console.anthropic.com/settings/billing — bloqueia geração de letras no wizard.
 2. **Custom domain** apontar `seubeat.ao` para Render.
 3. **E2E tests completos** com API reais (Wizard → pagamento → dedicatória).
-4. **Admin dashboard testes** (component tests para AdminPanel).
+4. **Admin dashboard testes** — 25 testes passando.
 
 ## Critical Context
-- **82 testes passam sempre** após cada mudança (vitest).
+- **107 testes passam sempre** após cada mudança (vitest).
 - **Supabase**: `service_role` key usada apenas onde necessário (admin routes, auth.admin.*, workflows, signed URLs). Anon key usada no endpoint público de dedicatória.
 - **Render** faz auto-deploy a cada push no `main`.
 - **CI pipeline**: GitHub Actions corre `npm run lint` e `npm test` antes do deploy.
