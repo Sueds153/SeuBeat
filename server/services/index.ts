@@ -4,3 +4,4 @@ export { processSunoVoice, setProgress, runBackgroundSunoWorkflow, completeSunoW
 export { sendPersonalizedEmail, sendPaymentRejectionEmail } from './email';
 export { getAdminSupabase, getPublicSupabase, uploadToSupabase } from './supabase';
 export { downloadFile } from './audio';
+export { sendPurchaseEvent } from './metaPixelCapi';

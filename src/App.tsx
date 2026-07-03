@@ -6,12 +6,16 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import LandingPage from './components/LandingPage';
 import SocialProof from './components/SocialProof';
+import { useMetaPixel } from './hooks/useMetaPixel';
+import { fbPageView, fbInitiateCheckout } from './lib/metaPixel';
 
 const Wizard = lazy(() => import('./components/Wizard'));
 const PersonalizedSongPage = lazy(() => import('./components/PersonalizedSongPage'));
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 
 export default function App() {
+  useMetaPixel();
+
   const [currentView, setCurrentView] = useState<'landing' | 'wizard' | 'song' | 'admin'>(() => {
     if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
       return 'admin';
@@ -24,6 +28,11 @@ export default function App() {
 
   const currentViewRef = useRef(currentView);
   currentViewRef.current = currentView;
+
+  // Fire PageView on mount and when view changes
+  useEffect(() => {
+    fbPageView();
+  }, [currentView]);
 
   // Handle browser back navigation or dynamic path change
   useEffect(() => {
@@ -42,6 +51,7 @@ export default function App() {
 
   const startWizard = () => {
     setCurrentView('wizard');
+    fbInitiateCheckout('wizard');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

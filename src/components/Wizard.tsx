@@ -15,6 +15,7 @@ import {
 } from './WizardSteps';
 import { validateStep as zodValidateStep, FieldErrors } from '../lib/validation';
 import WhatsAppHelp from './WhatsAppHelp';
+import { fbLead, fbAddPaymentInfo, fbPurchase, parsePrice } from '../lib/metaPixel';
 
 interface WizardProps {
   onBackToLanding: () => void;
@@ -269,6 +270,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
             const data = await res.json();
             if (res.ok && data.success) {
               setPaymentSubmitted(true);
+              fbPurchase(selectedPlanID || 'standard', parsePrice(getPrice()));
               setPaymentSubmitError('');
             } else {
               setPaymentSubmitError(data.error || 'Erro ao submeter o comprovativo.');
@@ -568,6 +570,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           setAiLetterText(data.letterText);
           setDbSongId(data.dbSongId);
           setDbSongRequestId(data.dbSongRequestId);
+          fbLead('lyrics_generated');
           setShowPreviewPage(false);
 
           const initialStatus = data.status === 'music_processing' ? 'music_processing' : 'lyrics_ready';
@@ -875,6 +878,8 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     }
 
     setSelectedPlanID(pId);
+    const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
+    fbAddPaymentInfo(pId, PLAN_VALUES[pId]);
     if (pId === 'premium') {
       setVoiceUpsellApplied(true);
       setShowVoiceCloningScreen(true);

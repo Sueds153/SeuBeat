@@ -25,12 +25,12 @@ export function helmetMiddleware() {
     contentSecurityPolicy: process.env.NODE_ENV === 'production' ? {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
+        scriptSrc: ["'self'", 'https://connect.facebook.net'],
         styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
         fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-        imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https:', 'https://www.facebook.com', 'https://fbcdn.net'],
         mediaSrc: ["'self'", 'blob:', 'https:'],
-        connectSrc: ["'self'", 'https://*.supabase.co'],
+        connectSrc: ["'self'", 'https://*.supabase.co', 'https://www.facebook.com'],
         frameAncestors: ["'none'"],
       },
     } : false,

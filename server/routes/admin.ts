@@ -12,6 +12,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { publicErrorMessage } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
+import { sendPurchaseEvent } from '../services/metaPixelCapi';
 
 const router = express.Router();
 
@@ -159,6 +160,16 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
     }
 
     logAdminAction({ action: 'approve', entityType: 'payment', entityId: id, notes: notes || undefined });
+
+    const numericAmount = parseInt(String(payment.amount || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const planName = (payment.plan || songRequest?.plan || 'standard') as string;
+    sendPurchaseEvent({
+      eventId: `payment-${id}-approved`,
+      email: payment.user_email || userEmail || '',
+      value: numericAmount,
+      currency: 'AOA',
+      contentName: planName,
+    });
 
     const hasGeneratedAudio = !!(songData.full_song_url || songData.audio_url);
     const hasVoiceSample = !!songRequest.voice_sample_url;

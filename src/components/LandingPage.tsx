@@ -6,6 +6,7 @@ import Testimonials from './Testimonials';
 import VideoTestimonial from './VideoTestimonial';
 import FAQ from './FAQ';
 import { PRICING_PLANS } from '../constants/pricing';
+import { fbInitiateCheckout, parsePrice } from '../lib/metaPixel';
 
 interface LandingPageProps {
   onStartWizard: () => void;
@@ -373,7 +374,10 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 <div className="pt-8">
                   <button
                     id={`pricing-cta-btn-${plan.id}`}
-                    onClick={onStartWizard}
+                    onClick={() => {
+                      fbInitiateCheckout(plan.id, parsePrice(plan.price));
+                      onStartWizard();
+                    }}
                     className={`w-full py-3.5 rounded-full text-xs md:text-sm font-bold transition-all cursor-pointer ${
                       plan.popular
                         ? 'bg-amber-500 text-stone-950 hover:bg-amber-400 shadow-md shadow-amber-500/20 font-extrabold'
