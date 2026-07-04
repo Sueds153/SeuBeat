@@ -29,6 +29,24 @@
     <!-- Verificação de Domínio Facebook/Meta -->
     <meta name="facebook-domain-verification" content="kmswg5mulscim36qx7x13hfg0nfcui" />
 
+    <!-- Meta Pixel Code -->
+    <script>
+    !function(f,b,e,v,n,t,s)
+    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+    n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];
+    s.parentNode.insertBefore(t,s)}(window, document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '%VITE_META_PIXEL_ID%');
+    fbq('track', 'PageView');
+    </script>
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=%VITE_META_PIXEL_ID%&ev=PageView&noscript=1"
+    /></noscript>
+    <!-- End Meta Pixel Code -->
+
   </head>
   <body class="bg-stone-950 text-stone-100 antialiased selection:bg-amber-500/20 selection:text-amber-300">
     <a href="#root" class="sr-only-focusable" style="position:absolute;left:8px;top:8px;padding:8px 12px;background:#111;color:#fff;border-radius:6px;z-index:9999;transform:translateY(-120%);transition:transform .2s">Pular para o conteúdo</a>
