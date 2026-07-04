@@ -42,15 +42,15 @@
     fbq('init', '%VITE_META_PIXEL_ID%');
     fbq('track', 'PageView');
     </script>
-    <noscript><img height="1" width="1" style="display:none"
-    src="https://www.facebook.com/tr?id=%VITE_META_PIXEL_ID%&ev=PageView&noscript=1"
-    /></noscript>
     <!-- End Meta Pixel Code -->
 
   </head>
   <body class="bg-stone-950 text-stone-100 antialiased selection:bg-amber-500/20 selection:text-amber-300">
     <a href="#root" class="sr-only-focusable" style="position:absolute;left:8px;top:8px;padding:8px 12px;background:#111;color:#fff;border-radius:6px;z-index:9999;transform:translateY(-120%);transition:transform .2s">Pular para o conteúdo</a>
     <div id="root"></div>
+    <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=%VITE_META_PIXEL_ID%&ev=PageView&noscript=1"
+    /></noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
