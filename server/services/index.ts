@@ -1,7 +1,11 @@
-export { generateLyricsWithClaude, selectPrompt } from './claude';
+export { generateLyricsWithGPT, validateGPTComposition } from './openai';
+export { generateLyricsWithClaude, validateClaudeComposition } from './claude';
+export { generateLyrics } from './ai';
+export { selectPrompt } from './prompts';
 export { startSunoMusic, continueSunoMusic, generateFullSong } from './suno';
 export { processSunoVoice, setProgress, runBackgroundSunoWorkflow, completeSunoWorkflowFromAudio } from './workflow';
 export { sendPersonalizedEmail, sendPaymentRejectionEmail } from './email';
 export { getAdminSupabase, getPublicSupabase, uploadToSupabase } from './supabase';
 export { downloadFile } from './audio';
 export { sendPurchaseEvent } from './metaPixelCapi';
+export type { LyricsComposition, AIProvider } from './types';

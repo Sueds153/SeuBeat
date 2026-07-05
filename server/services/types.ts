@@ -1,9 +1,11 @@
-export interface ClaudeLyricsComposition {
+export interface LyricsComposition {
   songTitle: string;
   lyrics: string[];
   lyricsSnippet?: string;
   letterText: string;
 }
+
+export type AIProvider = 'openai' | 'claude';
 
 export interface SunoResult {
   taskId: string;

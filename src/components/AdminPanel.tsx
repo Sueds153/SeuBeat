@@ -79,6 +79,7 @@ interface Song {
 interface DiagnosticsResult {
   supabase: { ok: boolean; error?: string; buckets?: { name: string; public: boolean }[] };
   claude: { ok: boolean; error?: string };
+  openai: { ok: boolean; error?: string };
   suno: { ok: boolean; error?: string; credits?: number };
   sunoVoice: { ok: boolean; error?: string };
   email: { ok: boolean; error?: string; provider?: string; host?: string };
@@ -87,13 +88,14 @@ interface DiagnosticsResult {
 interface CreditsResult {
   suno: { ok: boolean; error?: string; credits: number; low?: boolean; lastCheck: string };
   claude: { ok: boolean; error?: string; model?: string; quota_exceeded?: boolean; lastCheck: string };
+  openai: { ok: boolean; error?: string; total_granted?: number; total_used?: number; total_available?: number; model?: string; quota_exceeded?: boolean; lastCheck: string };
   usage: {
     totalSongs: number;
     songsThisMonth: number;
     songsByMonth: { month: string; count: number }[];
     estimatedSunoCreditsUsed: number;
     estimatedSongsRemaining: number;
-    cost: { sunoUSD: number; claudeUSD: number; totalUSD: number; perSong: number };
+    cost: { sunoUSD: number; claudeUSD: number; openaiUSD: number; totalUSD: number; perSong: number };
   };
 }
 
@@ -1001,7 +1003,7 @@ export default function AdminPanel() {
                     <span className="ml-auto bg-amber-500 text-stone-950 text-[9px] font-black px-1.5 py-0.5 rounded-full">
                       {stats.pendingPayments}
                     </span>
-                  ) : item.id === 'credits' && credits && (credits.suno.low || credits.claude.quota_exceeded) ? (
+                  ) : item.id === 'credits' && credits && (credits.suno.low || credits.claude.quota_exceeded || (credits.openai && !credits.openai.ok)) ? (
                     <span className="ml-auto w-2 h-2 rounded-full bg-rose-500 animate-pulse" title="API com créditos baixos" />
                   ) : null}
                 </button>
@@ -1775,6 +1777,81 @@ export default function AdminPanel() {
                             </div>
                           )}
                         </div>
+
+                        {/* OpenAI Card */}
+                        <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-6 space-y-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+                              <Sparkles className="w-5 h-5 text-emerald-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-stone-200">OpenAI</p>
+                              <p className="text-[10px] font-mono text-stone-500">Geração de Letras (Primário)</p>
+                            </div>
+                          </div>
+
+                          {credits.openai?.ok ? (
+                            <div className="space-y-2">
+                              {credits.openai.total_available !== undefined ? (
+                                <>
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-xs font-mono text-stone-400">Saldo Disponível</span>
+                                      <span className={`text-lg font-mono font-black ${credits.openai.total_available < 1 ? 'text-rose-400' : credits.openai.total_available < 5 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                        ${credits.openai.total_available.toFixed(2)}
+                                      </span>
+                                    </div>
+                                    <div className="w-full bg-stone-800 rounded-full h-2">
+                                      <div className={`h-2 rounded-full transition-all ${credits.openai.total_available < 1 ? 'bg-rose-500' : credits.openai.total_available < 5 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                        style={{ width: `${(credits.openai.total_granted ?? 0) > 0 ? Math.min(100, (credits.openai.total_available / (credits.openai.total_granted ?? 1)) * 100) : 100}%` }} />
+                                    </div>
+                                    <div className="flex items-center justify-between text-[10px] font-mono">
+                                      <span className={credits.openai.total_available < 1 ? 'text-rose-400' : credits.openai.total_available < 5 ? 'text-amber-400' : 'text-emerald-400'}>
+                                        {credits.openai.total_available < 1 ? '⚠️ Saldo baixo!' : credits.openai.total_available < 5 ? '⚡ A ficar baixo' : '✅ Saldo saudável'}
+                                      </span>
+                                      <span className="text-stone-600">
+                                        ~{Math.floor((credits.openai.total_available || 0) / 0.01)} letras
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-[10px] font-mono space-y-1">
+                                    <div className="flex justify-between text-stone-500">
+                                      <span>Total usado</span>
+                                      <span className="text-stone-400">${(credits.openai.total_used || 0).toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-stone-500">
+                                      <span>Total concedido</span>
+                                      <span className="text-stone-400">${(credits.openai.total_granted || 0).toFixed(2)}</span>
+                                    </div>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-mono text-stone-500">Modelo</span>
+                                    <span className="text-xs font-mono text-stone-300">{credits.openai.model || 'gpt-4o'}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-mono text-stone-500">Estado</span>
+                                    <span className="text-xs font-mono font-bold text-emerald-400">✅ Operacional</span>
+                                  </div>
+                                </div>
+                              )}
+                              {credits.openai.lastCheck && (
+                                <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-[10px] font-mono">
+                                  <div className="flex justify-between text-stone-500">
+                                    <span>Última verificação</span>
+                                    <span className="text-stone-400">{new Date(credits.openai.lastCheck).toLocaleString('pt')}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
+                              <p className="text-xs text-rose-400 font-mono">{credits.openai?.error || 'Indisponível'}</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Usage & Cost Summary */}
@@ -1854,6 +1931,8 @@ export default function AdminPanel() {
                         detail={diagnostics.supabase.ok ? `Buckets: ${diagnostics.supabase.buckets?.map(b => b.name).join(', ')}` : diagnostics.supabase.error} />
                       <DiagBadge ok={diagnostics.claude.ok} label="Anthropic Claude (Geração de Letras)"
                         detail={diagnostics.claude.error} />
+                      <DiagBadge ok={diagnostics.openai?.ok} label="OpenAI GPT-4o (Geração de Letras)"
+                        detail={diagnostics.openai?.error} />
                       <DiagBadge ok={diagnostics.suno?.ok} label="Suno AI (Geração de Música)"
                         detail={diagnostics.suno?.ok ? `Créditos: ${diagnostics.suno?.credits || 'N/A'}` : diagnostics.suno?.error} />
                       <DiagBadge ok={diagnostics.sunoVoice?.ok} label="Suno Voice (Clonagem de Voz)"

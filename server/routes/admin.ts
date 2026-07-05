@@ -9,6 +9,7 @@ import {
 } from '../services/workflow';
 import { sendPersonalizedEmail, sendPaymentRejectionEmail } from '../services/email';
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { publicErrorMessage } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
@@ -313,7 +314,7 @@ router.get('/credits', adminAuth, async (req, res) => {
     const now = new Date();
     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [sunoResult, claudeResult, songsRes, songsMonthRes, songsByMonthRes] = await Promise.all([
+    const [sunoResult, claudeResult, openaiResult, songsRes, songsMonthRes, songsByMonthRes] = await Promise.all([
       // Suno live credit check
       (async () => {
         const key = process.env.SUNO_API_KEY;
@@ -341,6 +342,35 @@ router.get('/credits', adminAuth, async (req, res) => {
         } catch (e: any) {
           if (e.message?.includes('quota') || e.message?.includes('limit') || e.message?.includes('429')) {
             return { ok: true, quota_exceeded: true, error: e.message, model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022', lastCheck: now.toISOString() };
+          }
+          return { ok: false, error: e.message };
+        }
+      })(),
+      // OpenAI live check
+      (async () => {
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) return { ok: false, error: 'OPENAI_API_KEY em falta' };
+        try {
+          const openai = new OpenAI({ apiKey });
+          const models = await openai.models.list({ timeout: 5000 });
+          const creditsRes = await fetch('https://api.openai.com/v1/dashboard/billing/credit_grants', {
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+          });
+          if (creditsRes.ok) {
+            const data = await creditsRes.json();
+            return {
+              ok: true,
+              total_granted: data.total_granted || 0,
+              total_used: data.total_used || 0,
+              total_available: data.total_available || 0,
+              model: process.env.OPENAI_MODEL || 'gpt-4o',
+              lastCheck: now.toISOString(),
+            };
+          }
+          return { ok: true, model: process.env.OPENAI_MODEL || 'gpt-4o', lastCheck: now.toISOString() };
+        } catch (e: any) {
+          if (e.message?.includes('quota') || e.message?.includes('limit') || e.message?.includes('429') || e.message?.includes('insufficient')) {
+            return { ok: true, quota_exceeded: true, error: e.message, model: process.env.OPENAI_MODEL || 'gpt-4o', lastCheck: now.toISOString() };
           }
           return { ok: false, error: e.message };
         }
@@ -374,13 +404,16 @@ router.get('/credits', adminAuth, async (req, res) => {
     const estSongsRemaining = sunoCredits > 0 ? Math.floor(sunoCredits / 2) : 0;
     const sunoCostPerCredit = Number(process.env.SUNO_COST_PER_CREDIT_USD) || 0.15;
     const claudeCostPerGen = Number(process.env.CLAUDE_COST_PER_GENERATION_USD) || 0.03;
+    const openaiCostPerGen = Number(process.env.OPENAI_COST_PER_GENERATION_USD) || 0.01;
     const estSunoCost = +(estCreditsUsed * sunoCostPerCredit).toFixed(2);
     const estClaudeCost = +(totalSongs * claudeCostPerGen).toFixed(2);
-    const estTotalCost = +(estSunoCost + estClaudeCost).toFixed(2);
+    const estOpenAICost = +(totalSongs * openaiCostPerGen).toFixed(2);
+    const estTotalCost = +(estSunoCost + estClaudeCost + estOpenAICost).toFixed(2);
 
     res.json({
       suno: sunoResult,
       claude: claudeResult,
+      openai: openaiResult,
       usage: {
         totalSongs,
         songsThisMonth,
@@ -390,8 +423,9 @@ router.get('/credits', adminAuth, async (req, res) => {
         cost: {
           sunoUSD: estSunoCost,
           claudeUSD: estClaudeCost,
+          openaiUSD: estOpenAICost,
           totalUSD: estTotalCost,
-          perSong: +((sunoCostPerCredit * 2) + claudeCostPerGen).toFixed(2),
+          perSong: +((sunoCostPerCredit * 2) + Math.min(claudeCostPerGen, openaiCostPerGen)).toFixed(2),
         },
       },
     });
@@ -466,7 +500,7 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
 // H. Diagnostics
 router.get('/diagnostics', adminAuth, async (req, res) => {
   try {
-    const [supabaseDiag, claudeDiag, sunoDiag, sunoVoiceDiag, emailDiag] = await Promise.all([
+    const [supabaseDiag, claudeDiag, openaiDiag, sunoDiag, sunoVoiceDiag, emailDiag] = await Promise.all([
       (async () => {
         const supabase = getAdminSupabase();
         if (!supabase) return { ok: false, error: 'Cliente não inicializado' };
@@ -487,6 +521,15 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
             messages: [{ role: 'user', content: 'ping' }]
           });
           return { ok: !!(response && response.content) };
+        } catch (e: any) { return { ok: false, error: e.message }; }
+      })(),
+      (async () => {
+        const key = process.env.OPENAI_API_KEY;
+        if (!key) return { ok: false, error: 'OPENAI_API_KEY em falta' };
+        try {
+          const openai = new OpenAI({ apiKey: key });
+          await openai.models.list({ timeout: 5000 });
+          return { ok: true };
         } catch (e: any) { return { ok: false, error: e.message }; }
       })(),
       (async () => {
@@ -519,6 +562,7 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
     res.json({
       supabase: supabaseDiag,
       claude: claudeDiag,
+      openai: openaiDiag,
       suno: sunoDiag,
       sunoVoice: sunoVoiceDiag,
       email: emailDiag,
@@ -752,8 +796,8 @@ router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
       language: requestData.language || 'português'
     };
 
-    const { generateLyricsWithClaude } = await import('../services/claude');
-    const parsedData = await generateLyricsWithClaude(formData);
+    const { generateLyrics } = await import('../services/ai');
+    const { result: parsedData } = await generateLyrics(formData);
 
     const { data: updatedSong, error: songError } = await supabase
       .from('songs')

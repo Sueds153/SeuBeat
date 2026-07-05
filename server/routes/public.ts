@@ -1,7 +1,7 @@
 import express from 'express';
 import { randomUUID } from 'crypto';
 import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
-import { generateLyricsWithClaude } from '../services/claude';
+import { generateLyrics } from '../services/ai';
 import { sendPersonalizedEmail } from '../services/email';
 import { csrfTokenEndpoint } from '../middleware/csrf';
 import DOMPurify from 'isomorphic-dompurify';
@@ -268,7 +268,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
     logInfo('Song request created', { requestId: requestData.id, email: userEmail });
     setProgress(dbSongRequestId!, { status: 'lyrics_generating', progress: 10, message: 'A gerar letra personalizada com IA...' });
 
-    const parsedData = await generateLyricsWithClaude({
+    const { result: parsedData } = await generateLyrics({
       userNick: userNick || 'Autor',
       recipientName: recipientName || 'Destinatario',
       recipientRelation: recipientRelation || 'Parceiro',

@@ -4,6 +4,12 @@ export function publicErrorMessage(err: any, fallback = 'Não foi possível conc
   if (/ANTHROPIC_API_KEY/i.test(message)) {
     return 'A geração de letras está temporariamente indisponível (Erro de Configuração do Claude).';
   }
+  if (/OPENAI_API_KEY/i.test(message)) {
+    return 'A geração de letras está temporariamente indisponível (Erro de Configuração do OpenAI).';
+  }
+  if (/Nenhuma chave de API de IA configurada/i.test(message)) {
+    return 'A geração de letras está temporariamente indisponível (Nenhuma chave de IA configurada).';
+  }
   if (/CLAUDE_MODEL/i.test(message)) {
     return 'A configuração do modelo de geração de letras está incorreta. Por favor, contacte o suporte.';
   }
@@ -20,7 +26,7 @@ export function publicErrorMessage(err: any, fallback = 'Não foi possível conc
     return 'A IA gerou uma resposta incompleta. Por favor, tente novamente para obter uma letra perfeita.';
   }
   if (/quota|limit|429|rate limit|credit.*balance|too low|insufficient.*credit/i.test(message)) {
-    return 'O saldo de créditos da API de geração de letras está esgotado. A equipa SeuBeat precisa de recarregar em https://console.anthropic.com/settings/billing.';
+    return 'O saldo de créditos da API de geração de letras está esgotado. Contacte a equipa SeuBeat para recarregar.';
   }
   if (/401|403|authentication|unauthorized|api.key|invalid.*key/i.test(message)) {
     return 'A geração de letras está temporariamente indisponível (Erro de autenticação com serviço externo).';

@@ -60,6 +60,7 @@ export async function createApp(): Promise<express.Application> {
         sentry: !!getEnv('SENTRY_DSN'),
         suno: !!getEnv('SUNO_API_KEY'),
         anthropic: !!getEnv('ANTHROPIC_API_KEY'),
+        openai: !!getEnv('OPENAI_API_KEY'),
         supabase: !!getEnv('SUPABASE_URL'),
         smtp: !!getEnv('SMTP_HOST'),
         adminPassword: !!getEnv('ADMIN_PASSWORD'),
