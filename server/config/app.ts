@@ -4,7 +4,7 @@ import { globalLimiter, adminLimiter } from '../middleware/rateLimiter';
 import { errorHandler } from '../middleware/errorHandler';
 import { helmetMiddleware, corsMiddleware, httpLogger, permissionsPolicyMiddleware } from '../middleware/security';
 import { adminIpRestriction } from '../middleware/adminIpRestriction';
-import { csrfProtection, csrfTokenEndpoint } from '../middleware/csrf';
+import { csrfProtection } from '../middleware/csrf';
 import { logInfo } from '../utils/logger';
 import { getAdminSupabase } from '../services/supabase';
 import adminRouter from '../routes/admin';

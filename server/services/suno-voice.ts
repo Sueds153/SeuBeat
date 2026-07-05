@@ -1,3 +1,5 @@
+import { logWarn } from '../utils/logger';
+
 const SUNO_TIMEOUT_MS = Number(process.env.SUNO_TIMEOUT_MS || 60000);
 
 async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = SUNO_TIMEOUT_MS, retries = 3) {
@@ -8,7 +10,7 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
       const res = await fetch(url, { ...init, signal: controller.signal });
       if (res.status === 429 && attempt < retries) {
         const backoff = 1000 * Math.pow(2, attempt - 1);
-        console.warn(`[Suno Voice] 429 Too Frequent, retry ${attempt}/${retries} in ${backoff}ms`);
+        logWarn(`[Suno Voice] 429 Too Frequent, retry ${attempt}/${retries} in ${backoff}ms`);
         clearTimeout(timeout);
         await new Promise(r => setTimeout(r, backoff));
         continue;
@@ -19,7 +21,7 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
         throw new Error(`Suno Voice request timeout after ${timeoutMs}ms`);
       }
       if (attempt < retries) {
-        console.warn(`[Suno Voice] Attempt ${attempt}/${retries} failed: ${err.message}, retrying...`);
+        logWarn(`[Suno Voice] Attempt ${attempt}/${retries} failed: ${err.message}, retrying...`);
         await new Promise(r => setTimeout(r, 1000 * attempt));
         continue;
       }

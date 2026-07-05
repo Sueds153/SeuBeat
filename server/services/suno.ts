@@ -106,6 +106,27 @@ function collectAudioUrls(value: unknown, urls: string[] = []): string[] {
   return urls;
 }
 
+const STYLE_MAP: Record<string, string> = {
+  kizomba: 'kizomba, slow tempo, romantic vocal, african beats, sensual rhythm',
+  semba: 'semba, tradicional angola beat, acoustic guitar, fast tempo',
+  zouk: 'zouk, caribbean rhythm, romantic, soft synth, french creole vibe',
+  'bossa nova': 'bossa nova, soft acoustic guitar, gentle vocals, brazilian jazz',
+  mpb: 'mpb, brazilian popular music, melodic, warm acoustic, rich harmony',
+  samba: 'samba, carnival percussion, energetic, brazilian drums, festive',
+  afrobeat: 'afrobeat, upbeat percussion, energetic dance, african pop',
+  funk: 'funk, groovy bass, syncopated drums, upbeat, dance floor',
+  trap: 'trap, 808 bass, hi-hat rolls, dark atmosphere, urban',
+  rap: 'rap, rhythmic flow, spoken word, urban beats, lyrical',
+  reggae: 'reggae, offbeat rhythm, bass heavy, jamaican vibe, relaxed',
+  rock: 'rock, electric guitar, powerful drums, energetic, anthemic',
+  pop: 'pop, catchy melody, polished production, radio friendly',
+  balada: 'ballad, slow tempo, piano-driven, emotional, orchestral',
+  gospel: 'gospel, choral harmonies, organ backing, inspirational vocal',
+  acoustic: 'acoustic guitar, intimate vocals, soft unplugged ballad',
+  'romantic pop': 'romantic pop ballad, emotional strings, modern radio melody',
+  'r&b': 'r&b, smooth vocals, groovy bassline, soulful rhythm, sensual melody',
+};
+
 function extractTaskId(payload: any): string | null {
   return firstString(
     payload?.taskId,
@@ -196,28 +217,7 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
     // Falha na verificação de créditos não impede o fluxo
   }
 
-  const styleMap: Record<string, string> = {
-    kizomba: 'kizomba, slow tempo, romantic vocal, african beats, sensual rhythm',
-    semba: 'semba, tradicional angola beat, acoustic guitar, fast tempo',
-    zouk: 'zouk, caribbean rhythm, romantic, soft synth, french creole vibe',
-    'bossa nova': 'bossa nova, soft acoustic guitar, gentle vocals, brazilian jazz',
-    mpb: 'mpb, brazilian popular music, melodic, warm acoustic, rich harmony',
-    samba: 'samba, carnival percussion, energetic, brazilian drums, festive',
-    afrobeat: 'afrobeat, upbeat percussion, energetic dance, african pop',
-    funk: 'funk, groovy bass, syncopated drums, upbeat, dance floor',
-    trap: 'trap, 808 bass, hi-hat rolls, dark atmosphere, urban',
-    rap: 'rap, rhythmic flow, spoken word, urban beats, lyrical',
-    reggae: 'reggae, offbeat rhythm, bass heavy, jamaican vibe, relaxed',
-    rock: 'rock, electric guitar, powerful drums, energetic, anthemic',
-    pop: 'pop, catchy melody, polished production, radio friendly',
-    balada: 'ballad, slow tempo, piano-driven, emotional, orchestral',
-    gospel: 'gospel, choral harmonies, organ backing, inspirational vocal',
-    acoustic: 'acoustic guitar, intimate vocals, soft unplugged ballad',
-    'romantic pop': 'romantic pop ballad, emotional strings, modern radio melody',
-    'r&b': 'r&b, smooth vocals, groovy bassline, soulful rhythm, sensual melody',
-  };
-
-  const stylePrompt = styleMap[musicStyle.trim().toLowerCase()] || 'romantic, emotional pop';
+  const stylePrompt = STYLE_MAP[musicStyle.trim().toLowerCase()] || 'romantic, emotional pop';
 
   logInfo('[Suno] Submitting music generation task', {
     style: musicStyle,

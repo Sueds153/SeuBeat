@@ -4,4 +4,4 @@ export { adminAuth } from './auth';
 export { validateInput } from './validation';
 export { corsMiddleware, helmetMiddleware, httpLogger } from './security';
 export { adminIpRestriction } from './adminIpRestriction';
-export { csrfProtection, csrfTokenEndpoint } from './csrf';
+export { csrfProtection } from './csrf';

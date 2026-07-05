@@ -3,7 +3,6 @@ import { randomUUID } from 'crypto';
 import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
 import { generateLyrics } from '../services/ai';
 import { sendPersonalizedEmail } from '../services/email';
-import { csrfTokenEndpoint } from '../middleware/csrf';
 import DOMPurify from 'isomorphic-dompurify';
 
 function sanitize(str: string): string {
@@ -584,8 +583,5 @@ router.post('/log-error', (req, res) => {
   console.error(`[ClientError] message="${m}" stack="${(s||'').slice(0,500)}" componentStack="${(componentStack||'').slice(0,500)}" url="${u}" ua="${userAgent}"`);
   res.json({ ok: true });
 });
-
-// CSRF token endpoint
-router.get('/csrf-token', csrfTokenEndpoint);
 
 export default router;

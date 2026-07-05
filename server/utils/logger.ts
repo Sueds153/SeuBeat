@@ -165,4 +165,3 @@ export function logFatal(message: string, error?: Error | any, metadata?: Record
   captureSentry('fatal', message, error, metadata).then(() => process.exit(1));
 }
 
-// export default logger (removed — never imported as default)

@@ -10,6 +10,9 @@ export function validateEnv(): void {
     console.error(`[FATAL] Variaveis de ambiente em falta: ${missing.join(', ')}`);
     process.exit(1);
   }
+  if (!process.env.JWT_SECRET) {
+    console.warn('[WARN] JWT_SECRET nao configurado — a usar fallback inseguro (dev-secret).');
+  }
   if (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY) {
     if (process.env.CI || process.env.NODE_ENV === 'test') {
       console.warn('[WARN] Nenhuma chave de IA configurada (OPENAI_API_KEY ou ANTHROPIC_API_KEY)');
