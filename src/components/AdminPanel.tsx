@@ -89,6 +89,7 @@ interface CreditsResult {
   suno: { ok: boolean; error?: string; credits: number; low?: boolean; lastCheck: string };
   claude: { ok: boolean; error?: string; model?: string; quota_exceeded?: boolean; lastCheck: string };
   openai: { ok: boolean; error?: string; total_granted?: number; total_used?: number; total_available?: number; model?: string; quota_exceeded?: boolean; lastCheck: string };
+  email: { ok: boolean; error?: string; provider?: string; host?: string; lastCheck: string };
   usage: {
     totalSongs: number;
     songsThisMonth: number;
@@ -226,6 +227,7 @@ export default function AdminPanel() {
   const [editingSong, setEditingSong] = useState<{ id: string; title: string; lyrics: string; letterText: string } | null>(null);
   const [uploadingSongId, setUploadingSongId] = useState<string | null>(null);
   const progressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const viewPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [credits, setCredits] = useState<CreditsResult | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
   const [forceStatusModal, setForceStatusModal] = useState<{ id: string; table: string; currentStatus: string } | null>(null);
@@ -261,6 +263,41 @@ export default function AdminPanel() {
     ? { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' }
     : { 'Content-Type': 'application/json' };
 
+  const handleFetchError = useCallback(async (res: Response) => {
+    if (res.ok) return true;
+    if (res.status === 401) {
+      expireSession();
+      return false;
+    }
+    try {
+      const data = await res.json();
+      showToast(data.error || `Erro ${res.status}`, 'error');
+    } catch {
+      showToast(`Erro ${res.status}`, 'error');
+    }
+    return false;
+  }, [adminToken]);
+
+  const apiFetch = useCallback(async (url: string, options: RequestInit = {}): Promise<any> => {
+    try {
+      const res = await fetch(url, { ...options, headers: { ...apiHeaders, ...options.headers } });
+      const ok = await handleFetchError(res);
+      return ok ? await res.json() : null;
+    } catch (e: any) {
+      showToast('Erro de ligação ao servidor.', 'error');
+      return null;
+    }
+  }, [adminToken, apiHeaders, handleFetchError]);
+
+  const expireSession = useCallback(() => {
+    showToast('Sessão expirada. Faça login novamente.', 'error');
+    setTimeout(() => {
+      sessionStorage.removeItem('seubeat_admin_token');
+      setAdminToken('');
+      setAuthenticated(false);
+    }, 1500);
+  }, []);
+
   const handleLogin = async () => {
     setAuthError('');
     setLoginLoading(true);
@@ -292,72 +329,58 @@ export default function AdminPanel() {
   const fetchStats = useCallback(async () => {
     if (!adminToken) return;
     setLoading(true);
-    try {
-      const res = await fetch('/api/admin/stats', { headers: apiHeaders });
-      if (res.ok) setStats(await res.json());
-    } catch (e) { console.error(e); }
+    const data = await apiFetch('/api/admin/stats');
+    if (data) { setStats(data); prevCountsRef.current = { requests: data.totalRequests || 0, payments: data.pendingPayments || 0 }; }
     setLoading(false);
-  }, [adminToken]);
+  }, [adminToken, apiFetch]);
 
   const fetchPayments = useCallback(async () => {
     if (!adminToken) return;
     setLoading(true);
-    try {
-      const res = await fetch('/api/admin/payments', { headers: apiHeaders });
-      if (res.ok) { const d = await res.json(); setPayments(d.payments || []); }
-    } catch (e) { console.error(e); }
+    const d = await apiFetch('/api/admin/payments');
+    if (d) setPayments(d.payments || []);
     setLoading(false);
-  }, [adminToken]);
+  }, [adminToken, apiFetch]);
 
   const fetchRequests = useCallback(async () => {
     if (!adminToken) return;
     setLoading(true);
-    try {
-      const res = await fetch('/api/admin/requests', { headers: apiHeaders });
-      if (res.ok) { const d = await res.json(); setRequests(d.requests || []); }
-    } catch (e) { console.error(e); }
+    const d = await apiFetch('/api/admin/requests');
+    if (d) setRequests(d.requests || []);
     setLoading(false);
-  }, [adminToken]);
+  }, [adminToken, apiFetch]);
 
   const fetchSongs = useCallback(async () => {
     if (!adminToken) return;
     setLoading(true);
-    try {
-      const res = await fetch('/api/admin/songs', { headers: apiHeaders });
-      if (res.ok) { const d = await res.json(); setSongs(d.songs || []); }
-    } catch (e) { console.error(e); }
+    const d = await apiFetch('/api/admin/songs');
+    if (d) setSongs(d.songs || []);
     setLoading(false);
-  }, [adminToken]);
+  }, [adminToken, apiFetch]);
 
   const fetchClientsList = useCallback(async () => {
     if (!adminToken) return;
     setLoading(true);
-    try {
-      const res = await fetch('/api/admin/clients', { headers: apiHeaders });
-      if (res.ok) { const d = await res.json(); setClients(d.clients || []); }
-    } catch (e) { console.error(e); }
+    const d = await apiFetch('/api/admin/clients');
+    if (d) setClients(d.clients || []);
     setLoading(false);
-  }, [adminToken]);
+  }, [adminToken, apiFetch]);
 
   const fetchDiagnostics = useCallback(async () => {
     if (!adminToken) return;
     setDiagLoading(true);
-    try {
-      const res = await fetch('/api/admin/diagnostics', { headers: apiHeaders });
-      if (res.ok) setDiagnostics(await res.json());
-    } catch (e) { console.error(e); }
+    const data = await apiFetch('/api/admin/diagnostics');
+    if (data) setDiagnostics(data);
     setDiagLoading(false);
-  }, [adminToken]);
+  }, [adminToken, apiFetch]);
 
   const fetchCredits = useCallback(async () => {
     if (!adminToken) return;
     setCreditsLoading(true);
-    try {
-      const res = await fetch('/api/admin/credits', { headers: apiHeaders });
-      if (res.ok) setCredits(await res.json());
-    } catch (e) { console.error(e); }
+    const data = await apiFetch('/api/admin/credits');
+    if (data) setCredits(data);
     setCreditsLoading(false);
-  }, [adminToken]);
+  }, [adminToken, apiFetch]);
 
   const handleForceStatus = useCallback(async () => {
     if (!forceStatusModal || !forceStatusValue) return;
@@ -369,11 +392,12 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (res.ok) { showToast(`Estado forçado para "${forceStatusValue}"`); setForceStatusModal(null); setForceStatusValue(''); }
+      else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao forçar estado.', 'error');
-    } catch (e: any) { showToast(e.message, 'error'); }
+    } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
     fetchRequests(); fetchPayments(); fetchSongs();
-  }, [forceStatusModal, forceStatusValue, adminToken]);
+  }, [forceStatusModal, forceStatusValue, adminToken, expireSession]);
 
   const handleUpdateStyle = useCallback(async (requestId: string, musicStyle?: string, voiceType?: string) => {
     setActionLoading(requestId + '_style');
@@ -384,10 +408,11 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (res.ok) { showToast('🎵 Estilo atualizado!'); fetchRequests(); }
+      else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao atualizar.', 'error');
-    } catch (e: any) { showToast(e.message, 'error'); }
+    } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
-  }, [adminToken]);
+  }, [adminToken, expireSession]);
 
   const handleRegenerateLyrics = useCallback(async (requestId: string) => {
     setActionLoading(requestId + '_reg');
@@ -397,63 +422,56 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (res.ok) { showToast('✏️ Letra regenerada com sucesso!'); fetchRequests(); }
+      else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao regenerar.', 'error');
-    } catch (e: any) { showToast(e.message, 'error'); }
+    } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
-  }, [adminToken]);
+  }, [adminToken, expireSession]);
 
   const fetchMetrics = useCallback(async () => {
     if (!adminToken) return;
     setMetricsLoading(true);
-    try {
-      const res = await fetch('/api/admin/metrics', { headers: apiHeaders });
-      if (res.ok) setMetrics(await res.json());
-    } catch (e) { console.error(e); }
+    const data = await apiFetch('/api/admin/metrics');
+    if (data) setMetrics(data);
     setMetricsLoading(false);
-  }, [adminToken]);
+  }, [adminToken, apiFetch]);
 
   const fetchProfitability = useCallback(async () => {
     if (!adminToken) return;
     setProfitLoading(true);
-    try {
-      const res = await fetch('/api/admin/profitability', { headers: apiHeaders });
-      if (res.ok) setProfitability(await res.json());
-    } catch (e) { console.error(e); }
+    const data = await apiFetch('/api/admin/profitability');
+    if (data) setProfitability(data);
     setProfitLoading(false);
-  }, [adminToken]);
+  }, [adminToken, apiFetch]);
 
   const fetchLogs = useCallback(async (requestId: string) => {
     setLogsModal({ id: requestId, loading: true, logs: [] });
-    try {
-      const res = await fetch(`/api/admin/request/${requestId}/logs`, { headers: apiHeaders });
-      if (res.ok) { const d = await res.json(); setLogsModal({ id: requestId, loading: false, logs: d.logs || [] }); }
-      else setLogsModal(null);
-    } catch (e) { setLogsModal(null); }
-  }, [adminToken]);
+    const d = await apiFetch(`/api/admin/request/${requestId}/logs`);
+    if (d) setLogsModal({ id: requestId, loading: false, logs: d.logs || [] });
+    else setLogsModal(null);
+  }, [adminToken, apiFetch]);
 
   const checkNewData = useCallback(async () => {
     if (!adminToken) return;
-    try {
-      const res = await fetch('/api/admin/stats', { headers: apiHeaders });
-      if (!res.ok) return;
-      const statsData = await res.json();
-      const prev = prevCountsRef.current;
-      const currentRequests = statsData.totalRequests || 0;
-      const currentPayments = statsData.pendingPayments || 0;
+    const statsData = await apiFetch('/api/admin/stats');
+    if (!statsData) return;
+    setStats(statsData);
+    const prev = prevCountsRef.current;
+    const currentRequests = statsData.totalRequests || 0;
+    const currentPayments = statsData.pendingPayments || 0;
 
-      if (prev.requests > 0 && currentRequests > prev.requests) {
-        setNotification({ message: `📦 Novo pedido de música recebido!` });
-        setNotifCount(c => c + 1);
-        setNotifDot(true);
-      }
-      if (prev.payments >= 0 && currentPayments > prev.payments) {
-        setNotification({ message: `💳 Novo pagamento pendente!` });
-        setNotifCount(c => c + 1);
-        setNotifDot(true);
-      }
-      prevCountsRef.current = { requests: currentRequests, payments: currentPayments };
-    } catch (e) {}
-  }, [adminToken]);
+    if (prev.requests > 0 && currentRequests > prev.requests) {
+      setNotification({ message: `📦 Novo pedido de música recebido!` });
+      setNotifCount(c => c + 1);
+      setNotifDot(true);
+    }
+    if (prev.payments >= 0 && currentPayments > prev.payments) {
+      setNotification({ message: `💳 Novo pagamento pendente!` });
+      setNotifCount(c => c + 1);
+      setNotifDot(true);
+    }
+    prevCountsRef.current = { requests: currentRequests, payments: currentPayments };
+  }, [adminToken, apiFetch]);
 
   // Notification polling when on admin panel
   useEffect(() => {
@@ -477,6 +495,14 @@ export default function AdminPanel() {
     try {
       const res = await fetch('/api/admin/progress', { headers: apiHeaders });
       if (res.ok) setProgressMap(await res.json());
+      else if (res.status === 401) {
+        showToast('Sessão expirada.', 'error');
+        setTimeout(() => {
+          sessionStorage.removeItem('seubeat_admin_token');
+          setAdminToken('');
+          setAuthenticated(false);
+        }, 1500);
+      }
     } catch (e) {}
   }, [adminToken]);
 
@@ -501,6 +527,22 @@ export default function AdminPanel() {
     }
     return () => { if (progressPollRef.current) clearInterval(progressPollRef.current); };
   }, [activeView, authenticated]);
+
+  // Poll current view data every 30s
+  useEffect(() => {
+    if (!authenticated) return;
+    const poll = () => {
+      if (activeView === 'payments') fetchPayments();
+      else if (activeView === 'requests') fetchRequests();
+      else if (activeView === 'songs') fetchSongs();
+      else if (activeView === 'clients') fetchClientsList();
+      else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
+      else if (activeView === 'credits') fetchCredits();
+      else if (activeView === 'diagnostics') fetchDiagnostics();
+    };
+    viewPollRef.current = setInterval(poll, 30000);
+    return () => { if (viewPollRef.current) clearInterval(viewPollRef.current); };
+  }, [authenticated, activeView, fetchPayments, fetchRequests, fetchSongs, fetchClientsList, fetchMetrics, fetchProfitability, fetchCredits, fetchDiagnostics]);
 
   useEffect(() => { setReqPage(1); }, [searchQuery]);
   useEffect(() => { setPayPage(1); }, [paymentSearchQuery]);
@@ -527,10 +569,11 @@ export default function AdminPanel() {
         fetchPayments();
         fetchStats();
       } else {
-        showToast(data.error || 'Erro ao aprovar pagamento.', 'error');
+        if (res.status === 401) expireSession();
+        else showToast(data.error || 'Erro ao aprovar pagamento.', 'error');
       }
     } catch (e: any) {
-      showToast(e.message, 'error');
+      showToast(e.message || 'Erro de ligação.', 'error');
     }
     setActionLoading(null);
   };
@@ -553,10 +596,11 @@ export default function AdminPanel() {
         fetchPayments();
         fetchStats();
       } else {
-        showToast(data.error || 'Erro ao rejeitar.', 'error');
+        if (res.status === 401) expireSession();
+        else showToast(data.error || 'Erro ao rejeitar.', 'error');
       }
     } catch (e: any) {
-      showToast(e.message, 'error');
+      showToast(e.message || 'Erro de ligação.', 'error');
     }
     setActionLoading(null);
   };
@@ -574,10 +618,11 @@ export default function AdminPanel() {
         fetchSongs();
         fetchProgress();
       } else {
-        showToast(data.error || 'Erro ao gerar música.', 'error');
+        if (res.status === 401) expireSession();
+        else showToast(data.error || 'Erro ao gerar música.', 'error');
       }
     } catch (e: any) {
-      showToast(e.message, 'error');
+      showToast(e.message || 'Erro de ligação.', 'error');
     }
     setActionLoading(null);
   };
@@ -588,8 +633,9 @@ export default function AdminPanel() {
       const res = await fetch(`/api/admin/request/${requestId}/retry`, { method: 'POST', headers: apiHeaders });
       const data = await res.json();
       if (res.ok) { showToast('🔁 Fluxo reiniciado!'); fetchRequests(); fetchProgress(); }
+      else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao reiniciar.', 'error');
-    } catch (e: any) { showToast(e.message, 'error'); }
+    } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
   };
 
@@ -599,8 +645,9 @@ export default function AdminPanel() {
       const res = await fetch(`/api/admin/request/${requestId}/force-voice`, { method: 'POST', headers: apiHeaders });
       const data = await res.json();
       if (res.ok) { showToast('🎙️ Processamento de voz iniciado!'); fetchRequests(); fetchProgress(); }
+      else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao forçar voz.', 'error');
-    } catch (e: any) { showToast(e.message, 'error'); }
+    } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
   };
 
@@ -610,8 +657,9 @@ export default function AdminPanel() {
       const res = await fetch(`/api/admin/request/${requestId}/resend-email`, { method: 'POST', headers: apiHeaders });
       const data = await res.json();
       if (res.ok) showToast('📧 Email reenviado com sucesso!');
+      else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao reenviar email.', 'error');
-    } catch (e: any) { showToast(e.message, 'error'); }
+    } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
   };
 
@@ -625,8 +673,9 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (res.ok) { showToast('✏️ Letra atualizada!'); setEditingSong(null); fetchSongs(); fetchRequests(); }
+      else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao guardar letra.', 'error');
-    } catch (e: any) { showToast(e.message, 'error'); }
+    } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
   };
 
@@ -647,6 +696,7 @@ export default function AdminPanel() {
         });
         const data = await res.json();
         if (res.ok) { showToast('📤 Áudio carregado com sucesso!'); fetchSongs(); setUploadingSongId(null); }
+        else if (res.status === 401) { expireSession(); setUploadingSongId(null); }
         else showToast(data.error || 'Erro ao carregar áudio.', 'error');
         setActionLoading(null);
       };
@@ -857,13 +907,14 @@ export default function AdminPanel() {
   const exportCSV = async (type: string) => {
     try {
       const res = await fetch(`/api/admin/export/${type}`, { headers: apiHeaders });
+      if (res.status === 401) { expireSession(); return; }
       if (!res.ok) { showToast('Erro ao exportar.', 'error'); return; }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `${type}_${Date.now()}.csv`; a.click();
       URL.revokeObjectURL(url);
       showToast(`📥 ${type} exportado com sucesso!`);
-    } catch (e: any) { showToast(e.message, 'error'); }
+    } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
   };
 
   return (
@@ -1191,6 +1242,7 @@ export default function AdminPanel() {
                                             const res = await fetch(`/api/admin/payment/${payment.id}/proof-url`, {
                                               headers: apiHeaders
                                             });
+                                            if (res.status === 401) { expireSession(); return; }
                                             const data = await res.json();
                                             if (data.url) setProofModal(data.url);
                                             else showToast('Erro ao carregar comprovativo.', 'error');
@@ -1249,8 +1301,9 @@ export default function AdminPanel() {
                                             });
                                             const data = await res.json();
                                             if (res.ok) { showToast('↩️ ' + (data.message || 'Rejeição desfeita.')); fetchPayments(); fetchStats(); }
+                                            else if (res.status === 401) { expireSession(); }
                                             else showToast(data.error || 'Erro ao desfazer.', 'error');
-                                          } catch (e: any) { showToast(e.message, 'error'); }
+                                          } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
                                           setActionLoading(null);
                                         }}
                                         className="flex items-center gap-1 px-2 py-1 bg-stone-800 hover:bg-emerald-500/20 border border-stone-700 text-emerald-400 text-[10px] rounded-lg transition-colors cursor-pointer font-mono"
@@ -1330,8 +1383,9 @@ export default function AdminPanel() {
                                             });
                                             const data = await res.json();
                                             if (res.ok) { showToast('↩️ ' + (data.message || 'Acção desfeita.')); fetchPayments(); fetchStats(); }
+                                            else if (res.status === 401) { expireSession(); }
                                             else showToast(data.error || 'Erro ao desfazer.', 'error');
-                                          } catch (e: any) { showToast(e.message, 'error'); }
+                                          } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
                                           setActionLoading(null);
                                         }}
                                         className="flex items-center gap-1 px-2 py-1 bg-stone-800 hover:bg-rose-500/20 border border-stone-700 text-rose-400 text-[10px] rounded-lg transition-colors cursor-pointer font-mono"
@@ -1495,7 +1549,7 @@ export default function AdminPanel() {
                                           onChange={e => handleUpdateStyle(req.id, e.target.value)}
                                           className="flex-1 bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2 text-xs text-stone-300 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
                                         >
-                                          {['Kizomba', 'Semba', 'Kuduro', 'Afrobeat', 'Rap', 'R&B', 'Pop', 'Rock', 'Bossa Nova', 'MPB', 'Sertanejo', 'Gospel', 'Eletrónica', 'Fado', 'Outro'].map(s => (
+                                          {['Kizomba', 'Semba', 'Afrobeat', 'Gospel', 'Acoustic', 'Romantic Pop', 'Zouk', 'Balada', 'Pop', 'R&B', 'Rap', 'Funk', 'Trap', 'Reggae', 'Samba', 'Hino'].map(s => (
                                             <option key={s} value={s}>{s}</option>
                                           ))}
                                         </select>
@@ -1852,6 +1906,46 @@ export default function AdminPanel() {
                             </div>
                           )}
                         </div>
+                      </div>
+
+                      {/* Brevo SMTP Card */}
+                      <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5">
+                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4">📧 Brevo SMTP (Envios de Email)</h3>
+                        {credits.email ? (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between bg-stone-950 rounded-xl p-4 border border-stone-800">
+                              <div className="flex items-center gap-3">
+                                <div className={`w-2 h-2 rounded-full ${credits.email.ok ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                                <div>
+                                  <p className="text-xs font-mono font-bold text-stone-200">{credits.email.ok ? 'Operacional' : 'Indisponível'}</p>
+                                  {credits.email.ok && credits.email.provider && (
+                                    <p className="text-[10px] font-mono text-stone-500">{credits.email.provider} · {credits.email.host}</p>
+                                  )}
+                                </div>
+                              </div>
+                              <span className={`text-xs font-mono font-bold ${credits.email.ok ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {credits.email.ok ? '✅ Online' : '❌ Offline'}
+                              </span>
+                            </div>
+                            {!credits.email.ok && credits.email.error && (
+                              <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
+                                <p className="text-xs text-rose-400 font-mono">{credits.email.error}</p>
+                              </div>
+                            )}
+                            {credits.email.lastCheck && (
+                              <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-[10px] font-mono">
+                                <div className="flex justify-between text-stone-500">
+                                  <span>Última verificação</span>
+                                  <span className="text-stone-400">{new Date(credits.email.lastCheck).toLocaleString('pt')}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
+                            <p className="text-xs text-stone-500 font-mono">A aguardar verificação...</p>
+                          </div>
+                        )}
                       </div>
 
                       {/* Usage & Cost Summary */}

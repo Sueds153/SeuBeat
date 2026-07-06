@@ -2,7 +2,7 @@ import express from 'express';
 import { randomUUID } from 'crypto';
 import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
 import { generateLyrics } from '../services/ai';
-import { sendPersonalizedEmail } from '../services/email';
+import { sendPersonalizedEmail, sendConfirmationEmail } from '../services/email';
 import DOMPurify from 'isomorphic-dompurify';
 
 function sanitize(str: string): string {
@@ -204,7 +204,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
     if (photoBase64) {
       const buffer = decodeBase64Payload(photoBase64);
       if (buffer.length > 5 * 1024 * 1024) {
-        throw new Error('A foto e demasiado grande. Maximo 5MB.');
+        throw new Error('A foto e demasiado grande (max 5MB). Comprima a imagem ou escolha outra.');
       }
 
       const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
@@ -362,6 +362,11 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       status: 'music_processing',
       message: 'Letra criada. A musica esta em processamento.'
     });
+
+    sendConfirmationEmail(email, recipientName, requestData.id)
+      .catch((emailErr) => {
+        logError('[API] Falha ao enviar email de confirmacao', emailErr, { requestId: requestData.id, email });
+      });
   } catch (err: any) {
     if (dbSongRequestId) {
       await markRequestFailed(dbSongRequestId, err);

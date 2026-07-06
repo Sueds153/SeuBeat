@@ -35,55 +35,55 @@ const STEP_META = [
     title: 'Para quem é esta canção? ❤️',
     subtitle: 'Escolha a relação e configure os nomes para rimas profundas.',
     example: 'Exemplo: "Para a minha Mãe (Dona Maria)", mostrando gratidão.',
-    tip: 'Passo 1 de 9 • Os pormenores pessoais criam mais empatia na música.'
+    tip: 'Passo 1  • Os pormenores pessoais criam mais empatia na música.'
   },
   {
     title: 'Qual é a ocasião especial? 🎂',
     subtitle: 'O compasso e ritmo assentam na festa pretendida.',
     example: 'Exemplo: "Aniversário de Casamento", ou "Uma declaração sem motivo".',
-    tip: 'Passo 2 de 9 • Conte-nos brevemente as razões da surpresa de hoje.'
+    tip: 'Passo 2  • Conte-nos brevemente as razões da surpresa de hoje.'
   },
   {
     title: 'Qual é o estilo e artista de inspiração? 🎵',
     subtitle: 'Navegue pelos sons angolanos ou uma balada emocionante.',
     example: 'Exemplo: Kizomba ao estilo de Anselmo Ralph ou Chelsea Dinorath.',
-    tip: 'Passo 3 de 9 • Isto ajuda a modelar com mais precisão a vibração ideal.'
+    tip: 'Passo 3  • Isto ajuda a modelar com mais precisão a vibração ideal.'
   },
   {
     title: 'Quem deve cantar esta homenagem? 🎙️',
     subtitle: 'A voz transmite sentimentos inesquecíveis.',
     example: 'Exemplo: Voz Feminina celestial ou Dueto Romântico expressivo.',
-    tip: 'Passo 4 de 9 • Note: A sua própria voz poderá ser personalizada na fase seguinte!'
+    tip: 'Passo 4  • Note: A sua própria voz poderá ser personalizada na fase seguinte!'
   },
   {
     title: 'O que o torna especial? ✨',
     subtitle: 'Escreva sobre os seus superpoderes e mimos diários.',
     example: 'Exemplo: "Ela é ultra protetora e canta sempre no banho de manhã."',
-    tip: 'Passo 5 de 9 • Detalhes engraçados convertem-se no presente perfeito.'
+    tip: 'Passo 5  • Detalhes engraçados convertem-se no presente perfeito.'
   },
   {
     title: 'Onde e qual é a vossa memória forte? 📍',
     subtitle: 'O local e os momentos formam a lírica narrativa.',
     example: 'Exemplo: "Amamos passear em Luanda, e rimos imenso quando a tenda caiu no Cabo Ledo."',
-    tip: 'Passo 6 de 9 • Locais e datas criam um ambiente imersivo fantástico.'
+    tip: 'Passo 6  • Locais e datas criam um ambiente imersivo fantástico.'
   },
   {
     title: 'O que gostaria de nunca esquecer? 🥹',
     subtitle: 'A mensagem pura do seu peito que compõe o marcante refrão.',
     example: 'Exemplo: "Que ela mudou a minha vida e que sempre estarei ao lado dela."',
-    tip: 'Passo 7 de 9 • Escreva com verdade crua para derreter corações.'
+    tip: 'Passo 7  • Escreva com verdade crua para derreter corações.'
   },
   {
     title: 'Fotografia marcante do casal 📸',
     subtitle: 'Esta foto preencherá o ecrã do player digital da dedicatória.',
     example: 'Exemplo: Um lindo retrato do aniversário passado juntos.',
-    tip: 'Passo 8 de 9 • Acompanha o correio eletrónico nas capas de estúdio.'
+    tip: 'Passo 8  • Acompanha o correio eletrónico nas capas de estúdio.'
   },
   {
     title: 'Contacto de segurança do autor 🛡️',
     subtitle: 'Preencha o correio eletrónico para o seu link privado de escuta.',
     example: 'Exemplo: Receba o ficheiro WAV directamente no WhatsApp.',
-    tip: 'Passo 9 de 9 • Estamos quase prontos para criar a melodia!'
+    tip: 'Passo 9  • Estamos quase prontos para criar a melodia!'
   }
 ];
 
@@ -400,7 +400,12 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     { style: 'Balada', label: 'Balada', desc: 'Emocional e orquestrada, piano e cordas a envolver.', icon: '🎻' },
     { style: 'Pop', label: 'Pop', desc: 'Melodia cativante e produção polida, estilo radiofónico.', icon: '🌟' },
     { style: 'R&B', label: 'R&B', desc: 'Voz suave e groove envolvente, alma e sentimento.', icon: '🎤' },
-    { style: 'Rap', label: 'Rap', desc: 'Flow ritmado e batida urbana, palavra poderosa.', icon: '🎧' }
+    { style: 'Rap', label: 'Rap', desc: 'Flow ritmado e batida urbana, palavra poderosa.', icon: '🎧' },
+    { style: 'Funk', label: 'Funk', desc: 'Batida contagiante, groove elétrico e dançante angolano.', icon: '🕺' },
+    { style: 'Trap', label: 'Trap', desc: 'Batida pesada 808, flow moderno e atitude urbana.', icon: '🔥' },
+    { style: 'Reggae', label: 'Reggae', desc: 'Ritmo descontraído, vibração positiva e bass pesado.', icon: '🌿' },
+    { style: 'Samba', label: 'Samba', desc: 'Percussão vibrante, gingado brasileiro e energia festiva.', icon: '🥁' },
+    { style: 'Hino', label: 'Hino', desc: 'Épico e solene, ideal para hinos corporativos e institucionais.', icon: '🏛️' }
   ];
 
   const ARTIST_CARDS = [
@@ -733,7 +738,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (file.size > 5 * 1024 * 1024) {
-        showToast('A foto não pode exceder 5MB.', 'error');
+        showToast('A foto excede 5MB. Comprima a imagem ou escolha outra.', 'error');
         e.target.value = '';
         return;
       }
@@ -952,7 +957,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
             <div className="flex items-center gap-2 sm:gap-4 text-right">
               <span className="hidden sm:inline text-xs text-stone-400 font-mono">
-                PASSO <span className="text-amber-400 font-bold">{step}</span> DE 9
+                ⏱ <span className="text-amber-400 font-bold">~3 min</span> · PASSO <span className="text-amber-400 font-bold">{step}</span> · {Math.round((step / 9) * 100)}%
               </span>
               <div className="w-20 sm:w-24 md:w-36 h-2 bg-stone-900 rounded-full overflow-hidden relative">
                 <motion.div 

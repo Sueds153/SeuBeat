@@ -62,6 +62,33 @@ const ARTIST_LYRICAL_STYLES: Record<string, string> = {
   'Outro': 'Crie uma letra original com identidade própria, adaptando o tom e vocabulário ao estilo musical escolhido sem se prender a um artista específico.',
 };
 
+const STYLE_LYRICAL_INSTRUCTIONS: Record<string, string> = {
+  kizomba: 'Use linguagem romântica e envolvente, ritmo lento e sensual, refrão repetitivo e cativante próprio da tarraxinha angolana.',
+  semba: 'Use ritmo acelerado e alegre, linguagem dançante e tradicional angolana, refrão contagiante com guitarra viva.',
+  afrobeat: 'Use energia vibrante, percussão marcante, refrão poderoso e dançante, flow moderno afro-pop.',
+  gospel: 'Use tom de fé e gratidão, linguagem inspiradora e edificante, coro emocionante com referências espirituais.',
+  acoustic: 'Use tom intimista e poético, letra simples mas profunda, voz suave e melodia minimalista.',
+  'romantic pop': 'Use romantismo radiofónico, refrão forte e memorável, linguagem universal e emocional com produção polida.',
+  zouk: 'Use romantismo caribenho, sintetizadores suaves, refrão melódico e envolvente com vibe tropical.',
+  balada: 'Use tom emocional e orquestrado, piano e cordas, construção dramática com refrão explosivo.',
+  pop: 'Use melodia cativante, refrão pegajoso, linguagem acessível e produção moderna e radiofónica.',
+  'r&b': 'Use flow suave e sensual, groove envolvente, letra emocional com alma e sentimento à moda R&B.',
+  rap: 'Use flow ritmado, palavra poderosa, batida urbana, lírica afiada com consciência e autenticidade.',
+  funk: 'Use groove contagiante, batida dançante, percussão marcada, letra vibrante com swing e atitude.',
+  trap: 'Use flow moderno e atitude urbana, 808 pesado, refrão curto e impactante, linguagem jovem e autêntica.',
+  reggae: 'Use vibração positiva e descontraída, ritmo offbeat, bass profundo, linguagem relaxada com consciência.',
+  samba: 'Use gingado brasileiro, percussão festiva, alegria contagiante, letra que celebra a vida com energia carnavalesca.',
+  hino: 'Use tom épico e solene, linguagem corporativa e inspiradora, coro majestoso com estrutura de hino institucional.',
+};
+
+function styleLyricalInstruction(musicStyle: string): string {
+  if (!musicStyle) return '';
+  const key = musicStyle.trim().toLowerCase();
+  const instruction = STYLE_LYRICAL_INSTRUCTIONS[key];
+  if (instruction) return `- INSTRUÇÃO ESPECÍFICA PARA "${musicStyle}": ${instruction}`;
+  return '';
+}
+
 function referenceArtistInstruction(artistName: string): string {
   if (!artistName || artistName === 'Outro') return '';
   const instruction = ARTIST_LYRICAL_STYLES[artistName];
@@ -174,7 +201,7 @@ ${buildFormContext(formData)}
 
 INSTRUÇÕES ADICIONAIS DE PERSONALIZAÇÃO E QUALIDADE:
 - A letra DEVE usar o nome do destinatário ("${formData.recipientName || 'Destinatário'}"), apelidos carinhosos ("${formData.recipientNick || ''}"), local ("${formData.whereItHappened || ''}") e memórias detalhadas ("${formData.unforgettableMemory || ''}") de forma natural e emocionante.
-- Evite letras genéricas. O tom e vocabulário devem refletir a emoção desejada ("${formData.desiredEmotion || 'Emocionante'}") e o estilo musical ("${formData.musicStyle || 'Kizomba'}").${referenceArtistInstruction(formData.referenceArtist) ? '\n' + referenceArtistInstruction(formData.referenceArtist) : ''}
+- Evite letras genéricas. O tom e vocabulário devem refletir a emoção desejada ("${formData.desiredEmotion || 'Emocionante'}") e o estilo musical ("${formData.musicStyle || 'Kizomba'}").${referenceArtistInstruction(formData.referenceArtist) ? '\n' + referenceArtistInstruction(formData.referenceArtist) : ''}${styleLyricalInstruction(formData.musicStyle) ? '\n' + styleLyricalInstruction(formData.musicStyle) : ''}
 - O campo "letterText" é uma dedicatória CURTA (2-3 frases) em prosa emocionante, sem repetir a letra.
 
 INSTRUÇÃO DE IDIOMA (CUMPRA OBRIGATORIAMENTE):

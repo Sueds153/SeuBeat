@@ -42,7 +42,12 @@ export type MusicStyleType =
   | 'Balada'
   | 'Pop'
   | 'R&B'
-  | 'Rap';
+  | 'Rap'
+  | 'Funk'
+  | 'Trap'
+  | 'Reggae'
+  | 'Samba'
+  | 'Hino';
 
 export type VoiceType =
   | 'Masculina'

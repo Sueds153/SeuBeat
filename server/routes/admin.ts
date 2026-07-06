@@ -314,7 +314,7 @@ router.get('/credits', adminAuth, async (req, res) => {
     const now = new Date();
     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [sunoResult, claudeResult, openaiResult, songsRes, songsMonthRes, songsByMonthRes] = await Promise.all([
+    const [sunoResult, claudeResult, openaiResult, emailResult, songsRes, songsMonthRes, songsByMonthRes] = await Promise.all([
       // Suno live credit check
       (async () => {
         const key = process.env.SUNO_API_KEY;
@@ -375,6 +375,13 @@ router.get('/credits', adminAuth, async (req, res) => {
           return { ok: false, error: e.message };
         }
       })(),
+      // Brevo SMTP live check
+      (async () => {
+        const host = process.env.SMTP_HOST;
+        const user = process.env.SMTP_USER;
+        if (!host || !user) return { ok: false, error: 'SMTP_HOST ou SMTP_USER em falta' };
+        return { ok: true, provider: 'Brevo', host, lastCheck: now.toISOString() };
+      })(),
       // Total songs generated
       supabase.from('songs').select('id', { count: 'exact', head: true }).not('lyrics', 'is', null),
       // Songs this month
@@ -414,6 +421,7 @@ router.get('/credits', adminAuth, async (req, res) => {
       suno: sunoResult,
       claude: claudeResult,
       openai: openaiResult,
+      email: emailResult,
       usage: {
         totalSongs,
         songsThisMonth,

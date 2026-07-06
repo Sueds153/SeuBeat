@@ -109,7 +109,7 @@ export function Step1Relation({
         </div>
 
         <p className="text-xxs text-amber-500 italic mt-1 font-mono">
-          "Os apelidos carinhosos tornam a música muito mais especial."
+          "Apelidos carinhosos = letra mais emocionante."
         </p>
       </div>
     </div>
@@ -154,7 +154,7 @@ export function Step2Occasion({
         <textarea
           id="why-created-today-textarea"
           rows={4}
-          placeholder="Ela faz anos amanhã... Estamos longe... Vamos casar e quero surpreendê-la... Quero pedir desculpas pelo desentendimento de ontem..."
+          placeholder="Ex: Ela faz anos amanhã e quero surpreendê-la..."
           value={formData.whyCreatedToday}
           onChange={(e) => setFormData(prev => ({ ...prev, whyCreatedToday: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
@@ -232,7 +232,7 @@ export function Step3Style({
           })}
         </div>
         <p className="text-xxs text-stone-500 italic pt-1 font-mono">
-          Se escolher, ajuda-nos a criar algo mais próximo do gosto da pessoa.
+          O artista de referência ajuda a acertar o tom.
         </p>
       </div>
     </div>
@@ -271,6 +271,9 @@ export function Step4Voice({
       {fieldErrors?.voiceType && (
         <p className="text-red-400 text-xs mt-1">{fieldErrors.voiceType}</p>
       )}
+      <p className="text-xxs text-stone-500 italic mt-1 font-mono">
+        "A voz certa transforma a emoção da letra."
+      </p>
     </div>
   );
 }
@@ -313,7 +316,7 @@ export function Step5Traits({
           <p className="text-red-400 text-xs mt-1">{fieldErrors.onlySheDoes}</p>
         )}
         <p className="text-xxs text-amber-500 italic mt-1 font-mono">
-          "São estes pequenos detalhes que transformam uma música comum numa música inesquecível."
+          "Pequenos detalhes tornam a música única."
         </p>
       </div>
     </div>
@@ -598,6 +601,9 @@ export function Step7Message({
         {fieldErrors?.messageFromTheHeart && (
           <p className="text-red-400 text-xs mt-1">{fieldErrors.messageFromTheHeart}</p>
         )}
+        <p className="text-xxs text-amber-500 italic mt-1 font-mono">
+          "Escreva como se fosse uma carta de amor."
+        </p>
       </div>
 
       <div className="space-y-2 pt-3 border-t border-stone-900">
@@ -742,6 +748,10 @@ export function Step9Contact({
           />
         </div>
       </div>
+
+      <p className="text-xxs text-stone-500 italic mt-1 font-mono">
+        "O link da música será enviado para este email."
+      </p>
 
       <div className="p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10 text-xs text-stone-400 leading-normal max-w-md">
         "Estamos quase a transformar a tua história numa música."

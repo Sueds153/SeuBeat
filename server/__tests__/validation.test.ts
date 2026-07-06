@@ -59,7 +59,7 @@ describe('GenerateLyricsSchema', () => {
   });
 
   it('accepts all valid music styles', () => {
-    const styles = ['kizomba', 'semba', 'afrobeat', 'gospel', 'acoustic', 'romantic pop', 'zouk', 'balada', 'pop', 'r&b', 'rap'];
+    const styles = ['kizomba', 'semba', 'afrobeat', 'gospel', 'acoustic', 'romantic pop', 'zouk', 'balada', 'pop', 'r&b', 'rap', 'funk', 'trap', 'reggae', 'samba', 'hino'];
     for (const style of styles) {
       const result = GenerateLyricsSchema.safeParse({ ...validData, musicStyle: style });
       expect(result.success).toBe(true);

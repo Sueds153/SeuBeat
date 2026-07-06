@@ -4,8 +4,8 @@ import { generateLyricsWithClaude } from './claude';
 import { logInfo, logWarn, logError } from '../utils/logger';
 
 function getPrimaryProvider(): AIProvider {
-  const provider = (process.env.AI_PRIMARY_PROVIDER || 'openai').toLowerCase();
-  if (provider !== 'openai' && provider !== 'claude') return 'openai';
+  const provider = (process.env.AI_PRIMARY_PROVIDER || 'claude').toLowerCase();
+  if (provider !== 'openai' && provider !== 'claude') return 'claude';
   return provider;
 }
 

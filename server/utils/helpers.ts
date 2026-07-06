@@ -34,6 +34,9 @@ export function publicErrorMessage(err: any, fallback = 'Não foi possível conc
   if (/photos?.*bucket|storage.*bucket|not found|no such bucket/i.test(message)) {
     return 'Houve um erro ao guardar a foto. Contacte o suporte se o problema persistir.';
   }
+  if (/demasiado grande|excede.*5MB/i.test(message)) {
+    return 'A foto excede o limite de 5MB. Use um compressor de imagens online ou escolha uma foto menor.';
+  }
   if (/carregar a foto/i.test(message)) {
     return 'Não foi possível carregar a foto. Tente com uma imagem diferente (JPG, PNG ou WebP).';
   }

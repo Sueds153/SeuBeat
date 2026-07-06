@@ -37,6 +37,6 @@ export const ENV = {
   SUNO_COST_PER_CREDIT_USD: Number(process.env.SUNO_COST_PER_CREDIT_USD) || 0.15,
   CLAUDE_COST_PER_GENERATION_USD: Number(process.env.CLAUDE_COST_PER_GENERATION_USD) || 0.03,
   OPENAI_COST_PER_GENERATION_USD: Number(process.env.OPENAI_COST_PER_GENERATION_USD) || 0.01,
-  AI_PRIMARY_PROVIDER: (process.env.AI_PRIMARY_PROVIDER || 'openai') as 'openai' | 'claude',
+  AI_PRIMARY_PROVIDER: (process.env.AI_PRIMARY_PROVIDER || 'claude') as 'openai' | 'claude',
   MONTHLY_FIXED_COST_USD: Number(process.env.MONTHLY_FIXED_COST_USD) || 0,
 };
