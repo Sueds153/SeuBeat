@@ -11,6 +11,7 @@ import SongLyrics from './SongLyrics';
 import SongLetter from './SongLetter';
 import SongShare from './SongShare';
 import WhatsAppHelp from './WhatsAppHelp';
+import LogoIcon from './LogoIcon';
 
 interface PersonalizedSongPageProps {
   onBackToLanding: () => void;
@@ -151,13 +152,16 @@ Angola ${(new Date().getFullYear())}
 
       <header className="border-b border-stone-900 bg-stone-950/80 backdrop-blur sticky top-0 z-40 px-4 md:px-8 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <button
-            onClick={onBackToLanding}
-            className="flex items-center gap-2 text-stone-400 hover:text-stone-100 text-xs font-mono transition-colors font-semibold group"
-          >
-            <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-            <span>CRIA UMA PÁGINA ASSIM</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <LogoIcon size={32} />
+            <button
+              onClick={onBackToLanding}
+              className="flex items-center gap-2 text-stone-400 hover:text-stone-100 text-xs font-mono transition-colors font-semibold group"
+            >
+              <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+              <span>CRIA UMA PÁGINA ASSIM</span>
+            </button>
+          </div>
 
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />

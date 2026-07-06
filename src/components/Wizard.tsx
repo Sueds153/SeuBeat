@@ -15,6 +15,7 @@ import {
 } from './WizardSteps';
 import { validateStep as zodValidateStep, FieldErrors } from '../lib/validation';
 import WhatsAppHelp from './WhatsAppHelp';
+import LogoIcon from './LogoIcon';
 import { fbLead, fbAddPaymentInfo, fbPurchase, parsePrice } from '../lib/metaPixel';
 
 interface WizardProps {
@@ -944,9 +945,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
               onClick={onBackToLanding}
               className="flex items-center gap-2 group cursor-pointer text-left"
             >
-              <div className="w-10 h-10 bg-gradient-to-tr from-amber-500 to-rose-600 rounded-xl flex items-center justify-center text-stone-950 font-black shadow-lg shadow-amber-500/10 mb-0.5">
-                SB
-              </div>
+              <LogoIcon size={40} />
               <div>
                 <h2 className="font-serif text-lg font-bold tracking-tight text-stone-100 group-hover:text-amber-400 transition-colors mb-0.5">
                   SeuBeat
