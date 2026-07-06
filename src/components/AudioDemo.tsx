@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, Volume2, VolumeX, Music, Heart, Sparkles } from 'lucide-react';
 import { motion } from 'motion/react';
+import LogoIcon from './LogoIcon';
 import { DEMO_SONGS } from '../constants/demoSongs';
 import type { DemoSong } from '../constants/demoSongs';
 
@@ -117,7 +118,7 @@ export default function AudioDemo() {
               <span>Experimente Ouvir</span>
             </div>
             <h3 className="font-serif text-3xl md:text-4xl text-stone-100 tracking-tight leading-tight">
-              Sinta a emoção de uma música <span className="text-amber-400 font-semibold italic">SeuBeat</span>
+              Sinta a emoção de uma música <span className="text-amber-400 font-semibold italic inline-flex items-center gap-1"><LogoIcon size={20} /> SeuBeat</span>
             </h3>
             <p className="text-stone-400 text-sm mt-3 leading-relaxed">
               Diferentes estilos e vozes carregados de sentimentos reais. Clique para ouvir o resultado final de histórias transformadas em canções.

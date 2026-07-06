@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Volume2, VolumeX, Heart, Share2, MessageCircle, Sparkles, Star, Quote } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import LogoIcon from './LogoIcon';
 
 const TESTIMONIALS = [
   {
@@ -111,7 +112,7 @@ export default function VideoTestimonial() {
             </h2>
             
             <p className="text-stone-300 text-sm md:text-base leading-relaxed font-sans font-light">
-              Centenas de angolanos já eternizaram momentos inesquecíveis com uma música personalizada SeuBeat.
+              Centenas de angolanos já eternizaram momentos inesquecíveis com uma música personalizada <span className="inline-flex items-center gap-1"><LogoIcon size={18} /> SeuBeat</span>.
             </p>
           </div>
 
