@@ -56,9 +56,9 @@ const STEP_META = [
     tip: 'Passo 4  • Note: A sua própria voz poderá ser personalizada na fase seguinte!'
   },
   {
-    title: 'O que o torna especial? ✨',
+    title: 'O que torna esta pessoa especial? ✨',
     subtitle: 'Escreva sobre os seus superpoderes e mimos diários.',
-    example: 'Exemplo: "Ela é ultra protetora e canta sempre no banho de manhã."',
+    example: 'Exemplo: "É uma pessoa muito atenciosa e canta sempre no banho de manhã."',
     tip: 'Passo 5  • Detalhes engraçados convertem-se no presente perfeito.'
   },
   {
@@ -70,7 +70,7 @@ const STEP_META = [
   {
     title: 'O que gostaria de nunca esquecer? 🥹',
     subtitle: 'A mensagem pura do seu peito que compõe o marcante refrão.',
-    example: 'Exemplo: "Que ela mudou a minha vida e que sempre estarei ao lado dela."',
+    example: 'Exemplo: "Que essa pessoa mudou a minha vida e que estarei sempre ao seu lado."',
     tip: 'Passo 7  • Escreva com verdade crua para derreter corações.'
   },
   {

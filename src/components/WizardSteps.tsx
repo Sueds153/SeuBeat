@@ -75,7 +75,7 @@ export function Step1Relation({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-xs font-mono text-stone-400 block mb-1.5 font-semibold">
-              Como gosta de ser chamado(a)?
+              Que apelido carinhoso ela/ele te chama?
             </label>
             <input
               id="user-nick-input"
@@ -92,7 +92,7 @@ export function Step1Relation({
 
           <div>
             <label className="text-xs font-mono text-stone-400 block mb-1.5 font-semibold">
-              Como chama a pessoa normalmente?
+              E tu, que apelido usas para ela/ele?
             </label>
             <input
               id="recipient-nick-input"
@@ -285,12 +285,12 @@ export function Step5Traits({
     <div className="space-y-4 pt-2">
       <div className="space-y-2">
         <label className="text-xs font-mono text-stone-400 block font-semibold">
-          O que a torna especial? <span className="text-rose-500 font-black">*Obrigatório</span>
+          O que torna esta pessoa especial? <span className="text-rose-500 font-black">*Obrigatório</span>
         </label>
         <textarea
           id="makes-special-textarea"
           rows={4}
-          placeholder="Ex: É extremamente meiga, muito protetora com os miúdos, adora caminhar ao fim da tarde... Tem um sorriso fofo..."
+          placeholder="Ex: É uma pessoa extremamente doce e presente, adora caminhar ao fim da tarde... Tem um sorriso contagiante..."
           value={formData.whatMakesSpecial}
           onChange={(e) => setFormData(prev => ({ ...prev, whatMakesSpecial: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
@@ -302,7 +302,7 @@ export function Step5Traits({
 
       <div className="space-y-2 pt-2 border-t border-stone-900">
         <label className="text-xs font-mono text-stone-400 block font-semibold">
-          O que ela faz que só ela faz? (Manias fofas, hábitos)
+          O que só essa pessoa faz? (Manias, hábitos)
         </label>
         <textarea
           id="only-she-does-textarea"
@@ -593,7 +593,7 @@ export function Step7Message({
         <textarea
           id="deep-message-textarea"
           rows={4}
-          placeholder="Ex: Que sempre estarei ao seu lado, custe o que custar, e que ela mudou completamente as cores da minha vida..."
+          placeholder="Ex: Que sempre estarei ao seu lado, custe o que custar, e que essa pessoa mudou completamente as cores da minha vida..."
           value={formData.messageFromTheHeart}
           onChange={(e) => setFormData(prev => ({ ...prev, messageFromTheHeart: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
