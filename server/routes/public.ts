@@ -78,10 +78,7 @@ async function ensureUserProfile(
 
   const { data: newProfile, error: profileCreateError } = await supabase
     .from('users')
-    .upsert(
-      [{ name: params.name, email: params.email, phone: params.phone || null }],
-      { onConflict: 'email', ignoreDuplicates: 'email' }
-    )
+    .insert([{ name: params.name, email: params.email, phone: params.phone || null }])
     .select()
     .single();
 
