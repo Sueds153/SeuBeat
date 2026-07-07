@@ -77,9 +77,33 @@ export async function ensureUserProfile(
 
   if (existingUser?.id) return existingUser;
 
+  let userId: string | null = null;
+
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+      const { data: authData, error: authCreateError } = await supabase.auth.admin.createUser({
+        email: params.email,
+        password: `SeuBeat-${randomUUID()}!`,
+        email_confirm: true,
+        user_metadata: { name: params.name, phone: params.phone || null, source: 'seubeat_wizard' }
+      });
+      if (!authCreateError && authData?.user?.id) {
+        userId = authData.user.id;
+      } else {
+        logError('[API] Auth createUser falhou, fallback para insert direto', authCreateError);
+      }
+    } catch (authErr) {
+      logError('[API] Excecao Auth createUser, fallback para insert direto', authErr as Error);
+    }
+  }
+
+  if (!userId) {
+    userId = randomUUID();
+  }
+
   const { data: newProfile, error: profileCreateError } = await supabase
     .from('users')
-    .insert([{ id: randomUUID(), name: params.name, email: params.email, phone: params.phone || null }])
+    .insert([{ id: userId, name: params.name, email: params.email, phone: params.phone || null }])
     .select()
     .single();
 
