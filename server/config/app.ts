@@ -7,6 +7,7 @@ import { adminIpRestriction } from '../middleware/adminIpRestriction';
 import { csrfProtection } from '../middleware/csrf';
 import { logInfo } from '../utils/logger';
 import { getAdminSupabase } from '../services/supabase';
+import { renderOgPage } from '../services/ogTemplate';
 import adminRouter from '../routes/admin';
 import publicRouter from '../routes/public';
 
@@ -96,6 +97,50 @@ export async function startServer(app: express.Application): Promise<import('htt
     const path = await import('path');
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
+
+    const CRAWLER_UA = /facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slack|Googlebot|bingbot|Pinterest|Slack|Discordbot/i;
+
+    app.get('*', async (req, res, next) => {
+      if (req.path.startsWith('/api')) return next();
+      const ua = (req.headers['user-agent'] || '');
+      if (!CRAWLER_UA.test(ua)) return next();
+
+      const appUrl = getEnv('APP_URL', 'https://seubeat.onrender.com');
+      const fullUrl = `${appUrl}${req.originalUrl}`;
+
+      const songMatch = req.path.match(/^\/song\/(.+)/);
+      const songId = req.query.id as string;
+
+      if (songMatch && songId) {
+        try {
+          const supabase = getAdminSupabase();
+          if (!supabase) throw new Error('supabase not available');
+          const { data } = await supabase
+            .from('song_requests')
+            .select('recipient_name, recipient_nick, music_style')
+            .eq('id', songId)
+            .maybeSingle();
+
+          if (data?.recipient_name) {
+            res.send(renderOgPage({
+              title: `Música para ${data.recipient_name}`,
+              description: `Canção personalizada em ${data.music_style || 'Kizomba'} criada com carinho no SeuBeat.`,
+              image: `${appUrl}/assets/seubeat_card.svg`,
+              url: fullUrl,
+            }));
+            return;
+          }
+        } catch {}
+      }
+
+      res.send(renderOgPage({
+        title: 'SeuBeat — Canções Personalizadas',
+        description: 'Surpreenda quem mais ama com uma canção única — Kizomba, Semba, Pop e mais.',
+        image: `${appUrl}/assets/seubeat_card.svg`,
+        url: fullUrl,
+      }));
+    });
+
     app.get('*', (req, res) => {
       if (req.path.startsWith('/api')) {
         return res.status(404).json({ success: false, error: 'Rota nao encontrada' });
