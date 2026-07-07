@@ -14,7 +14,7 @@ const FAQ_ITEMS: FAQItem[] = [
   },
   {
     question: "Quanto tempo demora a entrega da minha música?",
-    answer: "Depende do plano selecionado. O plano Standard é entregue em até 24 horas. No plano SeuBeat Express ⚡ a entrega é ultrarrápida. O plano Premium Voice 👑 (com som de estúdio personalizado) demora as mesmas gravações válidas."
+    answer: "Standard: entrega em 24h · Express: entrega imediata · Premium: 24h (timbre personalizado)."
   },
   {
     question: "Posso sugerir alterações se não gostar de algum detalhe?",
@@ -22,11 +22,11 @@ const FAQ_ITEMS: FAQItem[] = [
   },
   {
     question: "Como funciona a opção 'A Minha Própria Voz' (Premium)?",
-    answer: "É a experiência mais romântica e premium no mercado! No passo 4 do assistente, se selecionar a sua própria voz, poderá fazer upload de um ficheiro de áudio simples (pelo telemóvel ou computador). O nosso motor acústico exclusivo estuda a sua assinatura vocal e timbre. O cantor de estúdio canta depois a canção inteira com a sua assinatura de voz e a emoção perfeita."
+    answer: "Após escolher o plano Premium, grava um áudio curto (telemóvel ou PC). A sua assinatura vocal é aplicada à música final — o cantor canta com o seu timbre."
   },
   {
     question: "De que forma recebo a música pronta?",
-    answer: "A música é entregue através de um link exclusivo no seu e-mail. Esse link abre uma página de dedicatória lindíssima, personalizada com a foto que carregou, as letras a passar em formato animado, e um leitor premium para carregar no play e emocionar a pessoa especial instantaneamente. Também daremos a opção de descarregar em ficheiro de áudio padrão de alta definição (MP3 e WAV)."
+    answer: "A música é entregue através de um link exclusivo no seu e-mail. Esse link abre uma página de dedicatória lindíssima, personalizada com a foto que carregou, as letras animadas e um leitor interativo. Também poderá descarregar em MP3."
   },
   {
     question: "Como posso efetuar o pagamento seguro em Angola?",

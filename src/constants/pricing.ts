@@ -31,7 +31,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     features: [
       'Tudo do Standard',
       'Voz em Dueto',
-      'Entrega em 1h',
+      'Entrega imediata',
       '1 revisão de letra incluída'
     ],
     badge: 'Mais Popular',

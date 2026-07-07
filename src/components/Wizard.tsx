@@ -1369,7 +1369,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                       <h4 className="font-serif text-lg font-bold text-amber-300 flex items-center gap-1.5">
                         EXPRESS
                       </h4>
-                      <p className="text-amber-500/80 text-xs mt-0.5">Tudo do Standard, mais rápido e com dueto</p>
+                      <p className="text-amber-500/80 text-xs mt-0.5">Tudo do Standard, entrega imediata e dueto</p>
                     </div>
                     
                     <div className="text-left py-2">
@@ -1388,7 +1388,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Entrega em 1h</span>
+                        <span>Entrega imediata</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
