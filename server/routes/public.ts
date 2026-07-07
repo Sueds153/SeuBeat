@@ -1,4 +1,5 @@
 import express from 'express';
+import { randomUUID } from 'node:crypto';
 import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
 import { generateLyrics } from '../services/ai';
 import { sendPersonalizedEmail, sendConfirmationEmail } from '../services/email';
@@ -59,7 +60,7 @@ function publicUrlForStoragePath(supabase: NonNullable<ReturnType<typeof getAdmi
   return publicUrl;
 }
 
-async function ensureUserProfile(
+export async function ensureUserProfile(
   supabase: NonNullable<ReturnType<typeof getAdminSupabase>>,
   params: { email: string; name: string; phone?: string | null }
 ) {
@@ -78,7 +79,7 @@ async function ensureUserProfile(
 
   const { data: newProfile, error: profileCreateError } = await supabase
     .from('users')
-    .insert([{ name: params.name, email: params.email, phone: params.phone || null }])
+    .insert([{ id: randomUUID(), name: params.name, email: params.email, phone: params.phone || null }])
     .select()
     .single();
 
