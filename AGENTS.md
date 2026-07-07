@@ -15,7 +15,7 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **ErrorBanner + Toast** para erros no frontend.
 - **Logger estruturado** Winston com níveis e rotação.
 - **WizardSteps.tsx** extraído (Wizard.tsx caiu de 2865→2296 linhas).
-- **107 testes** (validation, validation-frontend, email-utils, suno-utils, SongPlayer, song-api, useAudioPlayer, smoke, AdminPanel).
+- **120 testes** (validation, validation-frontend, email-utils, suno-utils, SongPlayer, song-api, useAudioPlayer, smoke, AdminPanel).
 - **Logging personaId** adicionado em start e continue (truncado + payload).
 - **DedicationPage fetch** com AbortController (10s timeout) + race condition `notFound`/`fetchError` corrigida.
 - **Fase 1a**: Constantes `PRICING_PLANS`, `DEMO_SONGS` extraídas de `types.ts` para `src/constants/`.
@@ -47,8 +47,9 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Env vars actualizadas no Render**: ANTHROPIC_API_KEY (PUT API + redeploy).
 - **AdminPanel 25 testes a passar**: fixes — confirm dialog texto correcto (`pretende`), `window.confirm` mockado, toast/expand verificados via `body.textContent` (AnimatePresence não renderiza texto pesquisável em jsdom).
 
-### Blocked
-- **Anthropic API sem créditos**: chave `sk-ant-api03-...` válida mas retorna `"Your credit balance is too low"`. Necessário recarregar em https://console.anthropic.com/settings/billing
+### Done (latest)
+- **Bugfix: Criação de user partida em produção**: erro `"Nao foi possivel criar o seu perfil."` impedia todo o wizard. A raiz era uma FK `users_id_fkey` auto-referenciada em `public.users(id)` (provavelmente `FOREIGN KEY (id) REFERENCES users(id)`) que impedia QUALQUER novo insert na tabela `public.users`. Também impedia `auth.admin.createUser()` (mesmo erro FK). Fix: `DROP CONSTRAINT users_id_fkey` no Supabase produção. Código `ensureUserProfile()` não precisou de alterações. `DEFAULT gen_random_uuid()` adicionado a `public.users.id` para robustez.
+- **120 testes**: todos passam (vitest).
 
 ## Sentry SDK (Monitorização de Erros)
 - **Versão**: `@sentry/node` e `@sentry/react` v10.62.0
@@ -77,13 +78,15 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 4. **Admin dashboard testes** — 25 testes passando.
 
 ## Critical Context
-- **107 testes passam sempre** após cada mudança (vitest).
+- **120 testes passam sempre** após cada mudança (vitest).
 - **Supabase**: `service_role` key usada apenas onde necessário (admin routes, auth.admin.*, workflows, signed URLs). Anon key usada no endpoint público de dedicatória.
+- **Supabase (produção)**: tinha FK `users_id_fkey` auto-referenciada em `public.users(id)` que impedia inserts — já removida.
 - **Render** faz auto-deploy a cada push no `main`.
 - **CI pipeline**: GitHub Actions corre `npm run lint` e `npm test` antes do deploy.
 
 ## Relevant Files
 - `server/services/supabase.ts`: `getAdminSupabase()`, `getPublicSupabase()`, `uploadToSupabase()`.
+- `supabase_setup.sql`: Setup SQL original **desatualizado** face ao schema real de produção (falta `DEFAULT gen_random_uuid()` em `id`, coluna `number` extra, FK `users_id_fkey`).
 - `server/middleware/security.ts`: Helmet, CORS, logger.
 - `server/middleware/adminIpRestriction.ts`: IP whitelist opcional para admin.
 - `server/utils/audit.ts`: log de acções admin para undo.

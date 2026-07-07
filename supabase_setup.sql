@@ -5,6 +5,9 @@
 -- NOTA: id usa gen_random_uuid() em vez de references auth.users(id)
 --       porque o SeuBeat permite encomendas sem autenticação.
 --       O backend usa service_role para bypass de RLS.
+-- AVISO: Em produção havia uma CONSTRAINT users_id_fkey auto-referenciada
+--       (provavelmente FOREIGN KEY (id) REFERENCES users(id)) que impedia
+--       QUALQUER novo insert. Foi removida via SQL (DROP CONSTRAINT).
 CREATE TABLE IF NOT EXISTS public.users (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   auth_user_id uuid UNIQUE REFERENCES auth.users(id),
