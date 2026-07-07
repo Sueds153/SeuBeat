@@ -83,7 +83,12 @@ async function ensureUserProfile(
     .single();
 
   if (profileCreateError || !newProfile?.id) {
-    logError('[API] Falha ao criar perfil', profileCreateError);
+    logError('[API] Falha ao criar perfil', {
+      message: (profileCreateError as any)?.message,
+      details: (profileCreateError as any)?.details,
+      hint: (profileCreateError as any)?.hint,
+      code: (profileCreateError as any)?.code,
+    });
     throw new Error('Nao foi possivel criar o seu perfil.');
   }
 
