@@ -15,23 +15,24 @@ export const PRICING_PLANS: PricingPlan[] = [
     price: '7.900 Kz',
     subtitle: 'Música personalizada criada no estilo ideal.',
     features: [
-      'Entrega digital em 24 horas',
-      'Até 2 retoques de letra',
-      'Qualidade de áudio standard (MP3)',
-      'Estilo de voz Masculino ou Feminino'
+      'Música completa (3-4 min)',
+      'Pré-visualização antes de pagar',
+      'Voz Masculina ou Feminina',
+      'Página personalizada online',
+      'Download MP3',
+      'Entrega em 24h'
     ]
   },
   {
     id: 'express',
     name: 'SeuBeat Express ⚡',
     price: '9.900 Kz',
-    subtitle: 'Mais rápido, com letra expandida e maior prioridade.',
+    subtitle: 'Tudo do Standard com entrega mais rápida e mais benefícios.',
     features: [
-      'Entrega prioritária na mesma hora',
-      'Retoques ilimitados de letra',
-      'Áudio em Alta Definição (WAV + MP3)',
-      'Vozes em Dueto disponíveis',
-      'Página de dedicatória personalizada'
+      'Tudo do Standard',
+      'Voz em Dueto',
+      'Entrega em 1h',
+      '1 revisão de letra incluída'
     ],
     badge: 'Mais Popular',
     popular: true
@@ -40,13 +41,10 @@ export const PRICING_PLANS: PricingPlan[] = [
     id: 'premium',
     name: 'Premium Voice 👑',
     price: '14.900 Kz',
-    subtitle: 'A sua surpresa! Gravação de timbre personalizada.',
+    subtitle: 'Tudo do Express com a sua voz personalizada.',
     features: [
-      'Entrega express',
-      'Sintonia acústica fina do seu timbre de voz',
-      'O vocalista assume a letra com a sua assinatura vocal',
-      'Acompanhamento VIP por produtor musical',
-      'Vídeo-dedicatória com fotos integrado'
+      'Tudo do Express',
+      'Voz personalizada do cliente (timbre clonado)'
     ]
   }
 ];

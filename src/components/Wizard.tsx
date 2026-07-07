@@ -1311,7 +1311,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                   <div className="space-y-4">
                     <div>
                       <h4 className="font-serif text-lg font-bold text-stone-300">STANDARD</h4>
-                      <p className="text-stone-500 text-xs mt-0.5">O presente tradicional</p>
+                      <p className="text-stone-500 text-xs mt-0.5">Música personalizada com entrega em 24h</p>
                     </div>
                     
                     <div className="text-left py-2">
@@ -1326,7 +1326,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Download MP3 de Alta FID</span>
+                        <span>Pré-visualização antes de pagar</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-500 shrink-0" />
+                        <span>Voz Masculina ou Feminina</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
@@ -1334,7 +1338,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Entrega até 24h</span>
+                        <span>Download MP3</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-500 shrink-0" />
+                        <span>Entrega em 24h</span>
                       </li>
                     </ul>
                   </div>
@@ -1360,7 +1368,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                       <h4 className="font-serif text-lg font-bold text-amber-300 flex items-center gap-1.5">
                         EXPRESS
                       </h4>
-                      <p className="text-amber-500/80 text-xs mt-0.5">Entrega expressa instantânea</p>
+                      <p className="text-amber-500/80 text-xs mt-0.5">Tudo do Standard, mais rápido e com dueto</p>
                     </div>
                     
                     <div className="text-left py-2">
@@ -1371,23 +1379,19 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                     <ul className="text-xs text-stone-400 space-y-2 pt-2 border-t border-stone-900">
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Música completa</span>
+                        <span>Tudo do Standard</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Download MP3</span>
+                        <span>Voz em Dueto</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Página personalizada</span>
+                        <span>Entrega em 1h</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Entrega imediata</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Compositor prioritário</span>
+                        <span>1 revisão de letra incluída</span>
                       </li>
                     </ul>
                   </div>
@@ -1416,7 +1420,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                   <div className="space-y-4">
                     <div>
                       <h4 className="font-serif text-lg font-bold text-stone-300">PREMIUM</h4>
-                      <p className="text-stone-500 text-xs mt-0.5">A obra de arte máxima</p>
+                      <p className="text-stone-500 text-xs mt-0.5">Tudo do Express com a sua própria voz</p>
                     </div>
                     
                     <div className="text-left py-2">
@@ -1431,15 +1435,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Voz personalizada (Sua própria voz!)</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Página VIP dedicada</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Prioridade máxima em suporte</span>
+                        <span>Voz personalizada do cliente (timbre clonado)</span>
                       </li>
                     </ul>
                   </div>
