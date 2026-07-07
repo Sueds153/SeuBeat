@@ -42,7 +42,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
     if (songDetails.lyrics.length > 0) return songDetails.lyrics;
     const { recipientNick, userNick, memory, whereItHappened } = songDetails;
     return [
-      `Desde o dia em que te conheci, minha querida ${recipientNick},`,
+      `Desde o dia em que te conheci, querido(a) ${recipientNick},`,
       `O meu peito rebate no compasso de um ritmo profundo.`,
       `Estávamos juntos em ${whereItHappened || 'Angola'}, recordas-te meu bem?`,
       `Aquele momento: ${memory || 'em que trocámos o nosso primeiro olhar sincero'}.`,

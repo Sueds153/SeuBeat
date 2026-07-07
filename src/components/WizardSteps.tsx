@@ -57,7 +57,7 @@ export function Step1Relation({
       <div className="space-y-3 pt-3 border-t border-stone-900">
         <div>
           <label id="recipient-name-lbl" className="text-xs font-mono text-stone-400 block mb-1.5 font-semibold">
-            Qual é o nome dele/dela? (Primeiro nome ou alcunha)
+            Qual é o nome da pessoa? (Primeiro nome ou alcunha)
           </label>
           <input
             id="recipient-name-input"
@@ -75,7 +75,7 @@ export function Step1Relation({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-xs font-mono text-stone-400 block mb-1.5 font-semibold">
-              Que apelido carinhoso ela/ele te chama?
+              Que apelido carinhoso essa pessoa te chama?
             </label>
             <input
               id="user-nick-input"
@@ -92,12 +92,12 @@ export function Step1Relation({
 
           <div>
             <label className="text-xs font-mono text-stone-400 block mb-1.5 font-semibold">
-              E tu, que apelido usas para ela/ele?
+              E tu, que apelido usas para essa pessoa?
             </label>
             <input
               id="recipient-nick-input"
               type="text"
-              placeholder="Princesa, Rainha, Meu Bem, Vida..."
+              placeholder="Amor, Princesa, Meu Rei, Vida..."
               value={formData.recipientNick}
               onChange={(e) => setFormData(prev => ({ ...prev, recipientNick: e.target.value }))}
               className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300"

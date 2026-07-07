@@ -121,7 +121,7 @@ function buildFormContext(formData: any) {
     ['Artista de Referência', c(formData.referenceArtist)],
     ['Tipo de Voz', c(formData.voiceType)],
     ['O que torna a pessoa especial', c(formData.whatMakesSpecial)],
-    ['Algo que só ela faz', c(formData.onlySheDoes)],
+    ['Algo que só essa pessoa faz', c(formData.onlySheDoes)],
     ['Memória inesquecível', c(formData.unforgettableMemory)],
     ['Local da memória', c(formData.whereItHappened)],
     ['O que nunca deve esquecer (Mensagem do Coração)', c(formData.messageFromTheHeart)],
@@ -145,7 +145,7 @@ REGRAS DE OURO PARA COMPOSIÇÃO:
    - Verso 1: Estabelece o cenário, o local ou uma memória inicial.
    - Pré-Refrão: Cria tensão emocional, prepara para a mensagem principal.
    - Refrão: A alma da música. Deve ser memorável, rítmico e conter o nome da pessoa ou o motivo central.
-   - Verso 2: Aprofunda a história, traz detalhes novos ou o "detalhe único" que só ela faz.
+   - Verso 2: Aprofunda a história, traz detalhes novos ou o "detalhe único" que só essa pessoa faz.
    - Ponte: Momento de reflexão, mudança de tom ou uma promessa para o futuro.
    - Refrão Final: Explosão emocional, encerramento marcante.
 4. LINGUAGEM: Português natural, fluído e rítmico. Nada de "IA-speak" ou frases genéricas.

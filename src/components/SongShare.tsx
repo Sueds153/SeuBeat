@@ -13,7 +13,7 @@ interface SongShareProps {
 
 function getFullComposedLetter(props: Pick<SongShareProps, 'recipientName' | 'recipientNick' | 'userNick' | 'memory' | 'whereItHappened' | 'letter'>): string {
   if (props.letter) return props.letter;
-  return `Minha querida ${props.recipientName} (${props.recipientNick}),\n\nEscrevo estas palavras com o coração totalmente aberto e transbordando de carinho. Há momentos na vida que ficam gravados para sempre na alma, e um deles é, sem dúvida, ${props.memory || 'tudo o que partilhámos juntos'} que aconteceu em ${props.whereItHappened || 'Angola'}.\n\nCom todo o amor do mundo,\n${props.userNick}`;
+  return `Querido(a) ${props.recipientName} (${props.recipientNick}),\n\nEscrevo estas palavras com o coração totalmente aberto e transbordando de carinho. Há momentos na vida que ficam gravados para sempre na alma, e um deles é, sem dúvida, ${props.memory || 'tudo o que partilhámos juntos'} que aconteceu em ${props.whereItHappened || 'Angola'}.\n\nCom todo o amor do mundo,\n${props.userNick}`;
 }
 
 export default function SongShare(props: SongShareProps) {

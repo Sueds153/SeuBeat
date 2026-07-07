@@ -11,7 +11,7 @@ function getFullComposedLetter(props: SongLetterProps): string {
   const { recipientName, recipientNick, userNick, memory, whereItHappened, letter } = props;
   if (letter) return letter;
 
-  return `Minha querida ${recipientName} (${recipientNick}),\n\nEscrevo estas palavras com o coração totalmente aberto e transbordando de carinho. Há momentos na vida que ficam gravados para sempre na alma, e um deles é, sem dúvida, ${memory || 'tudo o que partilhámos juntos'} que aconteceu em ${whereItHappened || 'Angola'}.\n\nQuero que saibas que o teu sorriso ilumina os meus dias mais cinzentos e que a tua presença traz uma paz inigualável. Criar esta canção personalizada no estúdio SeuBeat foi a forma mais profunda e sincera que encontrei de eternizar o nosso companheirismo e declarar o meu carinho inabalável por ti.\n\nCom todo o amor do mundo,\n${userNick}`;
+  return `Querido(a) ${recipientName} (${recipientNick}),\n\nEscrevo estas palavras com o coração totalmente aberto e transbordando de carinho. Há momentos na vida que ficam gravados para sempre na alma, e um deles é, sem dúvida, ${memory || 'tudo o que partilhámos juntos'} que aconteceu em ${whereItHappened || 'Angola'}.\n\nQuero que saibas que o teu sorriso ilumina os meus dias mais cinzentos e que a tua presença traz uma paz inigualável. Criar esta canção personalizada no estúdio SeuBeat foi a forma mais profunda e sincera que encontrei de eternizar o nosso companheirismo e declarar o meu carinho inabalável por ti.\n\nCom todo o amor do mundo,\n${userNick}`;
 }
 
 export default function SongLetter(props: SongLetterProps) {

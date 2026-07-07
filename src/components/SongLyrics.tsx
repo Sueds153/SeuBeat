@@ -5,7 +5,7 @@ interface SongLyricsProps {
 
 export default function SongLyrics({ lyrics, audioProgress }: SongLyricsProps) {
   const lines = lyrics.length > 0 ? lyrics : [
-    'Desde o dia em que te conheci, minha querida,',
+    'Desde o dia em que te conheci, querido(a),',
     'O meu peito rebate no compasso de um ritmo profundo.',
     'Estávamos juntos em Angola, recordas-te meu bem?',
     'Aquele momento em que trocámos o nosso primeiro olhar sincero.',
