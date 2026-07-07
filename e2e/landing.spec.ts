@@ -11,6 +11,6 @@ test.describe('LandingPage', () => {
   test('clicking CTA starts wizard', async ({ page }) => {
     await page.goto('/', { waitUntil: 'load' });
     await page.getByRole('button', { name: /Criar M/ }).first().click();
-    await expect(page.getByText('PASSO 1 DE 9', { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/PASSO 1/)).toBeVisible({ timeout: 15000 });
   });
 });

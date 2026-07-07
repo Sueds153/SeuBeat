@@ -1,5 +1,4 @@
 import express from 'express';
-import { randomUUID } from 'crypto';
 import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
 import { generateLyrics } from '../services/ai';
 import { sendPersonalizedEmail, sendConfirmationEmail } from '../services/email';
@@ -60,17 +59,6 @@ function publicUrlForStoragePath(supabase: NonNullable<ReturnType<typeof getAdmi
   return publicUrl;
 }
 
-async function findAuthUserIdByEmail(supabase: NonNullable<ReturnType<typeof getAdminSupabase>>, email: string) {
-  const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 10000 });
-  if (error) {
-    logWarn('[API] Falha ao listar auth.users para procurar email.', { error: error.message });
-    return null;
-  }
-  const users = (data?.users || []) as Array<{ id: string; email?: string }>;
-  const found = users.find(user => user.email?.toLowerCase() === email.toLowerCase());
-  return found?.id || null;
-}
-
 async function ensureUserProfile(
   supabase: NonNullable<ReturnType<typeof getAdminSupabase>>,
   params: { email: string; name: string; phone?: string | null }
@@ -88,39 +76,17 @@ async function ensureUserProfile(
 
   if (existingUser?.id) return existingUser;
 
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY nao configurada para criar cliente.');
-  }
-
-  let authUserId = await findAuthUserIdByEmail(supabase, params.email);
-  if (!authUserId) {
-    const { data: authData, error: authCreateError } = await supabase.auth.admin.createUser({
-      email: params.email,
-      password: `SeuBeat-${randomUUID()}!`,
-      email_confirm: true,
-      user_metadata: {
-        name: params.name,
-        phone: params.phone || null,
-        source: 'seubeat_wizard'
-      }
-    });
-
-    if (authCreateError || !authData.user?.id) {
-      logError('[API] Falha ao criar auth user', authCreateError);
-      throw new Error('Nao foi possivel criar o seu perfil.');
-    }
-
-    authUserId = authData.user.id;
-  }
-
   const { data: newProfile, error: profileCreateError } = await supabase
     .from('users')
-    .upsert([{ id: authUserId, name: params.name, email: params.email, phone: params.phone || null }], { onConflict: 'id' })
+    .upsert(
+      [{ name: params.name, email: params.email, phone: params.phone || null }],
+      { onConflict: 'email', ignoreDuplicates: 'email' }
+    )
     .select()
     .single();
 
   if (profileCreateError || !newProfile?.id) {
-    logError('[API] Falha ao criar perfil publico', profileCreateError);
+    logError('[API] Falha ao criar perfil', profileCreateError);
     throw new Error('Nao foi possivel criar o seu perfil.');
   }
 
