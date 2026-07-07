@@ -36,7 +36,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
       {/* ─── PROMO BAR ─── */}
       <div className="w-full bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-stone-950 text-center py-2 px-4 text-xs font-bold tracking-wide animate-pulse-slow z-50 relative">
-        🎉 Lançamento Exclusivo · Primeiros 50 pedidos com <span className="underline underline-offset-2">30% de desconto</span> · Oferta Limitada!
+        🎉 +200 músicas criadas · <span className="underline underline-offset-2">30% de desconto</span> por tempo limitado!
       </div>
 
       {/* Ambient Background */}
@@ -240,7 +240,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
               {/* Floating badge top-right */}
               <div className="absolute -top-4 right-4 md:-right-4 bg-gradient-to-br from-amber-500 to-rose-600 text-stone-950 rounded-2xl px-4 py-2 text-xs font-black shadow-xl shadow-amber-500/30 rotate-0 md:rotate-3">
-                🎵 Entrega em 24–72h
+                🎵 Entrega em 24h
               </div>
             </div>
           </div>
@@ -263,7 +263,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-10">
             {[
               { step: 'I', title: 'Conte a sua história', desc: 'Abra o estúdio e responda a perguntas simples e românticas. Conte alcunhas, piadas privadas e aquela viagem inesquecível ao Cabo Ledo.', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
-              { step: 'II', title: 'O Estúdio cria a música', desc: 'Os nossos compositores angolanos estruturam a letra e vozes profissionais gravam a canção no ritmo de Kizomba, Semba ou Pop favorito.', color: 'text-rose-400 bg-rose-500/10 border-rose-500/20' },
+              { step: 'II', title: 'O Estúdio cria a música', desc: 'A nossa tecnologia transforma as tuas respostas numa letra emocionante com vozes naturais e instrumentação profissional — no ritmo de Kizomba, Semba ou Pop favorito.', color: 'text-rose-400 bg-rose-500/10 border-rose-500/20' },
               { step: 'III', title: 'Surpreenda alguém especial', desc: 'Receba uma página de dedicatória lindíssima com a letra sincronizada e leitor interativo. Prepare os lenços — as lágrimas são garantidas.', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
             ].map((item, idx) => (
               <div
@@ -422,7 +422,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               A canção já existe. <span className="text-amber-400 font-semibold">Falta só ouvi-la.</span>
             </p>
             <p className="text-stone-500 text-xs font-mono">
-              Pré-visualização grátis · Pagas só quando ouvires e adorares · Garantia de devolução
+              Pré-visualização grátis · Pagas só quando ouvires e adorares
             </p>
           </div>
 

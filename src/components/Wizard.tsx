@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   ArrowRight, ArrowLeft, Heart, Sparkles, Check, Upload,
-  Mic, Mail, Phone, Eye, Lock, RefreshCw, Play, Pause, AlertTriangle, ShieldCheck, MapPin, Copy
+  Mic, Mail, Phone, Eye, Lock, RefreshCw, Play, Pause, AlertTriangle, ShieldCheck, MapPin, Copy, FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import StepErrorBoundary from './StepErrorBoundary';
@@ -143,6 +143,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
   const [paymentSubmitError, setPaymentSubmitError] = useState<string>('');
+  const [paymentTab, setPaymentTab] = useState<'atm' | 'express'>('express');
 
   // AI Song states powered by Claude
   const [aiSongTitle, setAiSongTitle] = useState('');
@@ -1900,31 +1901,64 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                 </div>
 
                 {/* ATM / Express Step Guides */}
-                <div className="space-y-3.5 text-left pt-2">
-                  <h5 className="text-[10px] font-mono text-amber-500 uppercase tracking-wider block font-bold">Instruções de Pagamento (ATM ou Express):</h5>
-                  
-                  <div className="space-y-3 text-xs text-stone-400 leading-relaxed font-sans">
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono">1</div>
-                      <p>
-                        Aceda ao <strong className="text-stone-200">Express</strong> no seu smartphone ou dirija-se a um caixa <strong className="text-stone-200">ATM (EDM Multicaixa)</strong>.
-                      </p>
-                    </div>
+                <div className="space-y-3 text-left pt-2">
+                  <h5 className="text-[10px] font-mono text-amber-500 uppercase tracking-wider block font-bold">Como Pagar por Multicaixa</h5>
 
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono">2</div>
-                      <p>
-                        Escolha a opção <strong className="text-amber-400 font-medium">Pagamentos</strong> e depois clique em <strong className="text-white font-medium">Pagamento de Serviços / Compras</strong>.
-                      </p>
-                    </div>
-
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono">3</div>
-                      <p>
-                        Introduza a Entidade <strong className="text-white">{paymentDetails.entidade}</strong>, a Referência <strong className="text-white">{paymentDetails.referencia}</strong> e o valor exato do plano: <strong className="text-amber-400 font-mono font-medium">{getPrice()}</strong>.
-                      </p>
-                    </div>
+                  {/* Tabs */}
+                  <div className="flex gap-1 bg-stone-900 rounded-xl p-1 border border-stone-850">
+                    <button
+                      onClick={() => setPaymentTab('express')}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        paymentTab === 'express' ? 'bg-amber-500 text-stone-950' : 'text-stone-400 hover:text-stone-200'
+                      }`}
+                    >
+                      📱 Multicaixa Express
+                    </button>
+                    <button
+                      onClick={() => setPaymentTab('atm')}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        paymentTab === 'atm' ? 'bg-amber-500 text-stone-950' : 'text-stone-400 hover:text-stone-200'
+                      }`}
+                    >
+                      🏧 ATM (caixa físico)
+                    </button>
                   </div>
+
+                  {/* Express steps */}
+                  {paymentTab === 'express' && (
+                    <div className="space-y-2 text-xs text-stone-400 font-sans">
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">1</div>
+                        <p>App → Login PIN → <strong className="text-stone-200">Pagamentos</strong> → <strong className="text-stone-200">Pagamento de Serviços/Compras</strong></p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">2</div>
+                        <p>Digite: Entidade <strong className="text-white">{paymentDetails.entidade}</strong> · Ref. <strong className="text-white">{paymentDetails.referencia}</strong> · Valor <strong className="text-amber-400">{getPrice()}</strong></p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">3</div>
+                        <p>Confirme com PIN/biometria, faça <strong className="text-stone-200">printscreen</strong> da confirmação e carregue abaixo</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ATM steps */}
+                  {paymentTab === 'atm' && (
+                    <div className="space-y-2 text-xs text-stone-400 font-sans">
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">1</div>
+                        <p>Cartão → PIN → <strong className="text-stone-200">Pagamentos</strong> → <strong className="text-stone-200">Pagamento de Serviços</strong> → <strong className="text-stone-200">Compras/Outros</strong></p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">2</div>
+                        <p>Digite: Entidade <strong className="text-white">{paymentDetails.entidade}</strong> · Ref. <strong className="text-white">{paymentDetails.referencia}</strong> · Valor <strong className="text-amber-400">{getPrice()}</strong></p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">3</div>
+                        <p>Confirme, guarde o <strong className="text-stone-200">comprovativo impresso</strong>, tire foto e carregue abaixo</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Upload Section */}
@@ -1970,7 +2004,16 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                         </div>
                       )}
 
-                      {/* Image Preview if it's an image */}
+                      {/* Preview: image ou ícone PDF */}
+                      {proofFile && !proofPreviewUrl && proofFile.type === 'application/pdf' && (
+                        <div className="mt-2 rounded-xl border border-stone-800 bg-stone-950 p-4 flex items-center gap-3">
+                          <FileText className="w-8 h-8 text-rose-400 shrink-0" />
+                          <div>
+                            <p className="text-xs text-stone-300 font-medium">{proofFile.name}</p>
+                            <p className="text-[10px] text-stone-500">PDF · {(proofFile.size / 1024 / 1024).toFixed(1)}MB</p>
+                          </div>
+                        </div>
+                      )}
                       {proofPreviewUrl && (
                         <div className="mt-2 relative rounded-xl overflow-hidden border border-stone-800 max-h-40 bg-stone-950">
                           <img

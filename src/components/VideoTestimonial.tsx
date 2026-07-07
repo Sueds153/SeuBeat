@@ -121,7 +121,7 @@ export default function VideoTestimonial() {
               <span className="text-2xl">😭</span>
               <div>
                 <span className="text-xs font-bold text-stone-200 block">Lágrimas Garantidas</span>
-                <span className="text-[10px] text-stone-500 font-mono uppercase">99% de eficácia emocional</span>
+                <span className="text-[10px] text-stone-500 font-mono uppercase">+200 músicas emocionantes</span>
               </div>
             </div>
 

@@ -30,7 +30,7 @@ const FAQ_ITEMS: FAQItem[] = [
   },
   {
     question: "Como posso efetuar o pagamento seguro em Angola?",
-    answer: "Aceitamos pagamentos instantâneos extremamente populares como transferência bancária direta, depósitos ou via referências de pagamento Multicaixa Express. No final do formulário, as instruções de liquidação serão apresentadas de forma clara para validação."
+    answer: "Pagamento por referência Multicaixa (Entidade 10116, Referência 929423278). No final do wizard encontras o passo a passo completo para ATM ou Multicaixa Express."
   }
 ];
 
