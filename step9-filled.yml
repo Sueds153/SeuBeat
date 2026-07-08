@@ -1,0 +1,71 @@
+- generic [ref=e1]:
+  - link "Pular para o conteúdo" [ref=e2] [cursor=pointer]:
+    - /url: "#root"
+  - generic [ref=e616]:
+    - generic [ref=e617]:
+      - button "SeuBeat logo SeuBeat Passo de Estúdio" [ref=e618] [cursor=pointer]:
+        - img "SeuBeat logo" [ref=e619]
+        - generic [ref=e620]:
+          - heading "SeuBeat" [level=2] [ref=e621]
+          - generic [ref=e622]: Passo de Estúdio
+      - generic [ref=e624]: ⏱ ~3 min · PASSO 9 · 100%
+    - generic [ref=e627]:
+      - generic [ref=e628]:
+        - generic [ref=e1197]:
+          - generic [ref=e1198]:
+            - generic [ref=e1199]: Estúdio SeuBeat
+            - heading "Contacto de segurança do autor 🛡️" [level=3] [ref=e1200]
+            - paragraph [ref=e1201]: Preencha o correio eletrónico para o seu link privado de escuta.
+            - paragraph [ref=e1202]: "Exemplo: Receba o ficheiro WAV directamente no WhatsApp."
+          - generic [ref=e1203]:
+            - generic [ref=e1204]:
+              - generic [ref=e1205]:
+                - text: Idioma da Letra
+                - combobox [ref=e1206]:
+                  - option "Português (Nacional)" [selected]
+                  - option "Mesclado com Kimbundu"
+                  - option "Mesclado com UmBundu"
+                  - option "Mesclado com Kikongo"
+                  - option "Mesclado com Lingala"
+                  - option "Inglês"
+              - generic [ref=e1207]:
+                - generic [ref=e1208]:
+                  - img [ref=e1209]
+                  - text: E-mail de Registo (Obrigatório)
+                - 'textbox "ex: seu-nome@dominio.com" [ref=e1212]': josuemiguelsued@gmail.com
+              - generic [ref=e1213]:
+                - generic [ref=e1214]:
+                  - img [ref=e1215]
+                  - text: Telemóvel / WhatsApp (Opcional - Recomendado em Angola)
+                - textbox "+244 922 000 000" [active] [ref=e1217]: +244 929 423 278
+            - paragraph [ref=e1218]: "\"O link da música será enviado para este email.\""
+            - generic [ref=e1219]: "\"Estamos quase a transformar a tua história numa música.\""
+        - generic [ref=e695]:
+          - button "Retroceder" [ref=e696] [cursor=pointer]:
+            - img [ref=e697]
+            - generic [ref=e699]: Retroceder
+          - paragraph [ref=e700]: Passo 9 • Estamos quase prontos para criar a melodia!
+          - button "Concluir Declaração" [ref=e1220] [cursor=pointer]:
+            - generic [ref=e702]: Concluir Declaração
+            - img [ref=e703]
+      - generic [ref=e705]:
+        - generic [ref=e707]:
+          - img [ref=e708]
+          - generic [ref=e711]: VISUALIZAÇÃO DE ESTÚDIO SEUBEAT
+        - generic [ref=e713]:
+          - img "Vinyl mini" [ref=e1186]
+          - generic [ref=e721]:
+            - heading "Canção para Maria Clara" [level=4] [ref=e752]
+            - paragraph [ref=e723]:
+              - text: "OCASIÃO:"
+              - strong [ref=e724]: Casamento
+        - generic [ref=e725]:
+          - generic [ref=e726]:
+            - generic [ref=e727]: "Como deseja que se sinta:"
+            - text: Gratidão ✨
+          - generic [ref=e728]:
+            - generic [ref=e729]: "Rítmo de Fundo:"
+            - text: Kizomba (Anselmo Ralph)
+          - generic [ref=e730]:
+            - generic [ref=e731]: "Apelidos Carinhosos:"
+            - text: "\"Princesa\" de Meu Amor"

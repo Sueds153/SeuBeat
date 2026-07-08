@@ -73,8 +73,8 @@ export async function createApp(): Promise<express.Application> {
     });
   });
 
-  app.use('/api', publicRouter);
   app.use('/api/admin', adminLimiter, adminIpRestriction, adminRouter);
+  app.use('/api', publicRouter);
 
   if (sentryDsn) {
     const { setupExpressErrorHandler } = await import('@sentry/node');
