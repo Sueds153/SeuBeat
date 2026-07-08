@@ -1,6 +1,5 @@
 import express from 'express';
 import { ENV, validateEnv, getEnv } from './env';
-import { adminLimiter } from '../middleware/rateLimiter';
 import { errorHandler } from '../middleware/errorHandler';
 import { helmetMiddleware, corsMiddleware, httpLogger, permissionsPolicyMiddleware } from '../middleware/security';
 import { adminIpRestriction } from '../middleware/adminIpRestriction';
@@ -73,7 +72,7 @@ export async function createApp(): Promise<express.Application> {
     });
   });
 
-  app.use('/api/admin', adminLimiter, adminIpRestriction, adminRouter);
+  app.use('/api/admin', adminIpRestriction, adminRouter);
   app.use('/api', publicRouter);
 
   if (sentryDsn) {
