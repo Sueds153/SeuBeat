@@ -266,8 +266,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       email: userEmail,
       phone: phone || null,
       status: 'lyrics_generating',
-      photo_url: photoUrl,
-      language: language || 'português'
+      photo_url: photoUrl
     }]).select().single();
 
     if (requestError || !requestData?.id) {
