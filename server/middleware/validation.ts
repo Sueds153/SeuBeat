@@ -60,8 +60,8 @@ export const GenerateLyricsSchema = z.object({
   language: z.preprocess(lower, z.enum(LANGUAGES)).default('português'),
 
   photoBase64: z.string().max(5 * 1024 * 1024, 'Foto muito grande (max 5MB)').optional().nullable(),
-  photoFilename: z.string().max(255).trim().optional(),
-  photoMimeType: z.enum(['image/jpeg', 'image/png', 'image/webp'] as const).optional(),
+  photoFilename: z.string().max(255).trim().optional().nullable(),
+  photoMimeType: z.enum(['image/jpeg', 'image/png', 'image/webp'] as const).optional().nullable(),
 });
 
 export type GenerateLyricsInput = z.infer<typeof GenerateLyricsSchema>;
