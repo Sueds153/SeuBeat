@@ -5,7 +5,7 @@ export interface LyricsComposition {
   letterText: string;
 }
 
-export type AIProvider = 'openai' | 'claude';
+export type AIProvider = 'openai' | 'claude' | 'gemini';
 
 export interface SunoResult {
   taskId: string;

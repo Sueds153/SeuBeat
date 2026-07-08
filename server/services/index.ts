@@ -1,5 +1,6 @@
 export { generateLyricsWithGPT, validateGPTComposition } from './openai';
 export { generateLyricsWithClaude, validateClaudeComposition } from './claude';
+export { generateLyricsWithGemini, validateGeminiComposition } from './gemini';
 export { generateLyrics } from './ai';
 export { selectPrompt } from './prompts';
 export { startSunoMusic, continueSunoMusic, generateFullSong } from './suno';
