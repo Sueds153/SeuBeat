@@ -383,14 +383,14 @@ router.get('/credits', adminAuth, async (req, res) => {
         try {
           const genAI = new GoogleGenAI({ apiKey });
           const response = await genAI.models.generateContent({
-            model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+            model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
             contents: [{ role: 'user', parts: [{ text: 'ping' }] }],
             config: { maxOutputTokens: 1 },
           });
-          return { ok: true, model: process.env.GEMINI_MODEL || 'gemini-2.0-flash', lastCheck: now.toISOString() };
+          return { ok: true, model: process.env.GEMINI_MODEL || 'gemini-2.5-flash', lastCheck: now.toISOString() };
         } catch (e: any) {
           if (e.message?.includes('quota') || e.message?.includes('limit') || e.message?.includes('429') || e.message?.includes('insufficient') || e.message?.includes('RATE_LIMIT') || e.message?.includes('dailyLimitExceeded') || e.message?.includes('quotaExceeded')) {
-            return { ok: true, quota_exceeded: true, error: e.message, model: process.env.GEMINI_MODEL || 'gemini-2.0-flash', lastCheck: now.toISOString() };
+            return { ok: true, quota_exceeded: true, error: e.message, model: process.env.GEMINI_MODEL || 'gemini-2.5-flash', lastCheck: now.toISOString() };
           }
           return { ok: false, error: e.message };
         }
@@ -568,7 +568,7 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
         try {
           const genAI = new GoogleGenAI({ apiKey: key });
           const response = await genAI.models.generateContent({
-            model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+            model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
             contents: [{ role: 'user', parts: [{ text: 'ping' }] }],
             config: { maxOutputTokens: 1 },
           });
