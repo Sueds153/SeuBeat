@@ -1,4 +1,4 @@
-const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANON_KEY', 'SUNO_API_KEY', 'SMTP_HOST', 'ADMIN_PASSWORD'] as const;
+const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANON_KEY', 'SUNO_API_KEY', 'SMTP_HOST', 'ADMIN_PASSWORD', 'JWT_SECRET'] as const;
 
 export function validateEnv(): void {
   const missing = REQUIRED_ENV.filter(key => !process.env[key]);
@@ -9,9 +9,6 @@ export function validateEnv(): void {
     }
     console.error(`[FATAL] Variaveis de ambiente em falta: ${missing.join(', ')}`);
     process.exit(1);
-  }
-  if (!process.env.JWT_SECRET) {
-    console.warn('[WARN] JWT_SECRET nao configurado — a usar fallback inseguro (dev-secret).');
   }
   if (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY && !process.env.GEMINI_API_KEY) {
     if (process.env.CI || process.env.NODE_ENV === 'test') {

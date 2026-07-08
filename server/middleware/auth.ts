@@ -7,7 +7,7 @@ function getAdminPassword(): string | undefined {
 }
 
 function getJwtSecret(): string {
-  return process.env.JWT_SECRET || 'dev-secret-do-not-use-in-production';
+  return process.env.JWT_SECRET || '';
 }
 
 const ATTEMPT_LIMIT = 10;
