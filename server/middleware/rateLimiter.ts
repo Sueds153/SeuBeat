@@ -18,13 +18,7 @@ export const globalLimiter = rateLimit({
   },
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable `X-RateLimit-*` headers
-  skip: (req) => {
-    // Não limitar localhost (IPv4 e IPv6) em desenvolvimento
-    if (process.env.NODE_ENV !== 'production') {
-      return req.ip === '::1' || req.ip === '127.0.0.1' || req.ip === '::ffff:127.0.0.1';
-    }
-    return false;
-  },
+  skip: (req) => process.env.NODE_ENV !== 'production',
   handler: (req, res) => {
     logWarn('Rate limit exceeded', { ip: req.ip, path: req.path });
     res.status(429).json({
@@ -91,7 +85,7 @@ export const emailLimiter = rateLimit({
  */
 export const adminLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
-  max: 30,
+  max: 200,
   message: {
     success: false,
     error: 'Limite de requisições admin atingido.'

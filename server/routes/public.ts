@@ -16,6 +16,7 @@ import {
   validateInput 
 } from '../middleware/validation';
 import { 
+  globalLimiter,
   generateLyricsLimiter, 
   emailLimiter,
   getSongLimiter,
@@ -24,6 +25,8 @@ import {
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 
 const router = express.Router();
+
+router.use(globalLimiter);
 
 function safeMessage(err: any) {
   return publicErrorMessage(err);
