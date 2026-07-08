@@ -80,6 +80,7 @@ interface DiagnosticsResult {
   supabase: { ok: boolean; error?: string; buckets?: { name: string; public: boolean }[] };
   claude: { ok: boolean; error?: string };
   openai: { ok: boolean; error?: string };
+  gemini: { ok: boolean; error?: string };
   suno: { ok: boolean; error?: string; credits?: number };
   sunoVoice: { ok: boolean; error?: string };
   email: { ok: boolean; error?: string; provider?: string; host?: string };
@@ -89,6 +90,7 @@ interface CreditsResult {
   suno: { ok: boolean; error?: string; credits: number; low?: boolean; lastCheck: string };
   claude: { ok: boolean; error?: string; model?: string; quota_exceeded?: boolean; lastCheck: string };
   openai: { ok: boolean; error?: string; total_granted?: number; total_used?: number; total_available?: number; model?: string; quota_exceeded?: boolean; lastCheck: string };
+  gemini: { ok: boolean; error?: string; model?: string; quota_exceeded?: boolean; lastCheck: string };
   email: { ok: boolean; error?: string; provider?: string; host?: string; lastCheck: string };
   usage: {
     totalSongs: number;
@@ -1906,6 +1908,50 @@ export default function AdminPanel() {
                             </div>
                           )}
                         </div>
+
+                        {/* Gemini Card */}
+                        <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-6 space-y-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/30 flex items-center justify-center">
+                              <Sparkles className="w-5 h-5 text-blue-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-stone-200">Google Gemini</p>
+                              <p className="text-[10px] font-mono text-stone-500">Geração de Letras (Fallback)</p>
+                            </div>
+                          </div>
+
+                          {credits.gemini?.ok ? (
+                            <div className="space-y-2">
+                              <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-mono text-stone-500">Modelo</span>
+                                  <span className="text-xs font-mono text-stone-300">{credits.gemini.model || '—'}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-mono text-stone-500">Estado</span>
+                                  <span className={`text-xs font-mono font-bold ${credits.gemini.quota_exceeded ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                    {credits.gemini.quota_exceeded ? '⚠️ Quota excedida' : '✅ Operacional'}
+                                  </span>
+                                </div>
+                              </div>
+                              {credits.gemini.quota_exceeded ? (
+                                <p className="text-[10px] font-mono text-rose-400">Quota excedida. Verifica em console.cloud.google.com</p>
+                              ) : (
+                                <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-[10px] font-mono">
+                                  <div className="flex justify-between text-stone-500">
+                                    <span>Última verificação</span>
+                                    <span className="text-stone-400">{new Date(credits.gemini.lastCheck).toLocaleString('pt')}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
+                              <p className="text-xs text-rose-400 font-mono">{credits.gemini?.error || 'Indisponível'}</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Brevo SMTP Card */}
@@ -2027,6 +2073,8 @@ export default function AdminPanel() {
                         detail={diagnostics.claude.error} />
                       <DiagBadge ok={diagnostics.openai?.ok} label="OpenAI GPT-4o (Geração de Letras)"
                         detail={diagnostics.openai?.error} />
+                      <DiagBadge ok={diagnostics.gemini?.ok} label="Google Gemini (Geração de Letras)"
+                        detail={diagnostics.gemini?.error} />
                       <DiagBadge ok={diagnostics.suno?.ok} label="Suno AI (Geração de Música)"
                         detail={diagnostics.suno?.ok ? `Créditos: ${diagnostics.suno?.credits || 'N/A'}` : diagnostics.suno?.error} />
                       <DiagBadge ok={diagnostics.sunoVoice?.ok} label="Suno Voice (Clonagem de Voz)"
@@ -2196,23 +2244,25 @@ export default function AdminPanel() {
                             )}
 
                             {/* Cost breakdown per song */}
-                            <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
-                              <p className="text-[10px] font-mono text-stone-500 uppercase mb-2">Custo por Música</p>
-                              <div className="grid grid-cols-3 gap-3 text-center">
-                                <div>
-                                  <p className="text-[18px] font-bold text-amber-400">${profitability.costs.costPerSong.suno}</p>
-                                  <p className="text-[9px] font-mono text-stone-500">Suno (2 créditos)</p>
-                                </div>
-                                <div>
-                                  <p className="text-[18px] font-bold text-violet-400">${profitability.costs.costPerSong.claude}</p>
-                                  <p className="text-[9px] font-mono text-stone-500">Claude (letra)</p>
-                                </div>
-                                <div>
-                                  <p className="text-[18px] font-bold text-stone-300">${profitability.costs.costPerSong.total}</p>
-                                  <p className="text-[9px] font-mono text-stone-500">Total</p>
+                            {profitability.summary.songCount > 0 && (
+                              <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
+                                <p className="text-[10px] font-mono text-stone-500 uppercase mb-2">Custo por Música</p>
+                                <div className="grid grid-cols-3 gap-3 text-center">
+                                  <div>
+                                    <p className="text-[18px] font-bold text-amber-400">${profitability.costs.costPerSong.suno}</p>
+                                    <p className="text-[9px] font-mono text-stone-500">Suno (2 créditos)</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[18px] font-bold text-violet-400">${profitability.costs.costPerSong.claude}</p>
+                                    <p className="text-[9px] font-mono text-stone-500">Claude (letra)</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[18px] font-bold text-stone-300">${profitability.costs.costPerSong.total}</p>
+                                    <p className="text-[9px] font-mono text-stone-500">Total</p>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
+                            )}
 
                             {/* By plan */}
                             {profitability.byPlan?.length > 0 && (

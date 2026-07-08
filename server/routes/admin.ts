@@ -10,6 +10,7 @@ import {
 import { sendPersonalizedEmail, sendPaymentRejectionEmail } from '../services/email';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { publicErrorMessage } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
@@ -314,7 +315,7 @@ router.get('/credits', adminAuth, async (req, res) => {
     const now = new Date();
     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [sunoResult, claudeResult, openaiResult, emailResult, songsRes, songsMonthRes, songsByMonthRes] = await Promise.all([
+    const [sunoResult, claudeResult, openaiResult, geminiResult, emailResult, songsRes, songsMonthRes, songsByMonthRes] = await Promise.all([
       // Suno live credit check
       (async () => {
         const key = process.env.SUNO_API_KEY;
@@ -375,6 +376,25 @@ router.get('/credits', adminAuth, async (req, res) => {
           return { ok: false, error: e.message };
         }
       })(),
+      // Gemini live check
+      (async () => {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) return { ok: false, error: 'GEMINI_API_KEY em falta' };
+        try {
+          const genAI = new GoogleGenAI({ apiKey });
+          const response = await genAI.models.generateContent({
+            model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+            contents: [{ role: 'user', parts: [{ text: 'ping' }] }],
+            config: { maxOutputTokens: 1 },
+          });
+          return { ok: true, model: process.env.GEMINI_MODEL || 'gemini-2.0-flash', lastCheck: now.toISOString() };
+        } catch (e: any) {
+          if (e.message?.includes('quota') || e.message?.includes('limit') || e.message?.includes('429') || e.message?.includes('insufficient') || e.message?.includes('RATE_LIMIT') || e.message?.includes('dailyLimitExceeded') || e.message?.includes('quotaExceeded')) {
+            return { ok: true, quota_exceeded: true, error: e.message, model: process.env.GEMINI_MODEL || 'gemini-2.0-flash', lastCheck: now.toISOString() };
+          }
+          return { ok: false, error: e.message };
+        }
+      })(),
       // Brevo SMTP live check
       (async () => {
         const host = process.env.SMTP_HOST;
@@ -421,6 +441,7 @@ router.get('/credits', adminAuth, async (req, res) => {
       suno: sunoResult,
       claude: claudeResult,
       openai: openaiResult,
+      gemini: geminiResult,
       email: emailResult,
       usage: {
         totalSongs,
@@ -508,7 +529,7 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
 // H. Diagnostics
 router.get('/diagnostics', adminAuth, async (req, res) => {
   try {
-    const [supabaseDiag, claudeDiag, openaiDiag, sunoDiag, sunoVoiceDiag, emailDiag] = await Promise.all([
+    const [supabaseDiag, claudeDiag, openaiDiag, geminiDiag, sunoDiag, sunoVoiceDiag, emailDiag] = await Promise.all([
       (async () => {
         const supabase = getAdminSupabase();
         if (!supabase) return { ok: false, error: 'Cliente não inicializado' };
@@ -538,6 +559,20 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
           const openai = new OpenAI({ apiKey: key });
           await openai.models.list({ timeout: 5000 });
           return { ok: true };
+        } catch (e: any) { return { ok: false, error: e.message }; }
+      })(),
+      // Gemini diagnostic
+      (async () => {
+        const key = process.env.GEMINI_API_KEY;
+        if (!key) return { ok: false, error: 'GEMINI_API_KEY em falta' };
+        try {
+          const genAI = new GoogleGenAI({ apiKey: key });
+          const response = await genAI.models.generateContent({
+            model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+            contents: [{ role: 'user', parts: [{ text: 'ping' }] }],
+            config: { maxOutputTokens: 1 },
+          });
+          return { ok: !!(response && response.text) };
         } catch (e: any) { return { ok: false, error: e.message }; }
       })(),
       (async () => {
@@ -571,6 +606,7 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
       supabase: supabaseDiag,
       claude: claudeDiag,
       openai: openaiDiag,
+      gemini: geminiDiag,
       suno: sunoDiag,
       sunoVoice: sunoVoiceDiag,
       email: emailDiag,
