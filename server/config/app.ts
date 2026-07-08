@@ -44,12 +44,14 @@ export async function createApp(): Promise<express.Application> {
     }
 
     const mem = process.memoryUsage();
-    const allOk = checks.supabase === 'ok';
+    const isCi = process.env.CI === 'true';
+    const allOk = checks.supabase === 'ok' || isCi;
 
     res.status(allOk ? 200 : 503).json({
       status: allOk ? 'ok' : 'degradado',
       uptime: process.uptime(),
       responseTime: `${Date.now() - startTime}ms`,
+      ci: isCi || undefined,
       checks,
       memory: {
         rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,

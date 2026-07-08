@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: |
           echo "Starting server in background..."
-          NODE_ENV=production npm run dev > /tmp/server.log 2>&1 &
+          node dist/server.js > /tmp/server.log 2>&1 &
           SERVER_PID=$!
           echo "Server PID: $SERVER_PID"
           for i in $(seq 1 60); do
