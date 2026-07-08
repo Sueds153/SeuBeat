@@ -11,7 +11,7 @@ import { logWarn } from '../utils/logger';
  */
 export const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 100,
+  max: 1000,
   message: {
     success: false,
     error: 'Demasiados pedidos. Tente novamente mais tarde.'
@@ -34,7 +34,7 @@ export const globalLimiter = rateLimit({
  */
 export const generateLyricsLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
-  max: 5,
+  max: 50,
   validate: false,
   keyGenerator: (req) => {
     // Usar email do body se disponível, senão IP
