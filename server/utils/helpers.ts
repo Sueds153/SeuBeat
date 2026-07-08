@@ -40,6 +40,9 @@ export function publicErrorMessage(err: any, fallback = 'Não foi possível conc
   if (/carregar a foto/i.test(message)) {
     return 'Não foi possível carregar a foto. Tente com uma imagem diferente (JPG, PNG ou WebP).';
   }
+  if (/perfil|criar o seu/i.test(message)) {
+    return 'Não foi possível criar o seu perfil. O email informado já está registado. Tente com outro email ou contacte o suporte.';
+  }
   
   return fallback;
 }

@@ -92,11 +92,17 @@ export async function ensureUserProfile(
       });
       if (!authCreateError && authData?.user?.id) {
         userId = authData.user.id;
+        const { data: triggerProfile } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+        if (triggerProfile?.id) return triggerProfile;
       } else {
-        logError('[API] Auth createUser falhou, fallback para insert direto', authCreateError);
+        logError('[API] Auth createUser falhou, fallback para upsert direto', authCreateError);
       }
     } catch (authErr) {
-      logError('[API] Excecao Auth createUser, fallback para insert direto', authErr as Error);
+      logError('[API] Excecao Auth createUser, fallback para upsert direto', authErr as Error);
     }
   }
 
@@ -106,11 +112,21 @@ export async function ensureUserProfile(
 
   const { data: newProfile, error: profileCreateError } = await supabase
     .from('users')
-    .insert([{ id: userId, name: params.name, email: params.email, phone: params.phone || null }])
+    .upsert(
+      { id: userId, name: params.name, email: params.email, phone: params.phone || null },
+      { onConflict: 'email' }
+    )
     .select()
     .single();
 
   if (profileCreateError || !newProfile?.id) {
+    const { data: retryUser } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', params.email)
+      .maybeSingle();
+    if (retryUser?.id) return retryUser;
+
     logError('[API] Falha ao criar perfil', profileCreateError, {
       supabaseMessage: (profileCreateError as any)?.message,
       supabaseDetails: (profileCreateError as any)?.details,
