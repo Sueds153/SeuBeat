@@ -271,7 +271,12 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
     }]).select().single();
 
     if (requestError || !requestData?.id) {
-      logError('[API] Falha ao criar song_request', requestError);
+      logError('[API] Falha ao criar song_request', requestError, {
+        supabaseMessage: (requestError as any)?.message,
+        supabaseDetails: (requestError as any)?.details,
+        supabaseHint: (requestError as any)?.hint,
+        supabaseCode: (requestError as any)?.code,
+      });
       throw new Error('Nao foi possivel registrar o seu pedido no banco de dados.');
     }
 
