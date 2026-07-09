@@ -30,7 +30,15 @@ export function helmetMiddleware() {
         fontSrc: ["'self'", 'https://fonts.gstatic.com'],
         imgSrc: ["'self'", 'data:', 'blob:', 'https:', 'https://www.facebook.com', 'https://fbcdn.net'],
         mediaSrc: ["'self'", 'blob:', 'https:'],
-        connectSrc: ["'self'", 'https://*.supabase.co', 'https://www.facebook.com'],
+        connectSrc: [
+          "'self'",
+          'https://*.supabase.co',
+          'https://www.facebook.com',
+          'https://*.sentry.io',
+          'https://*.ingest.sentry.io',
+          'https://*.ingest.de.sentry.io'
+        ],
+        workerSrc: ["'self'", 'blob:'],
         frameAncestors: ["'none'"],
       },
     } : false,
