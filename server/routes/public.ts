@@ -455,9 +455,20 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       }
     }
 
-    const { song_requests, ...safeSong } = songData;
+    const song_requests = songData.song_requests;
     const publicData = {
-      ...safeSong,
+      id: songData.id,
+      request_id: songData.request_id,
+      title: songData.title,
+      lyrics: songData.lyrics,
+      lyrics_snippet: songData.lyrics_snippet,
+      letter_text: songData.letter_text,
+      dedication_letter: songData.dedication_letter,
+      duration: songData.duration,
+      created_at: songData.created_at,
+      updated_at: songData.updated_at,
+      mureka_status: songData.mureka_status,
+      preview_url: songData.preview_url,
       audio_url: audioUrl,
       recipient_name: (song_requests as any)?.recipient_name,
       photo_url: (song_requests as any)?.photo_url,

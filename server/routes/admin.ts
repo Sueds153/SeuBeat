@@ -207,7 +207,14 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
 
     // Se já tem áudio E não tem voz clonada pendente, entrega diretamente
     if (hasGeneratedAudio && !hasVoiceSample) {
-      await supabase.from('song_requests').update({ status: 'delivered' }).eq('id', requestId);
+      const fullAudioUrl = songData.full_song_url || songData.audio_url;
+      await supabase
+        .from('song_requests')
+        .update({
+          status: 'delivered',
+          final_mixed_audio_url: fullAudioUrl || songRequest.final_mixed_audio_url || null
+        })
+        .eq('id', requestId);
       if (userEmail) {
         const slug = (songRequest.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
         const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${songData.id}`;
@@ -776,10 +783,29 @@ router.post('/song/:id/upload-audio', adminAuth, async (req, res) => {
     const fullAudioUrl = urlData?.publicUrl || '';
 
     const previewFilename = `previews/${id}_preview.mp3`;
-    await supabase.storage.from('preview').upload(previewFilename, buffer, { contentType: 'audio/mpeg', upsert: true });
-    const { data: previewUrlData } = supabase.storage.from('preview').getPublicUrl(previewFilename);
+    let previewUrl: string | null = null;
+    const tempDir = await import('os').then(os => os.tmpdir());
+    const path = await import('path');
+    const fs = await import('fs');
+    const { createPreviewAudio } = await import('../services/audio');
+    const tempInput = path.join(tempDir, `${id}_manual_input.mp3`);
+    const tempPreview = path.join(tempDir, `${id}_manual_preview.mp3`);
 
-    await supabase.from('songs').update({ audio_url: fullAudioUrl, full_song_url: fullAudioUrl, mureka_status: 'completed', preview_url: previewUrlData?.publicUrl || null }).eq('id', id);
+    try {
+      await fs.promises.writeFile(tempInput, buffer);
+      await createPreviewAudio(tempInput, tempPreview);
+      const previewBuffer = await fs.promises.readFile(tempPreview);
+      await supabase.storage.from('preview').upload(previewFilename, previewBuffer, { contentType: 'audio/mpeg', upsert: true });
+      const { data: previewUrlData } = supabase.storage.from('preview').getPublicUrl(previewFilename);
+      previewUrl = previewUrlData?.publicUrl || null;
+    } catch (previewErr: any) {
+      logWarn('[Admin] Preview de 30s falhou no upload manual; áudio completo não será exposto como preview', { songId: id, error: previewErr?.message });
+    } finally {
+      try { await fs.promises.unlink(tempInput); } catch {}
+      try { await fs.promises.unlink(tempPreview); } catch {}
+    }
+
+    await supabase.from('songs').update({ audio_url: fullAudioUrl, full_song_url: fullAudioUrl, mureka_status: 'completed', preview_url: previewUrl }).eq('id', id);
     const { data: songData } = await supabase.from('songs').select('request_id').eq('id', id).single();
     if (songData?.request_id) {
       await supabase.from('song_requests').update({ status: 'music_ready' }).eq('id', songData.request_id);

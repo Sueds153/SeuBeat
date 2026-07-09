@@ -89,13 +89,12 @@ async function persistGeneratedSunoAudio(songId: string, taskId: string, audioUr
     const fullAudioUrl = await uploadToSupabase('full-audio', originalFilename, tempSunoPath, fileInfo.mimeType);
 
     const previewFilename = `previews/${songId}_preview.mp3`;
-    let publicPreviewUrl: string;
+    let publicPreviewUrl: string | null = null;
     try {
       await createPreviewAudio(tempSunoPath, tempPreviewPath);
       publicPreviewUrl = await uploadToSupabase('preview', previewFilename, tempPreviewPath, 'audio/mpeg');
     } catch (err) {
-      logWarn('[Workflow] FFmpeg preview falhou, a usar áudio completo como preview', err instanceof Error ? err : undefined);
-      publicPreviewUrl = await uploadToSupabase('preview', previewFilename, tempSunoPath, fileInfo.mimeType);
+      logWarn('[Workflow] Preview de 30s falhou; áudio completo não será usado como preview', err instanceof Error ? err : undefined);
     }
 
     return { taskId, fullAudioUrl, publicPreviewUrl };
@@ -133,7 +132,21 @@ export async function completeSunoWorkflowFromAudio(
     .eq('id', songId);
   if (songUpdateError) throw songUpdateError;
 
-  await updateRequestStatus(requestId, 'music_ready');
+  const { data: approvedPayment } = await supabase
+    .from('payments')
+    .select('id')
+    .eq('request_id', requestId)
+    .eq('status', 'approved')
+    .maybeSingle();
+
+  await supabase
+    .from('song_requests')
+    .update({
+      status: approvedPayment ? 'delivered' : 'music_ready',
+      final_mixed_audio_url: fullAudioUrl
+    })
+    .eq('id', requestId);
+
   setProgress(requestId, { status: 'completed', progress: 100, message: 'Fluxo Suno concluído com sucesso!' });
 }
 
@@ -296,8 +309,15 @@ export async function runBackgroundSunoWorkflow(
       .eq('id', songId);
     if (completedSongUpdateError) throw completedSongUpdateError;
 
-    // Entregar a música (com ou sem voz personalizada)
-    logInfo(`[Background Suno] Delivering song`, { requestId });
+    const { data: approvedPayment } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('request_id', requestId)
+      .eq('status', 'approved')
+      .maybeSingle();
+
+    const nextStatus = approvedPayment ? 'delivered' : 'music_ready';
+    logInfo(`[Background Suno] Updating request after generation`, { requestId, nextStatus, paid: !!approvedPayment });
     const userEmail = requestData.email || requestData.users?.email;
     const letterText = requestData.songs?.[0]?.letter_text || 'Dedicatória.';
 
@@ -305,13 +325,13 @@ export async function runBackgroundSunoWorkflow(
       .from('song_requests')
       .update({
         final_mixed_audio_url: fullAudioUrl,
-        status: 'delivered',
+        status: nextStatus,
       })
       .eq('id', requestId);
 
-    setProgress(requestId, { status: 'completed', progress: 100, message: 'Música gerada e entregue com sucesso!' });
+    setProgress(requestId, { status: 'completed', progress: 100, message: approvedPayment ? 'Música gerada e entregue com sucesso!' : 'Música pronta. Aguardando confirmação do pagamento.' });
 
-    if (userEmail) {
+    if (approvedPayment && userEmail) {
       const slug = (requestData.recipient_name || 'especial')
         .toLowerCase()
         .normalize('NFD')
@@ -330,7 +350,7 @@ export async function runBackgroundSunoWorkflow(
         logError('[Background Suno] Delivery email failed (song already delivered)', emailErr, { requestId, userEmail });
       });
     }
-    logInfo(`[Background Suno] Workflow completed`, { requestId });
+    logInfo(`[Background Suno] Workflow completed`, { requestId, nextStatus });
   } catch (err: any) {
     logError('[Background Suno] Error in background workflow', err, { requestId, songId });
     setProgress(requestId, { status: 'failed', progress: 100, message: 'Erro na geração Suno', error: err.message || String(err) });

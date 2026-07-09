@@ -13,11 +13,11 @@ if (ffmpegInstaller) {
     execSync(`"${ffmpegInstaller}" -version`, { stdio: 'pipe', timeout: 5000 });
     console.log('✅ FFmpeg disponível e funcional');
   } catch {
-    console.warn('⚠️ FFmpeg não disponível, preview usará áudio completo como fallback');
+    console.warn('⚠️ FFmpeg não disponível, preview de 30s ficará indisponível');
     FFMPEG_AVAILABLE = false;
   }
 } else {
-  console.warn('⚠️ ffmpeg-static não instalado, preview usará áudio completo como fallback');
+  console.warn('⚠️ ffmpeg-static não instalado, preview de 30s ficará indisponível');
   FFMPEG_AVAILABLE = false;
 }
 
@@ -47,6 +47,11 @@ export async function downloadFile(url: string, destPath: string): Promise<void>
 // Utilitário para cortar os primeiros 30s de preview
 export function createPreviewAudio(inputPath: string, outputPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (!FFMPEG_AVAILABLE) {
+      reject(new Error('FFmpeg indisponível para gerar preview de 30s.'));
+      return;
+    }
+
     ffmpeg(inputPath)
       .setStartTime(0)
       .setDuration(30)
@@ -62,4 +67,3 @@ export function createPreviewAudio(inputPath: string, outputPath: string): Promi
       .run();
   });
 }
-
