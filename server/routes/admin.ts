@@ -570,9 +570,9 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
           const response = await genAI.models.generateContent({
             model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
             contents: [{ role: 'user', parts: [{ text: 'ping' }] }],
-            config: { maxOutputTokens: 1 },
+            config: { maxOutputTokens: 8 },
           });
-          return { ok: !!(response && response.text) };
+          return { ok: !!response };
         } catch (e: any) { return { ok: false, error: e.message }; }
       })(),
       (async () => {

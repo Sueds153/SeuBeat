@@ -230,6 +230,7 @@ export default function AdminPanel() {
   const [uploadingSongId, setUploadingSongId] = useState<string | null>(null);
   const progressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const viewPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [credits, setCredits] = useState<CreditsResult | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
   const [forceStatusModal, setForceStatusModal] = useState<{ id: string; table: string; currentStatus: string } | null>(null);
@@ -257,9 +258,19 @@ export default function AdminPanel() {
   const PER_PAGE = 20;
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setToast({ message, type });
-    setTimeout(() => setToast(null), 4000);
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimeoutRef.current = null;
+    }, 4000);
   };
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
 
   const apiHeaders: Record<string, string> = adminToken 
     ? { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' }
