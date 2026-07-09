@@ -29,6 +29,31 @@ function firstRelated<T = any>(value: T | T[] | null | undefined): T | undefined
   return Array.isArray(value) ? value[0] : value || undefined;
 }
 
+function extractStoragePath(url: string | null | undefined, bucket: string): string | null {
+  if (!url) return null;
+  const markers = [
+    `/storage/v1/object/public/${bucket}/`,
+    `/storage/v1/object/sign/${bucket}/`
+  ];
+  for (const marker of markers) {
+    const idx = url.indexOf(marker);
+    if (idx >= 0) {
+      return decodeURIComponent(url.slice(idx + marker.length).split('?')[0]);
+    }
+  }
+  return null;
+}
+
+function safeAudioFilename(title: string | null | undefined): string {
+  const base = String(title || 'seubeat-musica')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80);
+  return `${base || 'seubeat-musica'}.mp3`;
+}
+
 // A. Admin dashboard stats
 router.get('/stats', adminAuth, async (req, res) => {
   try {
@@ -694,6 +719,41 @@ router.post('/song/:id/edit-lyrics', adminAuth, async (req, res) => {
     if (error) return res.status(500).json({ error: safeMessage(error) });
     res.json({ success: true, song: data });
   } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/song/:id/audio-url', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return res.status(400).json({ error: 'ID inválido.' });
+
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    const { data: song, error } = await supabase
+      .from('songs')
+      .select('id, title, audio_url, full_song_url, preview_url')
+      .eq('id', id)
+      .single();
+
+    if (error || !song) return res.status(404).json({ error: 'Música não encontrada.' });
+
+    const fullUrl = song.full_song_url || song.audio_url;
+    const fullPath = extractStoragePath(fullUrl, 'full-audio');
+    if (fullPath) {
+      const downloadName = safeAudioFilename(song.title);
+      const options = req.query.download === '1' ? { download: downloadName } : undefined;
+      const { data, error: signedError } = await supabase.storage
+        .from('full-audio')
+        .createSignedUrl(fullPath, 3600, options);
+
+      if (signedError || !data?.signedUrl) return res.status(500).json({ error: 'Não foi possível gerar link seguro da música completa.' });
+      return res.json({ success: true, url: data.signedUrl, filename: downloadName, source: 'full-audio' });
+    }
+
+    const fallbackUrl = fullUrl || song.preview_url;
+    if (!fallbackUrl) return res.status(404).json({ error: 'Áudio indisponível.' });
+    res.json({ success: true, url: fallbackUrl, filename: safeAudioFilename(song.title), source: fallbackUrl === song.preview_url ? 'preview' : 'external' });
+  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
 });
 
 router.post('/song/:id/upload-audio', adminAuth, async (req, res) => {

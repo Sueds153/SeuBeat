@@ -63,6 +63,8 @@ interface Song {
   id: string;
   title: string;
   audio_url: string | null;
+  full_song_url?: string | null;
+  preview_url?: string | null;
   mureka_status: string;
   mureka_task_id: string | null;
   created_at: string;
@@ -719,6 +721,29 @@ export default function AdminPanel() {
       };
       reader.readAsDataURL(file);
     } catch (e: any) { showToast(e.message, 'error'); setActionLoading(null); }
+  };
+
+  const handleSongAudio = async (song: Song, download = false) => {
+    setActionLoading(song.id + (download ? '_download_audio' : '_listen_audio'));
+    try {
+      const data = await apiFetch(`/api/admin/song/${song.id}/audio-url${download ? '?download=1' : ''}`);
+      if (!data?.url) return;
+
+      const a = document.createElement('a');
+      a.href = data.url;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      if (download) a.download = data.filename || `${song.title || 'seubeat-musica'}.mp3`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+
+      showToast(download ? 'Download da música completa iniciado.' : 'A abrir música completa.');
+    } catch (e: any) {
+      showToast(e.message || 'Erro ao abrir áudio.', 'error');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const sortData = <T extends Record<string, any>>(items: T[], sortKey: string, fieldMap: Record<string, (item: T) => string>): T[] => {
@@ -1687,11 +1712,25 @@ export default function AdminPanel() {
                                   <FileText className="w-3 h-3" /> Letra
                                 </button>
                               )}
-                              {song.audio_url ? (
-                                <a href={song.audio_url} target="_blank" rel="noopener noreferrer"
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 border border-emerald-600/30 text-emerald-400 text-xs rounded-xl hover:bg-emerald-600/30 transition-colors font-mono">
-                                  <Play className="w-3 h-3 fill-emerald-400" /> Ouvir
-                                </a>
+                              {song.audio_url || song.full_song_url || song.preview_url ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSongAudio(song)}
+                                    disabled={actionLoading === song.id + '_listen_audio'}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/20 border border-emerald-600/30 text-emerald-400 text-xs rounded-xl hover:bg-emerald-600/30 transition-colors font-mono disabled:opacity-50 cursor-pointer"
+                                  >
+                                    {actionLoading === song.id + '_listen_audio' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3 fill-emerald-400" />} Ouvir
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSongAudio(song, true)}
+                                    disabled={actionLoading === song.id + '_download_audio'}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/20 border border-blue-600/30 text-blue-400 text-xs rounded-xl hover:bg-blue-600/30 transition-colors font-mono disabled:opacity-50 cursor-pointer"
+                                  >
+                                    {actionLoading === song.id + '_download_audio' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />} Baixar
+                                  </button>
+                                </>
                               ) : (
                                 <button onClick={() => handleGenerateMusic(song.id)}
                                   disabled={actionLoading === song.id + '_music' || song.mureka_status === 'generating' || song.mureka_status === 'processing'}
