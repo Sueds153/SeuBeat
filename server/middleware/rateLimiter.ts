@@ -34,7 +34,7 @@ export const globalLimiter = rateLimit({
  */
 export const generateLyricsLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
-  max: 50,
+  max: 10,
   validate: false,
   keyGenerator: (req) => {
     // Usar email do body se disponível, senão IP

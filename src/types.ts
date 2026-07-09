@@ -24,7 +24,7 @@ export type OccasionType =
   | 'Aniversário'
   | 'Aniversário de namoro'
   | 'Casamento'
-  | 'Declaração de amor'
+  | 'Declaração'
   | 'Agradecimento'
   | 'Homenagem'
   | 'Pedido de desculpas'

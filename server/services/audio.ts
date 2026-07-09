@@ -1,7 +1,7 @@
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from 'ffmpeg-static';
 import fs from 'fs';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
 
@@ -10,10 +10,10 @@ let FFMPEG_AVAILABLE = true;
 if (ffmpegInstaller) {
   try {
     ffmpeg.setFfmpegPath(ffmpegInstaller);
-    execSync(`"${ffmpegInstaller}" -version`, { stdio: 'pipe', timeout: 5000 });
+    execFileSync(ffmpegInstaller, ['-version'], { stdio: 'pipe', timeout: 10000 });
     console.log('✅ FFmpeg disponível e funcional');
-  } catch {
-    console.warn('⚠️ FFmpeg não disponível, preview de 30s ficará indisponível');
+  } catch (err: any) {
+    console.warn(`⚠️ FFmpeg não disponível, preview de 30s ficará indisponível: ${err?.message || err}`);
     FFMPEG_AVAILABLE = false;
   }
 } else {

@@ -44,6 +44,11 @@ export async function fetchSongWithTimeout(id: string): Promise<SongApiResponse 
 }
 
 export async function checkSongStatus(songId: string): Promise<any> {
-  const res = await fetch(`/api/song/${songId}`);
-  return res.json();
+  try {
+    const res = await fetch(`/api/song/${songId}`);
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
 }

@@ -27,6 +27,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
   const [likesCount, setLikesCount] = useState(382);
   const [hasLiked, setHasLiked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isFullUnlocked = songDetails.status === 'delivered';
 
   const handleLike = () => {
     if (hasLiked) {
@@ -56,7 +57,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
   };
 
   const handleDownloadMP3 = () => {
-    if (!songDetails.audioUrl) return;
+    if (!songDetails.audioUrl || !isFullUnlocked) return;
     const a = document.createElement("a");
     a.href = songDetails.audioUrl;
     a.target = "_blank";
@@ -260,7 +261,7 @@ Angola ${(new Date().getFullYear())}
 
             <div className="space-y-2">
               <span className="px-2.5 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-mono rounded-full uppercase tracking-widest font-extrabold inline-block">
-                Completa • Qualidade HD (MP3)
+                {isFullUnlocked ? 'Completa • Qualidade HD (MP3)' : 'Preview 30s • Completa após pagamento'}
               </span>
               <h3 className="font-serif text-xl font-bold text-stone-100">
                 {songDetails.songTitle || `A canção de ${songDetails.recipientName}`}
@@ -289,6 +290,7 @@ Angola ${(new Date().getFullYear())}
             isPlaying={isPlaying}
             isMuted={isMuted}
             hasAudio={!!songDetails.audioUrl}
+            isFullUnlocked={isFullUnlocked}
             songTitle={songDetails.songTitle}
             recipientName={songDetails.recipientName}
             recipientNick={songDetails.recipientNick}

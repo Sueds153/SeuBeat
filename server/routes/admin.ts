@@ -15,11 +15,12 @@ import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { publicErrorMessage } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
 import { sendPurchaseEvent } from '../services/metaPixelCapi';
+import { adminLimiter } from '../middleware/rateLimiter';
 
 const router = express.Router();
 
 // Login endpoint — devolve JWT
-router.post('/login', (req, res) => adminLogin(req, res));
+router.post('/login', adminLimiter, (req, res) => adminLogin(req, res));
 
 function safeMessage(err: any): string {
   return publicErrorMessage(err);
@@ -463,8 +464,9 @@ router.get('/credits', adminAuth, async (req, res) => {
       .map(([month, count]) => ({ month, count }));
 
     const sunoCredits = sunoResult.ok ? (sunoResult as any).credits : 0;
-    const estCreditsUsed = totalSongs * 2;
-    const estSongsRemaining = sunoCredits > 0 ? Math.floor(sunoCredits / 2) : 0;
+    const CREDITS_PER_SONG = 24;
+    const estCreditsUsed = totalSongs * CREDITS_PER_SONG;
+    const estSongsRemaining = sunoCredits > 0 ? Math.floor(sunoCredits / CREDITS_PER_SONG) : 0;
     const sunoCostPerCredit = Number(process.env.SUNO_COST_PER_CREDIT_USD) || 0.15;
     const claudeCostPerGen = Number(process.env.CLAUDE_COST_PER_GENERATION_USD) || 0.03;
     const openaiCostPerGen = Number(process.env.OPENAI_COST_PER_GENERATION_USD) || 0.01;
@@ -490,7 +492,7 @@ router.get('/credits', adminAuth, async (req, res) => {
           claudeUSD: estClaudeCost,
           openaiUSD: estOpenAICost,
           totalUSD: estTotalCost,
-          perSong: +((sunoCostPerCredit * 2) + Math.min(claudeCostPerGen, openaiCostPerGen)).toFixed(2),
+          perSong: +((sunoCostPerCredit * CREDITS_PER_SONG) + Math.min(claudeCostPerGen, openaiCostPerGen)).toFixed(2),
         },
       },
     });
@@ -1104,8 +1106,9 @@ router.get('/profitability', adminAuth, async (req, res) => {
       revenueByPlanBreakdown[plan] = (revenueByPlanBreakdown[plan] || 0) + (num / 900);
     });
 
-    // Costs — each song: 2 Suno credits (generate + continue) + 1 Claude generation
-    const sunoCreditsUsed = songCount * 2;
+    // Costs — each song: 24 Suno credits (12 start + 12 continue) + lyric generation
+    const CREDITS_PER_SONG = 24;
+    const sunoCreditsUsed = songCount * CREDITS_PER_SONG;
     const sunoCostUSD = +(sunoCreditsUsed * sunoCostPerCreditUSD).toFixed(2);
     const claudeCostUSD = +(songCount * claudeCostPerGenUSD).toFixed(2);
     const totalAPIcostUSD = +(sunoCostUSD + claudeCostUSD).toFixed(2);
@@ -1118,9 +1121,9 @@ router.get('/profitability', adminAuth, async (req, res) => {
 
     // Cost per song breakdown
     const costPerSong = {
-      suno: +((sunoCostPerCreditUSD * 2)).toFixed(2),
+      suno: +((sunoCostPerCreditUSD * CREDITS_PER_SONG)).toFixed(2),
       claude: +(claudeCostPerGenUSD).toFixed(2),
-      total: +((sunoCostPerCreditUSD * 2) + claudeCostPerGenUSD).toFixed(2),
+      total: +((sunoCostPerCreditUSD * CREDITS_PER_SONG) + claudeCostPerGenUSD).toFixed(2),
     };
 
     // Profitability by plan

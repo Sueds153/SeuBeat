@@ -8,6 +8,7 @@ const defaultProps = {
   isPlaying: false,
   isMuted: false,
   hasAudio: true,
+  isFullUnlocked: true,
   songTitle: 'Minha Canção',
   recipientName: 'Maria',
   recipientNick: 'Princesa',
@@ -62,5 +63,11 @@ describe('SongPlayer', () => {
     render(<SongPlayer {...defaultProps} />);
     expect(screen.getByText(/Descarregar Áudio/i)).toBeTruthy();
     expect(screen.getByText(/Descarregar Letra/i)).toBeTruthy();
+  });
+
+  it('locks MP3 download for preview mode', () => {
+    render(<SongPlayer {...defaultProps} isFullUnlocked={false} />);
+    expect(screen.getByText(/Completa após pagamento aprovado/i)).toBeTruthy();
+    expect((screen.getByRole('button', { name: /Completa após pagamento aprovado/i }) as HTMLButtonElement).disabled).toBe(true);
   });
 });

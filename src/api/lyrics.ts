@@ -36,6 +36,10 @@ export async function generateLyrics(data: GenerateLyricsPayload): Promise<Gener
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: 'Erro de conexão' }));
+    return { success: false, error: body.error || `Erro ${res.status}` };
+  }
   return res.json();
 }
 

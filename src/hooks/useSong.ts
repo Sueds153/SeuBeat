@@ -14,6 +14,7 @@ export interface SongDetails {
   songTitle: string;
   lyrics: string[];
   audioUrl: string;
+  status: string;
 }
 
 function parseURLParams(): { params: URLSearchParams; dbSongId: string | null } {
@@ -49,6 +50,7 @@ function buildInitialFromParams(params: URLSearchParams, savedLocalPhoto: string
     songTitle: hpSongTitle || '',
     lyrics: parsedLyrics,
     audioUrl: '',
+    status: '',
   };
 }
 
@@ -69,6 +71,7 @@ function buildInitialFromLocalStorage(savedLocalPhoto: string): SongDetails | nu
       songTitle: parsed.songTitle || '',
       lyrics: parsed.lyrics || [],
       audioUrl: '',
+      status: '',
     };
   } catch {
     return null;
@@ -103,6 +106,7 @@ function applyFetchedSong(prev: SongDetails, dbSong: NonNullable<NonNullable<imp
     lyrics: dbSong.lyrics || prev.lyrics,
     audioUrl: dbSong.audio_url || prev.audioUrl,
     photoUrl,
+    status: dbSong.status || prev.status,
   };
 }
 
