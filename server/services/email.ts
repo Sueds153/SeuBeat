@@ -119,7 +119,7 @@ export async function sendPaymentRejectionEmail(userEmail: string, notes?: strin
       ${notes ? `<p>Motivo: <strong>${safeStr(notes)}</strong></p>` : ''}
       <p>Por favor, submeta novamente ou contacte-nos em suporte@seubeat.ao para assistência.</p>
     </div>`
-  });
+  }, userEmail);
 }
 
 export async function sendConfirmationEmail(emailAddress: string, recipientName: string, requestId: string) {

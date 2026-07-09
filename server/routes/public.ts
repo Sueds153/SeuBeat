@@ -1,6 +1,6 @@
 import express from 'express';
 import { randomUUID } from 'node:crypto';
-import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
+import { getAdminSupabase } from '../services/supabase';
 import { generateLyrics } from '../services/ai';
 import { sendPersonalizedEmail, sendConfirmationEmail } from '../services/email';
 import DOMPurify from 'isomorphic-dompurify';
@@ -408,19 +408,25 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
     const { id } = req.params;
     if (!UUID_REGEX.test(id)) return res.status(400).json({ error: 'ID inválido.' });
 
-    const supabase = getPublicSupabase();
     const adminSupabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });
+    if (!adminSupabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });
 
     logDebug('Fetching song', { songId: id });
 
-    const { data: songData, error } = await supabase
+    const { data: songData, error } = await adminSupabase
       .from('songs')
       .select('*, song_requests!inner(id, recipient_name, status, photo_url, final_mixed_audio_url, elevenlabs_voice_id, users!inner(name))')
       .eq('id', req.params.id)
       .single();
 
-    if (error || !songData) return res.status(404).json({ error: 'Musica nao encontrada.' });
+    if (error || !songData) {
+      logWarn('[API] Musica nao encontrada ou inacessivel', {
+        songId: id,
+        supabaseMessage: (error as any)?.message,
+        supabaseCode: (error as any)?.code
+      });
+      return res.status(404).json({ error: 'Musica nao encontrada.' });
+    }
 
     const requestStatus = (songData.song_requests as any)?.status;
     let audioUrl = songData.preview_url || null;
@@ -452,6 +458,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
 
     res.json({ success: true, data: publicData });
   } catch (err: any) {
+    logError('[API] Falha ao consultar musica publica', err, { songId: req.params.id });
     res.status(500).json({ error: 'Nao foi possivel consultar a musica.' });
   }
 });

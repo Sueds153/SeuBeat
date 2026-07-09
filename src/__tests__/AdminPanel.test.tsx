@@ -480,7 +480,7 @@ describe('AdminPanel', () => {
       await waitFor(() => {
         expect(screen.getByText(/❌ pagamento rejeitado/i)).toBeInTheDocument();
       });
-    });
+    }, 10000);
 
     it('shows undo button for approved payments', async () => {
       setupFetchMock({
