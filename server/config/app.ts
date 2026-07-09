@@ -99,6 +99,9 @@ export async function startServer(app: express.Application): Promise<import('htt
   } else {
     const path = await import('path');
     const distPath = path.join(process.cwd(), 'dist');
+    app.get('*.map', (_req, res) => {
+      res.status(404).type('text/plain').send('Not found');
+    });
     app.use(express.static(distPath));
 
     const CRAWLER_UA = /facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slack|Googlebot|bingbot|Pinterest|Slack|Discordbot/i;
