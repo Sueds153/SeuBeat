@@ -232,7 +232,6 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
     customMode: true,
     instrumental: false,
     model: 'V5_5',
-    callBackUrl: ''
   };
 
   if (personaId) {

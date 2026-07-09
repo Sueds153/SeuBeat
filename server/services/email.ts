@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import { logWarn } from '../utils/logger';
+import { logWarn, logError } from '../utils/logger';
 
 function getConfig() {
   return {
@@ -19,10 +19,24 @@ function createTransport() {
     secure: false,
     auth: { user: cfg.user, pass: cfg.pass },
     tls: { rejectUnauthorized: true, minVersion: 'TLSv1.2' },
-    connectionTimeout: 10000,
-    greetingTimeout: 5000,
-    socketTimeout: 15000,
+    connectionTimeout: 30000,
+    greetingTimeout: 10000,
+    socketTimeout: 30000,
   });
+}
+
+async function sendWithRetry(transporter: nodemailer.Transporter, mailOptions: nodemailer.SendMailOptions, emailAddress: string): Promise<any> {
+  try {
+    return await transporter.sendMail(mailOptions);
+  } catch (err: any) {
+    const isTimeout = err?.message?.includes('timeout') || err?.code === 'ETIMEDOUT' || err?.code === 'ESOCKET';
+    if (isTimeout) {
+      logError('[Email] Timeout na 1ª tentativa, a tentar novamente...', err, { email: emailAddress });
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      return transporter.sendMail(mailOptions);
+    }
+    throw err;
+  }
 }
 
 function escapeHtml(text: string): string {
@@ -83,19 +97,19 @@ export async function sendPersonalizedEmail(emailAddress: string, recipientName:
     </div>
   `;
 
-  return transporter.sendMail({
+  return sendWithRetry(transporter, {
     from: cfg.from,
     to: emailAddress,
     subject: 'A sua música está pronta ❤️',
     html: htmlContent,
-  });
+  }, emailAddress);
 }
 
 export async function sendPaymentRejectionEmail(userEmail: string, notes?: string) {
   const cfg = getConfig();
   if (warnIfMissing(cfg)) return;
   const transporter = createTransport();
-  return transporter.sendMail({
+  return sendWithRetry(transporter, {
     from: cfg.from,
     to: userEmail,
     subject: 'Verificação de comprovativo — SeuBeat',
@@ -140,10 +154,10 @@ export async function sendConfirmationEmail(emailAddress: string, recipientName:
     </div>
   `;
 
-  return transporter.sendMail({
+  return sendWithRetry(transporter, {
     from: cfg.from,
     to: emailAddress,
     subject: 'Pedido recebido — SeuBeat',
     html: htmlContent,
-  });
+  }, emailAddress);
 }
