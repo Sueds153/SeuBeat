@@ -38,12 +38,12 @@ function buildInitialFromParams(params: URLSearchParams, savedLocalPhoto: string
   }
 
   return {
-    recipientName: hpRecipientName || 'Rosa dos Santos',
-    recipientNick: hpRecipientNick || 'Minha Rosa',
-    userNick: hpUserNick || 'Rui',
+    recipientName: hpRecipientName || 'Alguém especial',
+    recipientNick: hpRecipientNick || hpRecipientName || 'Alguém especial',
+    userNick: hpUserNick || 'SeuBeat',
     musicStyle: (hpMusicStyle as MusicStyleType) || 'Kizomba',
-    memory: hpMemory || 'O pôr do sol inesquecível na baía do Huambo.',
-    whereItHappened: hpWhereItHappened || 'Huambo',
+    memory: hpMemory || '',
+    whereItHappened: hpWhereItHappened || '',
     letter: hpLetter || '',
     photoUrl: savedLocalPhoto || '',
     songTitle: hpSongTitle || '',
@@ -58,12 +58,12 @@ function buildInitialFromLocalStorage(savedLocalPhoto: string): SongDetails | nu
   try {
     const parsed = JSON.parse(lastCreatedJSON);
     return {
-      recipientName: parsed.recipientName || 'Rosa dos Santos',
-      recipientNick: parsed.recipientNick || 'Minha Rosa',
-      userNick: parsed.userNick || 'Rui',
+      recipientName: parsed.recipientName || 'Alguém especial',
+      recipientNick: parsed.recipientNick || parsed.recipientName || 'Alguém especial',
+      userNick: parsed.userNick || 'SeuBeat',
       musicStyle: (parsed.musicStyle as MusicStyleType) || 'Kizomba',
-      memory: parsed.unforgettableMemory || 'O pôr do sol inesquecível na baía do Huambo.',
-      whereItHappened: parsed.whereItHappened || 'Huambo',
+      memory: parsed.unforgettableMemory || '',
+      whereItHappened: parsed.whereItHappened || '',
       letter: parsed.messageFromTheHeart || '',
       photoUrl: parsed.photoUrl || savedLocalPhoto || '',
       songTitle: parsed.songTitle || '',
@@ -81,6 +81,29 @@ interface UseSongResult {
   fetchError: boolean;
   songDetails: SongDetails;
   setSongDetails: React.Dispatch<React.SetStateAction<SongDetails>>;
+}
+
+function applyFetchedSong(prev: SongDetails, dbSong: NonNullable<NonNullable<import('../api/song').SongApiResponse['data']>>): SongDetails {
+  const dbRequest = dbSong.song_requests;
+  const recipientName = dbRequest?.recipient_name || dbSong.recipient_name || prev.recipientName;
+  const userNick = dbRequest?.users?.name || dbSong.user_name || prev.userNick;
+  const musicStyle = dbRequest?.music_style || dbSong.music_style || prev.musicStyle;
+  const memory = dbRequest?.memory || dbSong.memory || prev.memory;
+  const photoUrl = dbRequest?.photo_url || dbSong.photo_url || prev.photoUrl;
+
+  return {
+    ...prev,
+    recipientName,
+    recipientNick: prev.recipientNick && prev.recipientNick !== 'Alguém especial' ? prev.recipientNick : recipientName,
+    userNick,
+    musicStyle: musicStyle as MusicStyleType,
+    memory,
+    letter: dbSong.letter_text || dbSong.dedication_letter || prev.letter,
+    songTitle: dbSong.title || prev.songTitle,
+    lyrics: dbSong.lyrics || prev.lyrics,
+    audioUrl: dbSong.audio_url || prev.audioUrl,
+    photoUrl,
+  };
 }
 
 export function useSong(): UseSongResult {
@@ -108,19 +131,7 @@ export function useSong(): UseSongResult {
           if (data === null) {
             setNotFound(true);
           } else if (data.success && data.data) {
-            const dbSong = data.data;
-            const dbRequest = dbSong.song_requests;
-            setSongDetails(prev => ({
-              ...prev,
-              recipientName: dbRequest?.recipient_name || prev.recipientName,
-              userNick: dbRequest?.users?.name || prev.userNick,
-              musicStyle: (dbRequest?.music_style as MusicStyleType) || prev.musicStyle,
-              letter: dbSong.letter_text || dbSong.dedication_letter || prev.letter,
-              songTitle: dbSong.title || prev.songTitle,
-              lyrics: dbSong.lyrics || prev.lyrics,
-              audioUrl: dbSong.audio_url || prev.audioUrl,
-              photoUrl: dbRequest?.photo_url || prev.photoUrl,
-            }));
+            setSongDetails(prev => applyFetchedSong(prev, data.data!));
           } else {
             setFetchError(true);
           }
@@ -135,19 +146,7 @@ export function useSong(): UseSongResult {
             if (data === null) {
               setNotFound(true);
             } else if (data.success && data.data) {
-              const dbSong = data.data;
-              const dbRequest = dbSong.song_requests;
-              setSongDetails(prev => ({
-                ...prev,
-                recipientName: dbRequest?.recipient_name || prev.recipientName,
-                userNick: dbRequest?.users?.name || prev.userNick,
-                musicStyle: (dbRequest?.music_style as MusicStyleType) || prev.musicStyle,
-                letter: dbSong.letter_text || dbSong.dedication_letter || prev.letter,
-                songTitle: dbSong.title || prev.songTitle,
-                lyrics: dbSong.lyrics || prev.lyrics,
-                audioUrl: dbSong.audio_url || prev.audioUrl,
-                photoUrl: dbRequest?.photo_url || prev.photoUrl,
-              }));
+              setSongDetails(prev => applyFetchedSong(prev, data.data!));
             } else {
               setFetchError(true);
             }

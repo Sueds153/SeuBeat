@@ -425,7 +425,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
 
     const { data: songData, error } = await adminSupabase
       .from('songs')
-      .select('*, song_requests!inner(id, recipient_name, status, photo_url, final_mixed_audio_url, elevenlabs_voice_id, users!inner(name))')
+      .select('*, song_requests!inner(id, recipient_name, status, photo_url, final_mixed_audio_url, elevenlabs_voice_id, music_style, memory, users!inner(name))')
       .eq('id', req.params.id)
       .single();
 
@@ -462,6 +462,8 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       recipient_name: (song_requests as any)?.recipient_name,
       photo_url: (song_requests as any)?.photo_url,
       user_name: (song_requests as any)?.users?.name,
+      music_style: (song_requests as any)?.music_style,
+      memory: (song_requests as any)?.memory,
       elevenlabs_voice_id: (song_requests as any)?.elevenlabs_voice_id,
       status: requestStatus
     };

@@ -9,9 +9,16 @@ export interface SongApiResponse {
     audio_url?: string;
     letter_text?: string;
     dedication_letter?: string;
+    recipient_name?: string;
+    user_name?: string;
+    music_style?: string;
+    memory?: string;
+    photo_url?: string;
+    status?: string;
     song_requests?: {
       recipient_name?: string;
       music_style?: string;
+      memory?: string;
       photo_url?: string;
       users?: {
         name?: string;

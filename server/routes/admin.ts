@@ -25,6 +25,10 @@ function safeMessage(err: any): string {
   return publicErrorMessage(err);
 }
 
+function firstRelated<T = any>(value: T | T[] | null | undefined): T | undefined {
+  return Array.isArray(value) ? value[0] : value || undefined;
+}
+
 // A. Admin dashboard stats
 router.get('/stats', adminAuth, async (req, res) => {
   try {
@@ -153,7 +157,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
 
     const songRequest = payment.song_requests as any;
     const requestId = payment.request_id;
-    const songData = songRequest?.songs?.[0];
+    const songData = firstRelated(songRequest?.songs);
     const userEmail = songRequest?.users?.email;
     const letterText = songData?.letter_text || 'Preparámos uma dedicatória especial para si.';
 
@@ -511,8 +515,8 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
         .eq('id', id)
         .single();
 
-      if (songRequest?.users?.email && songRequest?.songs?.[0]) {
-        const song = songRequest.songs[0];
+      const song = firstRelated(songRequest?.songs);
+      if (songRequest?.users?.email && song) {
         const slug = (songRequest.recipient_name || 'especial')
           .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
           .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -631,7 +635,7 @@ router.post('/request/:id/retry', adminAuth, async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
     const { data: requestData } = await supabase.from('song_requests').select('*, songs(*)').eq('id', id).single();
     if (!requestData) return res.status(404).json({ error: 'Pedido não encontrado' });
-    const songData = requestData.songs?.[0];
+    const songData = firstRelated(requestData.songs);
     if (!songData) return res.status(400).json({ error: 'Música associada em falta.' });
 
     if (songData.mureka_task_id && !songData.audio_url) {
@@ -652,12 +656,13 @@ router.post('/request/:id/force-voice', adminAuth, async (req, res) => {
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
     const { data: requestData } = await supabase.from('song_requests').select('*, songs(*)').eq('id', id).single();
-    if (!requestData || !requestData.songs?.[0]) return res.status(404).json({ error: 'Pedido ou música não encontrada' });
+    const songData = firstRelated(requestData?.songs);
+    if (!requestData || !songData) return res.status(404).json({ error: 'Pedido ou música não encontrada' });
     if (!requestData.voice_sample_url) return res.status(400).json({ error: 'Sem amostra de voz.' });
 
     await supabase.from('song_requests').update({ status: 'voice_processing' }).eq('id', id);
     const voiceSampleUrl = requestData.voice_sample_url;
-    processSunoVoice(id, requestData.songs[0].id, voiceSampleUrl).catch(err => logError('[Admin] Force Suno Voice falhou', err, { requestId: id }));
+    processSunoVoice(id, songData.id, voiceSampleUrl).catch(err => logError('[Admin] Force Suno Voice falhou', err, { requestId: id }));
     res.json({ success: true, message: 'Processamento de voz Suno Voice forçado.' });
   } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
 });
@@ -668,11 +673,12 @@ router.post('/request/:id/resend-email', adminAuth, async (req, res) => {
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
     const { data: requestData } = await supabase.from('song_requests').select('*, songs(*), users(*)').eq('id', id).single();
-    if (!requestData || !requestData.songs?.[0] || !requestData.users?.email) return res.status(404).json({ error: 'Dados insuficientes.' });
+    const songData = firstRelated(requestData?.songs);
+    if (!requestData || !songData || !requestData.users?.email) return res.status(404).json({ error: 'Dados insuficientes.' });
 
     const slug = (requestData.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-    const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${requestData.songs[0].id}`;
-    await sendPersonalizedEmail(requestData.users.email, requestData.recipient_name, personalizedUrl, requestData.songs[0].letter_text || 'Dedicatória.');
+    const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${songData.id}`;
+    await sendPersonalizedEmail(requestData.users.email, requestData.recipient_name, personalizedUrl, songData.letter_text || 'Dedicatória.');
     res.json({ success: true, message: 'Email reenviado.' });
   } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
 });
@@ -820,9 +826,9 @@ router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
       .single();
 
     if (reqError || !requestData) return res.status(404).json({ error: 'Pedido não encontrado' });
-    if (!requestData.songs?.[0]) return res.status(400).json({ error: 'Música associada em falta.' });
+    const existingSong = firstRelated(requestData.songs);
+    if (!existingSong) return res.status(400).json({ error: 'Música associada em falta.' });
 
-    const existingSong = requestData.songs[0];
     const formData = {
       userNick: requestData.users?.name || 'Autor',
       recipientName: requestData.recipient_name,
@@ -875,7 +881,8 @@ router.get('/request/:id/logs', adminAuth, async (req, res) => {
 
     if (requestData.created_at) push(requestData.created_at, 'Pedido Criado', `Por ${requestData.users?.name || '—'} (${requestData.users?.email || '—'})`);
     if (requestData.status) push(requestData.updated_at || requestData.created_at, `Status: ${requestData.status}`, '');
-    if (requestData.songs?.[0]?.created_at) push(requestData.songs[0].created_at, 'Letra Gerada', `Título: ${requestData.songs[0].title}`);
+    const song = firstRelated(requestData.songs);
+    if (song?.created_at) push(song.created_at, 'Letra Gerada', `Título: ${song.title}`);
     if (requestData.payments?.length) {
       requestData.payments.forEach((p: any) => {
         push(p.created_at, 'Pagamento Submetido', `${p.plan} — ${p.amount}`);
@@ -883,7 +890,7 @@ router.get('/request/:id/logs', adminAuth, async (req, res) => {
         if (p.status === 'rejected') push(p.updated_at || p.created_at, 'Pagamento Rejeitado', p.notes || '');
       });
     }
-    if (requestData.songs?.[0]?.audio_url) push(requestData.songs[0].created_at, 'Áudio Gerado', 'URL do áudio disponível');
+    if (song?.audio_url) push(song.created_at, 'Áudio Gerado', 'URL do áudio disponível');
 
     logs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     res.json({ success: true, logs });
