@@ -5,6 +5,7 @@ const SUNO_TIMEOUT_MS = Number(process.env.SUNO_TIMEOUT_MS || 45000);
 const MAX_RETRIES = Number(process.env.SUNO_MAX_RETRIES || 3);
 const SUCCESS_STATUSES = new Set(['success', 'completed', 'done', 'finished', 'succeeded']);
 const FAILED_STATUSES = new Set(['failed', 'failure', 'error', 'cancelled', 'canceled']);
+const DEFAULT_PUBLIC_APP_URL = 'https://seubeat.onrender.com';
 
 function isQuotaError(status: number, body: string): boolean {
   return status === 429 || /quota|rate\s?limit|exceeded/i.test(body);
@@ -161,6 +162,20 @@ function extractAudioUrl(payload: any): string | null {
   return urls.find(url => /\.(mp3|wav|flac|m4a|aac|ogg)(\?|$)/i.test(url)) || urls[0] || null;
 }
 
+function getSunoCallbackUrl() {
+  if (process.env.SUNO_CALLBACK_URL) return process.env.SUNO_CALLBACK_URL;
+
+  const appUrl = process.env.APP_URL || DEFAULT_PUBLIC_APP_URL;
+  const publicAppUrl = /^https:\/\//i.test(appUrl) ? appUrl : DEFAULT_PUBLIC_APP_URL;
+  return `${publicAppUrl.replace(/\/+$/, '')}/api/suno-callback`;
+}
+
+function assertSuccessfulSunoPayload(payload: any, label: string) {
+  if (typeof payload?.code === 'number' && payload.code !== 200) {
+    throw new Error(`${label} API error: ${payload.code} - ${payload.msg || 'Erro desconhecido'}`);
+  }
+}
+
 export async function querySunoTask(taskId: string): Promise<SunoResult> {
   const apiKey = process.env.SUNO_API_KEY;
   if (!apiKey) throw new Error('SUNO_API_KEY nao configurada.');
@@ -232,6 +247,7 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
     customMode: true,
     instrumental: false,
     model: 'V5_5',
+    callBackUrl: getSunoCallbackUrl(),
   };
 
   if (personaId) {
@@ -261,6 +277,7 @@ export async function startSunoMusic(lyrics: string[], musicStyle: string, songT
   }
 
   const generateData = await generateRes.json();
+  assertSuccessfulSunoPayload(generateData, 'Suno generation');
   const taskId = extractTaskId(generateData);
   const immediateAudioUrl = extractAudioUrl(generateData);
 
@@ -312,7 +329,7 @@ export async function continueSunoMusic(taskId: string, personaId?: string): Pro
 
   logInfo(`[Suno] Extending task via continue`, { taskId, hasPersonaId: !!personaId });
 
-  const payload: Record<string, any> = { task_id: taskId };
+  const payload: Record<string, any> = { task_id: taskId, callBackUrl: getSunoCallbackUrl() };
   if (personaId) {
     payload.personaId = personaId;
     payload.personaModel = 'voice_persona';
@@ -334,6 +351,7 @@ export async function continueSunoMusic(taskId: string, personaId?: string): Pro
   }
 
   const data = await continueRes.json();
+  assertSuccessfulSunoPayload(data, 'Suno continue');
   const newTaskId = extractTaskId(data);
   if (!newTaskId) throw new Error(`Suno continue did not return a task ID: ${JSON.stringify(data)}`);
 
@@ -365,5 +383,4 @@ export async function generateFullSong(lyrics: string[], musicStyle: string, son
 
   return firstResult;
 }
-
 

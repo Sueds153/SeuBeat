@@ -170,6 +170,16 @@ router.post('/send-email', emailLimiter, async (req, res) => {
   }
 });
 
+router.post('/suno-callback', async (req, res) => {
+  logInfo('[Suno Callback] Recebido', {
+    code: req.body?.code,
+    msg: req.body?.msg,
+    taskId: req.body?.data?.taskId || req.body?.taskId,
+    callbackType: req.body?.data?.callbackType || req.body?.callbackType
+  });
+  res.json({ success: true });
+});
+
 router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
   const supabase = getAdminSupabase();
   let dbSongRequestId: string | null = null;
