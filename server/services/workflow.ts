@@ -88,10 +88,15 @@ async function persistGeneratedSunoAudio(songId: string, taskId: string, audioUr
     const originalFilename = `songs/${songId}_original.${fileInfo.ext}`;
     const fullAudioUrl = await uploadToSupabase('full-audio', originalFilename, tempSunoPath, fileInfo.mimeType);
 
-    await createPreviewAudio(tempSunoPath, tempPreviewPath);
-
     const previewFilename = `previews/${songId}_preview.mp3`;
-    const publicPreviewUrl = await uploadToSupabase('preview', previewFilename, tempPreviewPath, 'audio/mpeg');
+    let publicPreviewUrl: string;
+    try {
+      await createPreviewAudio(tempSunoPath, tempPreviewPath);
+      publicPreviewUrl = await uploadToSupabase('preview', previewFilename, tempPreviewPath, 'audio/mpeg');
+    } catch (err) {
+      logWarn('[Workflow] FFmpeg preview falhou, a usar áudio completo como preview', err instanceof Error ? err : undefined);
+      publicPreviewUrl = await uploadToSupabase('preview', previewFilename, tempSunoPath, fileInfo.mimeType);
+    }
 
     return { taskId, fullAudioUrl, publicPreviewUrl };
   } finally {

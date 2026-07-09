@@ -1,10 +1,25 @@
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from 'ffmpeg-static';
 import fs from 'fs';
+import { execSync } from 'child_process';
+
+let FFMPEG_AVAILABLE = true;
 
 if (ffmpegInstaller) {
-  ffmpeg.setFfmpegPath(ffmpegInstaller);
+  try {
+    ffmpeg.setFfmpegPath(ffmpegInstaller);
+    execSync(`"${ffmpegInstaller}" -version`, { stdio: 'pipe', timeout: 5000 });
+    console.log('✅ FFmpeg disponível e funcional');
+  } catch {
+    console.warn('⚠️ FFmpeg não disponível, preview usará áudio completo como fallback');
+    FFMPEG_AVAILABLE = false;
+  }
+} else {
+  console.warn('⚠️ ffmpeg-static não instalado, preview usará áudio completo como fallback');
+  FFMPEG_AVAILABLE = false;
 }
+
+export { FFMPEG_AVAILABLE };
 
 const DOWNLOAD_TIMEOUT_MS = Number(process.env.DOWNLOAD_TIMEOUT_MS || 120000);
 
