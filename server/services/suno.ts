@@ -154,11 +154,13 @@ function extractAudioUrl(payload: any): string | null {
   // Tentar encontrar urls explicitamente no payload do Suno
   const sunoData = payload?.data?.response?.sunoData || payload?.response?.sunoData;
   if (Array.isArray(sunoData) && sunoData.length > 0) {
-    const url = sunoData[0]?.audioUrl || sunoData[0]?.audio_url || sunoData[0]?.url;
+    const url = sunoData[0]?.sourceAudioUrl || sunoData[0]?.source_audio_url || sunoData[0]?.audioUrl || sunoData[0]?.audio_url || sunoData[0]?.url;
     if (url) return url;
   }
 
   const urls = collectAudioUrls(payload);
+  const sourceUrl = urls.find(url => /cdn\d*\.suno\.ai/i.test(url));
+  if (sourceUrl) return sourceUrl;
   return urls.find(url => /\.(mp3|wav|flac|m4a|aac|ogg)(\?|$)/i.test(url)) || urls[0] || null;
 }
 
@@ -383,4 +385,3 @@ export async function generateFullSong(lyrics: string[], musicStyle: string, son
 
   return firstResult;
 }
-

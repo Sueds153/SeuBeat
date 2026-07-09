@@ -2,6 +2,8 @@ import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from 'ffmpeg-static';
 import fs from 'fs';
 import { execSync } from 'child_process';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 
 let FFMPEG_AVAILABLE = true;
 
@@ -21,7 +23,7 @@ if (ffmpegInstaller) {
 
 export { FFMPEG_AVAILABLE };
 
-const DOWNLOAD_TIMEOUT_MS = Number(process.env.DOWNLOAD_TIMEOUT_MS || 120000);
+const DOWNLOAD_TIMEOUT_MS = Number(process.env.DOWNLOAD_TIMEOUT_MS || 300000);
 
 // Utilitário para baixar arquivo
 export async function downloadFile(url: string, destPath: string): Promise<void> {
@@ -30,8 +32,8 @@ export async function downloadFile(url: string, destPath: string): Promise<void>
   try {
     const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) throw new Error(`Falha ao descarregar arquivo: ${res.statusText}`);
-    const arrayBuffer = await res.arrayBuffer();
-    await fs.promises.writeFile(destPath, Buffer.from(arrayBuffer));
+    if (!res.body) throw new Error('Resposta de download sem corpo.');
+    await pipeline(Readable.fromWeb(res.body as any), fs.createWriteStream(destPath));
   } catch (err: any) {
     if (err?.name === 'AbortError') {
       throw new Error(`Download timeout after ${DOWNLOAD_TIMEOUT_MS}ms`);
@@ -60,5 +62,4 @@ export function createPreviewAudio(inputPath: string, outputPath: string): Promi
       .run();
   });
 }
-
 
