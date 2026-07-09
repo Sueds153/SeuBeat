@@ -1691,9 +1691,12 @@ export default function AdminPanel() {
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-amber-400 hover:border-amber-500/30 transition-colors cursor-pointer font-mono">
                                 <Pencil className="w-3 h-3" /> Editar
                               </button>
-                              <button onClick={() => setUploadingSongId(song.id)}
+                              <button onClick={() => {
+                                if ((song.audio_url || song.full_song_url || song.preview_url) && !window.confirm('Este upload vai substituir o áudio atual desta música. Deseja continuar?')) return;
+                                setUploadingSongId(song.id);
+                              }}
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-blue-400 hover:border-blue-500/30 transition-colors cursor-pointer font-mono">
-                                <Upload className="w-3 h-3" /> Upload
+                                <Upload className="w-3 h-3" /> Substituir
                               </button>
                               <button onClick={() => { setForceStatusModal({ id: song.id, table: 'songs', currentStatus: song.mureka_status || 'not_started' }); setForceStatusValue(''); }} className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-xl hover:bg-rose-500/20 transition-colors cursor-pointer font-mono">
                                 <AlertTriangle className="w-3 h-3" /> Forçar
