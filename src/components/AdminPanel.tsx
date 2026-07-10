@@ -51,6 +51,7 @@ interface SongRequest {
   occasion: string;
   music_style: string;
   voice_type: string;
+  language?: string;
   status: string;
   created_at: string;
   voice_sample_url?: string | null;
@@ -1566,6 +1567,10 @@ export default function AdminPanel() {
                                         <p className="text-stone-300">{req.relationship}</p>
                                       </div>
                                       <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                                        <p className="text-stone-500 font-mono text-[9px] uppercase mb-1">Idioma</p>
+                                        <p className="text-stone-300">{req.language || 'português'}</p>
+                                      </div>
+                                      <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
                                         <p className="text-stone-500 font-mono text-[9px] uppercase mb-1">Plano Pago</p>
                                         <div className="flex items-center gap-1.5">{plan ? <PlanBadge plan={plan} /> : <span className="text-stone-600">—</span>}
                                           {req.payments?.[0]?.amount && <span className="text-stone-500 text-[10px]">({req.payments[0].amount})</span>}</div>
@@ -1587,8 +1592,25 @@ export default function AdminPanel() {
                                           onChange={e => handleUpdateStyle(req.id, e.target.value)}
                                           className="flex-1 bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2 text-xs text-stone-300 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
                                         >
-                                          {['Kizomba', 'Semba', 'Afrobeat', 'Gospel', 'Acoustic', 'Romantic Pop', 'Zouk', 'Balada', 'Pop', 'R&B', 'Rap', 'Funk', 'Trap', 'Reggae', 'Samba', 'Hino'].map(s => (
-                                            <option key={s} value={s}>{s}</option>
+                                          {[
+                                            ['kizomba', 'Kizomba'],
+                                            ['semba', 'Semba'],
+                                            ['afrobeat', 'Afrobeat'],
+                                            ['gospel', 'Gospel'],
+                                            ['acoustic', 'Acoustic'],
+                                            ['romantic pop', 'Romantic Pop'],
+                                            ['zouk', 'Zouk'],
+                                            ['balada', 'Balada'],
+                                            ['pop', 'Pop'],
+                                            ['r&b', 'R&B'],
+                                            ['rap', 'Rap'],
+                                            ['funk', 'Funk'],
+                                            ['trap', 'Trap'],
+                                            ['reggae', 'Reggae'],
+                                            ['samba', 'Samba'],
+                                            ['hino', 'Hino']
+                                          ].map(([value, label]) => (
+                                            <option key={value} value={value}>{label}</option>
                                           ))}
                                         </select>
                                         <select
@@ -1596,8 +1618,13 @@ export default function AdminPanel() {
                                           onChange={e => handleUpdateStyle(req.id, undefined, e.target.value)}
                                           className="flex-1 bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2 text-xs text-stone-300 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
                                         >
-                                          {['masculina', 'feminina', 'neutra'].map(v => (
-                                            <option key={v} value={v}>{v}</option>
+                                          {[
+                                            ['masculina', 'Masculina'],
+                                            ['feminina', 'Feminina'],
+                                            ['dueto', 'Dueto'],
+                                            ['sem preferência', 'Sem preferência']
+                                          ].map(([value, label]) => (
+                                            <option key={value} value={value}>{label}</option>
                                           ))}
                                         </select>
                                         <span className="text-stone-600 text-[9px]">(auto-save)</span>

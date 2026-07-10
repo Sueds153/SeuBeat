@@ -273,6 +273,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       memory: sanitize(unforgettableMemory || ''),
       heart_message: sanitize(messageFromTheHeart || ''),
       desired_emotion: desiredEmotion || 'Amor',
+      language: language || 'português',
       email: userEmail,
       phone: phone || null,
       status: 'lyrics_generating',
