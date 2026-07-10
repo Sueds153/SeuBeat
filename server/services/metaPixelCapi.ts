@@ -2,9 +2,9 @@ import crypto from 'node:crypto';
 import { getEnv } from '../config/env';
 import { logError, logInfo } from '../utils/logger';
 
-const PIXEL_ID = getEnv('META_PIXEL_ID', '1928777041139855');
+const PIXEL_ID = getEnv('META_PIXEL_ID', '');
 const ACCESS_TOKEN = getEnv('META_ACCESS_TOKEN', '');
-const IS_ENABLED = Boolean(ACCESS_TOKEN);
+const IS_ENABLED = Boolean(PIXEL_ID && ACCESS_TOKEN);
 const API_VERSION = 'v21.0';
 const BASE_URL = `https://graph.facebook.com/${API_VERSION}/${PIXEL_ID}/events`;
 

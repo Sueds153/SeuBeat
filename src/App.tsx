@@ -28,9 +28,14 @@ export default function App() {
 
   const currentViewRef = useRef(currentView);
   currentViewRef.current = currentView;
+  const isFirstRender = useRef(true);
 
-  // Fire PageView on mount and when view changes
+  // Fire PageView when view changes (skip first mount — initMetaPixel já o fez)
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     fbPageView();
   }, [currentView]);
 
