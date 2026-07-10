@@ -82,7 +82,7 @@ interface Song {
     recipient_name: string;
     music_style: string;
     occasion: string;
-    users?: { name: string; email: string };
+    users?: { name: string; email: string; phone?: string };
   };
 }
 
@@ -267,7 +267,7 @@ export default function AdminPanel() {
   const [reqPage, setReqPage] = useState(1);
   const [payPage, setPayPage] = useState(1);
   const [songSearchQuery, setSongSearchQuery] = useState('');
-  const [songSearchFilter, setSongSearchFilter] = useState<'all' | 'title' | 'recipient' | 'style' | 'status'>('all');
+  const [songSearchFilter, setSongSearchFilter] = useState<'all' | 'title' | 'recipient' | 'email' | 'phone' | 'style' | 'status'>('all');
   const [songSort, setSongSort] = useState('created_at_desc');
   const [songPage, setSongPage] = useState(1);
   const PER_PAGE = 20;
@@ -874,11 +874,15 @@ export default function AdminPanel() {
       const recipient = (s.song_requests?.recipient_name || '').toLowerCase();
       const style = (s.song_requests?.music_style || '').toLowerCase();
       const status = (s.mureka_status || '').toLowerCase();
+      const email = (s.song_requests?.users?.email || '').toLowerCase();
+      const phone = (s.song_requests?.users?.phone || '');
       if (songSearchFilter === 'title') return title.includes(q);
       if (songSearchFilter === 'recipient') return recipient.includes(q);
+      if (songSearchFilter === 'email') return email.includes(q);
+      if (songSearchFilter === 'phone') return phone.includes(q);
       if (songSearchFilter === 'style') return style.includes(q);
       if (songSearchFilter === 'status') return status.includes(q);
-      return title.includes(q) || recipient.includes(q) || style.includes(q) || status.includes(q);
+      return title.includes(q) || recipient.includes(q) || style.includes(q) || status.includes(q) || email.includes(q) || phone.includes(q);
     });
   }, [songs, songSearchQuery, songSearchFilter]);
 
@@ -1829,7 +1833,7 @@ export default function AdminPanel() {
                         type="text"
                         value={songSearchQuery}
                         onChange={e => { setSongSearchQuery(e.target.value); setSongPage(1); }}
-                        placeholder="Pesquisar por título, destinatário, estilo..."
+                        placeholder="Pesquisar por título, destinatário, email, telefone..."
                         className="w-full bg-stone-950 border border-stone-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-stone-300 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
                       />
                     </div>
@@ -1841,6 +1845,8 @@ export default function AdminPanel() {
                       <option value="all">Todos</option>
                       <option value="title">Título</option>
                       <option value="recipient">Destinatário</option>
+                      <option value="email">Email</option>
+                      <option value="phone">Telefone</option>
                       <option value="style">Estilo</option>
                       <option value="status">Estado</option>
                     </select>

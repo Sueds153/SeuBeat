@@ -294,7 +294,7 @@ router.get('/songs', adminAuth, async (req, res) => {
 
     const { data, error } = await supabase
       .from('songs')
-      .select('*, song_requests(recipient_name, music_style, occasion, users(name, email))')
+      .select('*, song_requests(recipient_name, music_style, occasion, users(name, email, phone))')
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ error: safeMessage(error) });
