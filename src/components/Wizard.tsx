@@ -2150,7 +2150,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                     rel="noopener noreferrer"
                     className="py-3 px-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-95 text-stone-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 tracking-wide uppercase cursor-pointer text-center w-full shadow-lg"
                   >
-                    <span>💝 Ver Dedicatóra Completa de {formData.recipientName.split(' ')[0]}</span>
+                    <span>💝 Ver prévia da dedicatória de {formData.recipientName.split(' ')[0]}</span>
                     <ArrowRight className="w-4 h-4 text-stone-950" />
                   </a>
                 </div>
