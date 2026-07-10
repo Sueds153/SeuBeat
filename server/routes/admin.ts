@@ -276,7 +276,7 @@ router.get('/requests', adminAuth, async (req, res) => {
 
     const { data, error } = await supabase
       .from('song_requests')
-      .select('*, users(name, email, phone), songs(id, title, audio_url, mureka_status, created_at, letter_text, lyrics), payments(plan, amount, status)')
+      .select('*, users(name, email, phone), songs(id, title, audio_url, mureka_status, created_at, letter_text, lyrics), payments(plan, amount, status, created_at, payment_reference, user_email)')
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ error: safeMessage(error) });

@@ -55,9 +55,16 @@ interface SongRequest {
   status: string;
   created_at: string;
   voice_sample_url?: string | null;
+  phone?: string;
+  email?: string;
+  special_traits?: string;
+  memory?: string;
+  heart_message?: string;
+  desired_emotion?: string;
+  photo_url?: string | null;
   users?: { name: string; email: string; phone: string };
   songs?: { id: string; title: string; audio_url: string | null; mureka_status: string; created_at: string; letter_text?: string; lyrics?: string[] }[];
-  payments?: { plan: string; amount: string; status: string }[];
+  payments?: { plan: string; amount: string; status: string; created_at?: string; payment_reference?: string; user_email?: string }[];
 }
 
 interface Song {
@@ -259,6 +266,10 @@ export default function AdminPanel() {
   const [paySort, setPaySort] = useState('created_at_desc');
   const [reqPage, setReqPage] = useState(1);
   const [payPage, setPayPage] = useState(1);
+  const [songSearchQuery, setSongSearchQuery] = useState('');
+  const [songSearchFilter, setSongSearchFilter] = useState<'all' | 'title' | 'recipient' | 'style' | 'status'>('all');
+  const [songSort, setSongSort] = useState('created_at_desc');
+  const [songPage, setSongPage] = useState(1);
   const PER_PAGE = 20;
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -848,6 +859,37 @@ export default function AdminPanel() {
 
   const reqTotalPages = Math.ceil(sortedRequests.length / PER_PAGE);
   const payTotalPages = Math.ceil(sortedPayments.length / PER_PAGE);
+
+  const songFieldMap: Record<string, (s: any) => string> = {
+    created_at: s => s.created_at || '',
+    title: s => s.title || '',
+    status: s => s.mureka_status || '',
+  };
+
+  const filteredSongs = useMemo(() => {
+    if (!songSearchQuery) return songs;
+    const q = songSearchQuery.toLowerCase();
+    return songs.filter(s => {
+      const title = (s.title || '').toLowerCase();
+      const recipient = (s.song_requests?.recipient_name || '').toLowerCase();
+      const style = (s.song_requests?.music_style || '').toLowerCase();
+      const status = (s.mureka_status || '').toLowerCase();
+      if (songSearchFilter === 'title') return title.includes(q);
+      if (songSearchFilter === 'recipient') return recipient.includes(q);
+      if (songSearchFilter === 'style') return style.includes(q);
+      if (songSearchFilter === 'status') return status.includes(q);
+      return title.includes(q) || recipient.includes(q) || style.includes(q) || status.includes(q);
+    });
+  }, [songs, songSearchQuery, songSearchFilter]);
+
+  const sortedSongs = useMemo(() => sortData(filteredSongs, songSort, songFieldMap), [filteredSongs, songSort]);
+
+  const paginatedSongs = useMemo(() => {
+    const start = (songPage - 1) * PER_PAGE;
+    return sortedSongs.slice(start, start + PER_PAGE);
+  }, [sortedSongs, songPage]);
+
+  const songTotalPages = Math.ceil(sortedSongs.length / PER_PAGE);
 
   // ─── LOGIN SCREEN ───
   if (!authenticated) {
@@ -1590,29 +1632,91 @@ export default function AdminPanel() {
                               {isExpanded && (
                                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-t border-stone-800 overflow-hidden">
                                   <div className="p-4 space-y-3">
-                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                      <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
-                                        <p className="text-stone-500 font-mono text-[9px] uppercase mb-1">Relação</p>
-                                        <p className="text-stone-300">{req.relationship}</p>
-                                      </div>
-                                      <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
-                                        <p className="text-stone-500 font-mono text-[9px] uppercase mb-1">Idioma</p>
-                                        <p className="text-stone-300">{req.language || 'português'}</p>
-                                      </div>
-                                      <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
-                                        <p className="text-stone-500 font-mono text-[9px] uppercase mb-1">Plano Pago</p>
-                                        <div className="flex items-center gap-1.5">{plan ? <PlanBadge plan={plan} /> : <span className="text-stone-600">—</span>}
-                                          {req.payments?.[0]?.amount && <span className="text-stone-500 text-[10px]">({req.payments[0].amount})</span>}</div>
+
+                                    {/* 👤 Cliente */}
+                                    <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
+                                      <p className="text-stone-500 font-mono text-[9px] uppercase mb-2 flex items-center gap-1.5"><Users className="w-3 h-3" /> Cliente</p>
+                                      <div className="grid grid-cols-3 gap-2">
+                                        <div><p className="text-stone-500 text-[9px]">Nome</p><p className="text-stone-200 font-medium">{req.users?.name || '—'}</p></div>
+                                        <div><p className="text-stone-500 text-[9px]">Email</p><p className="text-stone-200">{req.users?.email || req.email || '—'}</p></div>
+                                        <div><p className="text-stone-500 text-[9px]">Telefone</p><p className="text-stone-200">{req.users?.phone || req.phone || '—'}</p></div>
                                       </div>
                                     </div>
+
+                                    {/* 💳 Pagamento */}
+                                    <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
+                                      <p className="text-stone-500 font-mono text-[9px] uppercase mb-2 flex items-center gap-1.5"><CreditCard className="w-3 h-3" /> Pagamento</p>
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        <div><p className="text-stone-500 text-[9px]">Plano</p><div className="mt-0.5">{plan ? <PlanBadge plan={plan} /> : <span className="text-stone-600">—</span>}</div></div>
+                                        <div><p className="text-stone-500 text-[9px]">Valor</p><p className="text-stone-200 mt-0.5">{req.payments?.[0]?.amount ? `${Number(req.payments[0].amount).toLocaleString('pt-PT')} Kz` : '—'}</p></div>
+                                        <div><p className="text-stone-500 text-[9px]">Pago</p><p className={`mt-0.5 font-medium ${req.payments?.[0]?.status === 'approved' ? 'text-emerald-400' : 'text-rose-400'}`}>{req.payments?.[0]?.status === 'approved' ? 'Sim' : req.payments?.[0]?.status === 'rejected' ? 'Rejeitado' : 'Pendente'}</p></div>
+                                        <div><p className="text-stone-500 text-[9px]">Data/Hora</p><p className="text-stone-200 mt-0.5 font-mono text-[10px]">{req.payments?.[0]?.created_at ? formatDate(req.payments[0].created_at) : '—'}</p></div>
+                                      </div>
+                                      {(req.payments?.[0]?.payment_reference || req.payments?.[0]?.user_email) && (
+                                        <div className="mt-2 pt-2 border-t border-stone-800 grid grid-cols-2 gap-3">
+                                          {req.payments[0].payment_reference && <div><p className="text-stone-500 text-[9px]">Referência</p><p className="text-stone-200 mt-0.5 font-mono text-[10px]">{req.payments[0].payment_reference}</p></div>}
+                                          {req.payments[0].user_email && <div><p className="text-stone-500 text-[9px]">Email Pagamento</p><p className="text-stone-200 mt-0.5">{req.payments[0].user_email}</p></div>}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* 📋 Dados do Formulário */}
+                                    <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
+                                      <p className="text-stone-500 font-mono text-[9px] uppercase mb-2 flex items-center gap-1.5"><FileText className="w-3 h-3" /> Dados do Formulário</p>
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
+                                        <div><p className="text-stone-500 text-[9px]">Para</p><p className="text-stone-200 mt-0.5">{req.recipient_name}</p></div>
+                                        <div><p className="text-stone-500 text-[9px]">Relação</p><p className="text-stone-200 mt-0.5">{req.relationship}</p></div>
+                                        <div><p className="text-stone-500 text-[9px]">Ocasião</p><p className="text-stone-200 mt-0.5">{req.occasion || '—'}</p></div>
+                                        <div><p className="text-stone-500 text-[9px]">Estilo</p><p className="text-stone-200 mt-0.5">{req.music_style}</p></div>
+                                        <div><p className="text-stone-500 text-[9px]">Voz</p><p className="text-stone-200 mt-0.5">{req.voice_type}</p></div>
+                                        <div><p className="text-stone-500 text-[9px]">Idioma</p><p className="text-stone-200 mt-0.5">{req.language || 'português'}</p></div>
+                                        <div><p className="text-stone-500 text-[9px]">Emoção</p><p className="text-stone-200 mt-0.5">{req.desired_emotion || '—'}</p></div>
+                                      </div>
+                                      {(req.special_traits || req.memory || req.heart_message) && (
+                                        <div className="mt-2 pt-2 border-t border-stone-800 space-y-1.5">
+                                          {req.special_traits && <div><p className="text-stone-500 text-[9px]">O que a torna especial</p><p className="text-stone-300 mt-0.5 italic leading-relaxed">{req.special_traits}</p></div>}
+                                          {req.memory && <div><p className="text-stone-500 text-[9px]">Memória inesquecível</p><p className="text-stone-300 mt-0.5 italic leading-relaxed">{req.memory}</p></div>}
+                                          {req.heart_message && <div><p className="text-stone-500 text-[9px]">Mensagem do coração</p><p className="text-stone-300 mt-0.5 italic leading-relaxed">{req.heart_message}</p></div>}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {/* 🎵 Conteúdo Gerado */}
                                     {song && (
                                       <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
-                                        <p className="text-stone-500 font-mono text-[9px] uppercase mb-1">Música Associada</p>
-                                        <p className="text-stone-300 font-serif font-bold">{song.title}</p>
-                                        <div className="flex items-center gap-2 mt-1"><StatusBadge status={song.mureka_status || 'not_started'} /></div>
+                                        <p className="text-stone-500 font-mono text-[9px] uppercase mb-2 flex items-center gap-1.5"><Music className="w-3 h-3" /> Conteúdo Gerado</p>
+                                        <div className="flex items-center justify-between mb-2">
+                                          <p className="text-stone-200 font-serif font-bold">{song.title}</p>
+                                          <StatusBadge status={song.mureka_status || 'not_started'} />
+                                        </div>
+
+                                        {(song.lyrics?.length || song.letter_text) && (
+                                          <div className="mb-2">
+                                            <p className="text-stone-500 text-[9px] uppercase mb-1">Letra</p>
+                                            <div className="bg-stone-950/50 rounded-lg p-2.5 border border-stone-800/50 max-h-32 overflow-y-auto">
+                                              <p className="text-stone-400 text-[10px] leading-relaxed whitespace-pre-wrap font-mono">
+                                                {song.lyrics?.join('\n') || song.letter_text}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        )}
+
+                                        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-stone-800">
+                                          <button onClick={() => setPreviewLyrics({ title: song.title, lyrics: song.lyrics || [], letterText: song.letter_text })} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-blue-400 transition-colors cursor-pointer font-mono">
+                                            <Eye className="w-3 h-3" /> Ver Letra
+                                          </button>
+                                          <a
+                                            href={`/song/${(req.recipient_name || 'especial').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')}?id=${song.id}`}
+                                            target="_blank" rel="noopener noreferrer"
+                                            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-amber-400 transition-colors cursor-pointer font-mono"
+                                          >
+                                            <ExternalLink className="w-3 h-3" /> Link do Cliente
+                                          </a>
+                                        </div>
                                       </div>
                                     )}
-                                    {/* Style Editor */}
+
+                                    {/* ✏️ Style Editor */}
                                     <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
                                       <p className="text-stone-500 font-mono text-[9px] uppercase mb-2">✏️ Editor de Estilo & Voz</p>
                                       <div className="flex gap-2 items-center">
@@ -1659,6 +1763,8 @@ export default function AdminPanel() {
                                         <span className="text-stone-600 text-[9px]">(auto-save)</span>
                                       </div>
                                     </div>
+
+                                    {/* Ações */}
                                     <div className="flex flex-wrap gap-2 pt-1">
                                       <button onClick={() => handleRetry(req.id)} disabled={!!actionLoading} className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs rounded-xl hover:bg-amber-500/20 disabled:opacity-50 cursor-pointer font-mono transition-colors">
                                         {actionLoading === req.id + '_retry' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />} Tentar Novamente
@@ -1680,20 +1786,6 @@ export default function AdminPanel() {
                                       <button onClick={() => fetchLogs(req.id)} className="flex items-center gap-1.5 px-3 py-2 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-stone-300 transition-colors cursor-pointer font-mono">
                                         <List className="w-3 h-3" /> Logs
                                       </button>
-                                      {req.songs?.[0] && (
-                                        <>
-                                          <button onClick={() => setPreviewLyrics({ title: req.songs![0].title, lyrics: req.songs![0].lyrics || [], letterText: req.songs![0].letter_text })} className="flex items-center gap-1.5 px-3 py-2 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-blue-400 transition-colors cursor-pointer font-mono">
-                                            <FileText className="w-3 h-3" /> Pré-visualizar Letra
-                                          </button>
-                                          <a
-                                            href={`/song/${(req.recipient_name || 'especial').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '')}?id=${req.songs![0].id}`}
-                                            target="_blank" rel="noopener noreferrer"
-                                            className="flex items-center gap-1.5 px-3 py-2 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-amber-400 transition-colors cursor-pointer font-mono"
-                                          >
-                                            <ExternalLink className="w-3 h-3" /> Ver como Cliente
-                                          </a>
-                                        </>
-                                      )}
                                     </div>
                                   </div>
                                 </motion.div>
@@ -1719,16 +1811,59 @@ export default function AdminPanel() {
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Músicas</h1>
                       <p className="text-stone-500 text-sm mt-1">Letras geradas e áudio Suno</p>
                     </div>
-                    <button onClick={fetchSongs} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
-                      <RefreshCw className="w-3.5 h-3.5" /> Atualizar
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {songSearchQuery && (
+                        <span className="text-[10px] font-mono text-stone-500">{filteredSongs.length} resultado(s)</span>
+                      )}
+                      <button onClick={fetchSongs} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
+                        <RefreshCw className="w-3.5 h-3.5" /> Atualizar
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Search bar */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-600" />
+                      <input
+                        type="text"
+                        value={songSearchQuery}
+                        onChange={e => { setSongSearchQuery(e.target.value); setSongPage(1); }}
+                        placeholder="Pesquisar por título, destinatário, estilo..."
+                        className="w-full bg-stone-950 border border-stone-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-stone-300 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
+                      />
+                    </div>
+                    <select
+                      value={songSearchFilter}
+                      onChange={e => setSongSearchFilter(e.target.value as any)}
+                      className="bg-stone-950 border border-stone-800 rounded-xl px-3 py-2.5 text-xs text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
+                    >
+                      <option value="all">Todos</option>
+                      <option value="title">Título</option>
+                      <option value="recipient">Destinatário</option>
+                      <option value="style">Estilo</option>
+                      <option value="status">Estado</option>
+                    </select>
+                    {songSearchQuery && (
+                      <button onClick={() => { setSongSearchQuery(''); setSongPage(1); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer">
+                        Limpar
+                      </button>
+                    )}
+                    <select value={songSort} onChange={e => { setSongSort(e.target.value); setSongPage(1); }} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                      <option value="created_at_desc">Mais recentes</option>
+                      <option value="created_at_asc">Mais antigos</option>
+                      <option value="title_asc">Título A-Z</option>
+                      <option value="title_desc">Título Z-A</option>
+                      <option value="status_asc">Estado</option>
+                    </select>
                   </div>
 
                   {loading ? (
                     <div className="flex items-center justify-center h-40"><RefreshCw className="w-6 h-6 text-stone-600 animate-spin" /></div>
                   ) : (
                     <div className="space-y-3">
-                      {songs.map(song => (
+                      {songTotalPages > 1 && <Pagination page={songPage} totalPages={songTotalPages} setPage={setSongPage} />}
+                      {paginatedSongs.map(song => (
                         <div key={song.id} className="bg-stone-900/50 border border-stone-800 rounded-2xl p-4">
                           <div className="flex items-center gap-4">
                             <div className="w-10 h-10 bg-amber-500/10 rounded-xl border border-amber-500/20 flex items-center justify-center shrink-0">
@@ -1810,9 +1945,10 @@ export default function AdminPanel() {
                           )}
                         </div>
                       ))}
-                      {songs.length === 0 && (
-                        <div className="text-center py-12 text-stone-600 font-mono text-sm">Nenhuma música encontrada.</div>
+                      {paginatedSongs.length === 0 && (
+                        <div className="text-center py-12 text-stone-600 font-mono text-sm">{songSearchQuery ? 'Nenhuma música corresponde à pesquisa.' : 'Nenhuma música encontrada.'}</div>
                       )}
+                      {songTotalPages > 1 && <Pagination page={songPage} totalPages={songTotalPages} setPage={setSongPage} />}
                     </div>
                   )}
                 </div>

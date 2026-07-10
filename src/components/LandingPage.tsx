@@ -493,7 +493,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               className="flex items-center gap-2 px-4 py-2 bg-green-900/30 border border-green-800/50 rounded-full text-green-400 hover:bg-green-900/50 transition-colors"
             >
               <MessageCircle className="w-4 h-4" />
-              <span className="font-semibold">WhatsApp: 929 423 278</span>
+              <span className="font-semibold">WhatsApp: 922 058 136</span>
             </a>
             <a
               href="mailto:suporte@seubeat.ao"
