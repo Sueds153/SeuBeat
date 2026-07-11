@@ -75,6 +75,26 @@ function firstString(...values: unknown[]): string | null {
   return null;
 }
 
+function isImageUrl(key: string, url: string): boolean {
+  return (
+    key.includes('image') ||
+    /\.(jpe?g|png|webp|gif)(\?|$)/i.test(url) ||
+    /\/image[_-]/i.test(url)
+  );
+}
+
+function isLikelyAudioUrl(key: string, url: string): boolean {
+  if (!/^https?:\/\//i.test(url)) return false;
+  if (isImageUrl(key, url)) return false;
+
+  return (
+    key.includes('audio') ||
+    key.includes('song') ||
+    /\.(mp3|wav|flac|m4a|aac|ogg)(\?|$)/i.test(url) ||
+    /cdn\d*\.suno\.ai\/(?!image[_-])/i.test(url)
+  );
+}
+
 function collectAudioUrls(value: unknown, urls: string[] = []): string[] {
   if (!value || typeof value !== 'object') return urls;
 
@@ -88,13 +108,7 @@ function collectAudioUrls(value: unknown, urls: string[] = []): string[] {
     const lowerKey = key.toLowerCase();
     if (
       typeof nestedValue === 'string' &&
-      /^https?:\/\//i.test(nestedValue) &&
-      (
-        lowerKey.includes('audio') ||
-        lowerKey.includes('song') ||
-        lowerKey.includes('url') ||
-        lowerKey.endsWith('_url')
-      )
+      isLikelyAudioUrl(lowerKey, nestedValue)
     ) {
       urls.push(nestedValue);
     }
@@ -150,16 +164,18 @@ function extractStatus(payload: any): string {
   return (rawStatus || 'processing').toLowerCase();
 }
 
-function extractAudioUrl(payload: any): string | null {
+export function extractAudioUrl(payload: any): string | null {
   // Tentar encontrar urls explicitamente no payload do Suno
   const sunoData = payload?.data?.response?.sunoData || payload?.response?.sunoData;
   if (Array.isArray(sunoData) && sunoData.length > 0) {
-    const url = sunoData[0]?.sourceAudioUrl || sunoData[0]?.source_audio_url || sunoData[0]?.audioUrl || sunoData[0]?.audio_url || sunoData[0]?.url;
-    if (url) return url;
+    for (const item of sunoData) {
+      const url = firstString(item?.sourceAudioUrl, item?.source_audio_url, item?.audioUrl, item?.audio_url, item?.streamAudioUrl, item?.sourceStreamAudioUrl);
+      if (url && isLikelyAudioUrl('audio', url)) return url;
+    }
   }
 
   const urls = collectAudioUrls(payload);
-  const sourceUrl = urls.find(url => /cdn\d*\.suno\.ai/i.test(url));
+  const sourceUrl = urls.find(url => /cdn\d*\.suno\.ai\/(?!image[_-])/i.test(url));
   if (sourceUrl) return sourceUrl;
   return urls.find(url => /\.(mp3|wav|flac|m4a|aac|ogg)(\?|$)/i.test(url)) || urls[0] || null;
 }

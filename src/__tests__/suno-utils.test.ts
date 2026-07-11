@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { extractAudioUrl } from '../../server/services/suno';
 
 describe('Suno utility functions', () => {
   const SUCCESS_STATUSES = new Set(['success', 'completed', 'done', 'finished', 'succeeded']);
@@ -134,6 +135,47 @@ describe('Suno utility functions', () => {
     it('caps delay at 30 seconds', () => {
       const delay = getRetryDelay(10);
       expect(delay).toBeLessThanOrEqual(30000);
+    });
+  });
+
+  describe('extractAudioUrl', () => {
+    it('prefers sourceAudioUrl and ignores Suno cover image URLs', () => {
+      const payload = {
+        data: {
+          response: {
+            sunoData: [
+              {
+                sourceAudioUrl: 'https://cdn1.suno.ai/song-id.mp3',
+                audioUrl: 'https://tempfile.aiquickdraw.com/r/song-id.mp3',
+                imageUrl: 'https://musicfile.removeai.ai/song-id.jpeg',
+                sourceImageUrl: 'https://cdn2.suno.ai/image_song-id.jpeg'
+              }
+            ]
+          }
+        }
+      };
+
+      expect(extractAudioUrl(payload)).toBe('https://cdn1.suno.ai/song-id.mp3');
+    });
+
+    it('does not return image URLs from generic URL fields', () => {
+      const payload = {
+        data: {
+          response: {
+            sunoData: [
+              {
+                url: 'https://cdn2.suno.ai/image_song-id.jpeg',
+                sourceImageUrl: 'https://cdn2.suno.ai/image_song-id.jpeg'
+              }
+            ]
+          },
+          fallback: {
+            sourceAudioUrl: 'https://cdn1.suno.ai/fallback-song.mp3'
+          }
+        }
+      };
+
+      expect(extractAudioUrl(payload)).toBe('https://cdn1.suno.ai/fallback-song.mp3');
     });
   });
 });
