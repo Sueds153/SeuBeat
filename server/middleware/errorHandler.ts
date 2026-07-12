@@ -4,6 +4,10 @@ import { logWarn } from '../utils/logger';
 /**
  * Middleware para tratar erros de forma consistente
  */
+const KNOWN_ERRORS: Record<number, string> = {
+  413: 'O ficheiro enviado é demasiado grande. Máximo 10MB.',
+};
+
 export function errorHandler(
   error: any,
   req: Request,
@@ -23,6 +27,6 @@ export function errorHandler(
 
   res.status(status).json({
     success: false,
-    error: status === 500 ? 'Erro interno do servidor' : message
+    error: KNOWN_ERRORS[status] || (status === 500 ? 'Erro interno do servidor' : message)
   });
 }

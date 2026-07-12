@@ -19,8 +19,8 @@ export async function createApp(): Promise<express.Application> {
 
   app.set('trust proxy', 1);
 
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: false, limit: '50mb' }));
   app.use(corsMiddleware);
   app.use(helmetMiddleware());
   app.use(permissionsPolicyMiddleware);

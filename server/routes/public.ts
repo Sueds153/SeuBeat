@@ -523,8 +523,9 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
 
     let proofPath: string | null = null;
     if (proofBase64) {
+      const resolvedMime = proofMimeType || 'image/jpeg';
       const ALLOWED_PROOF_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-      if (!ALLOWED_PROOF_MIMES.includes(proofMimeType)) {
+      if (!ALLOWED_PROOF_MIMES.includes(resolvedMime)) {
         return res.status(400).json({ error: 'Formato de comprovativo inválido. Apenas JPG, PNG, WebP ou PDF.' });
       }
       const proofBuffer = decodeBase64Payload(proofBase64);
@@ -533,15 +534,16 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       const filename = `proofs/${Date.now()}_${sanitizedProofFilename}`;
       const { data, error } = await supabase.storage
         .from('payment-proofs')
-        .upload(filename, proofBuffer, { contentType: proofMimeType || 'image/jpeg' });
+        .upload(filename, proofBuffer, { contentType: resolvedMime });
       if (error || !data) throw new Error(`Upload do comprovativo falhou: ${error?.message || 'sem dados'}`);
       proofPath = data.path;
     }
 
     let voiceSampleUrl = null;
     if (voiceSampleBase64) {
+      const resolvedVoiceMime = voiceSampleMimeType || 'audio/wav';
       const ALLOWED_VOICE_MIMES = ['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/x-wav'];
-      if (!ALLOWED_VOICE_MIMES.includes(voiceSampleMimeType)) {
+      if (!ALLOWED_VOICE_MIMES.includes(resolvedVoiceMime)) {
         return res.status(400).json({ error: 'Formato de áudio inválido. Apenas WAV, MP3, MP4 ou OGG.' });
       }
       const voiceBuffer = decodeBase64Payload(voiceSampleBase64);
@@ -550,7 +552,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       const filename = `voices/${Date.now()}_${sanitizedVoiceFilename}`;
       const { data, error } = await supabase.storage
         .from('voice-samples')
-        .upload(filename, voiceBuffer, { contentType: voiceSampleMimeType || 'audio/wav' });
+        .upload(filename, voiceBuffer, { contentType: resolvedVoiceMime });
       if (error || !data) throw new Error(`Upload da amostra de voz falhou: ${error?.message || 'sem dados'}`);
       // Guarda o path em vez de public URL (bucket voice-samples é privado)
       voiceSampleUrl = data.path;
@@ -561,7 +563,8 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       user_email: userEmail,
       plan,
       amount: parsedAmount,
-      proof_path: proofPath,
+      proof_url: proofPath ? `storage:${proofPath}` : null,
+      proof_filename: proofFilename || proofPath?.split('/').pop() || null,
       status: 'pending_verification'
     }]);
     if (paymentError) throw paymentError;
