@@ -138,8 +138,7 @@ router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
 
     let path = payment.proof_path;
     if (!path && payment.proof_url) {
-      const match = payment.proof_url.match(/\/payment-proofs\/(.+)$/);
-      path = match ? match[1] : null;
+      path = payment.proof_url.replace(/^storage:/, '');
     }
 
     if (!path) return res.status(404).json({ error: 'Comprovativo não encontrado.' });

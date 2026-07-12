@@ -564,6 +564,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       plan,
       amount: parsedAmount,
       proof_url: proofPath ? `storage:${proofPath}` : null,
+      proof_path: proofPath,
       proof_filename: proofFilename || proofPath?.split('/').pop() || null,
       status: 'pending_verification'
     }]);
