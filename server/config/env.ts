@@ -1,6 +1,26 @@
 const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANON_KEY', 'SUNO_API_KEY', 'SMTP_HOST', 'ADMIN_PASSWORD', 'JWT_SECRET'] as const;
 
 export function validateEnv(): void {
+  // Mapeamento automático de variáveis com prefixo VITE_ caso as originais não existam
+  if (!process.env.SUPABASE_URL && process.env.VITE_SUPABASE_URL) {
+    process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+  }
+  if (!process.env.SUPABASE_ANON_KEY && process.env.VITE_SUPABASE_ANON_KEY) {
+    process.env.SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+  }
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+  }
+  if (!process.env.SUNO_API_KEY && process.env.VITE_SUNO_API_KEY) {
+    process.env.SUNO_API_KEY = process.env.VITE_SUNO_API_KEY;
+  }
+  if (!process.env.ADMIN_PASSWORD && process.env.VITE_ADMIN_PASSWORD) {
+    process.env.ADMIN_PASSWORD = process.env.VITE_ADMIN_PASSWORD;
+  }
+  if (!process.env.JWT_SECRET && process.env.VITE_JWT_SECRET) {
+    process.env.JWT_SECRET = process.env.VITE_JWT_SECRET;
+  }
+
   const missing = REQUIRED_ENV.filter(key => !process.env[key]);
   if (missing.length > 0) {
     if (process.env.CI || process.env.NODE_ENV === 'test') {
