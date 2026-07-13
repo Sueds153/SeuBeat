@@ -718,6 +718,30 @@ export default function AdminPanel() {
     setActionLoading(null);
   };
 
+  const handleDeleteRequest = async (requestId: string) => {
+    if (!window.confirm('Tem a certeza que deseja eliminar permanentemente este pedido e todos os seus ficheiros associados? Esta ação não pode ser desfeita!')) return;
+    setActionLoading(requestId + '_delete');
+    try {
+      const res = await fetch(`/api/admin/request/${requestId}`, {
+        method: 'DELETE',
+        headers: apiHeaders
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('🗑️ Pedido e ficheiros eliminados com sucesso!');
+        fetchRequests();
+        fetchStats();
+        resetViewPoll();
+      } else {
+        if (res.status === 401) expireSession();
+        else showToast(data.error || 'Erro ao eliminar o pedido.', 'error');
+      }
+    } catch (e: any) {
+      showToast(e.message || 'Erro de ligação.', 'error');
+    }
+    setActionLoading(null);
+  };
+
   const handleSaveLyrics = async () => {
     if (!editingSong) return;
     setActionLoading('lyrics_' + editingSong.id);
@@ -1789,6 +1813,9 @@ export default function AdminPanel() {
                                       </button>
                                       <button onClick={() => fetchLogs(req.id)} className="flex items-center gap-1.5 px-3 py-2 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-stone-300 transition-colors cursor-pointer font-mono">
                                         <List className="w-3 h-3" /> Logs
+                                      </button>
+                                      <button onClick={() => handleDeleteRequest(req.id)} disabled={!!actionLoading} className="flex items-center gap-1.5 px-3 py-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs rounded-xl hover:bg-rose-500/20 disabled:opacity-50 cursor-pointer font-mono transition-colors">
+                                        {actionLoading === req.id + '_delete' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />} Eliminar Pedido
                                       </button>
                                     </div>
                                   </div>

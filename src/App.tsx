@@ -7,7 +7,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import LandingPage from './components/LandingPage';
 import SocialProof from './components/SocialProof';
 import { useMetaPixel } from './hooks/useMetaPixel';
-import { fbPageView, fbInitiateCheckout } from './lib/metaPixel';
+import { fbPageView } from './lib/metaPixel';
 
 const Wizard = lazy(() => import('./components/Wizard'));
 const PersonalizedSongPage = lazy(() => import('./components/PersonalizedSongPage'));
@@ -56,7 +56,6 @@ export default function App() {
 
   const startWizard = () => {
     setCurrentView('wizard');
-    fbInitiateCheckout('wizard');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

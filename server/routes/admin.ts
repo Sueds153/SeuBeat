@@ -1228,4 +1228,121 @@ router.get('/export/:type', adminAuth, async (req, res) => {
   } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
 });
 
+// Q2. Delete request and all its resources from storage
+router.delete('/request/:id', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    // 1. Obter todos os caminhos dos ficheiros associados para apagar da Storage
+    const { data: requestData, error: fetchError } = await supabase
+      .from('song_requests')
+      .select('*, songs(*), payments(*)')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !requestData) {
+      return res.status(404).json({ error: 'Pedido não encontrado.' });
+    }
+
+    // Coleções de remoções de Storage agrupadas por bucket
+    const storageDeletions: Record<string, string[]> = {
+      'photos': [],
+      'voice-samples': [],
+      'full-audio': [],
+      'preview': [],
+      'payment-proofs': []
+    };
+
+    // a) Foto da dedicatória
+    if (requestData.photo_url) {
+      const path = extractStoragePath(requestData.photo_url, 'photos');
+      if (path) storageDeletions['photos'].push(path);
+    }
+
+    // b) Amostra de voz
+    if (requestData.voice_sample_url) {
+      const path = requestData.voice_sample_url.startsWith('http')
+        ? extractStoragePath(requestData.voice_sample_url, 'voice-samples')
+        : requestData.voice_sample_url;
+      if (path) storageDeletions['voice-samples'].push(path);
+    }
+
+    // c) Ficheiros da música (full-audio e preview)
+    const songs = Array.isArray(requestData.songs) ? requestData.songs : (requestData.songs ? [requestData.songs] : []);
+    for (const song of songs) {
+      if (song.audio_url) {
+        const path = extractStoragePath(song.audio_url, 'full-audio');
+        if (path) storageDeletions['full-audio'].push(path);
+      }
+      if (song.full_song_url) {
+        const path = extractStoragePath(song.full_song_url, 'full-audio');
+        if (path) storageDeletions['full-audio'].push(path);
+      }
+      if (song.preview_url) {
+        const path = extractStoragePath(song.preview_url, 'preview');
+        if (path) storageDeletions['preview'].push(path);
+      }
+    }
+
+    // d) Comprovativos de pagamento
+    const payments = Array.isArray(requestData.payments) ? requestData.payments : (requestData.payments ? [requestData.payments] : []);
+    for (const payment of payments) {
+      if (payment.proof_path) {
+        storageDeletions['payment-proofs'].push(payment.proof_path);
+      } else if (payment.proof_url) {
+        const path = payment.proof_url.startsWith('storage:')
+          ? payment.proof_url.replace(/^storage:/, '')
+          : extractStoragePath(payment.proof_url, 'payment-proofs');
+        if (path) storageDeletions['payment-proofs'].push(path);
+      }
+    }
+
+    // Executar as remoções da Storage em background (não bloqueia a eliminação na BD se falhar)
+    Promise.all(
+      Object.entries(storageDeletions).map(async ([bucket, paths]) => {
+        const uniquePaths = Array.from(new Set(paths.filter(Boolean)));
+        if (uniquePaths.length === 0) return;
+        try {
+          const { error } = await supabase.storage.from(bucket).remove(uniquePaths);
+          if (error) {
+            logWarn(`[Admin Delete] Falha ao remover ficheiros do bucket "${bucket}"`, { error: error.message, paths: uniquePaths });
+          } else {
+            logInfo(`[Admin Delete] Ficheiros removidos do bucket "${bucket}" com sucesso`, { paths: uniquePaths });
+          }
+        } catch (e: any) {
+          logWarn(`[Admin Delete] Excepção ao remover do bucket "${bucket}"`, { error: e.message });
+        }
+      })
+    ).catch(err => logError('[Admin Delete] Erro crítico no cleanup de storage', err));
+
+    // 2. Apagar da base de dados (o CASCADE apagará registos associados nas tabelas songs e payments)
+    const { error: deleteError } = await supabase
+      .from('song_requests')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      return res.status(500).json({ error: `Falha ao apagar pedido: ${deleteError.message}` });
+    }
+
+    logAdminAction({
+      action: 'delete',
+      entityType: 'song_requests',
+      entityId: id,
+      previousData: {
+        recipient_name: requestData.recipient_name,
+        email: requestData.users?.email,
+        status: requestData.status
+      },
+      notes: 'Pedido e todos os ficheiros de Storage associados eliminados permanentemente.'
+    });
+
+    res.json({ success: true, message: 'Pedido e ficheiros associados apagados com sucesso.' });
+  } catch (err: any) {
+    res.status(500).json({ error: safeMessage(err) });
+  }
+});
+
 export default router;

@@ -58,15 +58,6 @@ describe('metaPixel with VITE_META_PIXEL_ID set', () => {
     expect((window.fbq as any).queue.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('fbViewContent queues ViewContent with params', async () => {
-    const { initMetaPixel, fbViewContent } = await import('../lib/metaPixel');
-    initMetaPixel();
-    fbViewContent('test-content', '123');
-    const lastCall = (window.fbq as any).queue[(window.fbq as any).queue.length - 1];
-    expect(lastCall[0]).toBe('track');
-    expect(lastCall[1]).toBe('ViewContent');
-  });
-
   it('fbInitiateCheckout queues InitiateCheckout with value', async () => {
     const { initMetaPixel, fbInitiateCheckout } = await import('../lib/metaPixel');
     initMetaPixel();

@@ -51,7 +51,7 @@ export function helmetMiddleware() {
 }
 
 export function permissionsPolicyMiddleware(_req: Request, res: Response, next: NextFunction): void {
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=()');
   next();
 }
 

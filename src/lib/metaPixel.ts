@@ -53,18 +53,9 @@ export function initMetaPixel(): void {
   document.body.appendChild(img);
 }
 
-export function isPixelEnabled(): boolean {
-  return IS_ENABLED && initialized;
-}
-
 export function fbPageView(): void {
   if (!IS_ENABLED || !window.fbq) return;
   window.fbq('track', 'PageView');
-}
-
-export function fbViewContent(contentName?: string, contentId?: string): void {
-  if (!IS_ENABLED || !window.fbq) return;
-  window.fbq('track', 'ViewContent', { content_name: contentName, content_id: contentId });
 }
 
 export function fbInitiateCheckout(plan?: string, value?: number, currency: string = 'AOA'): void {

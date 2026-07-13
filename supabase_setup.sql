@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS public.song_requests (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid REFERENCES public.users(id) ON DELETE CASCADE,
   recipient_name text,
+  recipient_nick text,
   relationship text,
   occasion text,
   music_style text,
@@ -48,6 +49,7 @@ CREATE TABLE IF NOT EXISTS public.song_requests (
 );
 
 -- Garantir que as colunas adicionais existem se a tabela já tiver sido criada antes
+ALTER TABLE public.song_requests ADD COLUMN IF NOT EXISTS recipient_nick text;
 ALTER TABLE public.song_requests ADD COLUMN IF NOT EXISTS photo_url text;
 ALTER TABLE public.song_requests ADD COLUMN IF NOT EXISTS relationship text;
 ALTER TABLE public.song_requests ADD COLUMN IF NOT EXISTS special_traits text;

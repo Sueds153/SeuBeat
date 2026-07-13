@@ -265,6 +265,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
     const { data: requestData, error: requestError } = await supabase.from('song_requests').insert([{
       user_id: userData.id,
       recipient_name: recipientName || 'Destinatario',
+      recipient_nick: recipientNick || null,
       relationship: recipientRelation || 'Parceiro',
       occasion: occasion || 'Homenagem',
       music_style: musicStyle || 'Kizomba',

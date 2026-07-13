@@ -45,7 +45,7 @@ export const GenerateLyricsSchema = z.object({
   ),
 
   recipientName: z.string().min(1, 'Nome do destinatário requerido').max(100).trim(),
-  recipientRelation: z.preprocess(lower, z.enum(RECIPIENT_RELATIONS)),
+  recipientRelation: z.preprocess(lower, z.enum(RECIPIENT_RELATIONS).catch('outro')),
   recipientNick: z.string().max(50).trim().optional(),
 
   occasion: z.preprocess(lower, z.enum(OCCASIONS)),
