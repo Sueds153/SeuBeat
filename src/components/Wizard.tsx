@@ -512,43 +512,53 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         await new Promise(resolve => setTimeout(resolve, 8000));
       }
 
-      const statusRes = await fetch(`/api/song/${songId}`);
-      if (!statusRes.ok) {
-        throw new Error('Nao foi possivel consultar o estado da musica.');
-      }
+      try {
+        const controller = new AbortController();
+        const pollTimeout = setTimeout(() => controller.abort(), 15000);
 
-      // A API retorna o objeto diretamente (sem wrapper .data)
-      const song = await statusRes.json();
-      const requestStatus = song?.status;
-      const previewUrl = song?.preview_url;
+        const statusRes = await fetch(`/api/song/${songId}`, { signal: controller.signal });
+        clearTimeout(pollTimeout);
 
-      if (requestStatus === 'failed' || song?.mureka_status === 'failed') {
-        throw new Error('A geracao da musica falhou. Tente novamente.');
-      }
+        if (!statusRes.ok) {
+          throw new Error('Nao foi possivel consultar o estado da musica.');
+        }
 
-      if (previewUrl && (requestStatus === 'music_ready' || song?.mureka_status === 'completed')) {
-        setPreviewAudioUrl(previewUrl);
-        setGenerationStatus('preview_available');
-        setProcessingStage(4);
-        setIsSubmitting(false);
-        setShowPreviewPage(true);
-        return true;
-      }
+        const song = await statusRes.json();
+        const requestStatus = song?.status;
+        const previewUrl = song?.preview_url;
 
-      if (requestStatus === 'lyrics_ready') {
-        setGenerationStatus('lyrics_ready');
-        setProcessingStage(2);
-        // Sem preview esperado — sai do polling imediatamente
-        setIsSubmitting(false);
-        return false;
-      } else {
-        setGenerationStatus('music_processing');
-        setProcessingStage(3);
+        if (requestStatus === 'failed' || song?.mureka_status === 'failed') {
+          throw new Error('A geracao da musica falhou. Tente novamente.');
+        }
+
+        if (previewUrl && (requestStatus === 'music_ready' || song?.mureka_status === 'completed')) {
+          setPreviewAudioUrl(previewUrl);
+          setGenerationStatus('preview_available');
+          setProcessingStage(4);
+          setIsSubmitting(false);
+          setShowPreviewPage(true);
+          return true;
+        }
+
+        if (requestStatus === 'lyrics_ready') {
+          setGenerationStatus('lyrics_ready');
+          setProcessingStage(3);
+          setIsSubmitting(false);
+          return false;
+        } else {
+          setGenerationStatus('music_processing');
+          setProcessingStage(4);
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          continue;
+        }
+        throw err;
       }
     }
 
     setGenerationStatus('lyrics_ready');
-    setProcessingStage(2);
+    setProcessingStage(3);
     setIsSubmitting(false);
     return false;
   };
@@ -572,27 +582,30 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         setDbSongRequestId('');
         setPreviewAudioUrl('');
 
-        let photoBase64 = null;
-        let photoFilename = null;
-        let photoMimeType = null;
-        
-        if (formData.photoFile) {
-          try {
-            photoBase64 = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.readAsDataURL(formData.photoFile!);
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.onerror = reject;
-            });
-            photoFilename = formData.photoFile.name;
-            photoMimeType = formData.photoFile.type;
-          } catch (e) {
-            console.error('Error reading photo file:', e);
-            showToast('Erro ao ler a foto. Tente selecionar novamente.', 'error');
-          }
-        }
-        
         try {
+          let photoBase64 = null;
+          let photoFilename = null;
+          let photoMimeType = null;
+
+          if (formData.photoFile) {
+            try {
+              photoBase64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(formData.photoFile!);
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.onerror = reject;
+              });
+              photoFilename = formData.photoFile.name;
+              photoMimeType = formData.photoFile.type;
+            } catch (e) {
+              console.error('Error reading photo file:', e);
+              showToast('Erro ao ler a foto. Tente selecionar novamente.', 'error');
+            }
+          }
+
+          const controller = new AbortController();
+          const fetchTimeout = setTimeout(() => controller.abort(), 120000);
+
           const res = await fetch('/api/generate-lyrics', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -601,8 +614,10 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
               photoBase64,
               photoFilename,
               photoMimeType
-            })
+            }),
+            signal: controller.signal
           });
+          clearTimeout(fetchTimeout);
 
           if (!res.ok) {
             const data = await res.json().catch(() => ({ error: 'Erro na conexão' }));
@@ -628,14 +643,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           fbLead('lyrics_generated');
           setShowPreviewPage(false);
 
-          const initialStatus = data.status === 'music_processing' ? 'music_processing' : 'lyrics_ready';
-          setGenerationStatus(initialStatus);
-          setProcessingStage(initialStatus === 'music_processing' ? 3 : 2);
+          setGenerationStatus('lyrics_ready');
+          setProcessingStage(3);
           showToast('Letra gerada com sucesso!', 'success');
 
           await pollSongUntilPreview(data.dbSongId);
-          // Nota: pollSongUntilPreview retorna false imediatamente quando status='lyrics_ready'
-          // (sem preview de áudio nesta versão)
           if (generationStatus !== 'error') {
             setShowPreviewPage(false);
             showToast('Letra criada com sucesso! Reveja e edite se necessário.', 'success');
@@ -2488,7 +2500,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                 <button
                   id="wizard-advance-btn"
                   onClick={handleNext}
-                  disabled={!validateStep()}
+                  disabled={!validateStep() || isSubmitting}
                   className={`px-5 py-3 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer select-none ${
                     validateStep()
                       ? 'bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 shadow-lg shadow-amber-500/10 active:scale-[0.97]'
