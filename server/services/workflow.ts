@@ -5,7 +5,7 @@ import { getAdminSupabase, uploadToSupabase } from './supabase';
 import { downloadFile, createPreviewAudio } from './audio';
 import { querySunoTask, generateFullSong } from './suno';
 import { generateValidationPhrase, waitForValidationPhrase, createCustomVoice, waitForVoiceId, checkVoiceAvailability } from './suno-voice';
-import { sendPersonalizedEmail } from './email';
+import { sendPersonalizedEmail, sendConfirmationEmail } from './email';
 import { getAudioFileInfo } from '../utils/helpers';
 import { logInfo, logWarn, logError } from '../utils/logger';
 import { RequestProgress } from './types';
@@ -134,15 +134,18 @@ export async function completeSunoWorkflowFromAudio(
 
   const { data: approvedPayment } = await supabase
     .from('payments')
-    .select('id')
+    .select('id, plan')
     .eq('request_id', requestId)
     .eq('status', 'approved')
     .maybeSingle();
 
+  const isStandard = approvedPayment && (approvedPayment as any).plan === 'standard';
+
   await supabase
     .from('song_requests')
     .update({
-      status: approvedPayment ? 'delivered' : 'music_ready',
+      status: approvedPayment ? (isStandard ? 'approved' : 'delivered') : 'music_ready',
+      deliver_at: isStandard ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
       final_mixed_audio_url: fullAudioUrl
     })
     .eq('id', requestId);
@@ -311,13 +314,14 @@ export async function runBackgroundSunoWorkflow(
 
     const { data: approvedPayment } = await supabase
       .from('payments')
-      .select('id')
+      .select('id, plan')
       .eq('request_id', requestId)
       .eq('status', 'approved')
       .maybeSingle();
 
-    const nextStatus = approvedPayment ? 'delivered' : 'music_ready';
-    logInfo(`[Background Suno] Updating request after generation`, { requestId, nextStatus, paid: !!approvedPayment });
+    const isStandard = approvedPayment && (approvedPayment as any).plan === 'standard';
+    const nextStatus = approvedPayment ? (isStandard ? 'approved' : 'delivered') : 'music_ready';
+    logInfo(`[Background Suno] Updating request after generation`, { requestId, nextStatus, paid: !!approvedPayment, isStandard });
     const userEmail = requestData.email || requestData.users?.email;
     const letterText = requestData.songs?.[0]?.letter_text || 'Dedicatória.';
 
@@ -326,10 +330,11 @@ export async function runBackgroundSunoWorkflow(
       .update({
         final_mixed_audio_url: fullAudioUrl,
         status: nextStatus,
+        deliver_at: isStandard ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
       })
       .eq('id', requestId);
 
-    setProgress(requestId, { status: 'completed', progress: 100, message: approvedPayment ? 'Música gerada e entregue com sucesso!' : 'Música pronta. Aguardando confirmação do pagamento.' });
+    setProgress(requestId, { status: 'completed', progress: 100, message: approvedPayment ? (isStandard ? 'Música gerada. Será entregue em 24h.' : 'Música gerada e entregue com sucesso!') : 'Música pronta. Aguardando confirmação do pagamento.' });
 
     if (approvedPayment && userEmail) {
       const slug = (requestData.recipient_name || 'especial')
@@ -340,15 +345,26 @@ export async function runBackgroundSunoWorkflow(
         .replace(/(^-|-$)+/g, '');
       const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${songId}`;
 
-      logInfo(`[Background Suno] Sending delivery email`, { userEmail });
-      sendPersonalizedEmail(
-        userEmail,
-        requestData.recipient_name,
-        personalizedUrl,
-        letterText
-      ).catch((emailErr) => {
-        logError('[Background Suno] Delivery email failed (song already delivered)', emailErr, { requestId, userEmail });
-      });
+      if (isStandard) {
+        logInfo(`[Background Suno] Sending confirmation email (Standard - 24h delay)`, { userEmail });
+        sendConfirmationEmail(
+          userEmail,
+          requestData.recipient_name,
+          requestId
+        ).catch((emailErr) => {
+          logError('[Background Suno] Confirmation email failed', emailErr, { requestId, userEmail });
+        });
+      } else {
+        logInfo(`[Background Suno] Sending delivery email`, { userEmail });
+        sendPersonalizedEmail(
+          userEmail,
+          requestData.recipient_name,
+          personalizedUrl,
+          letterText
+        ).catch((emailErr) => {
+          logError('[Background Suno] Delivery email failed (song already delivered)', emailErr, { requestId, userEmail });
+        });
+      }
     }
     logInfo(`[Background Suno] Workflow completed`, { requestId, nextStatus });
   } catch (err: any) {

@@ -7,7 +7,7 @@ import {
   runBackgroundSunoWorkflow, 
   processSunoVoice 
 } from '../services/workflow';
-import { sendPersonalizedEmail, sendPaymentRejectionEmail } from '../services/email';
+import { sendPersonalizedEmail, sendPaymentRejectionEmail, sendConfirmationEmail } from '../services/email';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
@@ -204,10 +204,29 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
 
     const hasGeneratedAudio = !!(songData.full_song_url || songData.audio_url);
     const hasVoiceSample = !!songRequest.voice_sample_url;
+    const isStandard = planName === 'standard';
 
     // Se já tem áudio E não tem voz clonada pendente, entrega diretamente
     if (hasGeneratedAudio && !hasVoiceSample) {
       const fullAudioUrl = songData.full_song_url || songData.audio_url;
+
+      if (isStandard) {
+        // Standard: agendar entrega para 24h após aprovação
+        await supabase
+          .from('song_requests')
+          .update({
+            status: 'approved',
+            deliver_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            final_mixed_audio_url: fullAudioUrl || songRequest.final_mixed_audio_url || null
+          })
+          .eq('id', requestId);
+        if (userEmail) {
+          await sendConfirmationEmail(userEmail, songRequest.recipient_name, requestId);
+        }
+        return res.json({ success: true, message: 'Pagamento aprovado. Música será entregue em 24h por e-mail.', isStandard: true });
+      }
+
+      // Express/Premium: entrega imediata
       await supabase
         .from('song_requests')
         .update({
@@ -1340,6 +1359,59 @@ router.delete('/request/:id', adminAuth, async (req, res) => {
     });
 
     res.json({ success: true, message: 'Pedido e ficheiros associados apagados com sucesso.' });
+  } catch (err: any) {
+    res.status(500).json({ error: safeMessage(err) });
+  }
+});
+
+// Cron job: entrega automática de músicas Standard cujo deliver_at já passou
+router.post('/cron/deliver-pending', async (req, res) => {
+  try {
+    const cronKey = req.headers['x-cron-key'] || req.query.key;
+    if (cronKey !== process.env.CRON_SECRET) {
+      return res.status(401).json({ error: 'Chave inválida.' });
+    }
+
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    const now = new Date().toISOString();
+    const { data: pending, error: fetchError } = await supabase
+      .from('song_requests')
+      .select('id, recipient_name, final_mixed_audio_url, users!inner(email), songs!inner(id, full_song_url, audio_url, letter_text)')
+      .eq('status', 'approved')
+      .lte('deliver_at', now)
+      .not('deliver_at', 'is', null);
+
+    if (fetchError) {
+      return res.status(500).json({ error: `Erro ao buscar entregas pendentes: ${fetchError.message}` });
+    }
+
+    if (!pending || pending.length === 0) {
+      return res.json({ success: true, delivered: 0, message: 'Nenhuma entrega pendente.' });
+    }
+
+    let delivered = 0;
+    for (const sr of pending) {
+      const song = (sr as any).songs?.[0];
+      const fullUrl = (sr as any).final_mixed_audio_url || song?.full_song_url || song?.audio_url;
+      const userEmail = (sr as any).users?.email;
+
+      await supabase
+        .from('song_requests')
+        .update({ status: 'delivered', deliver_at: null })
+        .eq('id', (sr as any).id);
+
+      delivered++;
+
+      if (userEmail) {
+        const slug = ((sr as any).recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+        const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${song?.id}`;
+        sendPersonalizedEmail(userEmail, (sr as any).recipient_name, personalizedUrl, song?.letter_text || 'Dedicatória.').catch(err => logError('[Cron] Falha ao enviar email de entrega', err, { requestId: (sr as any).id }));
+      }
+    }
+
+    res.json({ success: true, delivered, message: `${delivered} música(s) entregue(s) automaticamente.` });
   } catch (err: any) {
     res.status(500).json({ error: safeMessage(err) });
   }

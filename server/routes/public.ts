@@ -427,7 +427,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
 
     const { data: songData, error } = await adminSupabase
       .from('songs')
-      .select('*, song_requests!inner(id, recipient_name, status, photo_url, final_mixed_audio_url, elevenlabs_voice_id, music_style, memory, users!inner(name))')
+      .select('*, song_requests!inner(id, recipient_name, status, photo_url, final_mixed_audio_url, elevenlabs_voice_id, music_style, memory, deliver_at, users!inner(name))')
       .eq('id', req.params.id)
       .single();
 
@@ -440,12 +440,26 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       return res.status(404).json({ error: 'Musica nao encontrada.' });
     }
 
-    const requestStatus = (songData.song_requests as any)?.status;
+    const sr = songData.song_requests as any;
+    const requestStatus = sr?.status;
+    const deliverAt = sr?.deliver_at;
     let audioUrl = songData.preview_url || null;
 
-    if (requestStatus === 'delivered') {
-      const sr = songData.song_requests as any;
+    // Auto-delivery: se status='approved' e deliver_at já passou, entrega automaticamente
+    if (requestStatus === 'approved' && deliverAt && new Date(deliverAt) <= new Date()) {
       const fullUrl = sr?.final_mixed_audio_url || songData.full_song_url || songData.audio_url;
+      await adminSupabase
+        .from('song_requests')
+        .update({ status: 'delivered', deliver_at: null })
+        .eq('id', songData.request_id);
+
+      const userEmail = sr?.users?.email;
+      if (userEmail) {
+        const slug = (sr?.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+        const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${songData.id}`;
+        sendPersonalizedEmail(userEmail, sr?.recipient_name, personalizedUrl, songData.letter_text || 'Dedicatória.').catch(err => logError('[API] Falha ao enviar email de entrega', err, { songId: id }));
+      }
+
       if (fullUrl) {
         const match = fullUrl.match(/full-audio\/(.+)/);
         if (match && adminSupabase) {
@@ -480,8 +494,6 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       elevenlabs_voice_id: (song_requests as any)?.elevenlabs_voice_id,
       status: requestStatus
     };
-
-    res.json({ success: true, data: publicData });
   } catch (err: any) {
     logError('[API] Falha ao consultar musica publica', err, { songId: req.params.id });
     res.status(500).json({ error: 'Nao foi possivel consultar a musica.' });
