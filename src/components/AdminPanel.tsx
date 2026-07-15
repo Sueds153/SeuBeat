@@ -2912,7 +2912,7 @@ export default function AdminPanel() {
                   </h3>
                   <p className="text-[10px] font-mono text-stone-500">
                     {confirmAction.action === 'approve'
-                      ? 'A música será gerada e enviada ao cliente.'
+                      ? 'A música será processada e enviada ao cliente (sem regenerar se já existir áudio).'
                       : 'O cliente será notificado por email.'}
                   </p>
                 </div>
@@ -2920,7 +2920,7 @@ export default function AdminPanel() {
 
               <p className="text-xs text-stone-400">
                 {confirmAction.action === 'approve'
-                  ? 'Tem a certeza que pretende aprovar este pagamento? A música será gerada automaticamente pelo Suno e enviada ao cliente.'
+                  ? 'Tem a certeza que pretende aprovar este pagamento? Se a música já foi gerada, será entregue diretamente. Caso contrário, o Suno irá gerá-la automaticamente.'
                   : 'Tem a certeza que pretende rejeitar este pagamento? O cliente receberá um email com o motivo da rejeição e poderá tentar novamente.'}
               </p>
 
