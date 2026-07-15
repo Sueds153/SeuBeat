@@ -517,9 +517,9 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         throw new Error('Nao foi possivel consultar o estado da musica.');
       }
 
-      const statusData = await statusRes.json();
-      const song = statusData.data;
-      const requestStatus = song?.status ?? song?.song_requests?.status;
+      // A API retorna o objeto diretamente (sem wrapper .data)
+      const song = await statusRes.json();
+      const requestStatus = song?.status;
       const previewUrl = song?.preview_url;
 
       if (requestStatus === 'failed' || song?.mureka_status === 'failed') {

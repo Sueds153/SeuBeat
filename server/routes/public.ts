@@ -463,6 +463,8 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       elevenlabs_voice_id: (song_requests as any)?.elevenlabs_voice_id,
       status: requestStatus
     };
+
+    return res.json(publicData);
   } catch (err: any) {
     logError('[API] Falha ao consultar musica publica', err, { songId: req.params.id });
     res.status(500).json({ error: 'Nao foi possivel consultar a musica.' });
