@@ -259,7 +259,7 @@ export default function AdminPanel() {
   const [notification, setNotification] = useState<{ message: string } | null>(null);
   const prevCountsRef = useRef({ requests: 0, payments: 0 });
   const notifIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [confirmAction, setConfirmAction] = useState<{ action: 'approve' | 'reject'; paymentId: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ action: 'approve' | 'reject'; paymentId: string; plan?: string } | null>(null);
   const [clients, setClients] = useState<any[]>([]);
   const [paymentSearchQuery, setPaymentSearchQuery] = useState('');
   const [reqSort, setReqSort] = useState('created_at_desc');
@@ -617,7 +617,7 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`✅ Pagamento aprovado! ${data.murekaTriggered ? '🎵 Mureka em processamento.' : ''}`);
+        showToast(`✅ Pagamento aprovado! ${data.isStandard ? '📅 Música será entregue em 24h.' : data.message?.includes('processamento') ? '🎵 Música em processamento.' : '🎵 Música entregue ao cliente.'}`);
         fetchPayments();
         fetchStats();
         resetViewPoll();
@@ -1477,7 +1477,7 @@ export default function AdminPanel() {
                                       </div>
                                       <div className="flex gap-2">
                                         <button
-                                          onClick={() => setConfirmAction({ action: 'approve', paymentId: payment.id })}
+                                          onClick={() => setConfirmAction({ action: 'approve', paymentId: payment.id, plan: payment.plan })}
                                           disabled={actionLoading === payment.id + '_approve'}
                                           className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
                                         >
@@ -1486,7 +1486,7 @@ export default function AdminPanel() {
                                           ) : (
                                             <CheckCircle className="w-3.5 h-3.5" />
                                           )}
-                                          Aprovar + Gerar Música (Suno)
+                                          {payment.plan === 'standard' ? '✅ Aprovar (Entrega em 24h)' : '⚡ Aprovar + Entregar Já'}
                                         </button>
                                         <button
                                           onClick={() => setConfirmAction({ action: 'reject', paymentId: payment.id })}
@@ -2912,7 +2912,9 @@ export default function AdminPanel() {
                   </h3>
                   <p className="text-[10px] font-mono text-stone-500">
                     {confirmAction.action === 'approve'
-                      ? 'A música será processada e enviada ao cliente (sem regenerar se já existir áudio).'
+                      ? (confirmAction.plan === 'standard'
+                        ? 'Pagamento aprovado. A música será entregue ao cliente dentro de 24h.'
+                        : 'Pagamento aprovado. A música será entregue imediatamente ao cliente.')
                       : 'O cliente será notificado por email.'}
                   </p>
                 </div>
@@ -2920,7 +2922,9 @@ export default function AdminPanel() {
 
               <p className="text-xs text-stone-400">
                 {confirmAction.action === 'approve'
-                  ? 'Tem a certeza que pretende aprovar este pagamento? Se a música já foi gerada, será entregue diretamente. Caso contrário, o Suno irá gerá-la automaticamente.'
+                  ? (confirmAction.plan === 'standard'
+                    ? 'Tem a certeza que pretende aprovar este pagamento Standard? O cliente receberá a música daqui a 24h. O email de confirmação será enviado automaticamente.'
+                    : 'Tem a certeza que pretende aprovar este pagamento? A música será entregue ao cliente imediatamente após confirmação.')
                   : 'Tem a certeza que pretende rejeitar este pagamento? O cliente receberá um email com o motivo da rejeição e poderá tentar novamente.'}
               </p>
 

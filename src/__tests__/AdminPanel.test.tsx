@@ -396,7 +396,7 @@ describe('AdminPanel', () => {
       }
 
       await waitFor(() => {
-        expect(screen.getByText(/aprovar \+ gerar música/i)).toBeInTheDocument();
+        expect(screen.getByText(/entrega.*24h/i)).toBeInTheDocument();
         expect(screen.getByText(/rejeitar/i)).toBeInTheDocument();
       });
     });
@@ -424,10 +424,10 @@ describe('AdminPanel', () => {
       }
 
       await waitFor(() => {
-        expect(screen.getByText(/aprovar \+ gerar música/i)).toBeInTheDocument();
+        expect(screen.getByText(/entrega.*24h/i)).toBeInTheDocument();
       });
 
-      await user.click(screen.getByText(/aprovar \+ gerar música/i));
+      await user.click(screen.getByText(/entrega.*24h/i));
 
       await waitFor(() => {
         expect(document.body.textContent).toMatch(/tem a certeza que pretende aprovar este pagamento/i);
@@ -463,7 +463,7 @@ describe('AdminPanel', () => {
       }
 
       await waitFor(() => {
-        expect(screen.getByText(/aprovar \+ gerar música/i)).toBeInTheDocument();
+        expect(screen.getByText(/entrega.*24h/i)).toBeInTheDocument();
       });
 
       const noteInput = screen.getByPlaceholderText(/ex: comprovativo ilegível, valor incorreto/i);
@@ -590,10 +590,10 @@ describe('AdminPanel', () => {
       }
 
       await waitFor(() => {
-        expect(screen.getByText(/aprovar \+ gerar música/i)).toBeInTheDocument();
+        expect(screen.getByText(/entrega.*24h/i)).toBeInTheDocument();
       });
 
-      await user.click(screen.getByText(/aprovar \+ gerar música/i));
+      await user.click(screen.getByText(/entrega.*24h/i));
       await user.click(screen.getByText(/sim, aprovar/i));
 
       await waitFor(() => {
@@ -628,10 +628,10 @@ describe('AdminPanel', () => {
       }
 
       await waitFor(() => {
-        expect(screen.getByText(/aprovar \+ gerar música/i)).toBeInTheDocument();
+        expect(screen.getByText(/entrega.*24h/i)).toBeInTheDocument();
       });
 
-      await user.click(screen.getByText(/aprovar \+ gerar música/i));
+      await user.click(screen.getByText(/entrega.*24h/i));
       await user.click(screen.getByText(/sim, aprovar/i));
 
       await waitFor(() => {
