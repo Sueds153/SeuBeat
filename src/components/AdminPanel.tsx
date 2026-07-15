@@ -922,7 +922,7 @@ export default function AdminPanel() {
   // ─── LOGIN SCREEN ───
   if (!authenticated) {
     return (
-      <div className="min-h-screen bg-stone-950 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#151210] flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(245,158,11,0.05)_0%,_transparent_70%)]" />
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -1055,7 +1055,7 @@ export default function AdminPanel() {
   };
 
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-100">
+    <div className="min-h-screen bg-[#151210] text-stone-100">
       {/* Toast notification */}
       <AnimatePresence>
         {toast && (

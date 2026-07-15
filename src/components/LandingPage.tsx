@@ -32,7 +32,7 @@ const OCCASIONS = [
 export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   return (
-    <div id="landing-page-root" className="relative min-h-screen overflow-x-hidden bg-stone-950 text-stone-100 selection:bg-amber-500/30 selection:text-amber-200">
+    <div id="landing-page-root" className="relative min-h-screen overflow-x-hidden bg-[#151210] text-stone-100 selection:bg-amber-500/30 selection:text-amber-200">
 
       {/* ─── PROMO BAR ─── */}
       <div className="w-full bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-stone-950 text-center py-2 px-4 text-xs font-bold tracking-wide animate-pulse-slow z-50 relative">

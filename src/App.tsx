@@ -68,7 +68,7 @@ export default function App() {
   };
 
   const loading = (
-    <div className="flex items-center justify-center min-h-screen bg-stone-950">
+    <div className="flex items-center justify-center min-h-screen bg-[#151210]">
       <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
     </div>
   );
@@ -79,7 +79,7 @@ export default function App() {
   }
 
   return (
-    <div className="bg-stone-950 min-h-screen text-stone-100 selection:bg-amber-500/25 selection:text-amber-300">
+    <div className="bg-[#151210] min-h-screen text-stone-100 selection:bg-amber-500/25 selection:text-amber-300">
       {currentView === 'song' ? (
         <Suspense fallback={loading}><PersonalizedSongPage onBackToLanding={backToLanding} /></Suspense>
       ) : (

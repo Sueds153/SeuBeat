@@ -1028,7 +1028,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-stone-950 text-stone-100 flex flex-col justify-between py-10 px-4 md:px-8">
+    <div className="min-h-screen bg-[#151210] text-stone-100 flex flex-col justify-between py-10 px-4 md:px-8">
       {/* Toast notification */}
       <AnimatePresence>
         {toast && (
