@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   ArrowRight, ArrowLeft, Heart, Sparkles, Check, Upload,
-  Mic, Mail, Phone, Eye, Lock, RefreshCw, Play, Pause, AlertTriangle, ShieldCheck, MapPin, Copy, FileText
+  Mic, Mail, Phone, Eye, Lock, RefreshCw, Play, Pause, AlertTriangle, ShieldCheck, MapPin, Copy, FileText,
+  Users, Gift, Zap, Music
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import StepErrorBoundary from './StepErrorBoundary';
@@ -156,6 +157,23 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [generationError, setGenerationError] = useState('');
   const [previewAudioUrl, setPreviewAudioUrl] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  // Estado para edição de letra
+  const [editingLyrics, setEditingLyrics] = useState(false);
+  const [editedLyrics, setEditedLyrics] = useState('');
+  const [regenerationsUsed, setRegenerationsUsed] = useState(0);
+  const [regenerationsRemaining, setRegenerationsRemaining] = useState(2);
+  const [savingLyrics, setSavingLyrics] = useState(false);
+  const [lyricsSaved, setLyricsSaved] = useState(false);
+  const [todayCount, setTodayCount] = useState(847);
+
+  // Buscar contador ao vivo de músicas criadas hoje
+  useEffect(() => {
+    fetch('/api/stats/today-count')
+      .then(r => r.json())
+      .then(d => { if (d.count) setTodayCount(d.count); })
+      .catch(() => {});
+  }, []);
 
   const wrappedSetFormData: React.Dispatch<React.SetStateAction<WizardData>> = (action) => {
     setFormData(action);
@@ -494,14 +512,18 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       if (requestStatus === 'lyrics_ready') {
         setGenerationStatus('lyrics_ready');
         setProcessingStage(2);
+        // Sem preview esperado — sai do polling imediatamente
+        setIsSubmitting(false);
+        return false;
       } else {
         setGenerationStatus('music_processing');
         setProcessingStage(3);
       }
     }
 
-    setGenerationStatus('music_processing');
-    setProcessingStage(3);
+    setGenerationStatus('lyrics_ready');
+    setProcessingStage(2);
+    setIsSubmitting(false);
     return false;
   };
 
@@ -585,13 +607,12 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           setProcessingStage(initialStatus === 'music_processing' ? 3 : 2);
           showToast('Letra gerada com sucesso!', 'success');
 
-          const previewReady = await pollSongUntilPreview(data.dbSongId);
-          if (!previewReady) {
-            setIsSubmitting(false);
+          await pollSongUntilPreview(data.dbSongId);
+          // Nota: pollSongUntilPreview retorna false imediatamente quando status='lyrics_ready'
+          // (sem preview de áudio nesta versão)
+          if (generationStatus !== 'error') {
             setShowPreviewPage(false);
-            setGenerationStatus('music_processing');
-            setGenerationError('A letra foi criada. A música ainda está em processamento; volte a verificar em instantes.');
-            showToast('Letra pronta. Música em processamento...', 'info');
+            showToast('Letra criada com sucesso! Reveja e edite se necessário.', 'success');
           }
         } catch (err: any) {
           console.error('Error generating AI lyrics:', err);
@@ -898,12 +919,77 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   };
 
   const getPrice = () => {
-    // Quando o upsell de voz está activo, o plano base é sempre Express (9.900 Kz)
-    // para garantir que o total seja sempre 14.900 Kz
     if (voiceUpsellApplied) return '14.900 Kz';
     if (selectedPlanID === 'express') return '9.900 Kz';
     if (selectedPlanID === 'premium') return '14.900 Kz';
     return '7.900 Kz'; // standard
+  };
+
+  const getPriceNumber = (): number => {
+    if (voiceUpsellApplied) return 14900;
+    if (selectedPlanID === 'express') return 9900;
+    if (selectedPlanID === 'premium') return 14900;
+    return 7900;
+  };
+
+  const handleSaveLyrics = async () => {
+    if (!dbSongId || !editedLyrics.trim()) return;
+    setSavingLyrics(true);
+    try {
+      const res = await fetch(`/api/song/${dbSongId}/lyrics`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lyrics: editedLyrics.split('\n').filter(l => l.trim()),
+          lyrics_snippet: editedLyrics.slice(0, 200)
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAiLyrics(editedLyrics.split('\n').filter(l => l.trim()));
+        setAiLyricsSnippet(editedLyrics.slice(0, 200));
+        setLyricsSaved(true);
+        setEditingLyrics(false);
+        showToast('Letra guardada com sucesso!', 'success');
+        setTimeout(() => setLyricsSaved(false), 3000);
+      } else {
+        showToast(data.error || 'Erro ao guardar letra.', 'error');
+      }
+    } catch {
+      showToast('Erro ao guardar letra. Tente novamente.', 'error');
+    } finally {
+      setSavingLyrics(false);
+    }
+  };
+
+  const handleRegenerateLyrics = async () => {
+    if (!dbSongId || regenerationsUsed >= 2) return;
+    setSavingLyrics(true);
+    try {
+      const res = await fetch(`/api/song/${dbSongId}/regenerate-lyrics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAiSongTitle(data.songTitle);
+        setAiLyrics(data.lyrics);
+        setAiLyricsSnippet(data.lyricsSnippet);
+        setAiLetterText(data.letterText);
+        setRegenerationsUsed(data.regeneration_count);
+        setRegenerationsRemaining(data.regenerations_remaining);
+        setEditedLyrics(Array.isArray(data.lyrics) ? data.lyrics.join('\n') : data.lyrics);
+        setLyricsSaved(false);
+        setEditingLyrics(false);
+        showToast(`Letra regenerada! (${data.regeneration_count}/2)`, 'success');
+      } else {
+        showToast(data.error || 'Erro ao regenerar letra.', 'error');
+      }
+    } catch {
+      showToast('Erro ao regenerar letra. Tente novamente.', 'error');
+    } finally {
+      setSavingLyrics(false);
+    }
   };
 
   const activeMeta = STEP_META[step - 1];
@@ -1128,181 +1214,166 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           </motion.div>
         )}
 
-        {/* -------------------- SHOW PREVIEW PAGE: 20s PREVIEW AUDIO PLAYER & EXCLUSIVE OFFERS -------------------- */}
-        {showPreviewPage && !isDone && (
+        {/* -------------------- LYRICS READY: MOSTRAR LETRA + GATILHOS + PLANOS -------------------- */}
+        {!isSubmitting && generationStatus === 'lyrics_ready' && !isDone && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="max-w-4xl mx-auto w-full space-y-10 py-6"
+            className="max-w-4xl mx-auto w-full space-y-8 py-6"
           >
-            {/* Header branding on preview */}
+            {/* Header */}
             <div className="text-center space-y-2">
               <span className="text-emerald-500 text-xs font-mono font-bold tracking-widest uppercase flex items-center justify-center gap-1.5">
-                <ShieldCheck className="w-4 h-4" /> COMPOSIÇÃO DE DEMONSTRAÇÃO PRONTA
+                <Sparkles className="w-4 h-4" /> LETRA CRIADA COM SUCESSO
               </span>
               <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-black tracking-tight">
-                😍 Ela vai adorar ouvir isto
+                {aiSongTitle || `Música para ${formData.recipientName}`}
               </h2>
-              <p className="text-stone-400 text-sm md:text-base max-w-lg mx-auto">
-                A tua música está pronta. Escuta abaixo a pré-visualização exclusiva dos primeiros 20 segundos da canção.
+              <p className="text-stone-400 text-sm max-w-lg mx-auto">
+                Criada especialmente para <strong className="text-amber-400">{formData.recipientName}</strong>
+                {formData.recipientNick ? ` (${formData.recipientNick})` : ''}
               </p>
             </div>
 
-            {/* THE STUDIO PREVIEW AUDIO CONTAINER MAP */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
-              
-              {/* Left Side: Modern Cassette/Vinyl Visualizer */}
-              <div className="md:col-span-5 bg-stone-900/50 p-6 rounded-3xl border border-stone-800 flex flex-col justify-between space-y-6 text-center">
-                <div className="relative w-36 h-36 mx-auto flex items-center justify-center">
-                  <motion.div 
-                    animate={{ rotate: audioPlaying ? 360 : 0 }}
-                    transition={{ repeat: Infinity, ease: "linear", duration: 7 }}
-                    className="absolute inset-0 bg-[radial-gradient(circle_at_center,#111_0%,#1a1a1a_40%,#090909_100%)] rounded-full border-4 border-stone-950 flex items-center justify-center shadow-lg"
-                  >
-                    <div className="absolute inset-3 rounded-full border border-stone-800/80" />
-                    <div className="absolute inset-8 rounded-full border border-stone-800/40" />
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-rose-950 to-amber-950 overflow-hidden flex items-center justify-center relative">
-                      {formData.photoUrl ? (
-                        <img 
-                          src={formData.photoUrl} 
-                          alt="Casal sticker" 
-                          className="w-full h-full object-cover opacity-80"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <div className="text-xl">❤️</div>
-                      )}
-                      <div className="absolute inset-x-0 inset-y-0 m-auto w-2 h-2 bg-stone-950 rounded-full" />
-                    </div>
-                  </motion.div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <span className="text-xxs font-mono text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/15">
-                    GÉNERO: {formData.musicStyle || 'Pop Romântico'}
-                  </span>
-                  <h4 className="font-serif text-lg font-bold text-stone-100 mt-1">
-                    {aiSongTitle || `Presente Para ${formData.recipientName}`}
-                  </h4>
-                  <p className="text-xs text-stone-500 font-mono">
-                    AUTOR: {formData.userNick || 'Dedicatória Especial'}
-                  </p>
-                </div>
-
-                {/* Micro preview lyrics sheet snippet */}
-                <div className="bg-stone-950 p-4 rounded-xl border border-stone-850 text-left space-y-2">
-                  <span className="text-[10px] text-stone-500 font-mono tracking-widest uppercase block border-b border-stone-900 pb-1">Letra de Dedicatória (Amostra):</span>
-                  <p className="text-xs tracking-tight text-stone-300 italic font-serif leading-relaxed line-clamp-3">
-                    {aiLyricsSnippet ? `"${aiLyricsSnippet}"` : `"${formData.recipientNick ? formData.recipientNick : 'Meu amor'}, quando ouço o teu riso alegre... sei que em Luanda ou Benguela nunca haverá luar mais lindo que o brilho do teu olhar..."`}
-                  </p>
-                </div>
-              </div>
-
-              {/* Right Side: Progressive Audio Playbar & Audio Synthesis Trigger */}
-              <div className="md:col-span-7 bg-stone-900/30 rounded-3xl p-6 border border-stone-800 flex flex-col justify-between space-y-6 relative overflow-hidden">
-                <div className="absolute -right-16 -top-16 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl" />
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="px-2 py-1 bg-stone-950 border border-stone-800 text-stone-400 font-mono text-[10px] rounded-lg">
-                      SISTEMA ESTÚDIO SEUBEAT
-                    </span>
-                    <span className="text-xs font-mono text-stone-400">
-                      CÓD-SURPRESA: <strong className="text-amber-500">#SB-{(new Date().getFullYear())}</strong>
-                    </span>
-                  </div>
-
-                  {/* INTERACTIVE PREVIEW CONTROLLER SHELL */}
-                  <div className="bg-stone-950 rounded-2xl p-6 border border-stone-850 space-y-4 relative">
-                    
-                    {/* The Waveform Mock Visual representation */}
-                    <div className="h-12 flex items-end gap-0.5 sm:gap-1 px-2 pt-2">
-                      {Array.from({ length: 30 }).map((_, idx) => {
-                        // random waves or wave peaks
-                        const activeIndex = Math.floor((audioProgress / 20) * 30);
-                        const isActive = idx < activeIndex;
-                        const height = [28, 48, 12, 38, 44, 18, 52, 28, 40, 48, 10, 32, 42, 24, 48, 30, 18, 40, 44, 28, 52, 12, 36, 42, 22, 48, 32, 14, 28, 44][idx];
-                        
-                        return (
-                          <div 
-                            key={idx} 
-                            style={{ height: `${height}%` }}
-                            className={`w-full rounded-sm transition-all duration-300 ${
-                              isActive 
-                                ? 'bg-gradient-to-t from-emerald-500 to-amber-400' 
-                                : 'bg-stone-900'
-                            }`}
-                          />
-                        );
-                      })}
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs text-stone-400 font-mono px-1">
-                      <span>0:{Math.floor(audioProgress).toString().padStart(2, '0')}</span>
-                      <span className="text-amber-500">0:20 (Amostra Grátis)</span>
-                      <span>3:15 (Total)</span>
-                    </div>
-
-                    {/* Controls Row */}
-                    <div className="flex items-center gap-4">
-                      {audioProgress >= 20 ? (
-                        <div className="w-full text-center py-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-xl text-xs font-medium flex items-center justify-center gap-2">
-                          <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400 animate-bounce" />
-                          <span>Pré-visualização concluída! Escolha um plano abaixo para desbloquear.</span>
-                        </div>
-                      ) : (
-                        <button
-                          id="play-demo-btn"
-                          onClick={() => setAudioPlaying(!audioPlaying)}
-                          className="w-full py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-stone-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 active:scale-98 transition-transform cursor-pointer"
-                        >
-                          {audioPlaying ? (
-                            <>
-                              <Pause className="w-4 h-4 text-stone-950 fill-stone-950" />
-                              <span>Pausar Amostra</span>
-                            </>
-                          ) : (
-                            <>
-                              <Play className="w-4 h-4 text-stone-950 fill-stone-950" />
-                              <span>Ouvir 20 Segundos Gratuitos</span>
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Lock Screen overlay if progress completes */}
-                    {audioProgress >= 20 && (
-                      <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="absolute inset-0 bg-stone-950/80 backdrop-blur-sm flex flex-col justify-center items-center rounded-2xl p-4 text-center space-y-2 border border-amber-500/20"
+            {/* Lyrics Card with Edit */}
+            <div className="bg-stone-900/40 p-6 md:p-8 rounded-3xl border border-amber-900/30 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-stone-500 font-mono tracking-widest uppercase">Letra da música</span>
+                <div className="flex gap-2">
+                  {!editingLyrics ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditedLyrics(Array.isArray(aiLyrics) ? aiLyrics.join('\n') : '');
+                        setEditingLyrics(true);
+                      }}
+                      className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs rounded-lg transition-all cursor-pointer"
+                    >
+                      Editar letra
+                    </button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingLyrics(false)}
+                        className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs rounded-lg transition-all cursor-pointer"
                       >
-                        <Lock className="w-8 h-8 text-amber-400" />
-                        <h5 className="text-stone-100 font-serif font-bold text-sm">Fim da Amostra Grátis</h5>
-                        <p className="text-stone-400 text-xxs max-w-xs leading-normal">
-                          Adquira o seu download em MP3/WAV de alta resolução e a página exclusiva para a dedicatória de amor completa.
-                        </p>
-                      </motion.div>
-                    )}
-
-                  </div>
-                </div>
-
-                <div className="p-4 bg-emerald-500/5 rounded-2xl border border-emerald-500/10 flex items-start gap-2.5 text-xs text-stone-400">
-                  <Heart className="w-4 h-4 text-rose-500 fill-rose-500 shrink-0 mt-0.5" />
-                  <span>
-                    A letra da canção ficou linda e cheia de romance angolano. Adicionámos rimas sobre a vossa memória e as vossas alcunhas preferidas para arrancar lágrimas de alegria.
-                  </span>
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveLyrics}
+                        disabled={savingLyrics}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-stone-950 text-xs font-semibold rounded-lg transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {savingLyrics ? 'A guardar...' : 'Guardar'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
+              {editingLyrics && (
+                <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl text-xs text-amber-300 space-y-1">
+                  <strong>⚠️ Atenção à escrita:</strong>
+                  <p>A letra que escrever será cantada pela inteligência artificial. Escreva corretamente para garantir uma pronúncia perfeita. Evite abreviações, gírias ou erros ortográficos — a IA canta exatamente o que está escrito.</p>
+                </div>
+              )}
+
+              {editingLyrics ? (
+                <textarea
+                  value={editedLyrics}
+                  onChange={(e) => setEditedLyrics(e.target.value)}
+                  className="w-full h-64 bg-stone-950 text-stone-200 text-sm font-mono p-4 rounded-xl border border-stone-800 focus:border-amber-500 focus:outline-none resize-y"
+                  placeholder="Escreva a letra aqui..."
+                />
+              ) : (
+                <div className="bg-stone-950 p-5 rounded-xl border border-stone-850 space-y-3">
+                  <div className="flex items-center gap-2 text-amber-400 text-xs font-mono">
+                    <span>🎵 {formData.musicStyle || 'Kizomba'}</span>
+                  </div>
+                  <div className="text-stone-200 text-sm font-serif leading-relaxed whitespace-pre-line">
+                    {Array.isArray(aiLyrics) ? aiLyrics.join('\n') : aiLyrics}
+                  </div>
+                </div>
+              )}
+
+              {/* Regenerate button */}
+              {!editingLyrics && (
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={handleRegenerateLyrics}
+                    disabled={savingLyrics || regenerationsUsed >= 2}
+                    className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${savingLyrics ? 'animate-spin' : ''}`} />
+                    <span>Regenerar letra {regenerationsRemaining > 0 ? `(${regenerationsRemaining}/2)` : '(limite atingido)'}</span>
+                  </button>
+                  {lyricsSaved && (
+                    <span className="text-emerald-400 text-xs flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" /> Letra guardada
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* UPGRADE SELECTION GRID - THREE CARDS OF PRICE AS REQUESTED BY USER */}
-            <div className="space-y-4 pt-6">
+            {/* Persuasive Triggers */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-2">
+                <div className="w-8 h-8 bg-rose-500/10 rounded-full flex items-center justify-center">
+                  <Heart className="w-4 h-4 text-rose-400" />
+                </div>
+                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Antecipação</h4>
+                <p className="text-[11px] text-stone-400">Imagine a cara d<strong className="text-stone-300">{formData.recipientName}</strong> ao ouvir esta música feita especialmente para si</p>
+              </div>
+
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-2">
+                <div className="w-8 h-8 bg-amber-500/10 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                </div>
+                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Escassez</h4>
+                <p className="text-[11px] text-stone-400">Oferta por tempo limitado — bloqueie o seu pedido agora e garanta esta música exclusiva</p>
+              </div>
+
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-2">
+                <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center">
+                  <Users className="w-4 h-4 text-blue-400" />
+                </div>
+                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Prova Social</h4>
+                <p className="text-[11px] text-stone-400">Centenas de pessoas já emocionaram quem amam com o SeuBeat. <strong className="text-amber-400">{todayCount}</strong> músicas criadas hoje</p>
+              </div>
+
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-2">
+                <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center">
+                  <Gift className="w-4 h-4 text-green-400" />
+                </div>
+                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Reciprocidade</h4>
+                <p className="text-[11px] text-stone-400">Criámos esta letra exclusivamente para si. Agora só falta a música para completar o presente!</p>
+              </div>
+
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-2">
+                <div className="w-8 h-8 bg-purple-500/10 rounded-full flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 text-purple-400" />
+                </div>
+                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Exclusividade</h4>
+                <p className="text-[11px] text-stone-400">Apenas <strong className="text-stone-300">{formData.recipientName}</strong> vai receber esta música — é uma experiência única e pessoal</p>
+              </div>
+
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-2">
+                <div className="w-8 h-8 bg-emerald-500/10 rounded-full flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-emerald-400" />
+                </div>
+                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Urgência</h4>
+                <p className="text-[11px] text-stone-400">Escolha Express ou Premium e receba a música <strong className="text-emerald-400">imediatamente</strong> após a aprovação</p>
+              </div>
+            </div>
+
+            {/* Plan Selection */}
+            <div className="space-y-4 pt-4">
               <h3 className="text-left font-serif text-xl font-bold tracking-tight text-stone-200">
-                Selecione o seu plano para receber a música completa:
+                Selecione o seu plano para gerar a música:
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1324,10 +1395,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
                         <span>Música completa (3-4 min)</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Pré-visualização antes de pagar</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
@@ -1359,7 +1426,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
                 {/* PLAN 2: EXPRESS */}
                 <div className="bg-stone-900/40 rounded-2.5xl p-6 border-2 border-amber-500/70 shadow-2xl transition-all flex flex-col justify-between relative space-y-6">
-                  {/* Badge */}
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 md:left-auto md:right-4 md:translate-x-0 bg-gradient-to-r from-amber-500 to-rose-500 text-stone-950 font-mono text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
                     🔥 MAIS POPULAR
                   </div>
@@ -1388,7 +1454,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Entrega imediata</span>
+                        <span>Entrega imediata após aprovação</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <Check className="w-4 h-4 text-green-500 shrink-0" />
@@ -1413,7 +1479,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
                 {/* PLAN 3: PREMIUM */}
                 <div className="bg-stone-900/40 rounded-2.5xl p-6 border border-stone-850 hover:border-stone-700 transition-all flex flex-col justify-between relative space-y-6">
-                  {/* Badge */}
                   <div className="absolute -top-3.5 right-4 bg-purple-600 text-stone-100 font-mono text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
                     ❤️ MELHOR PRESENTE
                   </div>
@@ -1451,6 +1516,13 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                 </div>
 
               </div>
+            </div>
+
+            {/* Trust badges */}
+            <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-[10px] text-stone-500 font-mono">
+              <span className="flex items-center gap-1.5"><Lock className="w-3 h-3" /> Pagamento seguro</span>
+              <span className="flex items-center gap-1.5"><ShieldCheck className="w-3 h-3" /> Dados protegidos</span>
+              <span className="flex items-center gap-1.5"><Heart className="w-3 h-3" /> Feito com amor em Angola</span>
             </div>
           </motion.div>
         )}

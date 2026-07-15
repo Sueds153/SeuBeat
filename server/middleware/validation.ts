@@ -83,6 +83,17 @@ export const SendEmailSchema = z.object({
 export type SendEmailInput = z.infer<typeof SendEmailSchema>;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PUT /api/song/:id/lyrics
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const UpdateLyricsSchema = z.object({
+  lyrics: z.string().min(10, 'A letra deve ter pelo menos 10 caracteres').max(5000, 'Letra muito longa').trim(),
+  lyrics_snippet: z.string().max(500).trim().optional(),
+});
+
+export type UpdateLyricsInput = z.infer<typeof UpdateLyricsSchema>;
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Função helper para validar
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -261,7 +261,7 @@ Angola ${(new Date().getFullYear())}
 
             <div className="space-y-2">
               <span className="px-2.5 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-mono rounded-full uppercase tracking-widest font-extrabold inline-block">
-                {isFullUnlocked ? 'Completa • Qualidade HD (MP3)' : 'Preview 30s • Completa após pagamento'}
+                {isFullUnlocked ? 'Completa • Qualidade HD (MP3)' : songDetails.status === 'lyrics_ready' ? 'Música será disponibilizada após confirmação do pagamento' : 'Completa após pagamento'}
               </span>
               <h3 className="font-serif text-xl font-bold text-stone-100">
                 {songDetails.songTitle || `A canção de ${songDetails.recipientName}`}

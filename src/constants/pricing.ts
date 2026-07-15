@@ -16,7 +16,6 @@ export const PRICING_PLANS: PricingPlan[] = [
     subtitle: 'Música personalizada criada no estilo ideal.',
     features: [
       'Música completa (3-4 min)',
-      'Pré-visualização antes de pagar',
       'Voz Masculina ou Feminina',
       'Página personalizada online',
       'Download MP3',

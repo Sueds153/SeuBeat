@@ -26,7 +26,7 @@ test.describe('Dedication Page', () => {
 
     await page.goto('/song/para-alguem?id=invalid-id');
     await expect(page.getByText('Preciso de ajuda')).toBeVisible();
-    await expect(page.locator('a[href*="wa.me/244929423278"]')).toBeVisible();
+    await expect(page.locator('a[href*="wa.me/244922058136"]')).toBeVisible();
   });
 
   test('renders loading state initially', async ({ page }) => {
