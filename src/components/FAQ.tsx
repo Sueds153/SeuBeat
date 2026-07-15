@@ -18,7 +18,7 @@ const FAQ_ITEMS: FAQItem[] = [
   },
   {
     question: "Posso sugerir alterações se não gostar de algum detalhe?",
-    answer: "Não é possível alterar, por este motivo se atente no acto do preenchimento do formulário"
+    answer: "Pode editar a letra à vontade depois de gerada — corrigir nomes, alcunhas ou frases. Também pode regenerar a letra até 2 vezes se quiser um tom diferente. A música só é gerada após aprovar a letra e o pagamento."
   },
   {
     question: "Como funciona a opção 'A Minha Própria Voz' (Premium)?",

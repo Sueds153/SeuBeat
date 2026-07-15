@@ -418,12 +418,12 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             <h2 className="font-serif text-3xl md:text-5xl text-stone-100 font-bold tracking-tight leading-[1.15]">
               Pronto a começar?
             </h2>
-            <p className="text-stone-400 text-base md:text-lg leading-relaxed">
-              A canção já existe. <span className="text-amber-400 font-semibold">Falta só ouvi-la.</span>
-            </p>
-            <p className="text-stone-500 text-xs font-mono">
-              Pré-visualização grátis · Pagas só quando ouvires e adorares
-            </p>
+              <p className="text-stone-400 text-base md:text-lg leading-relaxed">
+                Primeiro a letra, depois a música. <span className="text-amber-400 font-semibold">Só pagas quando aprovares.</span>
+              </p>
+              <p className="text-stone-500 text-xs font-mono">
+                Lê e edita a letra à vontade · A música nasce após o teu sim
+              </p>
           </div>
 
           <button

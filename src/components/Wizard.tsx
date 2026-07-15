@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   ArrowRight, ArrowLeft, Heart, Sparkles, Check, Upload,
   Mic, Mail, Phone, Eye, Lock, RefreshCw, Play, Pause, AlertTriangle, ShieldCheck, MapPin, Copy, FileText,
-  Users, Gift, Zap, Music
+  Users, Gift, Zap, Music, Timer, Quote, Star, MessageCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import StepErrorBoundary from './StepErrorBoundary';
@@ -166,6 +166,9 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [savingLyrics, setSavingLyrics] = useState(false);
   const [lyricsSaved, setLyricsSaved] = useState(false);
   const [todayCount, setTodayCount] = useState(847);
+  const [countdownMin, setCountdownMin] = useState(20);
+  const [countdownSec, setCountdownSec] = useState(0);
+  const [showPayment, setShowPayment] = useState(false);
 
   // Buscar contador ao vivo de músicas criadas hoje
   useEffect(() => {
@@ -174,6 +177,29 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       .then(d => { if (d.count) setTodayCount(d.count); })
       .catch(() => {});
   }, []);
+
+  // Iniciar countdown quando o utilizador chega ao ecrã pós-letra
+  useEffect(() => {
+    if (generationStatus === 'lyrics_ready') setShowPayment(true);
+  }, [generationStatus]);
+
+  // Countdown regressivo de 20 min para criar urgência
+  useEffect(() => {
+    if (!showPayment) return;
+    const interval = setInterval(() => {
+      setCountdownSec(prev => {
+        if (prev === 0) {
+          setCountdownMin(m => {
+            if (m === 0) { clearInterval(interval); return 0; }
+            return m - 1;
+          });
+          return 59;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showPayment]);
 
   const wrappedSetFormData: React.Dispatch<React.SetStateAction<WizardData>> = (action) => {
     setFormData(action);
@@ -1329,12 +1355,17 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                 <p className="text-[11px] text-stone-400">Imagine a cara d<strong className="text-stone-300">{formData.recipientName}</strong> ao ouvir esta música feita especialmente para si</p>
               </div>
 
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-2">
-                <div className="w-8 h-8 bg-amber-500/10 rounded-full flex items-center justify-center">
-                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-amber-800/40 space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-amber-500/10 rounded-full flex items-center justify-center">
+                    <Timer className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <span className={`text-lg font-bold font-mono ${countdownMin <= 5 ? 'text-red-400 animate-pulse' : 'text-amber-400'}`}>
+                    {String(countdownMin).padStart(2, '0')}:{String(countdownSec).padStart(2, '0')}
+                  </span>
                 </div>
-                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Escassez</h4>
-                <p className="text-[11px] text-stone-400">Oferta por tempo limitado — bloqueie o seu pedido agora e garanta esta música exclusiva</p>
+                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Oferta Exclusiva</h4>
+                <p className="text-[11px] text-stone-400">Este preço especial está reservado para si. Quando o tempo acabar, a oferta pode expirar.</p>
               </div>
 
               <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-2">
@@ -1365,8 +1396,38 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                 <div className="w-8 h-8 bg-emerald-500/10 rounded-full flex items-center justify-center">
                   <Zap className="w-4 h-4 text-emerald-400" />
                 </div>
-                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Urgência</h4>
-                <p className="text-[11px] text-stone-400">Escolha Express ou Premium e receba a música <strong className="text-emerald-400">imediatamente</strong> após a aprovação</p>
+                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Entrega Rápida</h4>
+                <p className="text-[11px] text-stone-400">Standard: recebe amanhã. Express: <strong className="text-emerald-400">música pronta minutos após</strong> a aprovação. Premium: timbre personalizado em 24h.</p>
+              </div>
+            </div>
+
+            {/* Testimonials */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-3">
+                <div className="flex gap-1">
+                  {[...Array(5)].map((_, i) => (<Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />))}
+                </div>
+                <p className="text-[11px] text-stone-400 italic leading-relaxed">"Não sei cantar nem escrever poesia, mas queria dar algo pessoal à Cláudia. Quando a música começou a tocar e o cantor pronunciou o nome dela, ela desabou em lágrimas. Foi indescritível!"</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-600 to-rose-700 flex items-center justify-center text-white text-[9px] font-bold">RS</div>
+                  <div>
+                    <p className="text-[10px] font-medium text-stone-300">Rui dos Santos</p>
+                    <p className="text-[9px] text-stone-500 font-mono">Luanda · Kizomba para a Esposa</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-3">
+                <div className="flex gap-1">
+                  {[...Array(5)].map((_, i) => (<Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />))}
+                </div>
+                <p className="text-[11px] text-stone-400 italic leading-relaxed">"Diz que foi o presente mais lindo de toda a vida dela. Podem fazer sem medo, vale cada kwanza!"</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-600 to-amber-700 flex items-center justify-center text-white text-[9px] font-bold">DN</div>
+                  <div>
+                    <p className="text-[10px] font-medium text-stone-300">Delfina Neto</p>
+                    <p className="text-[9px] text-stone-500 font-mono">Lobito · Semba para a Mãe</p>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1516,6 +1577,13 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                 </div>
 
               </div>
+            </div>
+
+            {/* Garantia */}
+            <div className="bg-gradient-to-r from-amber-900/10 to-rose-900/10 border border-amber-800/20 rounded-2xl p-4 text-center space-y-1">
+              <ShieldCheck className="w-5 h-5 text-amber-400 mx-auto" />
+              <p className="text-xs font-bold text-amber-300">Garantia de Satisfação</p>
+              <p className="text-[11px] text-stone-400">Se não amar a música final, reembolsamos 100% do valor. Sem perguntas.</p>
             </div>
 
             {/* Trust badges */}
