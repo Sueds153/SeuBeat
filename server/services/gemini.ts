@@ -4,8 +4,8 @@ import { selectPrompt } from './prompts';
 import { logInfo, logError } from '../utils/logger';
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 60000);
-const GEMINI_MAX_ATTEMPTS = Number(process.env.GEMINI_MAX_ATTEMPTS || 2);
+const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 90000);
+const GEMINI_MAX_ATTEMPTS = Number(process.env.GEMINI_MAX_ATTEMPTS || 3);
 
 const SYSTEM_PROMPT = `Você é um compositor de estúdio profissional.
 Você deve produzir a letra da música e a dedicatória exclusivamente em formato JSON estruturado.
@@ -26,6 +26,32 @@ O JSON gerado deve obrigatoriamente seguir esta estrutura:
   ],
   "letterText": "Dedicatória curta (2-3 frases) em prosa, sem repetir a letra."
 }`;
+
+function repairTruncatedJSON(text: string): string {
+  // Se o JSON foi truncado a meio de um array de lyrics, tenta fechar
+  let s = text.trim();
+  // Remover vírgula final antes de fechar
+  s = s.replace(/,\s*$/, '');
+  // Contar chaves/parênteses abertos
+  let openBraces = 0;
+  let openBrackets = 0;
+  let inString = false;
+  let escaped = false;
+  for (const ch of s) {
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\' && inString) { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') openBraces++;
+    else if (ch === '}') openBraces--;
+    else if (ch === '[') openBrackets++;
+    else if (ch === ']') openBrackets--;
+  }
+  // Fechar o que está aberto
+  for (let i = 0; i < openBrackets; i++) s += ']';
+  for (let i = 0; i < openBraces; i++) s += '}';
+  return s;
+}
 
 function extractJSON(text: string): any {
   const cleanText = text.trim();
@@ -48,6 +74,15 @@ function extractJSON(text: string): any {
     } catch {}
   }
 
+  // Última tentativa: reparar JSON truncado (Gemini cortou antes de fechar)
+  if (firstBrace !== -1) {
+    try {
+      const partial = cleanText.slice(firstBrace);
+      return JSON.parse(repairTruncatedJSON(partial));
+    } catch {}
+  }
+
+  logError('[Gemini] Falha ao extrair JSON da resposta do Gemini.', new Error(cleanText));
   throw new Error('Não foi possível extrair um objeto JSON válido da resposta do Gemini.');
 }
 
@@ -113,8 +148,8 @@ export async function generateLyricsWithGemini(formData: any): Promise<LyricsCom
         ],
         config: {
           systemInstruction: { role: 'user', parts: [{ text: SYSTEM_PROMPT }] },
-          maxOutputTokens: 4000,
-          temperature: 0.8,
+          maxOutputTokens: 8192,
+          temperature: 0.7,
           responseMimeType: 'application/json',
         },
       });
@@ -131,9 +166,9 @@ export async function generateLyricsWithGemini(formData: any): Promise<LyricsCom
       logError(`[Gemini] Erro na tentativa ${attempt}`, err);
 
       const message = err?.message || String(err || '');
-      if (!/timeout|excedeu|JSON|malformada|429|500|502|503|504|ETIMEDOUT|AbortError|SAFETY|FINISH_REASON_SAFETY|blocked/i.test(message)) break;
+      if (!/timeout|excedeu|JSON|malformada|curta|429|500|502|503|504|ETIMEDOUT|AbortError|SAFETY|FINISH_REASON_SAFETY|blocked/i.test(message)) break;
       if (attempt < GEMINI_MAX_ATTEMPTS) {
-        await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
+        await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
       }
     }
   }
