@@ -314,7 +314,7 @@ export async function runBackgroundSunoWorkflow(
 
     const { data: approvedPayment } = await supabase
       .from('payments')
-      .select('id, plan')
+      .select('id, plan, created_at')
       .eq('request_id', requestId)
       .eq('status', 'approved')
       .maybeSingle();
@@ -325,12 +325,15 @@ export async function runBackgroundSunoWorkflow(
     const userEmail = requestData.email || requestData.users?.email;
     const letterText = requestData.songs?.[0]?.letter_text || 'Dedicatória.';
 
+    const paymentCreatedAt = (approvedPayment as any)?.created_at || new Date().toISOString();
+    const deliverAt = isStandard ? new Date(new Date(paymentCreatedAt).getTime() + 24 * 60 * 60 * 1000).toISOString() : null;
+
     await supabase
       .from('song_requests')
       .update({
         final_mixed_audio_url: fullAudioUrl,
         status: nextStatus,
-        deliver_at: isStandard ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
+        deliver_at: deliverAt,
       })
       .eq('id', requestId);
 

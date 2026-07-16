@@ -19,12 +19,14 @@ try {
 
 import { createApp, startServer } from './server/config/app';
 import { logInfo, logWarn, logFatal } from './server/utils/logger';
+import { startDeliveryScheduler } from './server/services/deliveryScheduler';
 
 const app = await createApp();
 
 let server: import('http').Server | undefined;
 try {
   server = await startServer(app);
+  startDeliveryScheduler();
 } catch (err) {
   logFatal('Erro fatal ao iniciar servidor', err);
   process.exit(1);

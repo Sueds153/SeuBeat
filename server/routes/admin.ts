@@ -211,12 +211,14 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
       const fullAudioUrl = songData.full_song_url || songData.audio_url;
 
       if (isStandard) {
-        // Standard: agendar entrega para 24h após aprovação
+        // Standard: agendar entrega para 24h após submissão do comprovativo
+        const paymentCreatedAt = payment.created_at || new Date().toISOString();
+        const deliverAt = new Date(new Date(paymentCreatedAt).getTime() + 24 * 60 * 60 * 1000).toISOString();
         await supabase
           .from('song_requests')
           .update({
             status: 'approved',
-            deliver_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            deliver_at: deliverAt,
             final_mixed_audio_url: fullAudioUrl || songRequest.final_mixed_audio_url || null
           })
           .eq('id', requestId);

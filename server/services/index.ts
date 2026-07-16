@@ -9,4 +9,5 @@ export { sendPersonalizedEmail, sendPaymentRejectionEmail } from './email';
 export { getAdminSupabase, getPublicSupabase, uploadToSupabase } from './supabase';
 export { downloadFile } from './audio';
 export { sendPurchaseEvent } from './metaPixelCapi';
+export { startDeliveryScheduler, stopDeliveryScheduler } from './deliveryScheduler';
 export type { LyricsComposition, AIProvider } from './types';
