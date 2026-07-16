@@ -1,5 +1,5 @@
 import { MessageCircle } from 'lucide-react';
-import { getWhatsAppUrl } from '../constants';
+import { getWhatsAppUrl } from '../constants/whatsapp';
 
 interface WhatsAppHelpProps {
   context?: 'erro_geracao' | 'nao_encontrada' | 'pagamento' | 'erro_fatal';

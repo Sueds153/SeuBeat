@@ -93,7 +93,7 @@ function clean(value: unknown, fallback = 'Não informado'): string {
   return trimmed || fallback;
 }
 
-export function validateGeminiComposition(value: unknown): LyricsComposition {
+function validateGeminiComposition(value: unknown): LyricsComposition {
   if (!value || typeof value !== 'object') {
     throw new Error('Resposta Gemini malformada: objeto JSON em falta.');
   }

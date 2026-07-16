@@ -58,7 +58,7 @@ function clean(value: unknown, fallback = 'Não informado'): string {
   return trimmed || fallback;
 }
 
-export function validateGPTComposition(value: unknown): LyricsComposition {
+function validateGPTComposition(value: unknown): LyricsComposition {
   if (!value || typeof value !== 'object') {
     throw new Error('Resposta GPT malformada: objeto JSON em falta.');
   }

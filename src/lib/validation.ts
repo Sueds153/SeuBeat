@@ -7,36 +7,36 @@ export const Step1Schema = z.object({
   recipientNick: z.string().min(2, 'Mínimo 2 caracteres'),
 });
 
-export const Step2Schema = z.object({
+const Step2Schema = z.object({
   occasion: z.string().min(1, 'Selecione a ocasião'),
   whyCreatedToday: z.string().min(5, 'Mínimo 5 caracteres'),
 });
 
-export const Step3Schema = z.object({
+const Step3Schema = z.object({
   musicStyle: z.string().min(1, 'Selecione o estilo'),
   referenceArtist: z.string().optional(),
 });
 
-export const Step4Schema = z.object({
+const Step4Schema = z.object({
   voiceType: z.string().min(1, 'Selecione o tipo de voz'),
 });
 
-export const Step5Schema = z.object({
+const Step5Schema = z.object({
   whatMakesSpecial: z.string().min(5, 'Mínimo 5 caracteres'),
   onlySheDoes: z.string().min(5, 'Mínimo 5 caracteres'),
 });
 
-export const Step6Schema = z.object({
+const Step6Schema = z.object({
   unforgettableMemory: z.string().min(5, 'Mínimo 5 caracteres'),
   whereItHappened: z.string().min(1, 'Indique o local'),
 });
 
-export const Step7Schema = z.object({
+const Step7Schema = z.object({
   messageFromTheHeart: z.string().min(5, 'Mínimo 5 caracteres'),
   desiredEmotion: z.string().min(1, 'Selecione a emoção'),
 });
 
-export const Step8Schema = z.object({
+const Step8Schema = z.object({
   photoUrl: z.string().optional(),
 }).refine(data => data.photoUrl && data.photoUrl.length > 0, {
   message: 'Adicione uma foto',

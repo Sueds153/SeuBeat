@@ -94,10 +94,4 @@ export function startDeliveryScheduler(): void {
   intervalHandle.unref();
 }
 
-export function stopDeliveryScheduler(): void {
-  if (intervalHandle) {
-    clearInterval(intervalHandle);
-    intervalHandle = null;
-    logInfo('[DeliveryScheduler] Parado');
-  }
-}
+

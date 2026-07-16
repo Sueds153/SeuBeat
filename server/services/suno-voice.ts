@@ -53,13 +53,13 @@ function firstString(...values: unknown[]): string | null {
   return null;
 }
 
-export interface SunoVoiceValidationResult {
+interface SunoVoiceValidationResult {
   taskId: string;
   validateInfo?: string;
   status: string;
 }
 
-export interface SunoVoiceRecordResult {
+interface SunoVoiceRecordResult {
   taskId: string;
   voiceId: string | null;
   status: string;
@@ -67,7 +67,7 @@ export interface SunoVoiceRecordResult {
   errorMessage?: string;
 }
 
-export interface SunoVoiceCheckResult {
+interface SunoVoiceCheckResult {
   isAvailable: boolean;
 }
 
@@ -104,7 +104,7 @@ export async function generateValidationPhrase(
   };
 }
 
-export async function getValidationPhraseResult(taskId: string): Promise<SunoVoiceValidationResult> {
+async function getValidationPhraseResult(taskId: string): Promise<SunoVoiceValidationResult> {
   const res = await fetchWithTimeout(`https://api.sunoapi.org/api/v1/voice/validate-info?taskId=${taskId}`, {
     headers: apiHeaders()
   });
@@ -184,7 +184,7 @@ export async function createCustomVoice(
   };
 }
 
-export async function getVoiceRecord(taskId: string): Promise<SunoVoiceRecordResult> {
+async function getVoiceRecord(taskId: string): Promise<SunoVoiceRecordResult> {
   const res = await fetchWithTimeout(`https://api.sunoapi.org/api/v1/voice/record-info?taskId=${taskId}`, {
     headers: apiHeaders()
   });

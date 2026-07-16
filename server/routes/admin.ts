@@ -11,7 +11,7 @@ import { sendPersonalizedEmail, sendPaymentRejectionEmail, sendConfirmationEmail
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
-import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
+import { logInfo, logError, logWarn } from '../utils/logger';
 import { publicErrorMessage, getAppUrl } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
 import { sendPurchaseEvent } from '../services/metaPixelCapi';

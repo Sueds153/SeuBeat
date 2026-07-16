@@ -21,8 +21,6 @@ if (ffmpegInstaller) {
   FFMPEG_AVAILABLE = false;
 }
 
-export { FFMPEG_AVAILABLE };
-
 const DOWNLOAD_TIMEOUT_MS = Number(process.env.DOWNLOAD_TIMEOUT_MS || 300000);
 
 // Utilitário para baixar arquivo

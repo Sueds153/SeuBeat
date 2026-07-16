@@ -623,10 +623,6 @@ router.get('/stats/today-count', async (_req, res) => {
   }
 });
 
-router.get('/speech-preview', emailLimiter, async (req, res) => {
-  res.status(501).json({ error: 'Preview de voz indisponivel de momento.' });
-});
-
 router.post('/submit-payment', paymentLimiter, async (req, res) => {
   try {
     const { songRequestId, userEmail, plan, amount, proofBase64, proofFilename, proofMimeType, voiceSampleBase64, voiceSampleFilename, voiceSampleMimeType } = req.body;

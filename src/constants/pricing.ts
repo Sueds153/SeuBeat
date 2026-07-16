@@ -1,4 +1,4 @@
-export interface PricingPlan {
+interface PricingPlan {
   id: 'standard' | 'express' | 'premium';
   name: string;
   price: string;

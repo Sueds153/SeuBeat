@@ -23,13 +23,4 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
   next();
 }
 
-export function csrfTokenEndpoint(_req: Request, res: Response): void {
-  const token = crypto.randomBytes(32).toString('hex');
-  res.cookie('csrf-token', token, {
-    httpOnly: false,
-    sameSite: 'strict',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 3600000,
-  });
-  res.json({ token });
-}
+

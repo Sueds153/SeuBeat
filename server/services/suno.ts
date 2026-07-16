@@ -19,7 +19,7 @@ function getRetryDelay(attempt: number, retryAfter?: string | null): number {
   return Math.min(1000 * Math.pow(2, attempt - 1) + Math.random() * 500, 30000);
 }
 
-export class SunoQuotaError extends Error {
+class SunoQuotaError extends Error {
   constructor(msg: string) {
     super(msg);
     this.name = 'SunoQuotaError';
@@ -223,7 +223,7 @@ export async function querySunoTask(taskId: string): Promise<SunoResult> {
   return { taskId, audioUrl, status };
 }
 
-export async function startSunoMusic(lyrics: string[], musicStyle: string, songTitle: string, personaId?: string): Promise<SunoResult> {
+async function startSunoMusic(lyrics: string[], musicStyle: string, songTitle: string, personaId?: string): Promise<SunoResult> {
   const apiKey = process.env.SUNO_API_KEY;
   if (!apiKey) throw new Error('SUNO_API_KEY nao configurada.');
 
@@ -340,7 +340,7 @@ async function pollSunoTask(taskId: string, immediateAudioUrl: string | null, la
   throw new Error(`${label} generation timed out after ${(maxAttempts * 10) / 60} minutes.`);
 }
 
-export async function continueSunoMusic(taskId: string, personaId?: string): Promise<SunoResult> {
+async function continueSunoMusic(taskId: string, personaId?: string): Promise<SunoResult> {
   const apiKey = process.env.SUNO_API_KEY;
   if (!apiKey) throw new Error('SUNO_API_KEY nao configurada.');
   if (!taskId) throw new Error('Task Suno em falta para continuar.');

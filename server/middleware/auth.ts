@@ -91,4 +91,4 @@ export function adminAuth(req: express.Request, res: express.Response, next: exp
   return res.status(401).json({ error: 'Acesso não autorizado.' });
 }
 
-export { getJwtSecret };
+

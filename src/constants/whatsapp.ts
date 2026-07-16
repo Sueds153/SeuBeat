@@ -1,4 +1,4 @@
-export const WHATSAPP_NUMBER = '244922058136';
+const WHATSAPP_NUMBER = '244922058136';
 
 export const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}`;
 

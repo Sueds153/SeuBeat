@@ -7,7 +7,7 @@ const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
 const CLAUDE_TIMEOUT_MS = Number(process.env.CLAUDE_TIMEOUT_MS || 15000);
 const CLAUDE_MAX_ATTEMPTS = Number(process.env.CLAUDE_MAX_ATTEMPTS || 1);
 
-export function validateClaudeComposition(value: unknown): LyricsComposition {
+function validateClaudeComposition(value: unknown): LyricsComposition {
   if (!value || typeof value !== 'object') {
     throw new Error('Resposta Claude malformada: objeto JSON em falta.');
   }

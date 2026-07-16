@@ -104,7 +104,7 @@ async function persistGeneratedSunoAudio(songId: string, taskId: string, audioUr
   }
 }
 
-export async function completeSunoWorkflowFromAudio(
+async function completeSunoWorkflowFromAudio(
   requestId: string,
   songId: string,
   taskId: string,
