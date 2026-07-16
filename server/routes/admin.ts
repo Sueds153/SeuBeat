@@ -521,7 +521,7 @@ router.get('/credits', adminAuth, async (req, res) => {
 
 // J. Force status override
 const VALID_STATUSES: Record<string, string[]> = {
-  song_requests: ['lyrics_generating', 'lyrics_ready', 'music_processing', 'voice_processing', 'music_ready', 'delivered', 'failed', 'payment_rejected', 'payment_submitted'],
+  song_requests: ['lyrics_generating', 'lyrics_ready', 'approved', 'music_processing', 'voice_processing', 'music_ready', 'delivered', 'failed', 'payment_rejected', 'payment_submitted'],
   payments: ['pending_verification', 'approved', 'rejected'],
   songs: ['not_started', 'generating', 'processing', 'completed', 'failed']
 };
@@ -1396,20 +1396,31 @@ router.post('/cron/deliver-pending', async (req, res) => {
     let delivered = 0;
     for (const sr of pending) {
       const song = (sr as any).songs?.[0];
-      const fullUrl = (sr as any).final_mixed_audio_url || song?.full_song_url || song?.audio_url;
       const userEmail = (sr as any).users?.email;
 
-      await supabase
-        .from('song_requests')
-        .update({ status: 'delivered', deliver_at: null })
-        .eq('id', (sr as any).id);
+      if (!userEmail) {
+        delivered++;
+        await supabase
+          .from('song_requests')
+          .update({ status: 'delivered', deliver_at: null })
+          .eq('id', (sr as any).id)
+          .eq('status', 'approved');
+        continue;
+      }
 
-      delivered++;
+      const slug = ((sr as any).recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${song?.id}`;
 
-      if (userEmail) {
-        const slug = ((sr as any).recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-        const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${song?.id}`;
-        sendPersonalizedEmail(userEmail, (sr as any).recipient_name, personalizedUrl, song?.letter_text || 'Dedicatória.').catch(err => logError('[Cron] Falha ao enviar email de entrega', err, { requestId: (sr as any).id }));
+      try {
+        await sendPersonalizedEmail(userEmail, (sr as any).recipient_name, personalizedUrl, song?.letter_text || 'Dedicatória.');
+        await supabase
+          .from('song_requests')
+          .update({ status: 'delivered', deliver_at: null })
+          .eq('id', (sr as any).id)
+          .eq('status', 'approved');
+        delivered++;
+      } catch (emailErr) {
+        logError('[Cron] Falha ao enviar email de entrega', emailErr, { requestId: (sr as any).id });
       }
     }
 

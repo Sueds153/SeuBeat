@@ -43,10 +43,3 @@ export async function generateLyrics(data: GenerateLyricsPayload): Promise<Gener
   return res.json();
 }
 
-export async function sendEmail(payload: { songId: string; email: string }): Promise<void> {
-  await fetch('/api/send-email', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { GenerateLyricsSchema, SendEmailSchema, validateInput } from '../middleware/validation';
+import { GenerateLyricsSchema, validateInput } from '../middleware/validation';
 
 describe('GenerateLyricsSchema', () => {
   const validData = {
@@ -116,33 +116,6 @@ describe('GenerateLyricsSchema', () => {
   it('normalizes music style to lowercase', () => {
     const result = GenerateLyricsSchema.parse({ ...validData, musicStyle: 'Kizomba' });
     expect(result.musicStyle).toBe('kizomba');
-  });
-});
-
-describe('SendEmailSchema', () => {
-  it('passes with valid email', () => {
-    const result = SendEmailSchema.safeParse({ email: 'teste@exemplo.com' });
-    expect(result.success).toBe(true);
-  });
-
-  it('fails with invalid email', () => {
-    const result = SendEmailSchema.safeParse({ email: 'invalido' });
-    expect(result.success).toBe(false);
-  });
-
-  it('fails without email', () => {
-    const result = SendEmailSchema.safeParse({});
-    expect(result.success).toBe(false);
-  });
-
-  it('passes with all optional fields', () => {
-    const result = SendEmailSchema.safeParse({
-      email: 'teste@exemplo.com',
-      recipientName: 'Marta',
-      personalizedUrl: 'https://seubeat.ao/song/123',
-      letterText: 'Uma carta linda...',
-    });
-    expect(result.success).toBe(true);
   });
 });
 

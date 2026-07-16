@@ -12,7 +12,6 @@ import { setProgress, updateRequestStatus } from '../services/workflow';
 import { publicErrorMessage, getAppUrl } from '../utils/helpers';
 import { 
   GenerateLyricsSchema, 
-  SendEmailSchema,
   UpdateLyricsSchema,
   validateInput 
 } from '../middleware/validation';
@@ -139,37 +138,6 @@ export async function ensureUserProfile(
 
   return newProfile;
 }
-
-router.post('/send-email', emailLimiter, async (req, res) => {
-  try {
-    // Validar input
-    const validation = validateInput(SendEmailSchema, req.body);
-    if ('errors' in validation) {
-      return res.status(400).json({
-        success: false,
-        error: 'Dados inválidos',
-        validation_errors: validation.errors
-      });
-    }
-
-    const { email, recipientName, personalizedUrl, letterText } = validation.data;
-
-    logDebug('Sending personalized email', { email, recipientName });
-
-    const result = await sendPersonalizedEmail(
-      email,
-      recipientName || 'Alguem especial',
-      personalizedUrl || 'https://teusom.com',
-      letterText || 'Dedicatoria.'
-    );
-
-    logInfo('Email sent successfully', { email });
-    res.json({ success: true, result });
-  } catch (err: any) {
-    logError('Email sending failed', err, { email: req.body?.email });
-    res.status(500).json({ success: false, error: safeMessage(err) || 'Erro ao enviar email.' });
-  }
-});
 
 router.post('/suno-callback', async (req, res) => {
   logInfo('[Suno Callback] Recebido', {
@@ -419,32 +387,37 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
     }
 
     const sr = songData.song_requests as any;
-    const requestStatus = sr?.status;
+    let requestStatus = sr?.status;
     const deliverAt = sr?.deliver_at;
     let audioUrl = songData.preview_url || null;
 
     // Auto-delivery: se status='approved' e deliver_at já passou, entrega automaticamente
     if (requestStatus === 'approved' && deliverAt && new Date(deliverAt) <= new Date()) {
       const fullUrl = sr?.final_mixed_audio_url || songData.full_song_url || songData.audio_url;
-      await adminSupabase
+      const { error: deliveryError } = await adminSupabase
         .from('song_requests')
         .update({ status: 'delivered', deliver_at: null })
-        .eq('id', songData.request_id);
+        .eq('id', songData.request_id)
+        .eq('status', 'approved');
 
-      const userEmail = sr?.users?.email;
-      if (userEmail) {
-        const slug = (sr?.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-        const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
-        sendPersonalizedEmail(userEmail, sr?.recipient_name, personalizedUrl, songData.letter_text || 'Dedicatória.').catch(err => logError('[API] Falha ao enviar email de entrega', err, { songId: id }));
-      }
+      if (!deliveryError) {
+        requestStatus = 'delivered';
 
-      if (fullUrl) {
-        const match = fullUrl.match(/full-audio\/(.+)/);
-        if (match && adminSupabase) {
-          const { data } = await adminSupabase.storage.from('full-audio').createSignedUrl(match[1], 3600);
-          audioUrl = data?.signedUrl || fullUrl;
-        } else {
-          audioUrl = fullUrl;
+        const userEmail = sr?.users?.email;
+        if (userEmail) {
+          const slug = (sr?.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+          const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
+          sendPersonalizedEmail(userEmail, sr?.recipient_name, personalizedUrl, songData.letter_text || 'Dedicatória.').catch(err => logError('[API] Falha ao enviar email de entrega', err, { songId: id }));
+        }
+
+        if (fullUrl) {
+          const match = fullUrl.match(/full-audio\/(.+)/);
+          if (match && adminSupabase) {
+            const { data } = await adminSupabase.storage.from('full-audio').createSignedUrl(match[1], 3600);
+            audioUrl = data?.signedUrl || fullUrl;
+          } else {
+            audioUrl = fullUrl;
+          }
         }
       }
     }
@@ -474,7 +447,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       status: requestStatus
     };
 
-    return res.json(publicData);
+    return res.json({ success: true, data: publicData });
   } catch (err: any) {
     logError('[API] Falha ao consultar musica publica', err, { songId: req.params.id });
     res.status(500).json({ error: 'Nao foi possivel consultar a musica.' });

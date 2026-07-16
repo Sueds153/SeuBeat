@@ -70,19 +70,6 @@ export const GenerateLyricsSchema = z.object({
 export type GenerateLyricsInput = z.infer<typeof GenerateLyricsSchema>;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api/send-email
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const SendEmailSchema = z.object({
-  email: z.string().email('Email inválido'),
-  recipientName: z.string().max(100).optional(),
-  personalizedUrl: z.string().url('URL inválida').optional(),
-  letterText: z.string().max(5000).optional()
-});
-
-export type SendEmailInput = z.infer<typeof SendEmailSchema>;
-
-// ─────────────────────────────────────────────────────────────────────────────
 // PUT /api/song/:id/lyrics
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -134,18 +134,20 @@ export async function completeSunoWorkflowFromAudio(
 
   const { data: approvedPayment } = await supabase
     .from('payments')
-    .select('id, plan')
+    .select('id, plan, created_at')
     .eq('request_id', requestId)
     .eq('status', 'approved')
     .maybeSingle();
 
   const isStandard = approvedPayment && (approvedPayment as any).plan === 'standard';
+  const paymentCreatedAt = (approvedPayment as any)?.created_at || new Date().toISOString();
+  const deliverAt = isStandard ? new Date(new Date(paymentCreatedAt).getTime() + 24 * 60 * 60 * 1000).toISOString() : null;
 
   await supabase
     .from('song_requests')
     .update({
       status: approvedPayment ? (isStandard ? 'approved' : 'delivered') : 'music_ready',
-      deliver_at: isStandard ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null,
+      deliver_at: deliverAt,
       final_mixed_audio_url: fullAudioUrl
     })
     .eq('id', requestId);
@@ -353,7 +355,8 @@ export async function runBackgroundSunoWorkflow(
         sendConfirmationEmail(
           userEmail,
           requestData.recipient_name,
-          requestId
+          requestId,
+          'standard_approved'
         ).catch((emailErr) => {
           logError('[Background Suno] Confirmation email failed', emailErr, { requestId, userEmail });
         });

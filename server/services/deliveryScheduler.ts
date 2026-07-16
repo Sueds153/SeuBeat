@@ -1,5 +1,5 @@
 import { getAdminSupabase } from './supabase';
-import { sendPersonalizedEmail, sendConfirmationEmail } from './email';
+import { sendPersonalizedEmail } from './email';
 import { getAppUrl } from '../utils/helpers';
 import { logInfo, logError, logWarn } from '../utils/logger';
 
@@ -17,7 +17,10 @@ function makeSlug(name: string): string {
 
 async function deliverPendingSongs(): Promise<void> {
   const supabase = getAdminSupabase();
-  if (!supabase) return;
+  if (!supabase) {
+    logWarn('[DeliveryScheduler] Admin Supabase client indisponivel');
+    return;
+  }
 
   const now = new Date().toISOString();
 
@@ -26,7 +29,7 @@ async function deliverPendingSongs(): Promise<void> {
     .select('id, recipient_name, status, deliver_at, email, final_mixed_audio_url, songs(id, title, letter_text)')
     .eq('status', 'approved')
     .lte('deliver_at', now)
-    .is('deleted_at', null);
+    .not('deliver_at', 'is', null);
 
   if (error) {
     logError('[DeliveryScheduler] Erro ao consultar pedidos pendentes', error);
@@ -51,14 +54,6 @@ async function deliverPendingSongs(): Promise<void> {
 
       const personalizedUrl = `${getAppUrl()}/song/${slug}?id=${songId}`;
 
-      await supabase
-        .from('song_requests')
-        .update({
-          status: 'delivered',
-          delivered_at: now,
-        })
-        .eq('id', req.id);
-
       await sendPersonalizedEmail(
         req.email,
         req.recipient_name || 'Destinatario',
@@ -66,13 +61,27 @@ async function deliverPendingSongs(): Promise<void> {
         letterText
       );
 
-      logInfo('[DeliveryScheduler] Musica entregue com sucesso', {
-        requestId: req.id,
-        email: req.email,
-        songId,
-      });
+      const { error: updateError } = await supabase
+        .from('song_requests')
+        .update({
+          status: 'delivered',
+          deliver_at: null,
+          delivered_at: now,
+        })
+        .eq('id', req.id)
+        .eq('status', 'approved');
+
+      if (updateError) {
+        logError('[DeliveryScheduler] Erro ao atualizar status para delivered', updateError, { requestId: req.id });
+      } else {
+        logInfo('[DeliveryScheduler] Musica entregue com sucesso', {
+          requestId: req.id,
+          email: req.email,
+          songId,
+        });
+      }
     } catch (err) {
-      logError('[DeliveryScheduler] Erro ao entregar musica', err, { requestId: req.id });
+      logError('[DeliveryScheduler] Erro ao entregar musica', { requestId: req.id, error: err instanceof Error ? err.message : String(err) });
     }
   }
 }
