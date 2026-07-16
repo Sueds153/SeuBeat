@@ -43,6 +43,10 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Scheduler de entrega 24h para Standard**: `deliveryScheduler.ts` corre a cada 10min, transiciona `approved→delivered`, envia email. Migration executada no Supabase produção (`49fd7fb` + migration manual).
 - **11 correcções no fluxo wizard-pagamento-entrega**: API response shape (`{success, data}`), stale status no auto-delivery, idempotência nos 3 caminhos de entrega, email antes do status update, `approved` em `VALID_STATUSES`, `sendConfirmationEmail` contextual, `deliver_at` consistente, endpoint `/send-email` removido (era spam vector), schema `deliver_at/deleted_at` versionado (`0b32f4d`).
 - **Migration SQL**: `supabase_migration_scheduler.sql` com `ADD COLUMN IF NOT EXISTS` + índice.
+- **Cache busting Wizard**: `WIZARD_BUILD` constante (`20260716_1`) em Wizard.tsx; `useEffect` no mount compara com `seubeat_wizard_version` no localStorage e limpa progresso se desatualizado. `maxAge: 0` + `Cache-Control` nos assets estáticos em `app.ts` (commit `942b0fa`).
+- **Bugfix: recheckMusicStatus**: quando `pollSongUntilPreview` retorna `false` (song em `lyrics_ready`), agora seta `lyrics_ready` em vez de mostrar "A musica ainda esta em processamento" (commit `942b0fa`).
+- **payment-status**: devolve `notes` + UI rejeição com motivo + re-submit + email sends com `.catch()` no admin (commit `0658c02`).
+- **pollSongUntilPreview fix**: lê `song?.data?.status` em vez de `song?.status`; `maxAttempts` 60→15; aviso visual após 30s (commit `0f1bf24`).
 
 ## AI Providers (Ordem de fallback)
 1. **OpenAI** (`gpt-4o-mini`) — tentado primeiro

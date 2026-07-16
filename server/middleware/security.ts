@@ -36,7 +36,10 @@ export function helmetMiddleware() {
           'https://www.facebook.com',
           'https://*.sentry.io',
           'https://*.ingest.sentry.io',
-          'https://*.ingest.de.sentry.io'
+          'https://*.ingest.de.sentry.io',
+          'https://*.ecs.us-west-2.on.aws',
+          'https://*.us-central1.run.app',
+          'https://*.capi.graph.facebook.com'
         ],
         workerSrc: ["'self'", 'blob:'],
         frameAncestors: ["'none'"],
