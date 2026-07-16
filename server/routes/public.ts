@@ -370,14 +370,20 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
     }
 
     if (dbSongId && supabase) {
-      await supabase.from('songs').update({ mureka_status: 'failed' }).eq('id', dbSongId);
+      try {
+        await supabase.from('songs').update({ mureka_status: 'failed' }).eq('id', dbSongId);
+      } catch (songUpdateErr) {
+        logError('[API] Falha ao atualizar mureka_status no catch', songUpdateErr, { songId: dbSongId });
+      }
     }
 
     logError('[API] /generate-lyrics falhou', err, {
       requestId: dbSongRequestId,
       songId: dbSongId
     });
-    res.status(500).json({ success: false, error: publicErrorMessage(err) });
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: publicErrorMessage(err) });
+    }
   }
 });
 

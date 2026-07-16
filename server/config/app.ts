@@ -153,6 +153,7 @@ export async function startServer(app: express.Application): Promise<import('htt
       if (req.path.startsWith('/api')) {
         return res.status(404).json({ success: false, error: 'Rota nao encontrada' });
       }
+      res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
