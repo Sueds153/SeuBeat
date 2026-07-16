@@ -296,6 +296,25 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [countdownSec, setCountdownSec] = useState(0);
   const [showPayment, setShowPayment] = useState(false);
 
+  // Limpar localStorage se a build do wizard mudou (evita cache velho)
+  useEffect(() => {
+    const savedVersion = localStorage.getItem('seubeat_wizard_version');
+    if (savedVersion !== WIZARD_BUILD) {
+      try {
+        const saved = localStorage.getItem('seubeat_wizard_progress');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.dbSongId || parsed?.isDone || parsed?.paymentSubmitted) {
+            localStorage.removeItem('seubeat_wizard_progress');
+            window.location.reload();
+            return;
+          }
+        }
+      } catch {}
+      localStorage.setItem('seubeat_wizard_version', WIZARD_BUILD);
+    }
+  }, []);
+
   // Buscar contador ao vivo de músicas criadas hoje
   useEffect(() => {
     fetch('/api/stats/today-count')
@@ -1106,15 +1125,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     setIsSubmitting(true);
     setGenerationError('');
     setGenerationStatus('music_processing');
-    if (!dbSongId) return;
-    setIsSubmitting(true);
-    setGenerationError('');
     try {
       const previewReady = await pollSongUntilPreview(dbSongId, 30);
       if (!previewReady) {
         setIsSubmitting(false);
-        setGenerationStatus('music_processing');
-        setGenerationError('A musica ainda esta em processamento. Tente verificar novamente daqui a pouco.');
+        setGenerationStatus('lyrics_ready');
       }
     } catch (err: any) {
       setIsSubmitting(false);
@@ -1233,7 +1248,8 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
   const activeMeta = STEP_META[step - 1];
 
-  const ROTATING_MESSAGES = [
+  const WIZARD_BUILD = '20260716_1';
+const ROTATING_MESSAGES = [
     '❤️ Uma nova música foi criada para uma mãe',
     '💕 Uma nova declaração de amor foi criada',
     '🎂 Uma música de aniversário acabou de ficar pronta',

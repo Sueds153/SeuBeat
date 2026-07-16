@@ -102,7 +102,16 @@ export async function startServer(app: express.Application): Promise<import('htt
     app.get('*.map', (_req, res) => {
       res.status(404).type('text/plain').send('Not found');
     });
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      maxAge: 0,
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html')) {
+          res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else {
+          res.set('Cache-Control', 'public, max-age=300, must-revalidate');
+        }
+      }
+    }));
 
     const CRAWLER_UA = /facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slack|Googlebot|bingbot|Pinterest|Slack|Discordbot/i;
 
