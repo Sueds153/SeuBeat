@@ -12,7 +12,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
-import { publicErrorMessage } from '../utils/helpers';
+import { publicErrorMessage, getAppUrl } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
 import { sendPurchaseEvent } from '../services/metaPixelCapi';
 import { adminLimiter } from '../middleware/rateLimiter';
@@ -236,7 +236,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
         .eq('id', requestId);
       if (userEmail) {
         const slug = (songRequest.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-        const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${songData.id}`;
+        const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
         await sendPersonalizedEmail(userEmail, songRequest.recipient_name, personalizedUrl, letterText);
         return res.json({ success: true, message: 'Pagamento aprovado. Música entregue por e-mail.' });
       }
@@ -572,7 +572,7 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
         const slug = (songRequest.recipient_name || 'especial')
           .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
           .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-        const url = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${song.id}`;
+        const url = `${getAppUrl(req)}/song/${slug}?id=${song.id}`;
         sendPersonalizedEmail(songRequest.users.email, songRequest.recipient_name, url, song.letter_text || 'Dedicatória.')
           .catch(err => logWarn('[Admin] Falha ao enviar email após force-status delivered', { error: err?.message }));
       }
@@ -729,7 +729,7 @@ router.post('/request/:id/resend-email', adminAuth, async (req, res) => {
     if (!requestData || !songData || !requestData.users?.email) return res.status(404).json({ error: 'Dados insuficientes.' });
 
     const slug = (requestData.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-    const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${songData.id}`;
+    const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
     await sendPersonalizedEmail(requestData.users.email, requestData.recipient_name, personalizedUrl, songData.letter_text || 'Dedicatória.');
     res.json({ success: true, message: 'Email reenviado.' });
   } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }

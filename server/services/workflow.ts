@@ -6,7 +6,7 @@ import { downloadFile, createPreviewAudio } from './audio';
 import { querySunoTask, generateFullSong } from './suno';
 import { generateValidationPhrase, waitForValidationPhrase, createCustomVoice, waitForVoiceId, checkVoiceAvailability } from './suno-voice';
 import { sendPersonalizedEmail, sendConfirmationEmail } from './email';
-import { getAudioFileInfo } from '../utils/helpers';
+import { getAudioFileInfo, getAppUrl } from '../utils/helpers';
 import { logInfo, logWarn, logError } from '../utils/logger';
 import { RequestProgress } from './types';
 
@@ -343,7 +343,7 @@ export async function runBackgroundSunoWorkflow(
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)+/g, '');
-      const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${songId}`;
+      const personalizedUrl = `${getAppUrl()}/song/${slug}?id=${songId}`;
 
       if (isStandard) {
         logInfo(`[Background Suno] Sending confirmation email (Standard - 24h delay)`, { userEmail });
