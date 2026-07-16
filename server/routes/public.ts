@@ -422,6 +422,20 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       }
     }
 
+    // Se está delivered (ou approved com áudio completo), gerar signed URL do áudio completo
+    if (requestStatus === 'delivered' || requestStatus === 'approved') {
+      const fullUrl = sr?.final_mixed_audio_url || songData.full_song_url || songData.audio_url;
+      if (fullUrl && fullUrl !== audioUrl) {
+        const match = fullUrl.match(/full-audio\/(.+)/);
+        if (match && adminSupabase) {
+          const { data } = await adminSupabase.storage.from('full-audio').createSignedUrl(match[1], 3600);
+          audioUrl = data?.signedUrl || fullUrl;
+        } else {
+          audioUrl = fullUrl;
+        }
+      }
+    }
+
     const song_requests = songData.song_requests;
     const publicData = {
       id: songData.id,

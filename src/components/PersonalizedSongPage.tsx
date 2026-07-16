@@ -27,7 +27,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
   const [likesCount, setLikesCount] = useState(382);
   const [hasLiked, setHasLiked] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isFullUnlocked = songDetails.status === 'delivered';
+  const isFullUnlocked = songDetails.status === 'delivered' || songDetails.status === 'approved';
 
   const handleLike = () => {
     if (hasLiked) {
