@@ -6,6 +6,7 @@ import Testimonials from './Testimonials';
 import VideoTestimonial from './VideoTestimonial';
 import FAQ from './FAQ';
 import { PRICING_PLANS } from '../constants/pricing';
+import { WHATSAPP_URL } from '../constants/whatsapp';
 import { fbInitiateCheckout, parsePrice } from '../lib/metaPixel';
 
 interface LandingPageProps {
@@ -487,7 +488,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           {/* Contacto directo */}
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <a
-              href="https://wa.me/244929423278"
+              href={WHATSAPP_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-4 py-2 bg-green-900/30 border border-green-800/50 rounded-full text-green-400 hover:bg-green-900/50 transition-colors"
