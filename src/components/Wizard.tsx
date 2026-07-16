@@ -116,7 +116,16 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingStage, setProcessingStage] = useState(0);
   const [rotatingMsgIndex, setRotatingMsgIndex] = useState(0);
-  const [showPreviewPage, setShowPreviewPage] = useState(false);
+  const [showPreviewPage, setShowPreviewPage] = useState(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.showPreviewPage || false;
+      }
+    } catch {}
+    return false;
+  });
   
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info'; id: number } | null>(null);
@@ -126,8 +135,26 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [audioProgress, setAudioProgress] = useState(0); // 0 to 20 seconds
   
   // Checkout & Upsell States
-  const [selectedPlanID, setSelectedPlanID] = useState<'standard' | 'express' | 'premium' | null>(null);
-  const [voiceUpsellApplied, setVoiceUpsellApplied] = useState(false);
+  const [selectedPlanID, setSelectedPlanID] = useState<'standard' | 'express' | 'premium' | null>(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.selectedPlanID || null;
+      }
+    } catch {}
+    return null;
+  });
+  const [voiceUpsellApplied, setVoiceUpsellApplied] = useState(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.voiceUpsellApplied || false;
+      }
+    } catch {}
+    return false;
+  });
   const [showUpsellModal, setShowUpsellModal] = useState(false);
   const [showVoiceCloningScreen, setShowVoiceCloningScreen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -135,28 +162,136 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [clonedVoiceFile, setClonedVoiceFile] = useState<File | null>(null);
   const [copiedText, setCopiedText] = useState<'entidade' | 'referencia' | null>(null);
-  const [isDone, setIsDone] = useState(false); // Order success screen
-  const [generatedShareUrl, setGeneratedShareUrl] = useState('');
+  const [isDone, setIsDone] = useState(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.isDone || false;
+      }
+    } catch {}
+    return false;
+  }); // Order success screen
+  const [generatedShareUrl, setGeneratedShareUrl] = useState(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.generatedShareUrl || '';
+      }
+    } catch {}
+    return '';
+  });
 
   // Estado do upload de comprovativo de pagamento
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreviewUrl, setProofPreviewUrl] = useState<string>('');
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
-  const [paymentSubmitted, setPaymentSubmitted] = useState(false);
-  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [paymentSubmitted, setPaymentSubmitted] = useState(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.paymentSubmitted || false;
+      }
+    } catch {}
+    return false;
+  });
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'approved' | 'rejected'>(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.paymentStatus || 'pending';
+      }
+    } catch {}
+    return 'pending';
+  });
   const [paymentSubmitError, setPaymentSubmitError] = useState<string>('');
   const [paymentTab, setPaymentTab] = useState<'atm' | 'express'>('express');
 
   // AI Song states powered by Claude
-  const [aiSongTitle, setAiSongTitle] = useState('');
-  const [aiLyrics, setAiLyrics] = useState<string[]>([]);
-  const [aiLyricsSnippet, setAiLyricsSnippet] = useState('');
-  const [aiLetterText, setAiLetterText] = useState('');
-  const [dbSongId, setDbSongId] = useState<string>('');
-  const [dbSongRequestId, setDbSongRequestId] = useState<string>('');
-  const [generationStatus, setGenerationStatus] = useState<GenerationStatus>('idle');
+  const [aiSongTitle, setAiSongTitle] = useState(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.aiSongTitle || '';
+      }
+    } catch {}
+    return '';
+  });
+  const [aiLyrics, setAiLyrics] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.aiLyrics || [];
+      }
+    } catch {}
+    return [];
+  });
+  const [aiLyricsSnippet, setAiLyricsSnippet] = useState(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.aiLyricsSnippet || '';
+      }
+    } catch {}
+    return '';
+  });
+  const [aiLetterText, setAiLetterText] = useState(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.aiLetterText || '';
+      }
+    } catch {}
+    return '';
+  });
+  const [dbSongId, setDbSongId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.dbSongId || '';
+      }
+    } catch {}
+    return '';
+  });
+  const [dbSongRequestId, setDbSongRequestId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.dbSongRequestId || '';
+      }
+    } catch {}
+    return '';
+  });
+  const [generationStatus, setGenerationStatus] = useState<GenerationStatus>(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.generationStatus || 'idle';
+      }
+    } catch {}
+    return 'idle';
+  });
   const [generationError, setGenerationError] = useState('');
-  const [previewAudioUrl, setPreviewAudioUrl] = useState('');
+  const [previewAudioUrl, setPreviewAudioUrl] = useState(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.previewAudioUrl || '';
+      }
+    } catch {}
+    return '';
+  });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   // Estado para edição de letra
@@ -207,13 +342,49 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     setFieldErrors({});
   };
 
-  // Persistir progresso no localStorage (formData + step) para sobreviver a refresh
+  // Persistir progresso no localStorage para sobreviver a refresh
   useEffect(() => {
     try {
       const { photoFile, ...rest } = formData;
-      localStorage.setItem('seubeat_wizard_progress', JSON.stringify({ formData: rest, step }));
+      localStorage.setItem('seubeat_wizard_progress', JSON.stringify({
+        formData: rest,
+        step,
+        isDone,
+        generatedShareUrl,
+        paymentSubmitted,
+        paymentStatus,
+        aiSongTitle,
+        aiLyrics,
+        aiLyricsSnippet,
+        aiLetterText,
+        dbSongId,
+        dbSongRequestId,
+        generationStatus,
+        previewAudioUrl,
+        selectedPlanID,
+        voiceUpsellApplied,
+        showPreviewPage
+      }));
     } catch {}
-  }, [formData, step]);
+  }, [
+    formData,
+    step,
+    isDone,
+    generatedShareUrl,
+    paymentSubmitted,
+    paymentStatus,
+    aiSongTitle,
+    aiLyrics,
+    aiLyricsSnippet,
+    aiLetterText,
+    dbSongId,
+    dbSongRequestId,
+    generationStatus,
+    previewAudioUrl,
+    selectedPlanID,
+    voiceUpsellApplied,
+    showPreviewPage
+  ]);
 
   // Buscar dados Multicaixa do servidor
   useEffect(() => {
@@ -2316,39 +2487,21 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                 ) : (
                   <>
                     <div className="border-b border-stone-900 pb-2 flex items-center gap-2">
-                      <span className="text-xl">⏳</span>
+                      <span className="text-xl">📩</span>
                       <div>
-                        <span className="text-[10px] text-amber-500 font-mono block uppercase tracking-wider font-extrabold">PÁGINA DEDICADA RESERVADA</span>
+                        <span className="text-[10px] text-amber-500 font-mono block uppercase tracking-wider font-extrabold">COMPROVATIVO RECEBIDO</span>
                         <h4 className="text-stone-100 font-serif text-sm font-bold">Aguardando confirmação do pagamento</h4>
                       </div>
                     </div>
 
                     <p className="text-stone-400 text-xs leading-relaxed">
-                      O seu link exclusivo foi reservado com sucesso. Assim que a nossa equipa validar o comprovativo, a música completa será desbloqueada e enviaremos o acesso por e-mail.
+                      O link da sua dedicatória será enviado para <strong className="text-stone-300">{formData.email}</strong> assim que o pagamento for confirmado pela nossa equipa.
                     </p>
 
-                    {/* Shared URL copy field */}
-                    <div className="bg-stone-900 p-3 rounded-xl border border-stone-800 flex items-center justify-between gap-3 text-xs">
-                      <span className="text-amber-400 font-mono truncate select-all flex-1">{generatedShareUrl}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(generatedShareUrl);
-                          setCopiedText('referencia');
-                          setTimeout(() => setCopiedText(null), 2000);
-                        }}
-                        className="p-1.5 text-stone-400 hover:text-amber-400 hover:bg-stone-950 rounded-lg transition-colors cursor-pointer"
-                        title="Copiar link"
-                      >
-                        {copiedText === 'referencia' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-
-                    {/* Email notification */}
                     <div className="text-xs pt-1 flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-amber-500" />
+                      <Mail className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                       <span className="text-stone-400 font-mono text-xxs uppercase">
-                        O link será ativado e enviado assim que o pagamento for aprovado
+                        Verifique também a sua caixa de spam
                       </span>
                     </div>
                   </>
