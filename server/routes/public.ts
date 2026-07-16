@@ -721,7 +721,7 @@ router.get('/payment-status', paymentLimiter, async (req, res) => {
     if (requestId && typeof requestId === 'string') {
       query = supabase
         .from('payments')
-        .select('status, created_at')
+        .select('status, created_at, notes')
         .eq('request_id', requestId)
         .eq('user_email', email)
         .limit(1)
@@ -729,7 +729,7 @@ router.get('/payment-status', paymentLimiter, async (req, res) => {
     } else {
       query = supabase
         .from('payments')
-        .select('status, created_at')
+        .select('status, created_at, notes')
         .eq('user_email', email)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -738,7 +738,7 @@ router.get('/payment-status', paymentLimiter, async (req, res) => {
 
     const { data, error } = await query;
     if (error) throw error;
-    res.json(data ? { status: data.status } : { status: 'not_found' });
+    res.json(data ? { status: data.status, notes: data.notes || null } : { status: 'not_found' });
   } catch (err: any) {
     res.status(500).json({ error: safeMessage(err) });
   }

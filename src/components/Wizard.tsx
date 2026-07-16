@@ -196,6 +196,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     } catch {}
     return 'pending';
   });
+  const [paymentNotes, setPaymentNotes] = useState<string>('');
   const [paymentSubmitError, setPaymentSubmitError] = useState<string>('');
   const [paymentTab, setPaymentTab] = useState<'atm' | 'express'>('express');
 
@@ -383,8 +384,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         const data = await res.json();
         if (data.status === 'approved') {
           setPaymentStatus('approved');
+          showToast('Pagamento confirmado! A sua música será entregue em breve.', 'success');
         } else if (data.status === 'rejected') {
           setPaymentStatus('rejected');
+          setPaymentNotes(data.notes || '');
+          showToast('Pagamento rejeitado. Veja o motivo na tela.', 'error');
         }
       } catch {}
     };
@@ -2412,6 +2416,33 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                         )}
                       </button>
                     </div>
+                  ) : paymentStatus === 'rejected' ? (
+                    <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-4 text-left space-y-3">
+                      <div className="flex items-center gap-2 text-rose-400 text-xs font-bold font-mono">
+                        <span className="text-lg">❌</span>
+                        <span>COMPROVATIVO REJEITADO</span>
+                      </div>
+                      <p className="text-stone-400 text-xs font-sans leading-relaxed">
+                        {paymentNotes || 'O comprovativo enviado não foi aceite pela nossa equipa.'}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPaymentSubmitted(false);
+                          setPaymentStatus('pending');
+                          setPaymentNotes('');
+                          setPaymentSubmitError('');
+                          setProofFile(null);
+                          setProofPreviewUrl('');
+                        }}
+                        className="py-3 px-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-95 text-stone-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 tracking-wide uppercase cursor-pointer text-center w-full shadow-lg"
+                      >
+                        <span>Reenviar Comprovativo</span>
+                      </button>
+                      <div className="flex justify-center pt-1">
+                        <WhatsAppHelp context="pagamento_rejeitado" label="Falar com apoio" />
+                      </div>
+                    </div>
                   ) : (
                     <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4 text-left space-y-3">
                       <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold font-mono">
@@ -2440,7 +2471,8 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                               showToast('Pagamento confirmado! A sua música será entregue em breve.', 'success');
                               setPaymentStatus('approved');
                             } else if (data.status === 'rejected') {
-                              showToast('Pagamento rejeitado. Fale connosco pelo WhatsApp.', 'error');
+                              setPaymentNotes(data.notes || '');
+                              showToast('Pagamento rejeitado. Veja o motivo na tela.', 'error');
                               setPaymentStatus('rejected');
                             } else {
                               showToast('Pagamento ainda pendente. Voltamos a verificar mais tarde.', 'info');
@@ -2527,6 +2559,40 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                         <span>💝 Ver dedicatória de {formData.recipientName.split(' ')[0]}</span>
                         <ArrowRight className="w-4 h-4 text-stone-950" />
                       </a>
+                    </div>
+                  </>
+                ) : paymentStatus === 'rejected' ? (
+                  <>
+                    <div className="border-b border-rose-900 pb-2 flex items-center gap-2">
+                      <span className="text-xl">❌</span>
+                      <div>
+                        <span className="text-[10px] text-rose-400 font-mono block uppercase tracking-wider font-extrabold">COMPROVATIVO REJEITADO</span>
+                        <h4 className="text-stone-100 font-serif text-sm font-bold">O pagamento não foi validado</h4>
+                      </div>
+                    </div>
+
+                    <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-4 text-left space-y-2">
+                      <p className="text-stone-300 text-xs leading-relaxed">
+                        {paymentNotes || 'O comprovativo enviado não foi aceite pela nossa equipa.'}
+                      </p>
+                      <p className="text-stone-500 text-xs">
+                        Pode reenviar um novo comprovativo ou contactar-nos pelo WhatsApp para mais informações.
+                      </p>
+                    </div>
+
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPaymentSubmitted(false);
+                          setPaymentStatus('pending');
+                          setPaymentNotes('');
+                          setPaymentSubmitError('');
+                        }}
+                        className="py-3 px-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-95 text-stone-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 tracking-wide uppercase cursor-pointer text-center w-full shadow-lg"
+                      >
+                        <span>Reenviar Comprovativo</span>
+                      </button>
                     </div>
                   </>
                 ) : (

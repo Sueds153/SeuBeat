@@ -223,7 +223,9 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
           })
           .eq('id', requestId);
         if (userEmail) {
-          await sendConfirmationEmail(userEmail, songRequest.recipient_name, requestId);
+          sendConfirmationEmail(userEmail, songRequest.recipient_name, requestId).catch(err =>
+            logError('[Admin] Falha ao enviar email de confirmacao (standard)', err, { requestId, userEmail })
+          );
         }
         return res.json({ success: true, message: 'Pagamento aprovado. Música será entregue em 24h por e-mail.', isStandard: true });
       }
@@ -239,7 +241,9 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
       if (userEmail) {
         const slug = (songRequest.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
         const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
-        await sendPersonalizedEmail(userEmail, songRequest.recipient_name, personalizedUrl, letterText);
+        sendPersonalizedEmail(userEmail, songRequest.recipient_name, personalizedUrl, letterText).catch(err =>
+          logError('[Admin] Falha ao enviar email de entrega (express/premium)', err, { requestId, userEmail })
+        );
         return res.json({ success: true, message: 'Pagamento aprovado. Música entregue por e-mail.' });
       }
       return res.json({ success: true, message: 'Pagamento aprovado. Música entregue (email do cliente não disponível).' });
