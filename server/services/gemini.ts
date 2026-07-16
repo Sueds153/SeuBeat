@@ -5,7 +5,7 @@ import { logInfo, logError } from '../utils/logger';
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 90000);
-const GEMINI_MAX_ATTEMPTS = Number(process.env.GEMINI_MAX_ATTEMPTS || 3);
+const GEMINI_MAX_ATTEMPTS = Number(process.env.GEMINI_MAX_ATTEMPTS || 2);
 
 const SYSTEM_PROMPT = `Você é um compositor de estúdio profissional.
 Você deve produzir a letra da música e a dedicatória exclusivamente em formato JSON estruturado.

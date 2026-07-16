@@ -4,7 +4,7 @@ import { selectPrompt } from './prompts';
 import { logInfo, logError } from '../utils/logger';
 
 const GPT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-const GPT_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 60000);
+const GPT_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 30000);
 const GPT_MAX_ATTEMPTS = Number(process.env.OPENAI_MAX_ATTEMPTS || 2);
 
 const SYSTEM_PROMPT = `Você é um compositor de estúdio profissional.

@@ -55,3 +55,14 @@ export function getAudioFileInfo(audioUrl: string) {
   if (cleanUrl.endsWith('.ogg')) return { ext: 'ogg', mimeType: 'audio/ogg' };
   return { ext: 'flac', mimeType: 'audio/flac' };
 }
+
+export function getAppUrl(req?: any): string {
+  if (req) {
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.get('host');
+    if (host) {
+      return `${protocol}://${host}`;
+    }
+  }
+  return process.env.APP_URL || 'http://localhost:3000';
+}

@@ -9,7 +9,7 @@ function sanitize(str: string): string {
   return DOMPurify.sanitize(str.trim().slice(0, 5000));
 }
 import { setProgress, updateRequestStatus } from '../services/workflow';
-import { publicErrorMessage } from '../utils/helpers';
+import { publicErrorMessage, getAppUrl } from '../utils/helpers';
 import { 
   GenerateLyricsSchema, 
   SendEmailSchema,
@@ -430,7 +430,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       const userEmail = sr?.users?.email;
       if (userEmail) {
         const slug = (sr?.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-        const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${songData.id}`;
+        const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
         sendPersonalizedEmail(userEmail, sr?.recipient_name, personalizedUrl, songData.letter_text || 'Dedicatória.').catch(err => logError('[API] Falha ao enviar email de entrega', err, { songId: id }));
       }
 
