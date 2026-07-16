@@ -372,6 +372,30 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     voiceUpsellApplied
   ]);
 
+  // Polling automático: após refresh, verificar estado e continuar a vigiar
+  useEffect(() => {
+    if (!paymentSubmitted || !dbSongRequestId || !formData.email) return;
+
+    const checkStatus = async () => {
+      try {
+        const res = await fetch(`/api/payment-status?email=${encodeURIComponent(formData.email)}&requestId=${dbSongRequestId}`);
+        const data = await res.json();
+        if (data.status === 'approved') {
+          setPaymentStatus('approved');
+        } else if (data.status === 'rejected') {
+          setPaymentStatus('rejected');
+        }
+      } catch {}
+    };
+
+    checkStatus();
+
+    if (paymentStatus === 'pending') {
+      const interval = setInterval(checkStatus, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [paymentSubmitted, dbSongRequestId, formData.email, paymentStatus]);
+
   // Buscar dados Multicaixa do servidor
   useEffect(() => {
     fetch('/api/payment-details')
@@ -453,6 +477,10 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         let voiceMimeType = null;
         
         const postPaymentData = async (proofStr: string, voiceStr: string | null, voiceName: string | null, voiceType: string | null) => {
+          // Marcar como submetido ANTES do fetch para sobreviver a refresh
+          setPaymentSubmitted(true);
+          fbPurchase(selectedPlanID || 'standard', parsePrice(getPrice()));
+
           try {
             const res = await fetch('/api/submit-payment', {
               method: 'POST',
@@ -473,14 +501,16 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
             const data = await res.json();
             if (res.ok && data.success) {
-              setPaymentSubmitted(true);
-              fbPurchase(selectedPlanID || 'standard', parsePrice(getPrice()));
+              setPaymentSubmitError('');
+            } else if (res.status === 409) {
+              // Já existe — o servidor tem o pagamento, tranquilo
               setPaymentSubmitError('');
             } else {
               setPaymentSubmitError(data.error || 'Erro ao submeter o comprovativo.');
             }
           } catch (fetchErr: any) {
-            setPaymentSubmitError('Erro na ligação ao servidor: ' + fetchErr.message);
+            // Falha de rede — o servidor pode ter recebido ou não
+            setPaymentSubmitError('O servidor demorou a responder, mas pode já ter recebido o seu comprovativo. Use o botão "Verificar Estado" abaixo para confirmar.');
           } finally {
             setPaymentSubmitting(false);
           }
@@ -2374,8 +2404,17 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                         <span>COMPROVATIVO SUBMETIDO COM SUCESSO!</span>
                       </div>
                       <p className="text-stone-400 text-xs font-sans leading-relaxed">
-                        Recebemos o seu comprovativo e associamos ao seu pedido. O nosso sistema ou equipa validará o pagamento nos próximos minutos.
+                        O seu comprovativo foi enviado e estamos a verificar o pagamento.
+                        {paymentStatus === 'pending' && ' A página actualiza automaticamente quando o estado mudar — não precisa de ficar a actualizar.'}
                       </p>
+
+                      {paymentStatus === 'pending' && (
+                        <div className="flex items-center gap-2 text-[10px] text-amber-500/80 font-mono">
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                          <span>A verificar automaticamente a cada 30 segundos...</span>
+                        </div>
+                      )}
+
                       <button
                         type="button"
                         onClick={async () => {
