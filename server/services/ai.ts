@@ -6,9 +6,9 @@ import { logInfo, logWarn, logError } from '../utils/logger';
 
 export async function generateLyrics(formData: any): Promise<{ result: LyricsComposition; provider: AIProvider }> {
   const providers: { name: AIProvider; key: string; fn: (data: any) => Promise<LyricsComposition> }[] = [
-    { name: 'claude', key: 'ANTHROPIC_API_KEY', fn: generateLyricsWithClaude },
     { name: 'openai', key: 'OPENAI_API_KEY', fn: generateLyricsWithGPT },
     { name: 'gemini', key: 'GEMINI_API_KEY', fn: generateLyricsWithGemini },
+    { name: 'claude', key: 'ANTHROPIC_API_KEY', fn: generateLyricsWithClaude },
   ];
 
   const available = providers.filter(p => !!process.env[p.key]);
