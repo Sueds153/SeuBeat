@@ -484,7 +484,15 @@ export async function processSunoVoice(
     logInfo(`[Suno Voice] Voice sample uploaded`, { requestId, publicVoiceUrl });
     setProgress(requestId, { status: 'voice_processing', progress: 25, message: 'A gerar frase de validação...' });
 
-    const voiceLang = voiceRequestData.language === 'inglês' ? 'en' : 'pt';
+    const langMap: Record<string, string> = {
+      'inglês': 'en',
+      'português': 'pt',
+      'kikongo': 'kg',
+      'lingala': 'ln',
+      'kimbundu': 'pt',
+      'umbundu': 'pt',
+    };
+    const voiceLang = langMap[voiceRequestData.language] || 'pt';
     const validationResult = await generateValidationPhrase(publicVoiceUrl, 0, 30, voiceLang);
     logInfo(`[Suno Voice] Validation task created`, { taskId: validationResult.taskId, requestId });
 

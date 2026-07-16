@@ -167,6 +167,11 @@ const STATUS_LABELS: Record<string, string> = {
   delivered: '🎁 Entregue',
 };
 
+function cap(str: string): string {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
 function StatusBadge({ status }: { status: string }) {
   const colorClass = STATUS_COLORS[status] || 'bg-stone-700/50 text-stone-400 border-stone-700';
   const label = STATUS_LABELS[status] || status;
@@ -1700,7 +1705,7 @@ export default function AdminPanel() {
                                         <div><p className="text-stone-500 text-[9px]">Ocasião</p><p className="text-stone-200 mt-0.5">{req.occasion || '—'}</p></div>
                                         <div><p className="text-stone-500 text-[9px]">Estilo</p><p className="text-stone-200 mt-0.5">{req.music_style}</p></div>
                                         <div><p className="text-stone-500 text-[9px]">Voz</p><p className="text-stone-200 mt-0.5">{req.voice_type}</p></div>
-                                        <div><p className="text-stone-500 text-[9px]">Idioma</p><p className="text-stone-200 mt-0.5">{req.language || 'português'}</p></div>
+                                        <div><p className="text-stone-500 text-[9px]">Idioma</p><p className="text-stone-200 mt-0.5">{cap(req.language || 'português')}</p></div>
                                         <div><p className="text-stone-500 text-[9px]">Emoção</p><p className="text-stone-200 mt-0.5">{req.desired_emotion || '—'}</p></div>
                                       </div>
                                       {(req.special_traits || req.memory || req.heart_message) && (
@@ -1726,7 +1731,7 @@ export default function AdminPanel() {
                                             <p className="text-stone-500 text-[9px] uppercase mb-1">Letra</p>
                                             <div className="bg-stone-950/50 rounded-lg p-2.5 border border-stone-800/50 max-h-32 overflow-y-auto">
                                               <p className="text-stone-400 text-[10px] leading-relaxed whitespace-pre-wrap font-mono">
-                                                {song.lyrics?.join('\n') || song.letter_text}
+                                                {song.lyrics?.length ? song.lyrics.join('\n') : song.letter_text || '—'}
                                               </p>
                                             </div>
                                           </div>

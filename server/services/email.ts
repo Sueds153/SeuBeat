@@ -81,7 +81,7 @@ export async function sendPersonalizedEmail(emailAddress: string, recipientName:
       <div style="background-color: #1c1917; border: 1px solid #44403c; border-radius: 12px; padding: 20px; text-align: left; margin-bottom: 30px;">
         <span style="font-size: 10px; font-family: monospace; color: #f59e0b; display: block; margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase;">Trecho da Carta Dedicatória:</span>
         <p style="font-size: 13px; font-style: italic; color: #a8a29e; line-height: 1.5; margin: 0;">
-          "${safeStr(letterText).length > 140 ? safeStr(letterText).substring(0, 140) + '...' : safeStr(letterText)}"
+          "${safeStr(letterText).length > 300 ? safeStr(letterText).substring(0, 300) + '...' : safeStr(letterText)}"
         </p>
       </div>
 
