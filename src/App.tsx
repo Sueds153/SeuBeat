@@ -6,6 +6,8 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import LandingPage from './components/LandingPage';
 import SocialProof from './components/SocialProof';
+import TermsPage from './components/TermsPage';
+import PrivacyPage from './components/PrivacyPage';
 import { useMetaPixel } from './hooks/useMetaPixel';
 import { fbPageView } from './lib/metaPixel';
 
@@ -16,12 +18,18 @@ const AdminPanel = lazy(() => import('./components/AdminPanel'));
 export default function App() {
   useMetaPixel();
 
-  const [currentView, setCurrentView] = useState<'landing' | 'wizard' | 'song' | 'admin'>(() => {
+  const [currentView, setCurrentView] = useState<'landing' | 'wizard' | 'song' | 'admin' | 'terms' | 'privacy'>(() => {
     if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
       return 'admin';
     }
     if (window.location.pathname.includes('/song/')) {
       return 'song';
+    }
+    if (window.location.pathname === '/terms') {
+      return 'terms';
+    }
+    if (window.location.pathname === '/privacy') {
+      return 'privacy';
     }
     return 'landing';
   });
@@ -42,10 +50,15 @@ export default function App() {
   // Handle browser back navigation or dynamic path change
   useEffect(() => {
     const handleLocationChange = () => {
-      if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
+      const path = window.location.pathname;
+      if (path === '/admin' || path === '/admin/') {
         setCurrentView('admin');
-      } else if (window.location.pathname.includes('/song/')) {
+      } else if (path.includes('/song/')) {
         setCurrentView('song');
+      } else if (path === '/terms') {
+        setCurrentView('terms');
+      } else if (path === '/privacy') {
+        setCurrentView('privacy');
       } else if (currentViewRef.current === 'song' || currentViewRef.current === 'admin') {
         setCurrentView('landing');
       }
@@ -72,6 +85,14 @@ export default function App() {
       <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
     </div>
   );
+
+  // Static pages (no suspense needed)
+  if (currentView === 'terms') {
+    return <TermsPage onBackToLanding={backToLanding} />;
+  }
+  if (currentView === 'privacy') {
+    return <PrivacyPage onBackToLanding={backToLanding} />;
+  }
 
   // Admin route
   if (currentView === 'admin') {

@@ -13,3 +13,5 @@ export { default as Testimonials } from './Testimonials';
 export { default as VideoTestimonial } from './VideoTestimonial';
 export { default as FAQ } from './FAQ';
 export { default as ErrorBoundary } from './ErrorBoundary';
+export { default as TermsPage } from './TermsPage';
+export { default as PrivacyPage } from './PrivacyPage';

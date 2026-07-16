@@ -479,8 +479,8 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
           {/* Links rápidos */}
           <div className="flex items-center gap-6 text-stone-400 font-medium">
-            <a href="/terms.html" className="hover:text-amber-400 transition-colors">Termos</a>
-            <a href="/privacy.html" className="hover:text-amber-400 transition-colors">Privacidade</a>
+            <a href="/terms" className="hover:text-amber-400 transition-colors">Termos</a>
+            <a href="/privacy" className="hover:text-amber-400 transition-colors">Privacidade</a>
             <a href="#faq-section" className="hover:text-amber-400 transition-colors">Ajuda</a>
           </div>
 
