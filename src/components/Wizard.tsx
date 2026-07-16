@@ -143,6 +143,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [proofPreviewUrl, setProofPreviewUrl] = useState<string>('');
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [paymentSubmitted, setPaymentSubmitted] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
   const [paymentSubmitError, setPaymentSubmitError] = useState<string>('');
   const [paymentTab, setPaymentTab] = useState<'atm' | 'express'>('express');
 
@@ -2221,10 +2222,13 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                             const data = await res.json();
                             if (data.status === 'approved') {
                               showToast('Pagamento confirmado! A sua música será entregue em breve.', 'success');
+                              setPaymentStatus('approved');
                             } else if (data.status === 'rejected') {
                               showToast('Pagamento rejeitado. Fale connosco pelo WhatsApp.', 'error');
+                              setPaymentStatus('rejected');
                             } else {
                               showToast('Pagamento ainda pendente. Voltamos a verificar mais tarde.', 'info');
+                              setPaymentStatus('pending');
                             }
                           } catch {
                             showToast('Erro ao verificar estado. Tente novamente.', 'error');
@@ -2257,55 +2261,98 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
             {/* Personalized Song Page generated success dashboard card — só após pagamento submetido */}
             {generatedShareUrl && paymentSubmitted && (
               <div className="bg-stone-950 rounded-2xl p-5 border border-stone-850 text-left max-w-md mx-auto space-y-4">
-                <div className="border-b border-stone-900 pb-2 flex items-center gap-2">
-                  <span className="text-xl">🎉</span>
-                  <div>
-                    <span className="text-[10px] text-amber-500 font-mono block uppercase tracking-wider font-extrabold">PÁGINA DEDICADA GERADA</span>
-                    <h4 className="text-stone-100 font-serif text-sm font-bold">Dedicatória com som completo ativa!</h4>
-                  </div>
-                </div>
+                {paymentStatus === 'approved' ? (
+                  <>
+                    <div className="border-b border-stone-900 pb-2 flex items-center gap-2">
+                      <span className="text-xl">🎉</span>
+                      <div>
+                        <span className="text-[10px] text-amber-500 font-mono block uppercase tracking-wider font-extrabold">PÁGINA DEDICADA GERADA</span>
+                        <h4 className="text-stone-100 font-serif text-sm font-bold">Dedicatória com som completo ativa!</h4>
+                      </div>
+                    </div>
 
-                <p className="text-stone-400 text-xs leading-relaxed">
-                  Criámos um link único e exclusivo com a carta polida, o leitor de música unlocked sem limites e downloads do ficheiro original em MP3.
-                </p>
+                    <p className="text-stone-400 text-xs leading-relaxed">
+                      Criámos um link único e exclusivo com a carta polida, o leitor de música unlocked sem limites e downloads do ficheiro original em MP3.
+                    </p>
 
-                {/* Shared URL copy field */}
-                <div className="bg-stone-900 p-3 rounded-xl border border-stone-800 flex items-center justify-between gap-3 text-xs">
-                  <span className="text-amber-400 font-mono truncate select-all flex-1">{generatedShareUrl}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(generatedShareUrl);
-                      setCopiedText('referencia');
-                      setTimeout(() => setCopiedText(null), 2000);
-                    }}
-                    className="p-1.5 text-stone-400 hover:text-amber-400 hover:bg-stone-950 rounded-lg transition-colors cursor-pointer"
-                    title="Copiar link"
-                  >
-                    {copiedText === 'referencia' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  </button>
-                </div>
+                    {/* Shared URL copy field */}
+                    <div className="bg-stone-900 p-3 rounded-xl border border-stone-800 flex items-center justify-between gap-3 text-xs">
+                      <span className="text-amber-400 font-mono truncate select-all flex-1">{generatedShareUrl}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(generatedShareUrl);
+                          setCopiedText('referencia');
+                          setTimeout(() => setCopiedText(null), 2000);
+                        }}
+                        className="p-1.5 text-stone-400 hover:text-amber-400 hover:bg-stone-950 rounded-lg transition-colors cursor-pointer"
+                        title="Copiar link"
+                      >
+                        {copiedText === 'referencia' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
 
-                {/* Email notification — enviado apenas após verificação do pagamento */}
-                <div className="text-xs pt-1 flex items-center gap-2">
-                  <Mail className="w-3.5 h-3.5 text-amber-500" />
-                  <span className="text-stone-400 font-mono text-xxs uppercase">
-                    Email com o link será enviado após verificação do pagamento
-                  </span>
-                </div>
+                    {/* Email notification */}
+                    <div className="text-xs pt-1 flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="text-stone-400 font-mono text-xxs uppercase">
+                        O link foi enviado para o seu e-mail de registo
+                      </span>
+                    </div>
 
-                {/* Web redirection button */}
-                <div className="pt-2">
-                  <a
-                    href={generatedShareUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="py-3 px-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-95 text-stone-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 tracking-wide uppercase cursor-pointer text-center w-full shadow-lg"
-                  >
-                    <span>💝 Ver prévia da dedicatória de {formData.recipientName.split(' ')[0]}</span>
-                    <ArrowRight className="w-4 h-4 text-stone-950" />
-                  </a>
-                </div>
+                    {/* Web redirection button */}
+                    <div className="pt-2">
+                      <a
+                        href={generatedShareUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="py-3 px-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-95 text-stone-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 tracking-wide uppercase cursor-pointer text-center w-full shadow-lg"
+                      >
+                        <span>💝 Ver dedicatória de {formData.recipientName.split(' ')[0]}</span>
+                        <ArrowRight className="w-4 h-4 text-stone-950" />
+                      </a>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="border-b border-stone-900 pb-2 flex items-center gap-2">
+                      <span className="text-xl">⏳</span>
+                      <div>
+                        <span className="text-[10px] text-amber-500 font-mono block uppercase tracking-wider font-extrabold">PÁGINA DEDICADA RESERVADA</span>
+                        <h4 className="text-stone-100 font-serif text-sm font-bold">Aguardando confirmação do pagamento</h4>
+                      </div>
+                    </div>
+
+                    <p className="text-stone-400 text-xs leading-relaxed">
+                      O seu link exclusivo foi reservado com sucesso. Assim que a nossa equipa validar o comprovativo, a música completa será desbloqueada e enviaremos o acesso por e-mail.
+                    </p>
+
+                    {/* Shared URL copy field */}
+                    <div className="bg-stone-900 p-3 rounded-xl border border-stone-800 flex items-center justify-between gap-3 text-xs">
+                      <span className="text-amber-400 font-mono truncate select-all flex-1">{generatedShareUrl}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(generatedShareUrl);
+                          setCopiedText('referencia');
+                          setTimeout(() => setCopiedText(null), 2000);
+                        }}
+                        className="p-1.5 text-stone-400 hover:text-amber-400 hover:bg-stone-950 rounded-lg transition-colors cursor-pointer"
+                        title="Copiar link"
+                      >
+                        {copiedText === 'referencia' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+
+                    {/* Email notification */}
+                    <div className="text-xs pt-1 flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="text-stone-400 font-mono text-xxs uppercase">
+                        O link será ativado e enviado assim que o pagamento for aprovado
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -2335,6 +2382,10 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                     setRecordingSeconds(0);
                     setClonedVoiceFile(null);
                     setIsDone(false);
+                    setPaymentSubmitted(false);
+                    setPaymentStatus('pending');
+                    setProofFile(null);
+                    setProofPreviewUrl('');
                   }}
                 className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 rounded-xl text-xs font-bold shadow-lg shadow-amber-500/10 transition-all cursor-pointer"
               >
