@@ -2551,6 +2551,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                 id="create-new-song-success-btn"
                   onClick={() => {
                     localStorage.removeItem('seubeat_wizard_progress');
+                    sessionStorage.removeItem('seubeat_photo_base64');
                     wrappedSetFormData(INITIAL_WIZARD_DATA);
                     setStep(1);
                     setIsSubmitting(false);
