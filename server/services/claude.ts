@@ -89,7 +89,8 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: str
 
 function shouldRetryClaude(err: any) {
   const message = err?.message || String(err || '');
-  return /timeout|excedeu|JSON|malformada|429|500|502|503|504/i.test(message);
+  if (/429|quota|balance|credit/i.test(message)) return false;
+  return /timeout|excedeu|JSON|malformada|500|502|503|504/i.test(message);
 }
 
 export async function generateLyricsWithClaude(formData: any): Promise<LyricsComposition> {

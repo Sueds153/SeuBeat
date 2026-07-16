@@ -3,7 +3,7 @@ import { LyricsComposition } from './types';
 import { selectPrompt } from './prompts';
 import { logInfo, logError } from '../utils/logger';
 
-const GPT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
+const GPT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const GPT_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 60000);
 const GPT_MAX_ATTEMPTS = Number(process.env.OPENAI_MAX_ATTEMPTS || 2);
 
@@ -131,7 +131,7 @@ export async function generateLyricsWithGPT(formData: any): Promise<LyricsCompos
       logError(`[GPT] Erro na tentativa ${attempt}`, err);
 
       const message = err?.message || String(err || '');
-      if (!/timeout|excedeu|JSON|malformada|429|500|502|503|504|ETIMEDOUT|AbortError/i.test(message)) break;
+      if (!/timeout|excedeu|JSON|malformada|500|502|503|504|ETIMEDOUT|AbortError/i.test(message) || /429|quota|balance|credit/i.test(message)) break;
       if (attempt < GPT_MAX_ATTEMPTS) {
         await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
       }
