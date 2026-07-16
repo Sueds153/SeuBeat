@@ -5,7 +5,7 @@ import { getAdminSupabase, uploadToSupabase } from './supabase';
 import { downloadFile, createPreviewAudio } from './audio';
 import { querySunoTask, generateFullSong } from './suno';
 import { generateValidationPhrase, waitForValidationPhrase, createCustomVoice, waitForVoiceId, checkVoiceAvailability } from './suno-voice';
-import { sendPersonalizedEmail, sendConfirmationEmail } from './email';
+import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification, sendWorkflowFailedEmail } from './email';
 import { getAudioFileInfo, getAppUrl } from '../utils/helpers';
 import { logInfo, logWarn, logError } from '../utils/logger';
 import { RequestProgress } from './types';
@@ -381,6 +381,51 @@ export async function runBackgroundSunoWorkflow(
       .from('songs')
       .update({ mureka_status: 'failed' })
       .eq('id', songId);
+
+    // Rollback: reverter pagamento aprovado para 'failed'
+    try {
+      const { data: approvedPayments } = await supabase
+        .from('payments')
+        .select('id')
+        .eq('request_id', requestId)
+        .eq('status', 'approved');
+
+      if (approvedPayments && approvedPayments.length > 0) {
+        await supabase
+          .from('payments')
+          .update({ status: 'failed', notes: 'Revertido automaticamente — falha na geração Suno' })
+          .eq('request_id', requestId)
+          .eq('status', 'approved');
+        logWarn(`[Background Suno] Payment rollback: ${approvedPayments.length} pagamento(s) revertido(s) para 'failed'`, { requestId });
+      }
+    } catch (rollbackErr) {
+      logError('[Background Suno] Payment rollback failed', rollbackErr, { requestId });
+    }
+
+    // Notificar admin
+    try {
+      await sendAdminNotification(
+        'Falha na geração Suno — Pedido ' + requestId.slice(0, 8),
+        'Ocorreu um erro ao gerar a música no Suno.\n\nPedido: ' + requestId + '\nErro: ' + (err?.message || String(err))
+      );
+    } catch (emailErr) {
+      logError('[Background Suno] Admin notification failed', emailErr, { requestId });
+    }
+
+    // Notificar cliente
+    try {
+      const { data: failedRequest } = await supabase
+        .from('song_requests')
+        .select('email, recipient_name, users(email)')
+        .eq('id', requestId)
+        .single();
+      const userEmail = failedRequest?.email || (failedRequest?.users as any)?.email;
+      if (userEmail) {
+        await sendWorkflowFailedEmail(userEmail, failedRequest?.recipient_name || 'Cliente');
+      }
+    } catch (emailErr) {
+      logError('[Background Suno] Client notification failed', emailErr, { requestId });
+    }
   }
 }
 

@@ -170,3 +170,40 @@ export async function sendConfirmationEmail(emailAddress: string, recipientName:
     html: htmlContent,
   }, emailAddress);
 }
+
+function getAdminEmail(): string {
+  return process.env.ADMIN_EMAIL || 'suporte@seubeat.ao';
+}
+
+export async function sendAdminNotification(subject: string, message: string) {
+  const cfg = getConfig();
+  if (warnIfMissing(cfg)) return;
+  const transporter = createTransport();
+  await sendWithRetry(transporter, {
+    from: cfg.from,
+    to: getAdminEmail(),
+    subject: `[SeuBeat Admin] ${subject}`,
+    html: `<div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:600px;margin:0 auto">
+      <h2 style="color:#ef4444">⚠️ Notificação do Sistema</h2>
+      <pre style="background:#1c1917;color:#d6d3d1;padding:16px;border-radius:8px;font-size:13px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(message)}</pre>
+    </div>`
+  }, getAdminEmail());
+}
+
+export async function sendWorkflowFailedEmail(userEmail: string, recipientName: string) {
+  const cfg = getConfig();
+  if (warnIfMissing(cfg)) return;
+  const transporter = createTransport();
+  await sendWithRetry(transporter, {
+    from: cfg.from,
+    to: userEmail,
+    subject: 'A sua música está em pausa — SeuBeat',
+    html: `<div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
+      <h2 style="color:#f59e0b">ℹ️ A sua música está em pausa</h2>
+      <p>Olá ${safeStr(recipientName || 'Cliente')},</p>
+      <p>Ocorreu um erro inesperado ao gerar a sua música. A nossa equipa já foi notificada e estamos a trabalhar para resolver o mais rápido possível.</p>
+      <p>Não se preocupe — o seu pagamento foi revertido e não será cobrado. Entraremos em contacto por este email em breve.</p>
+      <p style="color:#78716c;font-size:12px;margin-top:24px;">SeuBeat Estúdio Angola</p>
+    </div>`
+  }, userEmail);
+}
