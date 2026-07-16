@@ -101,7 +101,7 @@ function applyFetchedSong(prev: SongDetails, dbSong: NonNullable<NonNullable<imp
     userNick,
     musicStyle: musicStyle as MusicStyleType,
     memory,
-    letter: dbSong.letter_text || dbSong.dedication_letter || prev.letter,
+    letter: dbSong.letter_text || prev.letter,
     songTitle: dbSong.title || prev.songTitle,
     lyrics: dbSong.lyrics || prev.lyrics,
     audioUrl: dbSong.audio_url || prev.audioUrl,

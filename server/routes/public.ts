@@ -445,7 +445,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       lyrics_snippet: songData.lyrics_snippet,
       regeneration_count: songData.regeneration_count,
       letter_text: songData.letter_text,
-      dedication_letter: songData.dedication_letter,
+
       duration: songData.duration,
       created_at: songData.created_at,
       updated_at: songData.updated_at,
@@ -487,10 +487,13 @@ router.put('/song/:id/lyrics', globalLimiter, async (req, res) => {
     const { data: existing } = await supabase.from('songs').select('id, request_id').eq('id', id).maybeSingle();
     if (!existing) return res.status(404).json({ error: 'Música não encontrada.' });
 
+    const rawLyrics = validation.data.lyrics;
+    const lyricsArray = Array.isArray(rawLyrics) ? rawLyrics : rawLyrics.split('\n').filter(l => l.trim().length > 0);
+
     const { error: updateError } = await supabase
       .from('songs')
       .update({
-        lyrics: sanitize(validation.data.lyrics),
+        lyrics: lyricsArray,
         lyrics_snippet: validation.data.lyrics_snippet ? sanitize(validation.data.lyrics_snippet) : null,
         updated_at: new Date().toISOString()
       })

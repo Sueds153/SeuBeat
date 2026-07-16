@@ -13,6 +13,11 @@ import SongShare from './SongShare';
 import WhatsAppHelp from './WhatsAppHelp';
 import LogoIcon from './LogoIcon';
 
+function capitalize(str: string): string {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
 interface PersonalizedSongPageProps {
   onBackToLanding: () => void;
 }
@@ -72,7 +77,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
 `================================================
 DEDICATÓRIA DE AMOR SEUBEAT
 Música: ${songDetails.recipientName} (Canção de Amor)
-Género: ${songDetails.musicStyle}
+Género: ${capitalize(songDetails.musicStyle)}
 Autor: ${songDetails.userNick}
 Para: ${songDetails.recipientName} (${songDetails.recipientNick})
 ================================================
@@ -196,7 +201,7 @@ Angola ${(new Date().getFullYear())}
             {songDetails.songTitle || `Música de ${songDetails.recipientName}`} 💝
           </h1>
           <p className="text-xs md:text-sm text-stone-400 font-mono tracking-wide uppercase">
-            Criada poéticamente no estilo <span className="text-amber-400 font-bold">{songDetails.musicStyle}</span> por <span className="text-rose-400 font-bold">{songDetails.userNick}</span>
+            Criada poéticamente no estilo <span className="text-amber-400 font-bold">{capitalize(songDetails.musicStyle)}</span> por <span className="text-rose-400 font-bold">{songDetails.userNick}</span>
           </p>
         </div>
 

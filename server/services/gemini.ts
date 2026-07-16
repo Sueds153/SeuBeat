@@ -24,7 +24,8 @@ O JSON gerado deve obrigatoriamente seguir esta estrutura:
     "linha 1 do refrão...",
     "linha 2 do refrão..."
   ],
-  "letterText": "Dedicatória curta (2-3 frases) em prosa, sem repetir a letra."
+  "letterText": "Dedicatória curta (2-3 frases) em prosa, sem repetir a letra.",
+  "lyricsSnippet": "Pequeno trecho da letra (máx 200 caracteres) para pré-visualização."
 }`;
 
 function repairTruncatedJSON(text: string): string {

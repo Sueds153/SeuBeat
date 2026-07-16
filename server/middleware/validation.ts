@@ -73,8 +73,13 @@ export type GenerateLyricsInput = z.infer<typeof GenerateLyricsSchema>;
 // PUT /api/song/:id/lyrics
 // ─────────────────────────────────────────────────────────────────────────────
 
+const lyricsStringOrArray = z.union([
+  z.string().min(10, 'A letra deve ter pelo menos 10 caracteres').max(5000, 'Letra muito longa').trim(),
+  z.array(z.string()).min(1, 'A letra deve ter pelo menos uma linha').max(200, 'Letra muito longa')
+]);
+
 export const UpdateLyricsSchema = z.object({
-  lyrics: z.string().min(10, 'A letra deve ter pelo menos 10 caracteres').max(5000, 'Letra muito longa').trim(),
+  lyrics: lyricsStringOrArray,
   lyrics_snippet: z.string().max(500).trim().optional(),
 });
 
