@@ -4,18 +4,17 @@
 Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + Suno API).
 
 ## Constraints & Preferences
-- Não quebrar nada existente — cada mudança validada com lint + testes (82 tests).
+- Não quebrar nada existente — cada mudança validada com lint + testes (118 tests).
 - Wizard.tsx e AdminPanel.tsx mantidos como estão (2296 e 1771 linhas) — risco de extração elevado, acordado manter.
 
 ## Progress
 ### Done
-- **Rate limiting** em `/api/generate-lyrics` (5 req/hora) já existente e funcional.
+- **Rate limiting** em `/api/generate-lyrics` (10 req/hora) já existente e funcional.
 - **Foto não perder no refresh**: sessionStorage guarda base64, restaurado ao recarregar.
 - **Página dedicatória sem `?id=`** bater na API: fallback `seubeat_last_song_id`; mostra "não encontrada".
 - **ErrorBanner + Toast** para erros no frontend.
 - **Logger estruturado** Winston com níveis e rotação.
 - **WizardSteps.tsx** extraído (Wizard.tsx caiu de 2865→2296 linhas).
-- **120 testes** (validation, validation-frontend, email-utils, suno-utils, SongPlayer, song-api, useAudioPlayer, smoke, AdminPanel).
 - **Logging personaId** adicionado em start e continue (truncado + payload).
 - **DedicationPage fetch** com AbortController (10s timeout) + race condition `notFound`/`fetchError` corrigida.
 - **Fase 1a**: Constantes `PRICING_PLANS`, `DEMO_SONGS` extraídas de `types.ts` para `src/constants/`.
@@ -24,7 +23,6 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Fase 1d**: `PersonalizedSongPage.tsx` de ~760→~300 linhas, 4 subcomponentes extraídos (`SongPlayer`, `SongLyrics`, `SongLetter`, `SongShare`).
 - **Fase 3a**: `server/config/env.ts`, `server/config/app.ts`, `server/middleware/security.ts` extraídos. `server.ts` de 121→20 linhas.
 - **Fase 3b**: Barrel exports (`index.ts`) em todas as pastas.
-- **Commit histórico**: `e01c7b4` com todas as fases 1-3.
 - **Separação do Supabase client**: `getSupabase()` renomeado para `getAdminSupabase()`, novo `getPublicSupabase()` com anon key.
 - **GET /api/song/:id** movido para public client (RLS respeitado, blast radius reduzido).
 - **Signed URL** de `full-audio` gerado com admin client (não expõe bucket privado ao anon key).
@@ -34,22 +32,24 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Admin IP-restrição** via `ADMIN_ALLOWED_IPS` env var (opcional, fallback para password).
 - **CI pipeline**: `.github/workflows/ci.yml` corre lint + testes em push/PR.
 - **Validação frontend com Zod**: schemas partilhados, erros inline nos WizardSteps (mensagens vermelhas por campo).
-- **Testes React**: SongPlayer (7 testes), useAudioPlayer (4 testes), song-api (4 testes), validation-frontend (11 testes).
-- **Commit**: `27538ef` com todas as melhorias de segurança e testes.
-
-### Done (latest)
 - **5 melhorias no Admin Panel**: confirmação antes de aprovar/rejeitar, barra de progresso funcional, clientes corrigido, search nos pagamentos, undo com audit log.
-- **Bugfix: Ocasião "Declaração de amor" partida**: frontend (`Wizard.tsx`) enviava `"Declaração de amor"` mas backend esperava `"declaração"`. Fix: type do card alterado para `"Declaração"`.
-- **Telefone aceita formato internacional**: regex do server-side validation atualizado para aceitar `+`, espaços, `()`, `-`.
-- **Mensagens de erro 500 melhoradas**: `publicErrorMessage` agora captura erros de auth (401/403), bucket storage, rate-limit, créditos insuficientes, etc.
-- **Sentry MCP configurado**: `opencode.json` com `@sentry/mcp-server` via STDIO (+ env var `SENTRY_ACCESS_TOKEN`).
-- **API testadas**: Suno ✅ (26 créditos), Brevo SMTP ✅, Claude ❌ (sem créditos), Supabase ✅.
-- **Env vars actualizadas no Render**: ANTHROPIC_API_KEY (PUT API + redeploy).
-- **AdminPanel 25 testes a passar**: fixes — confirm dialog texto correcto (`pretende`), `window.confirm` mockado, toast/expand verificados via `body.textContent` (AnimatePresence não renderiza texto pesquisável em jsdom).
+- **Bugfix: Ocasião "Declaração de amor" partida**: type do card alterado para `"Declaração"`.
+- **Telefone aceita formato internacional**: regex do server-side validation aceita `+`, espaços, `()`, `-`.
+- **Mensagens de erro 500 melhoradas**: `publicErrorMessage` captura erros de auth (401/403), bucket storage, rate-limit, créditos insuficientes, etc.
+- **Sentry MCP configurado** em `opencode.json`.
+- **Bugfix: FK `users_id_fkey` removida** — impedia criação de novos users.
+- **DEFAULT gen_random_uuid()** adicionado a `public.users.id`.
+- **8 correcções de inconsistências**: ecrã branco na pool, campos dropados na IA, dead code, voice cloning check com JSON.parse, reset de `submissionStartedRef` (`89a45a2`).
+- **Scheduler de entrega 24h para Standard**: `deliveryScheduler.ts` corre a cada 10min, transiciona `approved→delivered`, envia email. Migration executada no Supabase produção (`49fd7fb` + migration manual).
+- **11 correcções no fluxo wizard-pagamento-entrega**: API response shape (`{success, data}`), stale status no auto-delivery, idempotência nos 3 caminhos de entrega, email antes do status update, `approved` em `VALID_STATUSES`, `sendConfirmationEmail` contextual, `deliver_at` consistente, endpoint `/send-email` removido (era spam vector), schema `deliver_at/deleted_at` versionado (`0b32f4d`).
+- **Migration SQL**: `supabase_migration_scheduler.sql` com `ADD COLUMN IF NOT EXISTS` + índice.
 
-### Done (latest)
-- **Bugfix: Criação de user partida em produção**: erro `"Nao foi possivel criar o seu perfil."` impedia todo o wizard. A raiz era uma FK `users_id_fkey` auto-referenciada em `public.users(id)` (provavelmente `FOREIGN KEY (id) REFERENCES users(id)`) que impedia QUALQUER novo insert na tabela `public.users`. Também impedia `auth.admin.createUser()` (mesmo erro FK). Fix: `DROP CONSTRAINT users_id_fkey` no Supabase produção. Código `ensureUserProfile()` não precisou de alterações. `DEFAULT gen_random_uuid()` adicionado a `public.users.id` para robustez.
-- **120 testes**: todos passam (vitest).
+## AI Providers (Ordem de fallback)
+1. **OpenAI** (`gpt-4o-mini`) — tentado primeiro
+2. **Gemini** (`gemini-2.5-flash`) — tentado segundo
+3. **Claude** (`claude-3-5-sonnet-20241022`) — tentado último
+
+Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos), a próxima é tentada automaticamente. Se todas falharem, o utilizador vê: *"O saldo de créditos da API de geração de letras está esgotado."*
 
 ## Sentry SDK (Monitorização de Erros)
 - **Versão**: `@sentry/node` e `@sentry/react` v10.62.0
@@ -57,44 +57,56 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
   - `browserTracingIntegration()` — page load + navegação
   - `replayIntegration()` — Session Replay (10% sessões, 100% em erro)
   - `reactErrorHandler()` nas 3 opções do `createRoot` (React 19)
-- **Backend**: Inicializado em `server.ts` (antes de qualquer middleware)
+- **Backend**: Inicializado em `server.ts`
   - `setupExpressErrorHandler(app)` após todas as rotas em `app.ts`
   - `tracesSampleRate: 0.1` em produção
-- **ErrorBoundary.tsx**: mantém UI fallback com WhatsApp Help; erro capturado pelo React 19 → `reactErrorHandler()`
-- **Ativar**: Adicionar `SENTRY_DSN` e `VITE_SENTRY_DSN` nas env vars do Render
-- **Source maps**: `sourcemap: 'hidden'` no Vite. Para upload automático, instalar `@sentry/vite-plugin`, adicionar `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`
-- **MCP (Model Context Protocol)**: Configurado em `opencode.json` via STDIO com token de acesso para AI agents consultarem issues/eventos. Org: `sugolden`, Project: `javascript-react`. Token lido da env var `SENTRY_ACCESS_TOKEN` (não hardcoded).
+- **ErrorBoundary.tsx**: UI fallback com WhatsApp Help
+- **Source maps**: `sourcemap: 'hidden'` no Vite
+- **MCP**: Configurado via `opencode.json` (STDIO, token `SENTRY_ACCESS_TOKEN`). Org: `sugolden`, Project: `javascript-react`
 
 ## Key Decisions
-- **Wizard.tsx e AdminPanel.tsx mantidos** — acoplamento interno alto, refactor adiado. Files grandes não causam problemas operacionais.
-- **Helmet.js com CSP em produção**: configurado para permitir Supabase, Google Fonts, e assets self/blob/data/https.
-- **Zod no frontend**: usa os mesmos padrões do server-side validation mas com schemas separados em `src/lib/validation.ts`.
+- **Wizard.tsx e AdminPanel.tsx mantidos** — acoplamento interno alto, refactor adiado.
+- **Helmet.js com CSP em produção**: configurado para Supabase, Google Fonts, assets self/blob/data/https.
+- **Zod no frontend**: schemas partilhados em `src/lib/validation.ts` (separados do server).
 - **CI corre em ubuntu-latest com Node 22**, npm ci, lint, test.
 
+## Testes
+- **118 testes**, 10 ficheiros — todos passam (vitest + jsdom).
+- Distribuição: validation (18), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (11), SongPlayer (8), metaPixel (12), song-api (4), useAudioPlayer (4), smoke (1).
+- **Playwright E2E**: 12 testes (landing, wizard, dedication, admin).
+
 ## Next Steps
-1. **Recarregar créditos Anthropic** em https://console.anthropic.com/settings/billing — bloqueia geração de letras no wizard.
+1. **Rollback automático no Suno** — se workflow falhar após pagamento aprovado, reverter `payments.status` + notificar admin.
 2. **Custom domain** apontar `seubeat.ao` para Render.
 3. **E2E tests completos** com API reais (Wizard → pagamento → dedicatória).
-4. **Admin dashboard testes** — 25 testes passando.
 
 ## Critical Context
-- **120 testes passam sempre** após cada mudança (vitest).
+- **118 testes passam sempre** após cada mudança (vitest).
 - **Supabase**: `service_role` key usada apenas onde necessário (admin routes, auth.admin.*, workflows, signed URLs). Anon key usada no endpoint público de dedicatória.
-- **Supabase (produção)**: tinha FK `users_id_fkey` auto-referenciada em `public.users(id)` que impedia inserts — já removida.
+- **AI providers**: OpenAI + Gemini + Claude configurados. Fallback automático se um falhar.
+- **Suno**: API key configurada, 500+ créditos. `deliveryScheduler.ts` para entregas Standard.
 - **Render** faz auto-deploy a cada push no `main`.
 - **CI pipeline**: GitHub Actions corre `npm run lint` e `npm test` antes do deploy.
+- **Migration aplicada**: `deliver_at`, `delivered_at`, `deleted_at` + índice no Supabase produção.
 
 ## Relevant Files
 - `server/services/supabase.ts`: `getAdminSupabase()`, `getPublicSupabase()`, `uploadToSupabase()`.
-- `supabase_setup.sql`: Setup SQL original **desatualizado** face ao schema real de produção (falta `DEFAULT gen_random_uuid()` em `id`, coluna `number` extra, FK `users_id_fkey`).
+- `server/services/deliveryScheduler.ts`: scheduler de entrega 24h (10min interval).
+- `server/services/workflow.ts`: orquestração Suno + transições de status.
+- `server/services/email.ts`: `sendPersonalizedEmail`, `sendConfirmationEmail`, `sendPaymentRejectionEmail`.
+- `server/services/ai.ts`: orquestrador de providers (OpenAI → Gemini → Claude).
+- `server/routes/public.ts`: rotas públicas (wizard, pagamento, dedicatória).
+- `server/routes/admin.ts`: painel admin + aprovação/rejeição + cron.
 - `server/middleware/security.ts`: Helmet, CORS, logger.
-- `server/middleware/adminIpRestriction.ts`: IP whitelist opcional para admin.
+- `server/middleware/adminIpRestriction.ts`: IP whitelist opcional.
 - `server/utils/audit.ts`: log de acções admin para undo.
+- `server/utils/helpers.ts`: `publicErrorMessage`, `getAppUrl`.
+- `supabase_setup.sql`: Setup SQL original **desatualizado** face ao schema real.
+- `supabase_migration_scheduler.sql`: Migration com `deliver_at`, `delivered_at`, `deleted_at`, índice.
 - `.github/workflows/ci.yml`: CI pipeline (lint + test + e2e).
 - `vitest.config.ts`: config jsdom + React plugin.
-- `src/lib/validation.ts`: Zod schemas partilhados para frontend.
-- `src/components/WizardSteps.tsx`: inline validation errors via `fieldErrors` prop.
-- `src/components/WhatsAppHelp.tsx`: botão de ajuda WhatsApp reutilizável.
-- `src/constants/whatsapp.ts`: constantes WhatsApp (número, URL, mensagens).
-- `e2e/`: 12 testes Playwright (landing, wizard, dedication, admin).
+- `src/lib/validation.ts`: Zod schemas partilhados (frontend).
+- `src/components/WizardSteps.tsx`: erros inline via `fieldErrors`.
+- `src/components/WhatsAppHelp.tsx`: botão de ajuda WhatsApp.
+- `e2e/`: 12 testes Playwright.
 - `playwright.config.ts`: config Chromium headless + webServer.
