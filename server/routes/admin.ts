@@ -734,6 +734,11 @@ router.post('/request/:id/resend-email', adminAuth, async (req, res) => {
     const songData = firstRelated(requestData?.songs);
     if (!requestData || !songData || !requestData.users?.email) return res.status(404).json({ error: 'Dados insuficientes.' });
 
+    const deliverableStatuses = ['delivered', 'approved', 'music_ready'];
+    if (!deliverableStatuses.includes(requestData.status)) {
+      return res.status(400).json({ error: `Estado "${requestData.status}" não permite reenvio de email.` });
+    }
+
     const slug = (requestData.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
     const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
     await sendPersonalizedEmail(requestData.users.email, requestData.recipient_name, personalizedUrl, songData.letter_text || 'Dedicatória.');
@@ -834,7 +839,27 @@ router.post('/song/:id/upload-audio', adminAuth, async (req, res) => {
     await supabase.from('songs').update({ audio_url: fullAudioUrl, full_song_url: fullAudioUrl, mureka_status: 'completed', preview_url: previewUrl }).eq('id', id);
     const { data: songData } = await supabase.from('songs').select('request_id').eq('id', id).single();
     if (songData?.request_id) {
-      await supabase.from('song_requests').update({ status: 'music_ready' }).eq('id', songData.request_id);
+      const { data: approvedPayment } = await supabase
+        .from('payments')
+        .select('id, plan, created_at')
+        .eq('request_id', songData.request_id)
+        .eq('status', 'approved')
+        .maybeSingle();
+      if (approvedPayment) {
+        const isStandard = (approvedPayment as any).plan === 'standard';
+        const paymentCreatedAt = (approvedPayment as any).created_at || new Date().toISOString();
+        const deliverAt = isStandard ? new Date(new Date(paymentCreatedAt).getTime() + 24 * 60 * 60 * 1000).toISOString() : null;
+        await supabase
+          .from('song_requests')
+          .update({
+            status: isStandard ? 'approved' : 'delivered',
+            deliver_at: deliverAt,
+            final_mixed_audio_url: fullAudioUrl
+          })
+          .eq('id', songData.request_id);
+      } else {
+        await supabase.from('song_requests').update({ status: 'music_ready' }).eq('id', songData.request_id);
+      }
     }
     res.json({ success: true });
   } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
@@ -1017,7 +1042,7 @@ router.get('/metrics', adminAuth, async (req, res) => {
 
     const [requestsRes, paymentsRes, songsRes] = await Promise.all([
       supabase.from('song_requests').select('id, status, created_at, music_style', { count: 'exact' }),
-      supabase.from('payments').select('id, status, amount, plan, created_at, approved_at'),
+      supabase.from('payments').select('id, request_id, status, amount, plan, created_at, approved_at'),
       supabase.from('songs').select('id, created_at, request_id')
     ]);
 
@@ -1027,7 +1052,7 @@ router.get('/metrics', adminAuth, async (req, res) => {
 
     // Conversion rate
     const totalRequests = requests.length;
-    const paidRequests = new Set(payments.filter(p => p.status === 'approved').map(p => p.id)).size;
+    const paidRequests = new Set(payments.filter(p => p.status === 'approved' && p.request_id).map(p => p.request_id)).size;
     const conversionRate = totalRequests > 0 ? (paidRequests / totalRequests * 100).toFixed(1) : '0.0';
 
     // Average time to delivery
