@@ -28,7 +28,6 @@ type GenerationStatus =
   | 'lyrics_generating'
   | 'lyrics_ready'
   | 'music_processing'
-  | 'preview_available'
   | 'error';
 
 // Custom steps configuration with titles, subtitles, examples, and tips
@@ -116,17 +115,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingStage, setProcessingStage] = useState(0);
   const [rotatingMsgIndex, setRotatingMsgIndex] = useState(0);
-  const [showPreviewPage, setShowPreviewPage] = useState(() => {
-    try {
-      const saved = localStorage.getItem('seubeat_wizard_progress');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed?.showPreviewPage || false;
-      }
-    } catch {}
-    return false;
-  });
-  
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info'; id: number } | null>(null);
   
@@ -161,7 +149,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [hasRecorded, setHasRecorded] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [clonedVoiceFile, setClonedVoiceFile] = useState<File | null>(null);
-  const [copiedText, setCopiedText] = useState<'entidade' | 'referencia' | null>(null);
+  const [copiedText, setCopiedText] = useState<'entidade' | 'referencia' | 'link' | null>(null);
   const [isDone, setIsDone] = useState(() => {
     try {
       const saved = localStorage.getItem('seubeat_wizard_progress');
@@ -362,8 +350,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         generationStatus,
         previewAudioUrl,
         selectedPlanID,
-        voiceUpsellApplied,
-        showPreviewPage
+        voiceUpsellApplied
       }));
     } catch {}
   }, [
@@ -382,8 +369,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     generationStatus,
     previewAudioUrl,
     selectedPlanID,
-    voiceUpsellApplied,
-    showPreviewPage
+    voiceUpsellApplied
   ]);
 
   // Buscar dados Multicaixa do servidor
@@ -705,10 +691,8 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
         if (previewUrl && (requestStatus === 'music_ready' || song?.mureka_status === 'completed')) {
           setPreviewAudioUrl(previewUrl);
-          setGenerationStatus('preview_available');
           setProcessingStage(4);
           setIsSubmitting(false);
-          setShowPreviewPage(true);
           return true;
         }
 
@@ -813,7 +797,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           setDbSongId(data.dbSongId);
           setDbSongRequestId(data.dbSongRequestId);
           fbLead('lyrics_generated');
-          setShowPreviewPage(false);
 
           setGenerationStatus('lyrics_ready');
           setProcessingStage(3);
@@ -821,9 +804,9 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
           await pollSongUntilPreview(data.dbSongId);
           if (generationStatus !== 'error') {
-            setShowPreviewPage(false);
             showToast('Letra criada com sucesso! Reveja e edite se necessário.', 'success');
           }
+          submissionStartedRef.current = false;
         } catch (err: any) {
           console.error('Error generating AI lyrics:', err);
           setGenerationStatus('error');
@@ -959,9 +942,13 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     fetch(`/api/song/${dbSongId}?checkVoice=true`)
       .then(r => r.json())
       .then(d => {
-        if (d.elevenlabs_voice_id && d.elevenlabs_voice_id.includes('"failed"')) {
-          setVoiceCloningFailed(true);
-        }
+        try {
+          const voiceId = d.elevenlabs_voice_id;
+          if (voiceId && typeof voiceId === 'string') {
+            const parsed = JSON.parse(voiceId);
+            if (parsed?.failed === true) setVoiceCloningFailed(true);
+          }
+        } catch {}
       })
       .catch(() => {});
   }, [isDone, dbSongId]);
@@ -1054,7 +1041,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     } else {
       // Trigger Submitting / Composition simulation
       submissionStartedRef.current = false;
-      setShowPreviewPage(false);
       setPreviewAudioUrl('');
       setDbSongId('');
       setDbSongRequestId('');
@@ -1071,7 +1057,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     setDbSongId('');
     setDbSongRequestId('');
     setPreviewAudioUrl('');
-    setShowPreviewPage(false);
     setGenerationStatus('idle');
     setGenerationError('');
     setIsSubmitting(true);
@@ -1178,7 +1163,13 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     try {
       const res = await fetch(`/api/song/${dbSongId}/regenerate-lyrics`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          onlySheDoes: formData.onlySheDoes,
+          whereItHappened: formData.whereItHappened,
+          whyCreatedToday: formData.whyCreatedToday,
+          referenceArtist: formData.referenceArtist
+        })
       });
       const data = await res.json();
       if (data.success) {
@@ -1235,7 +1226,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       <div className="max-w-7xl mx-auto w-full flex-grow flex flex-col justify-center">
         
         {/* UPPER BRAND NAV */}
-        {!isSubmitting && !showPreviewPage && !isDone && !showVoiceCloningScreen && generationStatus === 'idle' && (
+        {!isSubmitting && !isDone && !showVoiceCloningScreen && generationStatus === 'idle' && (
           <div className="flex items-center justify-between pb-6 mb-8 border-b border-stone-900">
             <button 
               id="wizard-header-logo-btn"
@@ -1385,7 +1376,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           </motion.div>
         )}
 
-        {!isSubmitting && generationStatus === 'music_processing' && !showPreviewPage && (
+        {!isSubmitting && generationStatus === 'music_processing' && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -2453,13 +2444,13 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                         type="button"
                         onClick={() => {
                           navigator.clipboard.writeText(generatedShareUrl);
-                          setCopiedText('referencia');
+                          setCopiedText('link');
                           setTimeout(() => setCopiedText(null), 2000);
                         }}
                         className="p-1.5 text-stone-400 hover:text-amber-400 hover:bg-stone-950 rounded-lg transition-colors cursor-pointer"
                         title="Copiar link"
                       >
-                        {copiedText === 'referencia' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copiedText === 'link' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                       </button>
                     </div>
 
@@ -2524,7 +2515,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                     wrappedSetFormData(INITIAL_WIZARD_DATA);
                     setStep(1);
                     setIsSubmitting(false);
-                    setShowPreviewPage(false);
                     setAudioPlaying(false);
                     setAudioProgress(0);
                     setSelectedPlanID(null);
@@ -2554,7 +2544,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         )}
 
         {/* -------------------- FORM CONTAINER (THE 9 STEPS DESCRIPTIONS MAP) -------------------- */}
-        {!isSubmitting && !showPreviewPage && !isDone && !showVoiceCloningScreen && generationStatus === 'idle' && (
+        {!isSubmitting && !isDone && !showVoiceCloningScreen && generationStatus === 'idle' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Left Column: Form Content */}

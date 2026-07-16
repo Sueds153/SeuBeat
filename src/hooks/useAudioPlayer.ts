@@ -21,13 +21,8 @@ export function useAudioPlayer({ audioUrl, textFallback }: UseAudioPlayerOptions
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const getUrl = useCallback(() => {
-    if (audioUrl) return audioUrl;
-    if (textFallback) {
-      const encoded = encodeURIComponent(textFallback.substring(0, 300));
-      return `/api/speech-preview?text=${encoded}&voiceType=Dueto`;
-    }
-    return '';
-  }, [audioUrl, textFallback]);
+    return audioUrl || '';
+  }, [audioUrl]);
 
   useEffect(() => {
     return () => {

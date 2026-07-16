@@ -203,7 +203,9 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       recipientRelation,
       recipientNick,
       occasion,
+      whyCreatedToday,
       musicStyle,
+      referenceArtist,
       voiceType,
       photoBase64,
       photoFilename,
@@ -302,7 +304,9 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       recipientRelation: recipientRelation || 'Parceiro',
       recipientNick: recipientNick || '',
       occasion: occasion || 'Homenagem',
+      whyCreatedToday: whyCreatedToday || '',
       musicStyle: musicStyle || 'Kizomba',
+      referenceArtist: referenceArtist || '',
       voiceType: voiceType || 'Masculina',
       unforgettableMemory: unforgettableMemory || '',
       whatMakesSpecial: whatMakesSpecial || '',
@@ -547,18 +551,22 @@ router.post('/song/:id/regenerate-lyrics', generateLyricsLimiter, async (req, re
     const userData = await supabase.from('users').select('name').eq('id', sr.user_id).single();
     const userName = (userData.data as any)?.name || 'Autor';
 
+    const { onlySheDoes, whereItHappened, whyCreatedToday, referenceArtist } = req.body;
+
     const { result: parsedData } = await generateLyrics({
       userNick: userName,
       recipientName: sr.recipient_name || 'Destinatario',
       recipientRelation: sr.relationship || 'Parceiro',
       recipientNick: sr.recipient_nick || '',
       occasion: sr.occasion || 'Homenagem',
+      whyCreatedToday: whyCreatedToday || '',
       musicStyle: sr.music_style || 'Kizomba',
+      referenceArtist: referenceArtist || '',
       voiceType: sr.voice_type || 'Masculina',
       unforgettableMemory: sr.memory || '',
       whatMakesSpecial: sr.special_traits || '',
-      onlySheDoes: '',
-      whereItHappened: '',
+      onlySheDoes: onlySheDoes || '',
+      whereItHappened: whereItHappened || '',
       messageFromTheHeart: sr.heart_message || '',
       desiredEmotion: sr.desired_emotion || 'Emocionante',
       language: sr.language || 'português'
