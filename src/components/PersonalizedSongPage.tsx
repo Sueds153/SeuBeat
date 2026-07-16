@@ -320,6 +320,7 @@ Angola ${(new Date().getFullYear())}
         />
 
         <SongShare
+          songId={songDetails.id}
           recipientName={songDetails.recipientName}
           recipientNick={songDetails.recipientNick}
           userNick={songDetails.userNick}

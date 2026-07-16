@@ -3,6 +3,7 @@ import { fetchSongWithTimeout } from '../api/song';
 import { MusicStyleType } from '../types';
 
 export interface SongDetails {
+  id: string;
   recipientName: string;
   recipientNick: string;
   userNick: string;
@@ -39,6 +40,7 @@ function buildInitialFromParams(params: URLSearchParams, savedLocalPhoto: string
   }
 
   return {
+    id: '',
     recipientName: hpRecipientName || 'Alguém especial',
     recipientNick: hpRecipientNick || hpRecipientName || 'Alguém especial',
     userNick: hpUserNick || 'SeuBeat',
@@ -60,6 +62,7 @@ function buildInitialFromLocalStorage(savedLocalPhoto: string): SongDetails | nu
   try {
     const parsed = JSON.parse(lastCreatedJSON);
     return {
+      id: parsed.dbSongId || '',
       recipientName: parsed.recipientName || 'Alguém especial',
       recipientNick: parsed.recipientNick || parsed.recipientName || 'Alguém especial',
       userNick: parsed.userNick || 'SeuBeat',
@@ -96,6 +99,7 @@ function applyFetchedSong(prev: SongDetails, dbSong: NonNullable<NonNullable<imp
 
   return {
     ...prev,
+    id: dbSong.id || prev.id,
     recipientName,
     recipientNick: prev.recipientNick && prev.recipientNick !== 'Alguém especial' ? prev.recipientNick : recipientName,
     userNick,

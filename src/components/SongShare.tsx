@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Share2, Check } from 'lucide-react';
 
 interface SongShareProps {
+  songId: string;
   recipientName: string;
   recipientNick: string;
   userNick: string;
@@ -20,18 +21,8 @@ export default function SongShare(props: SongShareProps) {
   const [copiedType, setCopiedType] = useState<'link' | 'share' | null>(null);
 
   const getShareUrl = () => {
-    const p = new URLSearchParams();
-    p.set('recipientName', props.recipientName);
-    p.set('recipientNick', props.recipientNick);
-    p.set('userNick', props.userNick);
-    p.set('musicStyle', props.musicStyle);
-    p.set('memory', props.memory);
-    p.set('whereItHappened', props.whereItHappened);
-    p.set('letter', getFullComposedLetter(props));
-
-    return `${window.location.origin}/song/${encodeURIComponent(
-      props.recipientName.toLowerCase().replace(/\s+/g, '-')
-    )}?${p.toString()}`;
+    const slug = props.recipientName.toLowerCase().replace(/\s+/g, '-');
+    return `${window.location.origin}/song/${encodeURIComponent(slug)}?id=${props.songId}`;
   };
 
   const copyToClipboard = (type: 'link' | 'share') => {
