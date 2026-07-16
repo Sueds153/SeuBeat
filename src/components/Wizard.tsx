@@ -115,6 +115,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingStage, setProcessingStage] = useState(0);
   const [rotatingMsgIndex, setRotatingMsgIndex] = useState(0);
+  const [showProcessingWarning, setShowProcessingWarning] = useState(false);
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info'; id: number } | null>(null);
   
@@ -681,19 +682,22 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   // Processing message rotator while the real backend workflow runs.
   useEffect(() => {
     if (isSubmitting) {
+      setShowProcessingWarning(false);
       const rotateTimer = setInterval(() => {
         setRotatingMsgIndex((prev) => (prev + 1) % 4);
       }, 3000);
+      const warnTimer = setTimeout(() => setShowProcessingWarning(true), 30000);
 
       return () => {
         clearInterval(rotateTimer);
+        clearTimeout(warnTimer);
       };
     }
   }, [isSubmitting]);
 
   const pollCancelledRef = useRef(false);
 
-  const pollSongUntilPreview = async (songId: string, maxAttempts = 60) => {
+  const pollSongUntilPreview = async (songId: string, maxAttempts = 15) => {
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (pollCancelledRef.current) return false;
       if (attempt > 0) {
@@ -712,14 +716,14 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         }
 
         const song = await statusRes.json();
-        const requestStatus = song?.status;
-        const previewUrl = song?.preview_url;
+        const requestStatus = song?.data?.status;
+        const previewUrl = song?.data?.preview_url;
 
-        if (requestStatus === 'failed' || song?.mureka_status === 'failed') {
+        if (requestStatus === 'failed' || song?.data?.mureka_status === 'failed') {
           throw new Error('A geracao da musica falhou. Tente novamente.');
         }
 
-        if (previewUrl && (requestStatus === 'music_ready' || song?.mureka_status === 'completed')) {
+        if (previewUrl && (requestStatus === 'music_ready' || song?.data?.mureka_status === 'completed')) {
           setPreviewAudioUrl(previewUrl);
           setProcessingStage(4);
           setIsSubmitting(false);
@@ -1360,6 +1364,17 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
                 </motion.p>
               </AnimatePresence>
             </div>
+
+            {showProcessingWarning && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-xs text-amber-500 font-mono bg-amber-500/10 border border-amber-500/20 px-4 py-2 rounded-lg"
+              >
+                A geracao esta a demorar mais que o normal. Se continuar, 
+                tente novamente ou fale connosco no WhatsApp.
+              </motion.p>
+            )}
           </motion.div>
         )}
 
