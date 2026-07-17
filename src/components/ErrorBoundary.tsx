@@ -22,6 +22,11 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    const isChunkError = error.message.includes('dynamically imported module');
+    if (isChunkError) {
+      window.location.reload();
+      return;
+    }
     console.error('[ErrorBoundary]', error.message, error.stack, info.componentStack);
     fetch('/api/log-error', {
       method: 'POST',

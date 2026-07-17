@@ -1030,7 +1030,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       });
       const reader = new FileReader();
       reader.onloadend = () => {
-        sessionStorage.setItem('seubeat_photo_base64', reader.result as string);
+        try {
+          sessionStorage.setItem('seubeat_photo_base64', reader.result as string);
+        } catch {
+          // Foto demasiado grande para sessionStorage (quota excedida) — ignora
+        }
       };
       reader.readAsDataURL(file);
     }
