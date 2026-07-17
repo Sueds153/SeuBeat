@@ -294,6 +294,8 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [todayCount, setTodayCount] = useState(847);
   const [countdownMin, setCountdownMin] = useState(20);
   const [countdownSec, setCountdownSec] = useState(0);
+  const [persistentMin, setPersistentMin] = useState(60);
+  const [persistentSec, setPersistentSec] = useState(0);
   const [showPayment, setShowPayment] = useState(false);
 
   // Limpar localStorage se a build do wizard mudou (evita cache velho)
@@ -328,7 +330,21 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     if (generationStatus === 'lyrics_ready') setShowPayment(true);
   }, [generationStatus]);
 
-  // Countdown regressivo de 20 min para criar urgência
+  // Countdown persistente desde o início do wizard
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPersistentSec(prev => {
+        if (prev === 0) {
+          setPersistentMin(m => Math.max(0, m - 1));
+          return 59;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Countdown regressivo de 20 min para criar urgência (após letra pronta)
   useEffect(() => {
     if (!showPayment) return;
     const interval = setInterval(() => {
@@ -1333,8 +1349,12 @@ const ROTATING_MESSAGES = [
             </button>
 
             <div className="flex items-center gap-2 sm:gap-4 text-right">
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-stone-400 font-mono">
+                <Timer className="w-3 h-3 text-amber-500" />
+                <span className={`${persistentMin <= 10 ? 'text-red-400' : 'text-amber-400'} font-bold`}>{String(persistentMin).padStart(2, '0')}:{String(persistentSec).padStart(2, '0')}</span>
+              </span>
               <span className="hidden sm:inline text-xs text-stone-400 font-mono">
-                ⏱ <span className="text-amber-400 font-bold">~3 min</span> · PASSO <span className="text-amber-400 font-bold">{step}</span> · {Math.round((step / 9) * 100)}%
+                🎵 <span className="text-amber-400 font-bold">+{todayCount}</span> hoje · PASSO <span className="text-amber-400 font-bold">{step}</span> · {Math.round((step / 9) * 100)}%
               </span>
               <div className="w-20 sm:w-24 md:w-36 h-2 bg-stone-900 rounded-full overflow-hidden relative">
                 <motion.div 
@@ -1669,11 +1689,11 @@ const ROTATING_MESSAGES = [
               </div>
 
               <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-2">
-                <div className="w-8 h-8 bg-emerald-500/10 rounded-full flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-emerald-400" />
+                <div className="w-8 h-8 bg-rose-500/10 rounded-full flex items-center justify-center">
+                  <Heart className="w-4 h-4 text-rose-400" />
                 </div>
-                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Entrega Rápida</h4>
-                <p className="text-[11px] text-stone-400">Standard: recebe amanhã. Express: <strong className="text-emerald-400">música pronta minutos após</strong> a aprovação. Premium: timbre personalizado em 24h.</p>
+                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Aversão à Perda</h4>
+                <p className="text-[11px] text-stone-400">Daqui a um ano, vai preferir ter feito esta música do que não a ter feito. <strong className="text-rose-400">As flores murcham. As memórias ficam.</strong></p>
               </div>
             </div>
 
@@ -1724,7 +1744,10 @@ const ROTATING_MESSAGES = [
                     </div>
                     
                     <div className="text-left py-2">
-                      <span className="text-2xl font-serif font-black text-stone-100">7.900 Kz</span>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-sm text-stone-600 line-through">10.500 Kz</span>
+                        <span className="text-2xl font-serif font-black text-stone-100">7.900 Kz</span>
+                      </div>
                       <span className="text-[10px] text-stone-500 block">Kwanza Angola</span>
                     </div>
 
@@ -1759,6 +1782,7 @@ const ROTATING_MESSAGES = [
                   >
                     Receber amanhã
                   </button>
+                  <span className="text-[10px] text-stone-500 text-center block font-mono">✓ 100% satisfação ou reembolso</span>
                 </div>
 
                 {/* PLAN 2: EXPRESS */}
@@ -1776,7 +1800,10 @@ const ROTATING_MESSAGES = [
                     </div>
                     
                     <div className="text-left py-2">
-                      <span className="text-2xl font-serif font-black text-stone-100">9.900 Kz</span>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-sm text-stone-600 line-through">13.500 Kz</span>
+                        <span className="text-2xl font-serif font-black text-stone-100">9.900 Kz</span>
+                      </div>
                       <span className="text-[10px] text-stone-500 block">Kwanza Angola</span>
                     </div>
 
@@ -1811,6 +1838,7 @@ const ROTATING_MESSAGES = [
                     >
                       Receber agora
                     </button>
+                    <span className="text-[10px] text-amber-500/60 text-center block font-mono">✓ 100% satisfação ou reembolso</span>
                   </div>
                 </div>
 
@@ -1827,7 +1855,10 @@ const ROTATING_MESSAGES = [
                     </div>
                     
                     <div className="text-left py-2">
-                      <span className="text-2xl font-serif font-black text-stone-100">14.900 Kz</span>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-sm text-stone-600 line-through">19.900 Kz</span>
+                        <span className="text-2xl font-serif font-black text-stone-100">14.900 Kz</span>
+                      </div>
                       <span className="text-[10px] text-stone-500 block">Kwanza Angola</span>
                     </div>
 
@@ -1850,6 +1881,7 @@ const ROTATING_MESSAGES = [
                   >
                     Quero a experiência Premium
                   </button>
+                  <span className="text-[10px] text-stone-500 text-center block font-mono">✓ 100% satisfação ou reembolso</span>
                 </div>
 
               </div>

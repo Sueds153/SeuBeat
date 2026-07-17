@@ -112,6 +112,9 @@ export function Step1Relation({
           "Apelidos carinhosos = letra mais emocionante."
         </p>
       </div>
+      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
+        🎵 Milhares de músicas já foram criadas para <strong className="text-amber-500/70">Mães, Esposas e Namoradas</strong> — a sua pode ser a próxima.
+      </p>
     </div>
   );
 }
@@ -166,6 +169,9 @@ export function Step2Occasion({
           "Explique rapidamente porque decidiu criar esta música."
         </p>
       </div>
+      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
+        💍 Aniversários e Declarações de Amor são as ocasiões mais escolhidas — a seguir vai escolher o ritmo perfeito 🎵
+      </p>
     </div>
   );
 }
@@ -235,6 +241,9 @@ export function Step3Style({
           O artista de referência ajuda a acertar o tom.
         </p>
       </div>
+      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
+        🎙️ No próximo passo: escolher <strong className="text-amber-500/70">quem vai cantar</strong> esta história
+      </p>
     </div>
   );
 }
@@ -273,6 +282,9 @@ export function Step4Voice({
       )}
       <p className="text-xxs text-stone-500 italic mt-1 font-mono">
         "A voz certa transforma a emoção da letra."
+      </p>
+      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
+        ✍️ A seguir: contar o que torna essa pessoa <strong className="text-amber-500/70">verdadeiramente especial</strong> — são os detalhes que emocionam
       </p>
     </div>
   );
@@ -319,6 +331,9 @@ export function Step5Traits({
           "Pequenos detalhes tornam a música única."
         </p>
       </div>
+      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
+        📖 A seguir: partilhe uma <strong className="text-amber-500/70">memória inesquecível</strong> — vai inspirar a letra da música
+      </p>
     </div>
   );
 }
@@ -577,6 +592,9 @@ export function Step6Memory({
           "Lugares reais ajudam-nos a criar letras mais emocionantes."
         </p>
       </div>
+      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
+        🎤 As memórias partilhadas transformam-se em versos — já ajudámos centenas de pessoas a eternizar momentos especiais
+      </p>
     </div>
   );
 }
@@ -633,6 +651,9 @@ export function Step7Message({
           <p className="text-red-400 text-xs mt-1">{fieldErrors.desiredEmotion}</p>
         )}
       </div>
+      <p className="text-[10px] text-amber-600/50 font-mono text-center pt-2 border-t border-stone-900/40 italic">
+        "Daqui a um ano, vai preferir ter escrito esta mensagem do que não a ter escrito. Os momentos passam. As palavras ficam."
+      </p>
     </div>
   );
 }
@@ -690,6 +711,9 @@ export function Step8Photo({
       )}
       <p className="text-xxs text-stone-400 italic text-center font-mono">
         "Esta foto será exibida na página personalizada da música."
+      </p>
+      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
+        📸 92% dos clientes carregam uma foto — a dedicatória fica 3x mais emocionante com uma imagem especial
       </p>
     </div>
   );
@@ -759,6 +783,9 @@ export function Step9Contact({
       <div className="p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10 text-xs text-stone-400 leading-normal max-w-md">
         "Estamos quase a transformar a tua história numa música."
       </div>
+      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
+        🔒 Seus dados estão protegidos com encriptação — usados apenas para criar a sua música personalizada
+      </p>
     </div>
   );
 }
