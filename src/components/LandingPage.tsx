@@ -319,7 +319,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           </span>
           <span className="hidden sm:inline text-stone-800">|</span>
           <span className="flex items-center gap-2">
-            🎙️ <span>Vozes Naturais com IA Avançada</span>
+            🎙️ <span>Vozes Reais com Timbre Profissional</span>
           </span>
         </div>
       </div>
