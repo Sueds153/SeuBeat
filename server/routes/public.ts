@@ -704,7 +704,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       .eq('id', songRequestId);
     if (requestUpdateError) throw requestUpdateError;
 
-    const { error: paymentError } = await supabase.from('payments').insert([{
+    const { data: paymentRecord, error: paymentError } = await supabase.from('payments').insert([{
       request_id: songRequestId,
       user_email: userEmail,
       plan,
@@ -713,10 +713,10 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       proof_path: proofPath,
       proof_filename: proofFilename || proofPath?.split('/').pop() || null,
       status: 'pending_verification'
-    }]);
+    }]).select('id').single();
     if (paymentError) throw paymentError;
 
-    res.json({ success: true });
+    res.json({ success: true, paymentId: paymentRecord?.id });
   } catch (err: any) {
     res.status(500).json({ error: safeMessage(err) });
   }

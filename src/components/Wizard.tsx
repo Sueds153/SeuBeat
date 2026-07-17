@@ -525,7 +525,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
             const data = await res.json();
             if (res.ok && data.success) {
               setPaymentSubmitError('');
-              fbPurchase(selectedPlanID || 'standard', parsePrice(getPrice()));
+              fbPurchase(selectedPlanID || 'standard', parsePrice(getPrice()), 'AOA', data.paymentId);
             } else if (res.status === 409) {
               setPaymentSubmitError('');
             } else {

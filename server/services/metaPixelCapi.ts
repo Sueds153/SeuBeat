@@ -47,6 +47,7 @@ export async function sendPurchaseEvent(params: {
           value,
           currency,
           content_name: contentName,
+          content_type: 'product',
         },
         action_source: 'website',
         event_source_url: eventSourceUrl || getEnv('APP_URL', 'https://seubeat.ao'),

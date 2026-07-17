@@ -73,9 +73,9 @@ export function fbLead(contentName?: string): void {
   window.fbq('track', 'Lead', { content_name: contentName });
 }
 
-export function fbPurchase(plan?: string, value?: number, currency: string = 'AOA'): void {
+export function fbPurchase(plan?: string, value?: number, currency: string = 'AOA', eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
-  window.fbq('track', 'Purchase', { content_name: plan, value, currency });
+  window.fbq('track', 'Purchase', { content_name: plan, value, currency, content_type: 'product' }, { eventID });
 }
 
 export { parsePrice };
