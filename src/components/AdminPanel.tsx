@@ -278,6 +278,9 @@ export default function AdminPanel() {
   const [songSearchFilter, setSongSearchFilter] = useState<'all' | 'title' | 'recipient' | 'email' | 'phone' | 'style' | 'status'>('all');
   const [songSort, setSongSort] = useState('created_at_desc');
   const [songPage, setSongPage] = useState(1);
+  const [reqStatusFilter, setReqStatusFilter] = useState('');
+  const [payStatusFilter, setPayStatusFilter] = useState('');
+  const [songStatusFilter, setSongStatusFilter] = useState('');
   const PER_PAGE = 20;
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -604,11 +607,13 @@ export default function AdminPanel() {
     return () => { if (viewPollRef.current) clearInterval(viewPollRef.current); };
   }, [authenticated, pollCurrentView]);
 
-  useEffect(() => { setReqPage(1); }, [searchQuery]);
-  useEffect(() => { setPayPage(1); }, [paymentSearchQuery]);
+  useEffect(() => { setReqPage(1); }, [searchQuery, reqStatusFilter]);
+  useEffect(() => { setPayPage(1); }, [paymentSearchQuery, payStatusFilter]);
+  useEffect(() => { setSongPage(1); }, [songSearchQuery, songStatusFilter]);
 
   useEffect(() => { setReqPage(1); }, [activeView]);
   useEffect(() => { setPayPage(1); }, [activeView]);
+  useEffect(() => { setSongPage(1); }, [activeView]);
 
   // login handler removido — ver handleLogin acima
 
@@ -844,9 +849,10 @@ export default function AdminPanel() {
   };
 
   const filteredRequests = useMemo(() => {
-    if (!searchQuery) return requests;
-    const q = searchQuery.toLowerCase();
     return requests.filter(r => {
+      if (reqStatusFilter && r.status !== reqStatusFilter) return false;
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
       const name = (r.users?.name || '').toLowerCase();
       const email = (r.users?.email || '').toLowerCase();
       const status = r.status.toLowerCase();
@@ -862,19 +868,20 @@ export default function AdminPanel() {
       if (searchFilter === 'relationship') return relationship.includes(q);
       return name.includes(q) || email.includes(q) || status.includes(q) || style.includes(q) || recipient.includes(q) || occasion.includes(q) || relationship.includes(q);
     });
-  }, [requests, searchQuery, searchFilter]);
+  }, [requests, searchQuery, searchFilter, reqStatusFilter]);
 
   const filteredPayments = useMemo(() => {
-    if (!paymentSearchQuery) return payments;
-    const q = paymentSearchQuery.toLowerCase();
     return payments.filter(p => {
+      if (payStatusFilter && p.status !== payStatusFilter) return false;
+      if (!paymentSearchQuery) return true;
+      const q = paymentSearchQuery.toLowerCase();
       const email = (p.user_email || '').toLowerCase();
       const plan = (p.plan || '').toLowerCase();
       const status = p.status.toLowerCase();
       const recipient = (p.song_requests?.recipient_name || '').toLowerCase();
       return email.includes(q) || plan.includes(q) || status.includes(q) || recipient.includes(q);
     });
-  }, [payments, paymentSearchQuery]);
+  }, [payments, paymentSearchQuery, payStatusFilter]);
 
   const sortedRequests = useMemo(() => sortData(filteredRequests, reqSort, reqFieldMap), [filteredRequests, reqSort]);
   const sortedPayments = useMemo(() => sortData(filteredPayments, paySort, payFieldMap), [filteredPayments, paySort]);
@@ -899,9 +906,10 @@ export default function AdminPanel() {
   };
 
   const filteredSongs = useMemo(() => {
-    if (!songSearchQuery) return songs;
-    const q = songSearchQuery.toLowerCase();
     return songs.filter(s => {
+      if (songStatusFilter && s.mureka_status !== songStatusFilter) return false;
+      if (!songSearchQuery) return true;
+      const q = songSearchQuery.toLowerCase();
       const title = (s.title || '').toLowerCase();
       const recipient = (s.song_requests?.recipient_name || '').toLowerCase();
       const style = (s.song_requests?.music_style || '').toLowerCase();
@@ -916,7 +924,7 @@ export default function AdminPanel() {
       if (songSearchFilter === 'status') return status.includes(q);
       return title.includes(q) || recipient.includes(q) || style.includes(q) || status.includes(q) || email.includes(q) || phone.includes(q);
     });
-  }, [songs, songSearchQuery, songSearchFilter]);
+  }, [songs, songSearchQuery, songSearchFilter, songStatusFilter]);
 
   const sortedSongs = useMemo(() => sortData(filteredSongs, songSort, songFieldMap), [filteredSongs, songSort]);
 
@@ -981,20 +989,23 @@ export default function AdminPanel() {
   }
 
   // ─── STAT CARD ───
-  const StatCard = ({ icon: Icon, label, value, color, subtitle }: {
-    icon: any; label: string; value: string | number; color: string; subtitle?: string;
-  }) => (
-    <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5 flex items-start gap-4">
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
-        <Icon className="w-5 h-5" />
-      </div>
-      <div>
-        <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">{label}</p>
-        <p className="text-2xl font-bold font-mono text-stone-100 mt-0.5">{value}</p>
-        {subtitle && <p className="text-[10px] text-stone-600 mt-0.5">{subtitle}</p>}
-      </div>
-    </div>
-  );
+  const StatCard = ({ icon: Icon, label, value, color, subtitle, onClick }: {
+    icon: any; label: string; value: string | number; color: string; subtitle?: string; onClick?: () => void;
+  }) => {
+    const Comp = onClick ? 'button' : 'div';
+    return (
+      <Comp onClick={onClick} className={`bg-stone-900/50 border border-stone-800 rounded-2xl p-5 flex items-start gap-4 ${onClick ? 'cursor-pointer hover:bg-stone-800/40 hover:border-amber-500/20 active:scale-[0.98] transition-all text-left w-full' : ''}`}>
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+        <div>
+          <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">{label}</p>
+          <p className="text-2xl font-bold font-mono text-stone-100 mt-0.5">{value}</p>
+          {subtitle && <p className="text-[10px] text-stone-600 mt-0.5">{subtitle}</p>}
+        </div>
+      </Comp>
+    );
+  };
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
@@ -1255,12 +1266,12 @@ export default function AdminPanel() {
 
                   {stats ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      <StatCard icon={Users} label="Total Clientes" value={stats.totalUsers} color="bg-blue-500/15 text-blue-400" />
-                      <StatCard icon={Music} label="Total Pedidos" value={stats.totalRequests} color="bg-purple-500/15 text-purple-400" />
-                      <StatCard icon={Clock} label="Pagamentos Pendentes" value={stats.pendingPayments} color="bg-amber-500/15 text-amber-400" subtitle="Aguardando verificação" />
-                      <StatCard icon={CheckCircle} label="Pagamentos Aprovados" value={stats.approvedPayments} color="bg-emerald-500/15 text-emerald-400" />
-                      <StatCard icon={TrendingUp} label="Receita Total" value={stats.totalRevenue} color="bg-rose-500/15 text-rose-400" subtitle="Pagamentos aprovados" />
-                      <StatCard icon={Sparkles} label="Músicas Geradas" value={stats.musicGenerated} color="bg-amber-500/15 text-amber-400" subtitle="Com áudio Suno" />
+                      <StatCard icon={Users} label="Total Clientes" value={stats.totalUsers} color="bg-blue-500/15 text-blue-400" onClick={() => setActiveView('clients')} />
+                      <StatCard icon={Music} label="Total Pedidos" value={stats.totalRequests} color="bg-purple-500/15 text-purple-400" onClick={() => { setActiveView('requests'); setReqStatusFilter(''); setSearchQuery(''); }} />
+                      <StatCard icon={Clock} label="Pagamentos Pendentes" value={stats.pendingPayments} color="bg-amber-500/15 text-amber-400" subtitle="Aguardando verificação" onClick={() => { setActiveView('payments'); setPayStatusFilter('pending_verification'); setPaymentSearchQuery(''); }} />
+                      <StatCard icon={CheckCircle} label="Pagamentos Aprovados" value={stats.approvedPayments} color="bg-emerald-500/15 text-emerald-400" onClick={() => { setActiveView('payments'); setPayStatusFilter('approved'); setPaymentSearchQuery(''); }} />
+                      <StatCard icon={TrendingUp} label="Receita Total" value={stats.totalRevenue} color="bg-rose-500/15 text-rose-400" subtitle="Pagamentos aprovados" onClick={() => { setActiveView('payments'); setPayStatusFilter('approved'); setPaymentSearchQuery(''); }} />
+                      <StatCard icon={Sparkles} label="Músicas Geradas" value={stats.musicGenerated} color="bg-amber-500/15 text-amber-400" subtitle="Com áudio Suno" onClick={() => setActiveView('songs')} />
                     </div>
                   ) : (
                     <div className="flex items-center justify-center h-32">
@@ -1273,10 +1284,10 @@ export default function AdminPanel() {
                       <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4">Pedidos por Estado</h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {Object.entries(stats.requestsByStatus).map(([status, count]) => (
-                          <div key={status} className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                          <button key={status} onClick={() => { setActiveView('requests'); setReqStatusFilter(status); setSearchQuery(''); }} className="bg-stone-950 rounded-xl p-3 border border-stone-800 cursor-pointer hover:bg-stone-900 hover:border-amber-500/20 active:scale-[0.98] transition-all text-left w-full">
                             <StatusBadge status={status} />
                             <p className="text-xl font-mono font-bold text-stone-100 mt-2">{count}</p>
-                          </div>
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -1319,11 +1330,17 @@ export default function AdminPanel() {
                             className="w-full bg-stone-950 border border-stone-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-stone-300 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
                           />
                         </div>
-                        {paymentSearchQuery && (
-                          <button onClick={() => setPaymentSearchQuery('')} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer shrink-0">
+                        {(paymentSearchQuery || payStatusFilter) && (
+                          <button onClick={() => { setPaymentSearchQuery(''); setPayStatusFilter(''); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer shrink-0">
                             Limpar
                           </button>
                         )}
+                        <select value={payStatusFilter} onChange={e => setPayStatusFilter(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                          <option value="">Todos estados</option>
+                          <option value="pending_verification">Aguardando Verificação</option>
+                          <option value="approved">Aprovado</option>
+                          <option value="rejected">Rejeitado</option>
+                        </select>
                         <select value={paySort} onChange={e => setPaySort(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
                           <option value="created_at_desc">Mais recentes</option>
                           <option value="created_at_asc">Mais antigos</option>
@@ -1601,8 +1618,22 @@ export default function AdminPanel() {
                       <option value="occasion">Ocasião</option>
                       <option value="relationship">Relação</option>
                     </select>
-                    {searchQuery && (
-                      <button onClick={() => setSearchQuery('')} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer">
+                    <select value={reqStatusFilter} onChange={e => setReqStatusFilter(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                      <option value="">Todos estados</option>
+                      <option value="pending">Pendente</option>
+                      <option value="payment_submitted">Comprovativo Enviado</option>
+                      <option value="payment_rejected">Pagamento Rejeitado</option>
+                      <option value="lyrics_generating">A Gerar Letra</option>
+                      <option value="lyrics_ready">Letra Pronta</option>
+                      <option value="music_processing">A Processar Música</option>
+                      <option value="voice_processing">A Processar Voz</option>
+                      <option value="music_ready">Música Pronta</option>
+                      <option value="approved">Aprovado</option>
+                      <option value="delivered">Entregue</option>
+                      <option value="failed">Falhou</option>
+                    </select>
+                    {(searchQuery || reqStatusFilter) && (
+                      <button onClick={() => { setSearchQuery(''); setReqStatusFilter(''); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer">
                         Limpar
                       </button>
                     )}
@@ -1885,8 +1916,16 @@ export default function AdminPanel() {
                       <option value="style">Estilo</option>
                       <option value="status">Estado</option>
                     </select>
-                    {songSearchQuery && (
-                      <button onClick={() => { setSongSearchQuery(''); setSongPage(1); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer">
+                    <select value={songStatusFilter} onChange={e => { setSongStatusFilter(e.target.value); setSongPage(1); }} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                      <option value="">Todos estados</option>
+                      <option value="not_started">Não Iniciado</option>
+                      <option value="generating">A Gerar</option>
+                      <option value="processing">Em Processamento</option>
+                      <option value="completed">Concluído</option>
+                      <option value="failed">Falhou</option>
+                    </select>
+                    {(songSearchQuery || songStatusFilter) && (
+                      <button onClick={() => { setSongSearchQuery(''); setSongStatusFilter(''); setSongPage(1); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer">
                         Limpar
                       </button>
                     )}
