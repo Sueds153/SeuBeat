@@ -162,6 +162,31 @@ describe('metaPixel with VITE_META_PIXEL_ID set', () => {
     fbSetUserData('');
     expect((window.fbq as any).queue.length).toBe(queueLen);
   });
+
+  it('fbViewContent queues ViewContent with plan and value', async () => {
+    const { initMetaPixel, fbViewContent } = await import('../lib/metaPixel');
+    initMetaPixel();
+    fbViewContent('standard', 7900, 'AOA', 'vc-evt-001');
+    const lastCall = (window.fbq as any).queue[(window.fbq as any).queue.length - 1];
+    expect(lastCall[1]).toBe('ViewContent');
+    expect(lastCall[2].content_name).toBe('standard');
+    expect(lastCall[2].value).toBe(7900);
+    expect(lastCall[2].currency).toBe('AOA');
+    expect(lastCall[2].content_type).toBe('product');
+    expect(lastCall[2].event_source_url).toBe(window.location.href);
+    expect(lastCall[3]).toEqual({ eventID: 'vc-evt-001' });
+  });
+
+  it('fbCompleteRegistration queues CompleteRegistration', async () => {
+    const { initMetaPixel, fbCompleteRegistration } = await import('../lib/metaPixel');
+    initMetaPixel();
+    fbCompleteRegistration('cr-evt-001');
+    const lastCall = (window.fbq as any).queue[(window.fbq as any).queue.length - 1];
+    expect(lastCall[1]).toBe('CompleteRegistration');
+    expect(lastCall[2].content_type).toBe('product');
+    expect(lastCall[2].event_source_url).toBe(window.location.href);
+    expect(lastCall[3]).toEqual({ eventID: 'cr-evt-001' });
+  });
 });
 
 describe('metaPixel without VITE_META_PIXEL_ID', () => {
@@ -176,13 +201,15 @@ describe('metaPixel without VITE_META_PIXEL_ID', () => {
   });
 
   it('event functions are no-ops when pixel is not configured', async () => {
-    const { fbPageView, fbLead, fbPurchase, fbSubmitApplication, fbSetUserData } = await import('../lib/metaPixel');
+    const { fbPageView, fbLead, fbPurchase, fbSubmitApplication, fbSetUserData, fbViewContent, fbCompleteRegistration } = await import('../lib/metaPixel');
     expect(() => {
       fbPageView();
       fbLead('test');
       fbPurchase('standard', 7900);
       fbSubmitApplication('standard', 7900);
       fbSetUserData('teste@exemplo.com');
+      fbViewContent('standard', 7900);
+      fbCompleteRegistration();
     }).not.toThrow();
   });
 });

@@ -101,4 +101,14 @@ export function fbSetUserData(email: string, phone?: string): void {
   }
 }
 
+export function fbViewContent(plan?: string, value?: number, currency: string = 'AOA', eventID?: string): void {
+  if (!IS_ENABLED || !window.fbq) return;
+  window.fbq('track', 'ViewContent', { content_name: plan, value, currency, content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
+}
+
+export function fbCompleteRegistration(eventID?: string): void {
+  if (!IS_ENABLED || !window.fbq) return;
+  window.fbq('track', 'CompleteRegistration', { content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
+}
+
 export { parsePrice };

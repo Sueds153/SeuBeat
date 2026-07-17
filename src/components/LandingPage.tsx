@@ -7,7 +7,7 @@ import VideoTestimonial from './VideoTestimonial';
 import FAQ from './FAQ';
 import { PRICING_PLANS } from '../constants/pricing';
 import { WHATSAPP_URL } from '../constants/whatsapp';
-import { fbInitiateCheckout, parsePrice } from '../lib/metaPixel';
+import { fbInitiateCheckout, fbViewContent, parsePrice } from '../lib/metaPixel';
 
 interface LandingPageProps {
   onStartWizard: () => void;
@@ -48,6 +48,10 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [todayCount] = useState(() => Math.floor(847 + Math.random() * 200));
   const timer = useCountdown(120);
+
+  useEffect(() => {
+    fbViewContent('landing', 0, 'AOA', crypto.randomUUID());
+  }, []);
 
   return (
     <div id="landing-page-root" className="relative min-h-screen overflow-x-hidden bg-[#151210] text-stone-100 selection:bg-amber-500/30 selection:text-amber-200">

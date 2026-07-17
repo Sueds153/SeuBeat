@@ -17,7 +17,7 @@ import {
 import { validateStep as zodValidateStep, FieldErrors } from '../lib/validation';
 import WhatsAppHelp from './WhatsAppHelp';
 import LogoIcon from './LogoIcon';
-import { fbLead, fbAddPaymentInfo, fbSubmitApplication, fbSetUserData, parsePrice } from '../lib/metaPixel';
+import { fbLead, fbAddPaymentInfo, fbSubmitApplication, fbSetUserData, fbViewContent, fbCompleteRegistration, parsePrice } from '../lib/metaPixel';
 
 interface WizardProps {
   onBackToLanding: () => void;
@@ -327,7 +327,12 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
   // Iniciar countdown quando o utilizador chega ao ecrã pós-letra
   useEffect(() => {
-    if (generationStatus === 'lyrics_ready') setShowPayment(true);
+    if (generationStatus === 'lyrics_ready') {
+      setShowPayment(true);
+      const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
+      const plan = selectedPlanID || 'standard';
+      fbViewContent(plan, PLAN_VALUES[plan], 'AOA', crypto.randomUUID());
+    }
   }, [generationStatus]);
 
   // Countdown persistente desde o início do wizard
@@ -903,6 +908,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           setDbSongId(data.dbSongId);
           setDbSongRequestId(data.dbSongRequestId);
           fbLead('lyrics_generated', crypto.randomUUID());
+          fbCompleteRegistration(crypto.randomUUID());
 
           setGenerationStatus('lyrics_ready');
           setProcessingStage(3);
@@ -1149,6 +1155,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       setStep(step + 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
+      fbSetUserData(formData.email, formData.phone);
       // Trigger Submitting / Composition simulation
       submissionStartedRef.current = false;
       setPreviewAudioUrl('');
