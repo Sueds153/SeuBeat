@@ -1216,7 +1216,7 @@ export default function AdminPanel() {
               <RefreshCw className={`w-3.5 h-3.5 ${refreshDebounceRef.current ? 'animate-spin' : ''}`} /> Atualizar Dados
             </button>
             <button
-              onClick={() => { setAuthenticated(false); sessionStorage.removeItem('seubeat_admin_token'); }}
+              onClick={() => { setAuthenticated(false); setStats(null); setPayments([]); setRequests([]); setSongs([]); setClients([]); sessionStorage.removeItem('seubeat_admin_token'); }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-stone-500 hover:text-rose-400 hover:bg-rose-500/5 transition-all cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" /> Sair

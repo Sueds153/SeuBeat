@@ -413,7 +413,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
         if (fullUrl) {
           const match = fullUrl.match(/full-audio\/(.+)/);
           if (match && adminSupabase) {
-            const { data } = await adminSupabase.storage.from('full-audio').createSignedUrl(match[1], 3600);
+            const { data } = await adminSupabase.storage.from('full-audio').createSignedUrl(match[1], 604800);
             audioUrl = data?.signedUrl || fullUrl;
           } else {
             audioUrl = fullUrl;
@@ -428,7 +428,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       if (fullUrl && fullUrl !== audioUrl) {
         const match = fullUrl.match(/full-audio\/(.+)/);
         if (match && adminSupabase) {
-          const { data } = await adminSupabase.storage.from('full-audio').createSignedUrl(match[1], 3600);
+          const { data } = await adminSupabase.storage.from('full-audio').createSignedUrl(match[1], 604800);
           audioUrl = data?.signedUrl || fullUrl;
         } else {
           audioUrl = fullUrl;

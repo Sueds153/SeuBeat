@@ -503,7 +503,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         const postPaymentData = async (proofStr: string, voiceStr: string | null, voiceName: string | null, voiceType: string | null) => {
           // Marcar como submetido ANTES do fetch para sobreviver a refresh
           setPaymentSubmitted(true);
-          fbPurchase(selectedPlanID || 'standard', parsePrice(getPrice()));
 
           try {
             const res = await fetch('/api/submit-payment', {
@@ -526,8 +525,8 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
             const data = await res.json();
             if (res.ok && data.success) {
               setPaymentSubmitError('');
+              fbPurchase(selectedPlanID || 'standard', parsePrice(getPrice()));
             } else if (res.status === 409) {
-              // Já existe — o servidor tem o pagamento, tranquilo
               setPaymentSubmitError('');
             } else {
               setPaymentSubmitError(data.error || 'Erro ao submeter o comprovativo.');
@@ -574,6 +573,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const photoFileRef = useRef<HTMLInputElement>(null);
   const liveAudioRef = useRef<HTMLAudioElement | null>(null);
   const submissionStartedRef = useRef(false);
+  const isRecheckingRef = useRef(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -785,6 +785,10 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   useEffect(() => {
     if (isSubmitting) {
       if (submissionStartedRef.current) return;
+      if (isRecheckingRef.current) {
+        isRecheckingRef.current = false;
+        return;
+      }
       submissionStartedRef.current = true;
       
       const submitData = async () => {
@@ -954,6 +958,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   // Stop recording when timer reaches 20s
   useEffect(() => {
     if (recordingSeconds >= 20 && isRecording) {
+      mediaRecorderRef.current?.stop();
       setIsRecording(false);
       setHasRecorded(true);
     }
@@ -1000,7 +1005,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       .then(r => r.json())
       .then(d => {
         try {
-          const voiceId = d.elevenlabs_voice_id;
+          const voiceId = d.data?.elevenlabs_voice_id;
           if (voiceId && typeof voiceId === 'string') {
             const parsed = JSON.parse(voiceId);
             if (parsed?.failed === true) setVoiceCloningFailed(true);
@@ -1034,7 +1039,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
   useEffect(() => {
     const savedBase64 = sessionStorage.getItem('seubeat_photo_base64');
-    if (savedBase64 && !formData.photoUrl) {
+    if (savedBase64 && (!formData.photoUrl || formData.photoUrl.startsWith('blob:'))) {
       try {
         const byteString = atob(savedBase64.split(',')[1]);
         const mimeString = savedBase64.split(',')[0].split(':')[1].split(';')[0];
@@ -1122,6 +1127,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
   const recheckMusicStatus = async () => {
     if (!dbSongId) return;
+    isRecheckingRef.current = true;
     setIsSubmitting(true);
     setGenerationError('');
     setGenerationStatus('music_processing');
