@@ -806,14 +806,40 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
           if (formData.photoFile) {
             try {
+              let file = formData.photoFile;
+              if (file.size > 4 * 1024 * 1024) {
+                const compressed = await new Promise<Blob | null>((resolve) => {
+                  const img = new Image();
+                  const url = URL.createObjectURL(file);
+                  img.onload = () => {
+                    URL.revokeObjectURL(url);
+                    let w = img.width;
+                    let h = img.height;
+                    const maxDim = 1920;
+                    if (w > maxDim || h > maxDim) {
+                      if (w > h) { h = Math.round(h * maxDim / w); w = maxDim; }
+                      else { w = Math.round(w * maxDim / h); h = maxDim; }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) { resolve(null); return; }
+                    ctx.drawImage(img, 0, 0, w, h);
+                    canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.85);
+                  };
+                  img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+                  img.src = url;
+                });
+                if (compressed) file = new File([compressed], file.name, { type: 'image/jpeg' });
+              }
               photoBase64 = await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
-                reader.readAsDataURL(formData.photoFile!);
+                reader.readAsDataURL(file);
                 reader.onloadend = () => resolve(reader.result as string);
                 reader.onerror = reject;
               });
-              photoFilename = formData.photoFile.name;
-              photoMimeType = formData.photoFile.type;
+              photoFilename = file.name;
+              photoMimeType = file.type;
             } catch (e) {
               console.error('Error reading photo file:', e);
               showToast('Erro ao ler a foto. Tente selecionar novamente.', 'error');
@@ -823,11 +849,12 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           const controller = new AbortController();
           const fetchTimeout = setTimeout(() => controller.abort(), 120000);
 
+          const { photoFile: _pf, photoUrl: _pu, ...formBody } = formData;
           const res = await fetch('/api/generate-lyrics', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              ...formData,
+              ...formBody,
               photoBase64,
               photoFilename,
               photoMimeType

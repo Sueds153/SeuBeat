@@ -89,8 +89,8 @@ describe('GenerateLyricsSchema', () => {
     expect(result.language).toBe('português');
   });
 
-  it('rejects photo larger than 5MB', () => {
-    const bigPhoto = 'a'.repeat(6 * 1024 * 1024);
+  it('rejects photo larger than 10MB', () => {
+    const bigPhoto = 'a'.repeat(11 * 1024 * 1024);
     const result = GenerateLyricsSchema.safeParse({ ...validData, photoBase64: bigPhoto });
     expect(result.success).toBe(false);
   });

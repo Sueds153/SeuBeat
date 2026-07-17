@@ -197,8 +197,8 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
     let photoUrl: string | null = null;
     if (photoBase64) {
       const buffer = decodeBase64Payload(photoBase64);
-      if (buffer.length > 5 * 1024 * 1024) {
-        throw new Error('A foto e demasiado grande (max 5MB). Comprima a imagem ou escolha outra.');
+      if (buffer.length > 10 * 1024 * 1024) {
+        throw new Error('A foto e demasiado grande (max 10MB). Comprima a imagem ou escolha outra.');
       }
 
       const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
