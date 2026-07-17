@@ -724,6 +724,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       value: parsedAmount,
       currency: 'AOA',
       contentName: plan,
+      eventSourceUrl: (req.headers.referer as string) || undefined,
       clientIp: req.ip || req.socket.remoteAddress || undefined,
       clientUserAgent: req.headers['user-agent'],
     }).catch(err =>
