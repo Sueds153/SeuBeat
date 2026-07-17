@@ -1116,7 +1116,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       case 8:
         return formData.photoUrl !== '' || formData.photoFile !== null;
       case 9:
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) && formData.phone.trim().length >= 7;
       default:
         return true;
     }

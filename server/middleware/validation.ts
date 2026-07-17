@@ -41,7 +41,7 @@ export const GenerateLyricsSchema = z.object({
   email: z.string().email('Email inválido').toLowerCase().optional(),
   phone: z.preprocess(
     v => v === '' ? undefined : v,
-    z.string().regex(/^\+?[\d\s()-]{7,18}$/, 'Telefone inválido').optional().nullable()
+    z.string().regex(/^\+?[\d\s()-]{7,18}$/, 'Telefone inválido')
   ),
 
   recipientName: z.string().min(1, 'Nome do destinatário requerido').max(100).trim(),

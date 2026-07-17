@@ -42,9 +42,9 @@ const Step8Schema = z.object({
   message: 'Adicione uma foto',
   path: ['photoUrl'],
 });
-
 export const Step9Schema = z.object({
   email: z.string().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Email inválido'),
+  phone: z.string().regex(/^\+?[\d\s()-]{7,18}$/, 'Formato inválido (ex: +244 922 000 000)'),
 });
 
 export type FieldErrors = Record<string, string>;

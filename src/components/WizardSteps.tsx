@@ -736,7 +736,7 @@ export function Step9Contact({
 
         <div className="space-y-1.5">
           <label id="user-phone-lbl" className="text-xs font-mono text-stone-400 tracking-wider flex items-center gap-1.5 font-semibold">
-            <Phone className="w-3.5 h-3.5" /> Telemóvel / WhatsApp (Opcional - Recomendado em Angola)
+            <Phone className="w-3.5 h-3.5" /> Telemóvel / WhatsApp (Obrigatório)
           </label>
           <input
             id="user-phone-input"
@@ -746,6 +746,9 @@ export function Step9Contact({
             onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
             className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300"
           />
+          {fieldErrors?.phone && (
+            <p className="text-red-400 text-xs mt-1">{fieldErrors.phone}</p>
+          )}
         </div>
       </div>
 

@@ -33,24 +33,39 @@ describe('Step1Schema (Relation)', () => {
   });
 });
 
-describe('Step9Schema (Email)', () => {
-  it('passes with valid email', () => {
-    const result = Step9Schema.safeParse({ email: 'teste@exemplo.com' });
+describe('Step9Schema (Email + Phone)', () => {
+  it('passes with valid email and phone', () => {
+    const result = Step9Schema.safeParse({ email: 'teste@exemplo.com', phone: '+244 922 000 000' });
     expect(result.success).toBe(true);
   });
 
   it('passes with email containing dots and plus', () => {
-    const result = Step9Schema.safeParse({ email: 'test.name+tag@dominio.co.ao' });
+    const result = Step9Schema.safeParse({ email: 'test.name+tag@dominio.co.ao', phone: '922000000' });
     expect(result.success).toBe(true);
   });
 
   it('fails with invalid email', () => {
-    const result = Step9Schema.safeParse({ email: 'invalido' });
+    const result = Step9Schema.safeParse({ email: 'invalido', phone: '+244 922 000 000' });
     expect(result.success).toBe(false);
   });
 
   it('fails with empty email', () => {
-    const result = Step9Schema.safeParse({ email: '' });
+    const result = Step9Schema.safeParse({ email: '', phone: '+244 922 000 000' });
+    expect(result.success).toBe(false);
+  });
+
+  it('fails with empty phone', () => {
+    const result = Step9Schema.safeParse({ email: 'teste@exemplo.com', phone: '' });
+    expect(result.success).toBe(false);
+  });
+
+  it('fails with phone too short', () => {
+    const result = Step9Schema.safeParse({ email: 'teste@exemplo.com', phone: '123' });
+    expect(result.success).toBe(false);
+  });
+
+  it('fails without phone', () => {
+    const result = Step9Schema.safeParse({ email: 'teste@exemplo.com' });
     expect(result.success).toBe(false);
   });
 });
@@ -82,7 +97,12 @@ describe('validateStep helper', () => {
   });
 
   it('returns errors for invalid step 9', () => {
-    const errors = validateStep(9, { email: 'bad' });
+    const errors = validateStep(9, { email: 'bad', phone: '+244 922 000 000' });
     expect(errors.email).toBeTruthy();
+  });
+
+  it('returns errors for step 9 without phone', () => {
+    const errors = validateStep(9, { email: 'teste@exemplo.com', phone: '' });
+    expect(errors.phone).toBeTruthy();
   });
 });

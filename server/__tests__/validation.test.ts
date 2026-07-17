@@ -26,6 +26,7 @@ describe('GenerateLyricsSchema', () => {
   it('passes with minimal valid data', () => {
     const result = GenerateLyricsSchema.safeParse({
       userNick: 'Rui',
+      phone: '244900000000',
       recipientName: 'Marta',
       recipientRelation: 'esposa',
       occasion: 'aniversário',
@@ -123,6 +124,7 @@ describe('validateInput', () => {
   it('returns success with valid data', () => {
     const result = validateInput(GenerateLyricsSchema, {
       userNick: 'Rui',
+      phone: '244900000000',
       recipientName: 'Marta',
       recipientRelation: 'esposa',
       occasion: 'aniversário',
