@@ -1,5 +1,12 @@
 import { SunoResult } from './types';
 import { logInfo, logWarn, logError } from '../utils/logger';
+import { createCircuitBreaker } from '../utils/circuitBreaker';
+
+const sunoBreaker = createCircuitBreaker('suno-api', {
+  failureThreshold: 5,
+  successThreshold: 3,
+  timeout: 60_000,
+});
 
 const SUNO_TIMEOUT_MS = Number(process.env.SUNO_TIMEOUT_MS || 45000);
 const MAX_RETRIES = Number(process.env.SUNO_MAX_RETRIES || 3);
@@ -195,6 +202,7 @@ function assertSuccessfulSunoPayload(payload: any, label: string) {
 }
 
 export async function querySunoTask(taskId: string): Promise<SunoResult> {
+  return sunoBreaker.exec(async () => {
   const apiKey = process.env.SUNO_API_KEY;
   if (!apiKey) throw new Error('SUNO_API_KEY nao configurada.');
   if (!taskId) throw new Error('Task Suno em falta.');
@@ -221,6 +229,7 @@ export async function querySunoTask(taskId: string): Promise<SunoResult> {
   }
 
   return { taskId, audioUrl, status };
+  });
 }
 
 async function startSunoMusic(lyrics: string[], musicStyle: string, songTitle: string, personaId?: string): Promise<SunoResult> {
@@ -378,26 +387,28 @@ async function continueSunoMusic(taskId: string, personaId?: string): Promise<Su
 }
 
 export async function generateFullSong(lyrics: string[], musicStyle: string, songTitle: string, personaId?: string): Promise<SunoResult> {
-  const { taskId, audioUrl: immediateAudioUrl } = await startSunoMusic(lyrics, musicStyle, songTitle, personaId);
-  const firstResult = await pollSunoTask(taskId, immediateAudioUrl, 'Suno Gen1');
-  if (!firstResult.audioUrl) throw new Error('Primeira geracao Suno falhou - sem URL de audio.');
+  return sunoBreaker.exec(async () => {
+    const { taskId, audioUrl: immediateAudioUrl } = await startSunoMusic(lyrics, musicStyle, songTitle, personaId);
+    const firstResult = await pollSunoTask(taskId, immediateAudioUrl, 'Suno Gen1');
+    if (!firstResult.audioUrl) throw new Error('Primeira geracao Suno falhou - sem URL de audio.');
 
-  logInfo(`[Suno] First clip ready`);
+    logInfo(`[Suno] First clip ready`);
 
-  try {
-    const { taskId: continueTaskId } = await continueSunoMusic(firstResult.taskId, personaId);
-    const secondResult = await pollSunoTask(continueTaskId, null, 'Suno Gen2 (continue)');
-    if (secondResult.audioUrl) {
-      logInfo(`[Suno] Extended song ready`);
-      return secondResult;
+    try {
+      const { taskId: continueTaskId } = await continueSunoMusic(firstResult.taskId, personaId);
+      const secondResult = await pollSunoTask(continueTaskId, null, 'Suno Gen2 (continue)');
+      if (secondResult.audioUrl) {
+        logInfo(`[Suno] Extended song ready`);
+        return secondResult;
+      }
+    } catch (err: any) {
+      if (err instanceof SunoQuotaError) {
+        logWarn(`[Suno] Continue sem créditos, a devolver primeiro clip.`);
+      } else {
+        logWarn(`[Suno] Continue falhou, a devolver primeiro clip`, { error: err.message });
+      }
     }
-  } catch (err: any) {
-    if (err instanceof SunoQuotaError) {
-      logWarn(`[Suno] Continue sem créditos, a devolver primeiro clip.`);
-    } else {
-      logWarn(`[Suno] Continue falhou, a devolver primeiro clip`, { error: err.message });
-    }
-  }
 
-  return firstResult;
+    return firstResult;
+  });
 }

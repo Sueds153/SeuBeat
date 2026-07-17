@@ -2,6 +2,7 @@ import express from 'express';
 import { ENV, validateEnv, getEnv } from './env';
 import { errorHandler } from '../middleware/errorHandler';
 import { helmetMiddleware, corsMiddleware, httpLogger, permissionsPolicyMiddleware } from '../middleware/security';
+import { requestIdMiddleware } from '../middleware/requestId';
 import { adminIpRestriction } from '../middleware/adminIpRestriction';
 import { csrfProtection } from '../middleware/csrf';
 import { logInfo, logError } from '../utils/logger';
@@ -21,6 +22,7 @@ export async function createApp(): Promise<express.Application> {
 
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+  app.use(requestIdMiddleware);
   app.use(corsMiddleware);
   app.use(helmetMiddleware());
   app.use(permissionsPolicyMiddleware);
