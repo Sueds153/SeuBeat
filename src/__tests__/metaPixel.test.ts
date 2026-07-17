@@ -58,41 +58,109 @@ describe('metaPixel with VITE_META_PIXEL_ID set', () => {
     expect((window.fbq as any).queue.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('fbInitiateCheckout queues InitiateCheckout with value', async () => {
+  it('fbInitiateCheckout queues InitiateCheckout with value and eventID', async () => {
     const { initMetaPixel, fbInitiateCheckout } = await import('../lib/metaPixel');
     initMetaPixel();
-    fbInitiateCheckout('standard', 7900);
+    fbInitiateCheckout('standard', 7900, 'AOA', 'evt-123');
     const lastCall = (window.fbq as any).queue[(window.fbq as any).queue.length - 1];
     expect(lastCall[1]).toBe('InitiateCheckout');
     expect(lastCall[2].value).toBe(7900);
+    expect(lastCall[2].event_source_url).toBe(window.location.href);
+    expect(lastCall[3]).toEqual({ eventID: 'evt-123' });
   });
 
-  it('fbAddPaymentInfo queues AddPaymentInfo with plan', async () => {
+  it('fbAddPaymentInfo queues AddPaymentInfo with plan and eventID', async () => {
     const { initMetaPixel, fbAddPaymentInfo } = await import('../lib/metaPixel');
     initMetaPixel();
-    fbAddPaymentInfo('premium', 14900);
+    fbAddPaymentInfo('premium', 14900, 'AOA', 'evt-456');
     const lastCall = (window.fbq as any).queue[(window.fbq as any).queue.length - 1];
     expect(lastCall[1]).toBe('AddPaymentInfo');
     expect(lastCall[2].content_name).toBe('premium');
+    expect(lastCall[2].event_source_url).toBe(window.location.href);
+    expect(lastCall[3]).toEqual({ eventID: 'evt-456' });
   });
 
-  it('fbLead queues Lead event', async () => {
+  it('fbLead queues Lead event with eventID', async () => {
     const { initMetaPixel, fbLead } = await import('../lib/metaPixel');
     initMetaPixel();
-    fbLead('lyrics_generated');
+    fbLead('lyrics_generated', 'evt-789');
     const lastCall = (window.fbq as any).queue[(window.fbq as any).queue.length - 1];
     expect(lastCall[1]).toBe('Lead');
     expect(lastCall[2].content_name).toBe('lyrics_generated');
+    expect(lastCall[2].event_source_url).toBe(window.location.href);
+    expect(lastCall[3]).toEqual({ eventID: 'evt-789' });
   });
 
-  it('fbPurchase queues Purchase with value and currency', async () => {
+  it('fbPurchase queues Purchase with value, currency, and eventID', async () => {
     const { initMetaPixel, fbPurchase } = await import('../lib/metaPixel');
     initMetaPixel();
-    fbPurchase('express', 9900, 'AOA');
+    fbPurchase('express', 9900, 'AOA', 'purchase-evt-001');
     const lastCall = (window.fbq as any).queue[(window.fbq as any).queue.length - 1];
     expect(lastCall[1]).toBe('Purchase');
     expect(lastCall[2].value).toBe(9900);
     expect(lastCall[2].currency).toBe('AOA');
+    expect(lastCall[2].event_source_url).toBe(window.location.href);
+    expect(lastCall[3]).toEqual({ eventID: 'purchase-evt-001' });
+  });
+
+  it('fbPurchase passes undefined eventID when omitted', async () => {
+    const { initMetaPixel, fbPurchase } = await import('../lib/metaPixel');
+    initMetaPixel();
+    fbPurchase('express', 9900);
+    const lastCall = (window.fbq as any).queue[(window.fbq as any).queue.length - 1];
+    expect(lastCall[3]).toEqual({ eventID: undefined });
+  });
+
+  it('fbSubmitApplication queues SubmitApplication with value and eventID', async () => {
+    const { initMetaPixel, fbSubmitApplication } = await import('../lib/metaPixel');
+    initMetaPixel();
+    fbSubmitApplication('standard', 7900, 'AOA', 'sub-evt-001');
+    const lastCall = (window.fbq as any).queue[(window.fbq as any).queue.length - 1];
+    expect(lastCall[1]).toBe('SubmitApplication');
+    expect(lastCall[2].content_name).toBe('standard');
+    expect(lastCall[2].value).toBe(7900);
+    expect(lastCall[2].currency).toBe('AOA');
+    expect(lastCall[2].content_type).toBe('product');
+    expect(lastCall[2].event_source_url).toBe(window.location.href);
+    expect(lastCall[3]).toEqual({ eventID: 'sub-evt-001' });
+  });
+
+  it('fbSubmitApplication passes undefined eventID when omitted', async () => {
+    const { initMetaPixel, fbSubmitApplication } = await import('../lib/metaPixel');
+    initMetaPixel();
+    fbSubmitApplication('premium', 14900);
+    const lastCall = (window.fbq as any).queue[(window.fbq as any).queue.length - 1];
+    expect(lastCall[1]).toBe('SubmitApplication');
+    expect(lastCall[3]).toEqual({ eventID: undefined });
+  });
+
+  it('fbSetUserData sets email via fbq set', async () => {
+    const { initMetaPixel, fbSetUserData } = await import('../lib/metaPixel');
+    initMetaPixel();
+    fbSetUserData('teste@exemplo.com');
+    const lastCall = (window.fbq as any).queue[(window.fbq as any).queue.length - 1];
+    expect(lastCall[0]).toBe('set');
+    expect(lastCall[1]).toBe('userData');
+    expect(lastCall[2].em).toBe('teste@exemplo.com');
+  });
+
+  it('fbSetUserData sets email and phone', async () => {
+    const { initMetaPixel, fbSetUserData } = await import('../lib/metaPixel');
+    initMetaPixel();
+    fbSetUserData('teste@exemplo.com', '+244 922 000 000');
+    const lastCall = (window.fbq as any).queue[(window.fbq as any).queue.length - 1];
+    expect(lastCall[0]).toBe('set');
+    expect(lastCall[1]).toBe('userData');
+    expect(lastCall[2].em).toBe('teste@exemplo.com');
+    expect(lastCall[2].ph).toBe('+244 922 000 000');
+  });
+
+  it('fbSetUserData does nothing when both email and phone empty', async () => {
+    const { initMetaPixel, fbSetUserData } = await import('../lib/metaPixel');
+    initMetaPixel();
+    const queueLen = (window.fbq as any).queue.length;
+    fbSetUserData('');
+    expect((window.fbq as any).queue.length).toBe(queueLen);
   });
 });
 
@@ -108,11 +176,13 @@ describe('metaPixel without VITE_META_PIXEL_ID', () => {
   });
 
   it('event functions are no-ops when pixel is not configured', async () => {
-    const { fbPageView, fbLead, fbPurchase } = await import('../lib/metaPixel');
+    const { fbPageView, fbLead, fbPurchase, fbSubmitApplication, fbSetUserData } = await import('../lib/metaPixel');
     expect(() => {
       fbPageView();
       fbLead('test');
       fbPurchase('standard', 7900);
+      fbSubmitApplication('standard', 7900);
+      fbSetUserData('teste@exemplo.com');
     }).not.toThrow();
   });
 });

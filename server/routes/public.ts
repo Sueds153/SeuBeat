@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { getAdminSupabase } from '../services/supabase';
 import { generateLyrics } from '../services/ai';
 import { sendPersonalizedEmail, sendConfirmationEmail } from '../services/email';
+import { sendSubmitApplicationEvent } from '../services/metaPixelCapi';
 import DOMPurify from 'isomorphic-dompurify';
 
 function sanitize(str: string): string {
@@ -631,7 +632,7 @@ router.get('/stats/today-count', async (_req, res) => {
 
 router.post('/submit-payment', paymentLimiter, async (req, res) => {
   try {
-    const { songRequestId, userEmail, plan, amount, proofBase64, proofFilename, proofMimeType, voiceSampleBase64, voiceSampleFilename, voiceSampleMimeType } = req.body;
+    const { songRequestId, userEmail, phone, plan, amount, proofBase64, proofFilename, proofMimeType, voiceSampleBase64, voiceSampleFilename, voiceSampleMimeType } = req.body;
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });
     if (!songRequestId) return res.status(400).json({ error: 'ID do pedido em falta.' });
@@ -715,6 +716,19 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       status: 'pending_verification'
     }]).select('id').single();
     if (paymentError) throw paymentError;
+
+    sendSubmitApplicationEvent({
+      eventId: paymentRecord?.id || '',
+      email: userEmail,
+      phone: phone || undefined,
+      value: parsedAmount,
+      currency: 'AOA',
+      contentName: plan,
+      clientIp: req.ip || req.socket.remoteAddress || undefined,
+      clientUserAgent: req.headers['user-agent'],
+    }).catch(err =>
+      logError('[API] Meta CAPI SubmitApplication event failed', err, { paymentId: paymentRecord?.id })
+    );
 
     res.json({ success: true, paymentId: paymentRecord?.id });
   } catch (err: any) {

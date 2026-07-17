@@ -195,16 +195,20 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
     const numericAmount = parseInt(String(payment.amount || '0').replace(/[^0-9]/g, ''), 10) || 0;
     const planName = (payment.plan || songRequest?.plan || 'standard') as string;
 
+    const userPhone = songRequest?.phone || null;
     const firePurchaseEvent = () => {
       sendPurchaseEvent({
         eventId: id,
         email: payment.user_email || userEmail || '',
+        phone: userPhone || undefined,
         value: numericAmount,
         currency: 'AOA',
         contentName: planName,
         clientIp: req.ip || req.socket.remoteAddress || undefined,
         clientUserAgent: req.headers['user-agent'],
-      });
+      }).catch(err =>
+        logError('[Admin] Meta CAPI Purchase event failed after retries', err, { paymentId: id })
+      );
     };
 
     const hasGeneratedAudio = !!(songData.full_song_url || songData.audio_url);

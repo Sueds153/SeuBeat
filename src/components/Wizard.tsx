@@ -17,7 +17,7 @@ import {
 import { validateStep as zodValidateStep, FieldErrors } from '../lib/validation';
 import WhatsAppHelp from './WhatsAppHelp';
 import LogoIcon from './LogoIcon';
-import { fbLead, fbAddPaymentInfo, fbPurchase, parsePrice } from '../lib/metaPixel';
+import { fbLead, fbAddPaymentInfo, fbSubmitApplication, fbSetUserData, parsePrice } from '../lib/metaPixel';
 
 interface WizardProps {
   onBackToLanding: () => void;
@@ -527,6 +527,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
               body: JSON.stringify({
                 songRequestId: dbSongRequestId || null,
                 userEmail: formData.email,
+                phone: formData.phone,
                 plan: selectedPlanID || 'standard',
                 amount: getPrice(),
                 proofBase64: proofStr,
@@ -541,7 +542,8 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
             const data = await res.json();
             if (res.ok && data.success) {
               setPaymentSubmitError('');
-              fbPurchase(selectedPlanID || 'standard', parsePrice(getPrice()), 'AOA', data.paymentId);
+              fbSetUserData(formData.email, formData.phone);
+              fbSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()), 'AOA', data.paymentId);
             } else if (res.status === 409) {
               setPaymentSubmitError('');
             } else {
