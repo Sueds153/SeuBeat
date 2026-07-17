@@ -197,7 +197,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
 
     const firePurchaseEvent = () => {
       sendPurchaseEvent({
-        eventId: `payment-${id}-approved`,
+        eventId: id,
         email: payment.user_email || userEmail || '',
         value: numericAmount,
         currency: 'AOA',

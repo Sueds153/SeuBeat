@@ -58,19 +58,19 @@ export function fbPageView(): void {
   window.fbq('track', 'PageView');
 }
 
-export function fbInitiateCheckout(plan?: string, value?: number, currency: string = 'AOA'): void {
+export function fbInitiateCheckout(plan?: string, value?: number, currency: string = 'AOA', eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
-  window.fbq('track', 'InitiateCheckout', { content_name: plan, value, currency });
+  window.fbq('track', 'InitiateCheckout', { content_name: plan, value, currency }, { eventID });
 }
 
-export function fbAddPaymentInfo(plan?: string, value?: number, currency: string = 'AOA'): void {
+export function fbAddPaymentInfo(plan?: string, value?: number, currency: string = 'AOA', eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
-  window.fbq('track', 'AddPaymentInfo', { content_name: plan, value, currency });
+  window.fbq('track', 'AddPaymentInfo', { content_name: plan, value, currency }, { eventID });
 }
 
-export function fbLead(contentName?: string): void {
+export function fbLead(contentName?: string, eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
-  window.fbq('track', 'Lead', { content_name: contentName });
+  window.fbq('track', 'Lead', { content_name: contentName }, { eventID });
 }
 
 export function fbPurchase(plan?: string, value?: number, currency: string = 'AOA', eventID?: string): void {

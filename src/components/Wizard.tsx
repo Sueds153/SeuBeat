@@ -884,7 +884,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           setAiLetterText(data.letterText);
           setDbSongId(data.dbSongId);
           setDbSongRequestId(data.dbSongRequestId);
-          fbLead('lyrics_generated');
+          fbLead('lyrics_generated', crypto.randomUUID());
 
           setGenerationStatus('lyrics_ready');
           setProcessingStage(3);
@@ -1191,7 +1191,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
     setSelectedPlanID(pId);
     const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
-    fbAddPaymentInfo(pId, PLAN_VALUES[pId]);
+    fbAddPaymentInfo(pId, PLAN_VALUES[pId], 'AOA', crypto.randomUUID());
     if (pId === 'premium') {
       setVoiceUpsellApplied(true);
       setShowVoiceCloningScreen(true);

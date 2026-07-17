@@ -376,7 +376,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                   <button
                     id={`pricing-cta-btn-${plan.id}`}
                     onClick={() => {
-                      fbInitiateCheckout(plan.id, parsePrice(plan.price));
+                      fbInitiateCheckout(plan.id, parsePrice(plan.price), 'AOA', crypto.randomUUID());
                       onStartWizard();
                     }}
                     className={`w-full py-3.5 rounded-full text-xs md:text-sm font-bold transition-all cursor-pointer ${
