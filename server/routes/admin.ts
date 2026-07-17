@@ -202,6 +202,8 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
         value: numericAmount,
         currency: 'AOA',
         contentName: planName,
+        clientIp: req.ip || req.socket.remoteAddress || undefined,
+        clientUserAgent: req.headers['user-agent'],
       });
     };
 
