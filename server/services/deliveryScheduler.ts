@@ -47,19 +47,12 @@ async function deliverPendingSongs(): Promise<void> {
       const slug = makeSlug(req.recipient_name || 'especial');
       const songId = songData?.id;
 
-      if (!req.email || !songId) {
-        logWarn('[DeliveryScheduler] Pedido sem email ou songId', { requestId: req.id });
+      if (!songId) {
+        logWarn('[DeliveryScheduler] songId em falta', { requestId: req.id });
         continue;
       }
 
       const personalizedUrl = `${getAppUrl()}/song/${slug}?id=${songId}`;
-
-      await sendPersonalizedEmail(
-        req.email,
-        req.recipient_name || 'Destinatario',
-        personalizedUrl,
-        letterText
-      );
 
       const { error: updateError } = await supabase
         .from('song_requests')
@@ -79,6 +72,14 @@ async function deliverPendingSongs(): Promise<void> {
           email: req.email,
           songId,
         });
+        if (req.email) {
+          await sendPersonalizedEmail(
+            req.email,
+            req.recipient_name || 'Destinatario',
+            personalizedUrl,
+            letterText
+          );
+        }
       }
     } catch (err) {
       logError('[DeliveryScheduler] Erro ao entregar musica', { requestId: req.id, error: err instanceof Error ? err.message : String(err) });

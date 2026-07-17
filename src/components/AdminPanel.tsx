@@ -57,6 +57,7 @@ interface SongRequest {
   voice_sample_url?: string | null;
   phone?: string;
   email?: string;
+  plan?: string;
   special_traits?: string;
   memory?: string;
   heart_message?: string;
@@ -82,6 +83,7 @@ interface Song {
     recipient_name: string;
     music_style: string;
     occasion: string;
+    plan?: string;
     users?: { name: string; email: string; phone?: string };
   };
 }
@@ -281,6 +283,9 @@ export default function AdminPanel() {
   const [reqStatusFilter, setReqStatusFilter] = useState('');
   const [payStatusFilter, setPayStatusFilter] = useState('');
   const [songStatusFilter, setSongStatusFilter] = useState('');
+  const [reqPlanFilter, setReqPlanFilter] = useState('');
+  const [payPlanFilter, setPayPlanFilter] = useState('');
+  const [songPlanFilter, setSongPlanFilter] = useState('');
   const PER_PAGE = 20;
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -615,6 +620,14 @@ export default function AdminPanel() {
   useEffect(() => { setPayPage(1); }, [activeView]);
   useEffect(() => { setSongPage(1); }, [activeView]);
 
+  // Refresh data when window regains focus
+  useEffect(() => {
+    if (!authenticated) return;
+    const onFocus = () => pollCurrentView();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [authenticated, pollCurrentView]);
+
   // login handler removido — ver handleLogin acima
 
   const handleConfirmApprove = async () => {
@@ -851,6 +864,7 @@ export default function AdminPanel() {
   const filteredRequests = useMemo(() => {
     return requests.filter(r => {
       if (reqStatusFilter && r.status !== reqStatusFilter) return false;
+      if (reqPlanFilter && r.plan !== reqPlanFilter) return false;
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
       const name = (r.users?.name || '').toLowerCase();
@@ -868,11 +882,12 @@ export default function AdminPanel() {
       if (searchFilter === 'relationship') return relationship.includes(q);
       return name.includes(q) || email.includes(q) || status.includes(q) || style.includes(q) || recipient.includes(q) || occasion.includes(q) || relationship.includes(q);
     });
-  }, [requests, searchQuery, searchFilter, reqStatusFilter]);
+  }, [requests, searchQuery, searchFilter, reqStatusFilter, reqPlanFilter]);
 
   const filteredPayments = useMemo(() => {
     return payments.filter(p => {
       if (payStatusFilter && p.status !== payStatusFilter) return false;
+      if (payPlanFilter && p.plan !== payPlanFilter) return false;
       if (!paymentSearchQuery) return true;
       const q = paymentSearchQuery.toLowerCase();
       const email = (p.user_email || '').toLowerCase();
@@ -881,7 +896,7 @@ export default function AdminPanel() {
       const recipient = (p.song_requests?.recipient_name || '').toLowerCase();
       return email.includes(q) || plan.includes(q) || status.includes(q) || recipient.includes(q);
     });
-  }, [payments, paymentSearchQuery, payStatusFilter]);
+  }, [payments, paymentSearchQuery, payStatusFilter, payPlanFilter]);
 
   const sortedRequests = useMemo(() => sortData(filteredRequests, reqSort, reqFieldMap), [filteredRequests, reqSort]);
   const sortedPayments = useMemo(() => sortData(filteredPayments, paySort, payFieldMap), [filteredPayments, paySort]);
@@ -908,6 +923,7 @@ export default function AdminPanel() {
   const filteredSongs = useMemo(() => {
     return songs.filter(s => {
       if (songStatusFilter && s.mureka_status !== songStatusFilter) return false;
+      if (songPlanFilter && s.song_requests?.plan !== songPlanFilter) return false;
       if (!songSearchQuery) return true;
       const q = songSearchQuery.toLowerCase();
       const title = (s.title || '').toLowerCase();
@@ -924,7 +940,7 @@ export default function AdminPanel() {
       if (songSearchFilter === 'status') return status.includes(q);
       return title.includes(q) || recipient.includes(q) || style.includes(q) || status.includes(q) || email.includes(q) || phone.includes(q);
     });
-  }, [songs, songSearchQuery, songSearchFilter, songStatusFilter]);
+  }, [songs, songSearchQuery, songSearchFilter, songStatusFilter, songPlanFilter]);
 
   const sortedSongs = useMemo(() => sortData(filteredSongs, songSort, songFieldMap), [filteredSongs, songSort]);
 
@@ -1195,7 +1211,7 @@ export default function AdminPanel() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveView(item.id as AdminView)}
+                  onClick={() => { setActiveView(item.id as AdminView); setSearchQuery(''); setReqStatusFilter(''); setReqPlanFilter(''); setPaymentSearchQuery(''); setPayStatusFilter(''); setPayPlanFilter(''); setSongSearchQuery(''); setSongStatusFilter(''); setSongPlanFilter(''); }}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer text-left ${
                     isActive
                       ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
@@ -1330,8 +1346,8 @@ export default function AdminPanel() {
                             className="w-full bg-stone-950 border border-stone-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-stone-300 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
                           />
                         </div>
-                        {(paymentSearchQuery || payStatusFilter) && (
-                          <button onClick={() => { setPaymentSearchQuery(''); setPayStatusFilter(''); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer shrink-0">
+                        {(paymentSearchQuery || payStatusFilter || payPlanFilter) && (
+                          <button onClick={() => { setPaymentSearchQuery(''); setPayStatusFilter(''); setPayPlanFilter(''); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer shrink-0">
                             Limpar
                           </button>
                         )}
@@ -1340,6 +1356,12 @@ export default function AdminPanel() {
                           <option value="pending_verification">Aguardando Verificação</option>
                           <option value="approved">Aprovado</option>
                           <option value="rejected">Rejeitado</option>
+                        </select>
+                        <select value={payPlanFilter} onChange={e => setPayPlanFilter(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                          <option value="">Todos planos</option>
+                          <option value="standard">Standard</option>
+                          <option value="express">Express</option>
+                          <option value="premium">Premium</option>
                         </select>
                         <select value={paySort} onChange={e => setPaySort(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
                           <option value="created_at_desc">Mais recentes</option>
@@ -1632,8 +1654,14 @@ export default function AdminPanel() {
                       <option value="delivered">Entregue</option>
                       <option value="failed">Falhou</option>
                     </select>
-                    {(searchQuery || reqStatusFilter) && (
-                      <button onClick={() => { setSearchQuery(''); setReqStatusFilter(''); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer">
+                    <select value={reqPlanFilter} onChange={e => setReqPlanFilter(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                      <option value="">Todos planos</option>
+                      <option value="standard">Standard</option>
+                      <option value="express">Express</option>
+                      <option value="premium">Premium</option>
+                    </select>
+                    {(searchQuery || reqStatusFilter || reqPlanFilter) && (
+                      <button onClick={() => { setSearchQuery(''); setReqStatusFilter(''); setReqPlanFilter(''); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer">
                         Limpar
                       </button>
                     )}
@@ -1924,8 +1952,14 @@ export default function AdminPanel() {
                       <option value="completed">Concluído</option>
                       <option value="failed">Falhou</option>
                     </select>
-                    {(songSearchQuery || songStatusFilter) && (
-                      <button onClick={() => { setSongSearchQuery(''); setSongStatusFilter(''); setSongPage(1); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer">
+                    <select value={songPlanFilter} onChange={e => { setSongPlanFilter(e.target.value); setSongPage(1); }} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                      <option value="">Todos planos</option>
+                      <option value="standard">Standard</option>
+                      <option value="express">Express</option>
+                      <option value="premium">Premium</option>
+                    </select>
+                    {(songSearchQuery || songStatusFilter || songPlanFilter) && (
+                      <button onClick={() => { setSongSearchQuery(''); setSongStatusFilter(''); setSongPlanFilter(''); setSongPage(1); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer">
                         Limpar
                       </button>
                     )}

@@ -4,6 +4,20 @@ import { generateLyricsWithClaude } from './claude';
 import { generateLyricsWithGemini } from './gemini';
 import { logInfo, logWarn, logError } from '../utils/logger';
 
+const AI_PROVIDER_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 60000);
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, name: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Provedor ${name} excedeu o tempo limite (${ms / 1000}s)`));
+    }, ms);
+    promise.then(
+      val => { clearTimeout(timer); resolve(val); },
+      err => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
 export async function generateLyrics(formData: any): Promise<{ result: LyricsComposition; provider: AIProvider }> {
   const providers: { name: AIProvider; key: string; fn: (data: any) => Promise<LyricsComposition> }[] = [
     { name: 'openai', key: 'OPENAI_API_KEY', fn: generateLyricsWithGPT },
@@ -22,7 +36,7 @@ export async function generateLyrics(formData: any): Promise<{ result: LyricsCom
   for (const { name, fn } of available) {
     try {
       logInfo(`[AI] A tentar provedor: ${name}`);
-      const result = await fn(formData);
+      const result = await withTimeout(fn(formData), AI_PROVIDER_TIMEOUT_MS, name);
       logInfo(`[AI] Letra gerada com sucesso via ${name}`);
       return { result, provider: name };
     } catch (err: any) {

@@ -175,6 +175,36 @@ export async function resumeSunoTaskWorkflow(requestId: string, songId: string, 
       if (audioUrl) {
         await completeSunoWorkflowFromAudio(requestId, songId, taskId, audioUrl);
         logInfo(`[Background Suno] Existing task completed`, { requestId });
+
+        // Send delivery/confirmation email after resume
+        try {
+          const { data: sr } = await supabase
+            .from('song_requests')
+            .select('status, email, recipient_name, users!inner(email, name), songs!inner(id, letter_text, title)')
+            .eq('id', requestId)
+            .single();
+          if (sr) {
+            const song = (sr as any).songs?.[0];
+            const userEmail = (sr as any).email || (sr as any).users?.email;
+            const songReqStatus = (sr as any).status;
+            if (userEmail && (songReqStatus === 'approved' || songReqStatus === 'delivered')) {
+              const slug = ((sr as any).recipient_name || 'especial')
+                .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+              const url = `${getAppUrl()}/song/${slug}?id=${song?.id || songId}`;
+              if (songReqStatus === 'approved') {
+                sendConfirmationEmail(userEmail, (sr as any).recipient_name, requestId, 'standard_approved')
+                  .catch(err => logError('[Resume] Confirmation email failed', err, { requestId }));
+              } else {
+                sendPersonalizedEmail(userEmail, (sr as any).recipient_name, url, song?.letter_text || 'Dedicatória.')
+                  .catch(err => logError('[Resume] Delivery email failed', err, { requestId }));
+              }
+            }
+          }
+        } catch (emailErr) {
+          logError('[Resume] Failed to send notification email', emailErr, { requestId });
+        }
+
         return;
       }
 

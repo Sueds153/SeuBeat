@@ -727,12 +727,10 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         await new Promise(resolve => setTimeout(resolve, 8000));
       }
 
+      const controller = new AbortController();
+      const pollTimeout = setTimeout(() => controller.abort(), 15000);
       try {
-        const controller = new AbortController();
-        const pollTimeout = setTimeout(() => controller.abort(), 15000);
-
         const statusRes = await fetch(`/api/song/${songId}`, { signal: controller.signal });
-        clearTimeout(pollTimeout);
 
         if (!statusRes.ok) {
           throw new Error('Nao foi possivel consultar o estado da musica.');
@@ -767,6 +765,8 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           continue;
         }
         throw err;
+      } finally {
+        clearTimeout(pollTimeout);
       }
     }
 
@@ -861,7 +861,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
           setGenerationStatus('lyrics_ready');
           setProcessingStage(3);
-          showToast('Letra gerada com sucesso!', 'success');
 
           await pollSongUntilPreview(data.dbSongId);
           if (generationStatus !== 'error') {

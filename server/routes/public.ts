@@ -153,6 +153,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
   const supabase = getAdminSupabase();
   let dbSongRequestId: string | null = null;
   let dbSongId: string | null = null;
+  let photoStoragePath: string | null = null;
 
   try {
     // Validar input
@@ -218,6 +219,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
         throw new Error('Nao foi possivel carregar a foto. Tente novamente.');
       }
 
+      photoStoragePath = uploadData.path;
       photoUrl = publicUrlForStoragePath(supabase, 'photos', uploadData.path);
     }
 
@@ -349,6 +351,10 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       }
     }
 
+    if (photoStoragePath && supabase && !dbSongRequestId) {
+      supabase.storage.from('photos').remove([photoStoragePath]).catch(() => {});
+    }
+
     logError('[API] /generate-lyrics falhou', err, {
       requestId: dbSongRequestId,
       songId: dbSongId
@@ -373,7 +379,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
 
     const { data: songData, error } = await adminSupabase
       .from('songs')
-      .select('*, song_requests!inner(id, recipient_name, status, photo_url, final_mixed_audio_url, elevenlabs_voice_id, music_style, memory, deliver_at, users!inner(name))')
+      .select('*, song_requests!inner(id, recipient_name, status, email, photo_url, final_mixed_audio_url, elevenlabs_voice_id, music_style, memory, deliver_at, users!inner(name))')
       .eq('id', req.params.id)
       .single();
 
@@ -403,7 +409,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       if (!deliveryError) {
         requestStatus = 'delivered';
 
-        const userEmail = sr?.users?.email;
+        const userEmail = sr?.email;
         if (userEmail) {
           const slug = (sr?.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
           const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
@@ -690,6 +696,14 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       voiceSampleUrl = data.path;
     }
 
+    const updateData: Record<string, any> = { status: 'payment_submitted' };
+    if (voiceSampleUrl) updateData.voice_sample_url = voiceSampleUrl;
+    const { error: requestUpdateError } = await supabase
+      .from('song_requests')
+      .update(updateData)
+      .eq('id', songRequestId);
+    if (requestUpdateError) throw requestUpdateError;
+
     const { error: paymentError } = await supabase.from('payments').insert([{
       request_id: songRequestId,
       user_email: userEmail,
@@ -701,14 +715,6 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       status: 'pending_verification'
     }]);
     if (paymentError) throw paymentError;
-
-    const updateData: Record<string, any> = { status: 'payment_submitted' };
-    if (voiceSampleUrl) updateData.voice_sample_url = voiceSampleUrl;
-    const { error: requestUpdateError } = await supabase
-      .from('song_requests')
-      .update(updateData)
-      .eq('id', songRequestId);
-    if (requestUpdateError) throw requestUpdateError;
 
     res.json({ success: true });
   } catch (err: any) {

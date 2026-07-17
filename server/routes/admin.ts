@@ -194,13 +194,16 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
 
     const numericAmount = parseInt(String(payment.amount || '0').replace(/[^0-9]/g, ''), 10) || 0;
     const planName = (payment.plan || songRequest?.plan || 'standard') as string;
-    sendPurchaseEvent({
-      eventId: `payment-${id}-approved`,
-      email: payment.user_email || userEmail || '',
-      value: numericAmount,
-      currency: 'AOA',
-      contentName: planName,
-    });
+
+    const firePurchaseEvent = () => {
+      sendPurchaseEvent({
+        eventId: `payment-${id}-approved`,
+        email: payment.user_email || userEmail || '',
+        value: numericAmount,
+        currency: 'AOA',
+        contentName: planName,
+      });
+    };
 
     const hasGeneratedAudio = !!(songData.full_song_url || songData.audio_url);
     const hasVoiceSample = !!songRequest.voice_sample_url;
@@ -211,9 +214,9 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
       const fullAudioUrl = songData.full_song_url || songData.audio_url;
 
       if (isStandard) {
-        // Standard: agendar entrega para 24h após submissão do comprovativo
-        const paymentCreatedAt = payment.created_at || new Date().toISOString();
-        const deliverAt = new Date(new Date(paymentCreatedAt).getTime() + 24 * 60 * 60 * 1000).toISOString();
+        // Standard: agendar entrega para 24h após aprovação
+        const approvedAt = payment.approved_at || payment.created_at || new Date().toISOString();
+        const deliverAt = new Date(new Date(approvedAt).getTime() + 24 * 60 * 60 * 1000).toISOString();
         await supabase
           .from('song_requests')
           .update({
@@ -227,6 +230,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
             logError('[Admin] Falha ao enviar email de confirmacao (standard)', err, { requestId, userEmail })
           );
         }
+        firePurchaseEvent();
         return res.json({ success: true, message: 'Pagamento aprovado. Música será entregue em 24h por e-mail.', isStandard: true });
       }
 
@@ -238,6 +242,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
           final_mixed_audio_url: fullAudioUrl || songRequest.final_mixed_audio_url || null
         })
         .eq('id', requestId);
+      firePurchaseEvent();
       if (userEmail) {
         const slug = (songRequest.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
         const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
@@ -254,10 +259,12 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
     // Evita iniciar um segundo workflow se já existe um em andamento
     const isProcessing = songData.mureka_status === 'generating' || songData.mureka_status === 'processing' || (songData.mureka_task_id && !hasGeneratedAudio);
     if (isProcessing) {
+      firePurchaseEvent();
       return res.json({ success: true, message: 'Música já está em processamento. A entrega será automática quando concluída.', alreadyProcessing: true });
     }
 
-    await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', requestId);
+    await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', requestId).eq('status', 'approved');
+    firePurchaseEvent();
     runBackgroundSunoWorkflow(requestId, songData.id, songRequest.music_style || 'Kizomba', songData.title || 'Música SeuBeat', songData.lyrics || []).catch(err => logError('[Admin] Background Suno workflow falhou apos aprovacao', err, { requestId }));
     return res.json({ success: true, message: 'Pagamento aprovado. Música em processamento no Suno.', hasVoiceSample });
   } catch (err: any) {
@@ -273,13 +280,21 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
-    const { data: payment } = await supabase.from('payments').select('user_email, request_id, status, proof_path').eq('id', id).single();
-    await supabase.from('payments').update({ status: 'rejected', notes: notes || null }).eq('id', id);
+    const { data: payment } = await supabase
+      .from('payments')
+      .select('user_email, request_id, status, proof_path')
+      .eq('id', id)
+      .eq('status', 'pending_verification')
+      .single();
+
+    if (!payment) return res.status(409).json({ error: 'Pagamento não encontrado ou já processado.' });
+
+    await supabase.from('payments').update({ status: 'rejected', notes: notes || null }).eq('id', id).eq('status', 'pending_verification');
 
     logAdminAction({ action: 'reject', entityType: 'payment', entityId: id, previousData: { status: payment?.status }, notes: notes || undefined });
 
     if (payment?.request_id) {
-      await supabase.from('song_requests').update({ status: 'payment_rejected' }).eq('id', payment.request_id);
+      await supabase.from('song_requests').update({ status: 'payment_rejected' }).eq('id', payment.request_id).in('status', ['payment_submitted', 'approved']);
     }
 
     if (payment?.user_email) {
@@ -903,10 +918,17 @@ router.post('/undo', adminAuth, async (req, res) => {
 
     if (action === 'approve' || action === 'reject') {
       if (entityType === 'payment') {
-        await supabase.from('payments').update({ status: 'pending_verification', approved_at: null, notes: 'Desfeito pelo admin' }).eq('id', entityId);
-        const { data: pay } = await supabase.from('payments').select('request_id').eq('id', entityId).single();
-        if (pay?.request_id) {
-          await supabase.from('song_requests').update({ status: 'payment_submitted' }).eq('id', pay.request_id);
+        const targetStatus = action === 'approve' ? 'approved' : 'rejected';
+        const { error: undoError } = await supabase
+          .from('payments')
+          .update({ status: 'pending_verification', approved_at: null, notes: 'Desfeito pelo admin' })
+          .eq('id', entityId)
+          .eq('status', targetStatus);
+        if (undoError || !undoError) {
+          const { data: pay } = await supabase.from('payments').select('request_id, status').eq('id', entityId).single();
+          if (pay?.request_id && pay.status === 'pending_verification') {
+            await supabase.from('song_requests').update({ status: 'payment_submitted' }).eq('id', pay.request_id).in('status', ['payment_rejected', 'approved']);
+          }
         }
         logAdminAction({ action: 'undo', entityType: 'payment', entityId, notes: `Undo: ${action}` });
         return res.json({ success: true, message: `Acção de "${action}" revertida. Pagamento voltou a "pending_verification".` });
@@ -1438,15 +1460,20 @@ router.post('/cron/deliver-pending', async (req, res) => {
       }
 
       const slug = ((sr as any).recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-      const personalizedUrl = `${process.env.APP_URL || 'http://localhost:3000'}/song/${slug}?id=${song?.id}`;
+      const baseUrl = process.env.APP_URL || getAppUrl(req);
+      const personalizedUrl = `${baseUrl}/song/${slug}?id=${song?.id}`;
 
       try {
-        await sendPersonalizedEmail(userEmail, (sr as any).recipient_name, personalizedUrl, song?.letter_text || 'Dedicatória.');
-        await supabase
+        const { error: updateError } = await supabase
           .from('song_requests')
           .update({ status: 'delivered', deliver_at: null })
           .eq('id', (sr as any).id)
           .eq('status', 'approved');
+        if (updateError) {
+          logError('[Cron] Falha ao atualizar status de entrega', updateError, { requestId: (sr as any).id });
+          continue;
+        }
+        await sendPersonalizedEmail(userEmail, (sr as any).recipient_name, personalizedUrl, song?.letter_text || 'Dedicatória.');
         delivered++;
       } catch (emailErr) {
         logError('[Cron] Falha ao enviar email de entrega', emailErr, { requestId: (sr as any).id });
