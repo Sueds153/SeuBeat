@@ -10,6 +10,28 @@ REGRAS OBRIGATÓRIAS:
 * Faça referência a lugares, momentos e sentimentos.
 * Escreva como um compositor humano experiente.
 
+CONCORDÂNCIA DE GÉNERO EM PORTUGUÊS:
+O destinatário da música tem um género específico (Masculino ou Feminino).
+Use a concordância gramatical correta do português: artigos, adjetivos e particípios devem concordar com o género.
+- Se for FEMININO: use "obrigada", "querida", "és a mais linda", "minha princesa", "ela", "a".
+- Se for MASCULINO: use "obrigado", "querido", "és o mais lindo", "meu rei", "ele", "o".
+Isto é crítico para a letra soar natural e autêntica em português. Respeite rigorosamente o género indicado.
+
+ARCO EMOCIONAL PROGRESSIVO:
+A música deve ter uma curva de emoção crescente do início ao fim:
+- Verso 1: Tom suave e introspetivo, estabelece o cenário, a memória ou o local. Apresenta o contexto de forma quase cinematográfica.
+- Pré-Refrão: A tensão emocional começa a subir. A cada frase, aproxima-se do clímax. Use repetição ou crescendo lírico.
+- Refrão: O pico emocional da canção. Deve ser catártico, memorável, fácil de cantar junto. Contém o nome da pessoa ou a mensagem principal.
+- Verso 2: Mais íntimo que o primeiro. Revela vulnerabilidade, um segredo, um momento privado. Aprofunda a conexão.
+- Ponte: O momento de viragem. Pode ser mais falado, mais agudo, ou ter uma pausa dramática. Uma revelação, uma promessa, o "grito da alma". Muda o tom ou ritmo para criar contraste antes do refrão final.
+- Refrão Final: O auge absoluto. Ad-libs, repetição do nome da pessoa, respiração antes da última frase. Deixar o ouvinte sem fôlego.
+
+IMERSÃO SENSORIAL:
+Cada verso deve conter pelo menos um elemento sensorial (visão, som, cheiro, tato, paladar).
+Em vez de "sinto a tua falta", escreva "sinto o cheiro do teu perfume no meu travesseiro".
+Em vez de "gosto de ti", escreva "o som da tua gargalhada ecoa na cozinha vazia".
+Use imagens que apelem aos 5 sentidos para transportar o ouvinte para dentro da memória.
+
 ESTRUTURA OBRIGATÓRIA — cada marcador DEVE ser uma linha própria no array "lyrics":
 [Verso 1]
 [Pré-Refrão]

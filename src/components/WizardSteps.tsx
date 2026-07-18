@@ -692,6 +692,23 @@ export function Step7Message({
       </div>
 
       <div className="space-y-2 pt-3 border-t border-stone-900">
+        <label className="text-xs font-mono text-stone-400 block font-semibold">
+          Qual a frase principal que queres que fique na cabeça dela? <span className="text-stone-600 font-normal">(Opcional)</span>
+        </label>
+        <input
+          id="hook-phrase-input"
+          type="text"
+          placeholder='Ex: "és o meu sol", "nunca estás sozinha", "amo-te mais que ontem"...'
+          value={formData.hookPhrase}
+          onChange={(e) => setFormData(prev => ({ ...prev, hookPhrase: e.target.value }))}
+          className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700"
+        />
+        <p className="text-xxs text-amber-500 italic mt-1 font-mono">
+          "O refrão será construído à volta desta frase."
+        </p>
+      </div>
+
+      <div className="space-y-2 pt-3 border-t border-stone-900">
         <label className="text-xs font-mono text-stone-400 block font-semibold">Escolha as emoções dominantes:</label>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {emotionCards.map((card) => {

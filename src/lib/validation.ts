@@ -35,6 +35,7 @@ const Step6Schema = z.object({
 const Step7Schema = z.object({
   messageFromTheHeart: z.string().min(5, 'Mínimo 5 caracteres'),
   desiredEmotion: z.string().min(1, 'Selecione a emoção'),
+  hookPhrase: z.string().max(200, 'Máximo 200 caracteres').optional(),
 });
 
 const Step8Schema = z.object({

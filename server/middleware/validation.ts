@@ -64,6 +64,7 @@ export const GenerateLyricsSchema = z.object({
   unforgettableMemory: z.string().max(1000).trim().optional(),
   whereItHappened: z.string().max(500).trim().optional(),
   messageFromTheHeart: z.string().max(1000).trim().optional(),
+  hookPhrase: z.string().max(200).trim().optional(),
   desiredEmotion: z.preprocess(lower, z.enum(EMOTIONS)),
   language: z.preprocess(lower, z.enum(LANGUAGES)).default('português'),
 

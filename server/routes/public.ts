@@ -188,6 +188,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       onlySheDoes,
       whereItHappened,
       messageFromTheHeart,
+      hookPhrase,
       desiredEmotion,
       language
     } = validation.data;
@@ -243,6 +244,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       recipient_gender: recipientGender || null,
       recipient_nick: recipientNick || null,
       relationship: recipientRelation || 'Parceiro',
+      hook_phrase: hookPhrase || null,
       occasion: occasion || 'Homenagem',
       music_style: musicStyle || 'Kizomba',
       voice_type: voiceType || 'masculina',
@@ -277,6 +279,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       recipientGender: recipientGender || '',
       recipientRelation: recipientRelation || 'Parceiro',
       recipientNick: recipientNick || '',
+      hookPhrase: hookPhrase || '',
       occasion: occasion || 'Homenagem',
       whyCreatedToday: whyCreatedToday || '',
       musicStyle: musicStyle || 'Kizomba',

@@ -62,14 +62,31 @@ const ARTIST_LYRICAL_STYLES: Record<string, string> = {
   'Outro': 'Crie uma letra original com identidade própria, adaptando o tom e vocabulário ao estilo musical escolhido sem se prender a um artista específico.',
 };
 
+const EMOTION_PROMPTS: Record<string, string> = {
+  amor: 'INSTRUÇÃO DE EMOÇÃO: "Amor" — Tom doce e íntimo. Foque em promessas de futuro, gestos quotidianos de carinho, admiração genuína. O refrão deve soar como uma declaração em voz alta.',
+  emoção: 'INSTRUÇÃO DE EMOÇÃO: "Emoção" — Tom intenso e profundo. Construído para provocar lágrimas. Use pausas dramáticas, versos quebrados, como se a voz estivesse embargada. O clímax deve ser avassalador.',
+  gratidão: 'INSTRUÇÃO DE EMOÇÃO: "Gratidão" — Tom caloroso e humilde. Reconhecimento sincero. Memórias de apoio, momentos em que a pessoa esteve presente. O refrão deve soar como um "obrigado" do fundo do peito.',
+  carinho: 'INSTRUÇÃO DE EMOÇÃO: "Carinho" — Tom suave e acolhedor, como um abraço. Detalhes de cuidado diário, gestos simples de amor. A letra deve confortar como uma mão quente.',
+  saudade: 'INSTRUÇÃO DE EMOÇÃO: "Saudade" — Tom nostálgico e agridoce. Memórias bonitas que aquecem o coração mas também apertam. O refrão deve equilibrar a dor da ausência com a beleza do que foi vivido. Termine com esperança de reencontro.',
+  inspiração: 'INSTRUÇÃO DE EMOÇÃO: "Inspiração" — Tom motivacional e edificante. Força interior, superação, resiliência. O refrão deve soar como um hino pessoal de vitória. Use linguagem de empoderamento.',
+};
+
+function emotionInstruction(desiredEmotion: string): string {
+  if (!desiredEmotion) return '';
+  const key = desiredEmotion.trim().toLowerCase();
+  const instruction = EMOTION_PROMPTS[key];
+  if (instruction) return `- ${instruction}`;
+  return '';
+}
+
 const STYLE_LYRICAL_INSTRUCTIONS: Record<string, string> = {
-  kizomba: 'Use linguagem romântica e envolvente, ritmo lento e sensual, refrão repetitivo e cativante próprio da tarraxinha angolana.',
-  semba: 'Use ritmo acelerado e alegre, linguagem dançante e tradicional angolana, refrão contagiante com guitarra viva.',
-  afrobeat: 'Use energia vibrante, percussão marcante, refrão poderoso e dançante, flow moderno afro-pop.',
+  kizomba: 'Use linguagem romântica e envolvente, ritmo lento e sensual, refrão repetitivo e cativante próprio da tarraxinha angolana. Incorpore expressões angolanas como "baza", "xé", "bué", "na boa" naturalmente se o tom permitir. Refira locais angolanos reais (Luanda, Ilha, Cabo Ledo, Benguela, Mussulo) para criar autenticidade cultural.',
+  semba: 'Use ritmo acelerado e alegre, linguagem dançante e tradicional angolana, refrão contagiante com guitarra viva. Faça referência ao musseque, ao bairro, à rádio comunitária, às festas de família angolanas. O semba é a alma musical de Angola.',
+  afrobeat: 'Use energia vibrante, percussão marcante, refrão poderoso e dançante, flow moderno afro-pop. Incorpore a energia dos palcos africanos, a fusão de ritmos que atravessa o continente.',
   gospel: 'Use tom de fé e gratidão, linguagem inspiradora e edificante, coro emocionante com referências espirituais.',
   acoustic: 'Use tom intimista e poético, letra simples mas profunda, voz suave e melodia minimalista.',
   'romantic pop': 'Use romantismo radiofónico, refrão forte e memorável, linguagem universal e emocional com produção polida.',
-  zouk: 'Use romantismo caribenho, sintetizadores suaves, refrão melódico e envolvente com vibe tropical.',
+  zouk: 'Use romantismo caribenho com influência africana, sintetizadores suaves, refrão melódico e envolvente com vibe tropical.',
   balada: 'Use tom emocional e orquestrado, piano e cordas, construção dramática com refrão explosivo.',
   pop: 'Use melodia cativante, refrão pegajoso, linguagem acessível e produção moderna e radiofónica.',
   'r&b': 'Use flow suave e sensual, groove envolvente, letra emocional com alma e sentimento à moda R&B.',
@@ -110,26 +127,37 @@ function languageInstruction(lang: string): string {
 
 function buildFormContext(formData: any) {
   const c = (val: any) => clean(val, 'Não informado');
-  return [
-    ['Destinatário (Nome)', c(formData.recipientName)],
-    ['Género do Destinatário', c(formData.recipientGender)],
-    ['Relação', c(formData.recipientRelation)],
-    ['Apelido Carinhoso do Destinatário', c(formData.recipientNick)],
-    ['Como quem oferece gosta de ser chamado (Apelido)', c(formData.userNick)],
-    ['Ocasião Especial', c(formData.occasion)],
-    ['Motivo da criação hoje', c(formData.whyCreatedToday)],
-    ['Estilo Musical', c(formData.musicStyle)],
-    ['Artista de Referência', c(formData.referenceArtist)],
-    ['Tipo de Voz', c(formData.voiceType)],
-    ['O que torna a pessoa especial', c(formData.whatMakesSpecial)],
-    ['Algo que só essa pessoa faz', c(formData.onlySheDoes)],
-    ['Memória inesquecível', c(formData.unforgettableMemory)],
-    ['Local da memória', c(formData.whereItHappened)],
-    ['O que nunca deve esquecer (Mensagem do Coração)', c(formData.messageFromTheHeart)],
-    ['Variante do Idioma', languageDisplayName(c(formData.language))]
-  ]
-    .map(([label, value]) => `- ${label}: ${value}`)
-    .join('\n');
+  const sections = [
+    { title: 'DADOS BIOGRÁFICOS', items: [
+      ['Nome do Destinatário', c(formData.recipientName)],
+      ['Género do Destinatário', c(formData.recipientGender)],
+      ['Relação com quem oferece', c(formData.recipientRelation)],
+      ['Apelido Carinhoso', c(formData.recipientNick)],
+      ['Como quem oferece gosta de ser chamado', c(formData.userNick)],
+    ]},
+    { title: 'CONTEXTO DA MÚSICA', items: [
+      ['Ocasião Especial', c(formData.occasion)],
+      ['Motivo da criação hoje', c(formData.whyCreatedToday)],
+      ['Estilo Musical', c(formData.musicStyle)],
+      ['Artista de Referência', c(formData.referenceArtist)],
+      ['Tipo de Voz', c(formData.voiceType)],
+    ]},
+    { title: 'DETALHES EMOCIONAIS', items: [
+      ['O que torna a pessoa especial', c(formData.whatMakesSpecial)],
+      ['Algo que só essa pessoa faz', c(formData.onlySheDoes)],
+    ]},
+    { title: 'MEMÓRIA BASE', items: [
+      ['Memória inesquecível', c(formData.unforgettableMemory)],
+      ['Local da memória', c(formData.whereItHappened)],
+    ]},
+    { title: 'MENSAGEM CENTRAL', items: [
+      ['O que nunca deve esquecer', c(formData.messageFromTheHeart)],
+      ['Variante do Idioma', languageDisplayName(c(formData.language))],
+    ]},
+  ];
+  return sections.map(s =>
+    `-- ${s.title} --\n${s.items.map(([label, value]) => `- ${label}: ${value}`).join('\n')}`
+  ).join('\n\n');
 }
 
 export function selectPrompt(formData: any) {
@@ -206,7 +234,7 @@ ${buildFormContext(formData)}
 
 INSTRUÇÕES ADICIONAIS DE PERSONALIZAÇÃO E QUALIDADE:
 - A letra DEVE usar o nome do destinatário ("${formData.recipientName || 'Destinatário'}"), apelidos carinhosos ("${formData.recipientNick || ''}"), local ("${formData.whereItHappened || ''}") e memórias detalhadas ("${formData.unforgettableMemory || ''}") de forma natural e emocionante.
-- Evite letras genéricas. O tom e vocabulário devem refletir a emoção desejada ("${formData.desiredEmotion || 'Emocionante'}") e o estilo musical ("${formData.musicStyle || 'Kizomba'}").${referenceArtistInstruction(formData.referenceArtist) ? '\n' + referenceArtistInstruction(formData.referenceArtist) : ''}${styleLyricalInstruction(formData.musicStyle) ? '\n' + styleLyricalInstruction(formData.musicStyle) : ''}
+- Evite letras genéricas. O tom e vocabulário devem refletir a emoção desejada ("${formData.desiredEmotion || 'Emocionante'}") e o estilo musical ("${formData.musicStyle || 'Kizomba'}").${emotionInstruction(formData.desiredEmotion) ? '\n' + emotionInstruction(formData.desiredEmotion) : ''}${referenceArtistInstruction(formData.referenceArtist) ? '\n' + referenceArtistInstruction(formData.referenceArtist) : ''}${styleLyricalInstruction(formData.musicStyle) ? '\n' + styleLyricalInstruction(formData.musicStyle) : ''}${formData.hookPhrase ? '\n- GANCHO PRINCIPAL (hook): O refrão DEVE incorporar ou girar em torno desta frase central: "' + formData.hookPhrase + '". Esta frase é a mensagem que a pessoa nunca deve esquecer. Construa o refrão a partir dela.' : ''}
 - O campo "letterText" é uma dedicatória CURTA (2-3 frases) em prosa emocionante, sem repetir a letra.
 
 INSTRUÇÃO DE IDIOMA (CUMPRA OBRIGATORIAMENTE):

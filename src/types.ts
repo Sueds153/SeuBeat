@@ -88,6 +88,7 @@ export interface WizardData {
 
   messageFromTheHeart: string;
   desiredEmotion: EmotionType | '';
+  hookPhrase: string;
 
   photoFile?: File | null;
   photoUrl?: string;
@@ -120,6 +121,7 @@ export const INITIAL_WIZARD_DATA: WizardData = {
 
   messageFromTheHeart: '',
   desiredEmotion: '',
+  hookPhrase: '',
 
   photoFile: null,
   photoUrl: '',
