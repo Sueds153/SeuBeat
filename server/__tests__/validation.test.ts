@@ -87,6 +87,12 @@ describe('GenerateLyricsSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('fails without phone', () => {
+    const { phone, ...rest } = validData;
+    const result = GenerateLyricsSchema.safeParse(rest);
+    expect(result.success).toBe(false);
+  });
+
   it('defaults language to Português', () => {
     const result = GenerateLyricsSchema.parse(validData);
     expect(result.language).toBe('português');

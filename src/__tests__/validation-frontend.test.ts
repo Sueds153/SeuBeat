@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateStep, Step1Schema, Step9Schema } from '../lib/validation';
+import { validateStep, Step1Schema, Step9Schema, formatPhoneNumber } from '../lib/validation';
 
 describe('Step1Schema (Relation)', () => {
   it('passes with valid data', () => {
@@ -70,6 +70,28 @@ describe('Step9Schema (Email + Phone)', () => {
   it('fails without phone', () => {
     const result = Step9Schema.safeParse({ email: 'teste@exemplo.com' });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('formatPhoneNumber', () => {
+  it('formats 9-digit local number', () => {
+    expect(formatPhoneNumber('922000000')).toBe('+244 922 000 000');
+  });
+
+  it('formats 12-digit number without +', () => {
+    expect(formatPhoneNumber('244922000000')).toBe('+244 922 000 000');
+  });
+
+  it('strips non-digit characters', () => {
+    expect(formatPhoneNumber('(244) 922-000-000')).toBe('+244 922 000 000');
+  });
+
+  it('returns value unchanged if cannot format', () => {
+    expect(formatPhoneNumber('abc')).toBe('abc');
+  });
+
+  it('returns empty string unchanged', () => {
+    expect(formatPhoneNumber('')).toBe('');
   });
 });
 

@@ -237,7 +237,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
     const userData = await ensureUserProfile(supabase, {
       email: userEmail,
       name: userNick || 'Autor',
-      phone: phone || null
+      phone
     });
 
     if (!userData?.id) throw new Error('Perfil de utilizador invalido.');
@@ -258,7 +258,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       desired_emotion: desiredEmotion || 'Amor',
       language: language || 'português',
       email: userEmail,
-      phone: phone || null,
+      phone,
       status: 'lyrics_generating',
       photo_url: photoUrl
     }]).select().single();

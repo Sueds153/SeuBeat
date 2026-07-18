@@ -6,6 +6,7 @@ import { motion } from 'motion/react';
 import {
   RecipientType, OccasionType, MusicStyleType, VoiceType, EmotionType, WizardData, RecipientGender
 } from '../types';
+import { formatPhoneNumber } from '../lib/validation';
 
 interface StepProps {
   formData: WizardData;
@@ -852,6 +853,7 @@ export function Step9Contact({
             placeholder="+244 922 000 000"
             value={formData.phone}
             onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+            onBlur={() => setFormData(prev => ({ ...prev, phone: formatPhoneNumber(prev.phone) }))}
             className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300"
           />
           {fieldErrors?.phone && (
