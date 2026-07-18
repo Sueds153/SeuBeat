@@ -11,29 +11,34 @@ function getConfig() {
   };
 }
 
-function createTransport() {
+function createTransport(portOverride?: number) {
   const cfg = getConfig();
+  const port = portOverride ?? cfg.port;
   return nodemailer.createTransport({
     host: cfg.host,
-    port: cfg.port,
-    secure: false,
+    port,
+    secure: port === 465,
     auth: { user: cfg.user, pass: cfg.pass },
     tls: { rejectUnauthorized: true, minVersion: 'TLSv1.2' },
-    connectionTimeout: 30000,
+    connectionTimeout: 15000,
     greetingTimeout: 10000,
     socketTimeout: 30000,
   });
 }
 
-async function sendWithRetry(transporter: nodemailer.Transporter, mailOptions: nodemailer.SendMailOptions, emailAddress: string): Promise<any> {
+async function sendWithRetry(transporter: nodemailer.Transporter, mailOptions: nodemailer.SendMailOptions, emailAddress: string, currentPort?: number): Promise<any> {
+  const cfg = getConfig();
   try {
     return await transporter.sendMail(mailOptions);
   } catch (err: any) {
     const isTimeout = err?.message?.includes('timeout') || err?.code === 'ETIMEDOUT' || err?.code === 'ESOCKET';
     if (isTimeout) {
-      logError('[Email] Timeout na 1ª tentativa, a tentar novamente...', err, { email: emailAddress });
+      const port = currentPort ?? cfg.port;
+      const nextPort = port === 587 ? 465 : 587;
+      logError('[Email] Timeout, a tentar porta alternativa...', err, { email: emailAddress, nextPort });
       await new Promise(resolve => setTimeout(resolve, 2000));
-      return transporter.sendMail(mailOptions);
+      const fallbackTransporter = createTransport(nextPort);
+      return sendWithRetry(fallbackTransporter, mailOptions, emailAddress, nextPort);
     }
     throw err;
   }
