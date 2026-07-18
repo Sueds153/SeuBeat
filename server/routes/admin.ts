@@ -196,6 +196,8 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
     const planName = (payment.plan || songRequest?.plan || 'standard') as string;
 
     const userPhone = songRequest?.phone || null;
+    const userFullName = songRequest?.users?.name || '';
+    const lastName = userFullName.split(' ').filter(Boolean).slice(-1)[0] || undefined;
     const firePurchaseEvent = () => {
       sendPurchaseEvent({
         eventId: id,
@@ -207,6 +209,8 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
         eventSourceUrl: (req.headers.referer as string) || undefined,
         clientIp: req.ip || req.socket.remoteAddress || undefined,
         clientUserAgent: req.headers['user-agent'],
+        externalId: payment.user_email || userEmail || undefined,
+        ln: lastName,
       }).catch(err =>
         logError('[Admin] Meta CAPI Purchase event failed after retries', err, { paymentId: id })
       );

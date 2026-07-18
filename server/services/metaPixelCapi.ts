@@ -20,6 +20,10 @@ function hashPhone(phone: string): string {
   return crypto.createHash('sha256').update(cleaned).digest('hex');
 }
 
+function hashGeneric(value: string): string {
+  return crypto.createHash('sha256').update(value.toLowerCase().trim()).digest('hex');
+}
+
 function unixNow(): number {
   return Math.floor(Date.now() / 1000);
 }
@@ -40,8 +44,14 @@ function buildPayload(params: {
   eventSourceUrl?: string;
   clientIp?: string;
   clientUserAgent?: string;
+  externalId?: string;
+  zip?: string;
+  dob?: string;
+  ln?: string;
+  ct?: string;
+  st?: string;
 }) {
-  const { eventName, eventId, email, phone, value, currency, contentName, contentType, eventSourceUrl, clientIp, clientUserAgent } = params;
+  const { eventName, eventId, email, phone, value, currency, contentName, contentType, eventSourceUrl, clientIp, clientUserAgent, externalId, zip, dob, ln, ct, st } = params;
 
   const userData: Record<string, any> = {
     em: [hashEmail(email)],
@@ -49,6 +59,12 @@ function buildPayload(params: {
   if (phone) userData.ph = [hashPhone(phone)];
   if (clientIp) userData.client_ip_address = clientIp;
   if (clientUserAgent) userData.client_user_agent = clientUserAgent;
+  if (externalId) userData.external_id = hashEmail(externalId);
+  if (zip) userData.zp = [hashGeneric(zip)];
+  if (dob) userData.db = [hashGeneric(dob)];
+  if (ln) userData.ln = [hashGeneric(ln)];
+  if (ct) userData.ct = [hashGeneric(ct)];
+  if (st) userData.st = [hashGeneric(st)];
 
   const customData: Record<string, any> = {};
   if (value !== undefined) customData.value = value;
@@ -115,6 +131,12 @@ async function sendEvent(params: {
   eventSourceUrl?: string;
   clientIp?: string;
   clientUserAgent?: string;
+  externalId?: string;
+  zip?: string;
+  dob?: string;
+  ln?: string;
+  ct?: string;
+  st?: string;
 }): Promise<boolean> {
   if (!IS_ENABLED) return false;
 
@@ -141,6 +163,8 @@ export async function sendPurchaseEvent(params: {
   eventSourceUrl?: string;
   clientIp?: string;
   clientUserAgent?: string;
+  externalId?: string;
+  ln?: string;
 }): Promise<boolean> {
   return sendEvent({ ...params, eventName: 'Purchase', contentType: 'product' });
 }
@@ -155,6 +179,8 @@ export async function sendSubmitApplicationEvent(params: {
   eventSourceUrl?: string;
   clientIp?: string;
   clientUserAgent?: string;
+  externalId?: string;
+  ln?: string;
 }): Promise<boolean> {
   return sendEvent({ ...params, eventName: 'SubmitApplication', contentType: 'product' });
 }

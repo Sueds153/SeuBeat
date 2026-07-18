@@ -744,6 +744,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       eventSourceUrl: (req.headers.referer as string) || undefined,
       clientIp: req.ip || req.socket.remoteAddress || undefined,
       clientUserAgent: req.headers['user-agent'],
+      externalId: userEmail,
     }).catch(err =>
       logError('[API] Meta CAPI SubmitApplication event failed', err, { paymentId: paymentRecord?.id })
     );
