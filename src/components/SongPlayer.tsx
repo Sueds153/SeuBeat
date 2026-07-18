@@ -64,7 +64,7 @@ export default forwardRef<HTMLInputElement, SongPlayerProps>(function SongPlayer
                   ? 'bg-gradient-to-t from-amber-500 to-rose-500 animate-pulse'
                   : isPast
                   ? 'bg-amber-500/70'
-                  : 'bg-stone-700'
+                  : 'bg-stone-700/40'
               }`}
             />
           );
@@ -72,12 +72,14 @@ export default forwardRef<HTMLInputElement, SongPlayerProps>(function SongPlayer
       </div>
 
       {/* Progress bar */}
-      <div className="space-y-1">
-        <div className="h-1 bg-stone-800 rounded-full overflow-hidden">
+      <div className="space-y-1 group/slider">
+        <div className="relative h-0.5 bg-stone-800 rounded-full cursor-pointer">
           <div
-            className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full transition-all"
+            className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full transition-all relative"
             style={{ width: `${audioProgress}%` }}
-          />
+          >
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-amber-400 shadow-md shadow-amber-500/40 opacity-0 group-hover/slider:opacity-100 transition-all scale-0 group-hover/slider:scale-100" />
+          </div>
         </div>
         <div className="flex justify-between text-[10px] text-stone-500 font-mono">
           <span>{elapsedStr}</span>
@@ -93,7 +95,7 @@ export default forwardRef<HTMLInputElement, SongPlayerProps>(function SongPlayer
         <button
           type="button"
           onClick={onPlayPause}
-          className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 hover:scale-105 active:scale-95 transition-all flex items-center justify-center shadow-lg shadow-amber-500/20 flex-shrink-0 cursor-pointer"
+          className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 hover:scale-105 active:scale-95 transition-all flex items-center justify-center shadow-xl shadow-amber-500/30 flex-shrink-0 cursor-pointer"
         >
           {isPlaying
             ? <><Pause className="w-5 h-5 fill-stone-950 text-stone-950" /><span className="sr-only">PAUSAR MÚSICA</span></>

@@ -47,6 +47,8 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Bugfix: recheckMusicStatus**: quando `pollSongUntilPreview` retorna `false` (song em `lyrics_ready`), agora seta `lyrics_ready` em vez de mostrar "A musica ainda esta em processamento" (commit `942b0fa`).
 - **payment-status**: devolve `notes` + UI rejeição com motivo + re-submit + email sends com `.catch()` no admin (commit `0658c02`).
 - **pollSongUntilPreview fix**: lê `song?.data?.status` em vez de `song?.status`; `maxAttempts` 60→15; aviso visual após 30s (commit `0f1bf24`).
+- **Bugfix: StrictMode refs permanentes**: `pollCancelledRef` e `proofMountedRef` tinham cleanup que setava `current`, mas o body do effect não resetava no remount. React 19 preserva refs entre o ciclo unmount/remount do StrictMode, deixando o valor permanentemente alterado. Fix: adicionar reset no body do effect (`pollCancelledRef.current = false` / `proofMountedRef.current = true`).
+- **E2E test full-flow**: Playwright test que percorre Wizard (9 passos) → geração de letras (mock) → seleção de plano (Standard) → upsell (declinar) → pagamento → comprovativo → ecrã de sucesso. 15s de execução.
 
 ## AI Providers (Ordem de fallback)
 1. **OpenAI** (`gpt-4o-mini`) — tentado primeiro

@@ -29,8 +29,8 @@ export default function SongShare(props: SongShareProps) {
   return (
     <div className="bg-[#181818] rounded-2xl border border-white/5 p-6 md:p-8 space-y-5 text-center">
       <div className="space-y-2">
-        <div className="w-10 h-10 rounded-full bg-[#1DB954]/10 flex items-center justify-center mx-auto">
-          <Share2 className="w-5 h-5 text-[#1DB954]" />
+        <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto">
+          <Share2 className="w-5 h-5 text-amber-500" />
         </div>
         <h3 className="text-lg font-bold text-white">Partilha esta dedicatória 💍</h3>
         <p className="text-sm text-[#b3b3b3] max-w-sm mx-auto">
@@ -50,8 +50,8 @@ export default function SongShare(props: SongShareProps) {
         onClick={copyToClipboard}
         className={`inline-flex items-center gap-2 px-8 py-3 rounded-full font-bold text-sm transition-all cursor-pointer ${
           copiedType === 'link'
-            ? 'bg-[#1DB954] text-black scale-95'
-            : 'bg-white text-black hover:scale-105 hover:bg-[#f0f0f0]'
+            ? 'bg-amber-500 text-stone-950 scale-95 shadow-lg shadow-amber-500/30'
+            : 'bg-gradient-to-r from-amber-500 to-rose-600 text-white hover:scale-105 shadow-lg shadow-amber-500/20'
         }`}
       >
         {copiedType === 'link' ? (

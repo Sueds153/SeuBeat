@@ -53,7 +53,7 @@ export default function SongLyrics({ lyrics, audioProgress }: SongLyricsProps) {
               }`}
             >
               {isCurrent && (
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#1DB954] mr-2 mb-0.5 animate-pulse" />
+                <span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-2 mb-0.5 shadow-lg shadow-amber-500/40 animate-pulse" />
               )}
               {line}
             </p>

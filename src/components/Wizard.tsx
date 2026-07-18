@@ -469,7 +469,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   };
 
   const proofMountedRef = useRef(true);
-  useEffect(() => { return () => { proofMountedRef.current = false; }; }, []);
+  useEffect(() => { proofMountedRef.current = true; return () => { proofMountedRef.current = false; }; }, []);
 
   const handleProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -804,8 +804,9 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     return false;
   };
 
-  // Cleanup polling on unmount
+  // Cleanup polling on unmount; reset on mount (StrictMode remount fix)
   useEffect(() => {
+    pollCancelledRef.current = false;
     return () => { pollCancelledRef.current = true; };
   }, []);
 

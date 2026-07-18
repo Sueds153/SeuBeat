@@ -130,7 +130,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
       <div
         className="absolute top-0 inset-x-0 h-[420px] pointer-events-none"
         style={{
-          background: 'linear-gradient(180deg, rgba(245,158,11,0.12) 0%, rgba(9,8,7,0) 100%)'
+          background: 'linear-gradient(180deg, rgba(245,158,11,0.2) 0%, rgba(9,8,7,0) 100%)'
         }}
       />
 
@@ -171,12 +171,12 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
         <section className="flex flex-col sm:flex-row items-end gap-6 pt-10 pb-8">
 
           {/* Album Art */}
-          <div className="relative w-44 h-44 sm:w-52 sm:h-52 flex-shrink-0 shadow-2xl shadow-black/60 group">
-            <motion.div
-              animate={{ rotate: isPlaying ? 360 : 0 }}
-              transition={{ repeat: Infinity, ease: 'linear', duration: 12 }}
-              className="w-full h-full rounded-xl overflow-hidden"
-            >
+          <div className="relative w-44 h-44 sm:w-52 sm:h-52 flex-shrink-0 group">
+            <div className={`w-full h-full rounded-xl overflow-hidden shadow-2xl transition-shadow duration-700 ${
+              isPlaying
+                ? 'shadow-lg shadow-amber-500/20 ring-2 ring-amber-500/50'
+                : 'shadow-black/60 ring-1 ring-white/10'
+            }`}>
               {songDetails.photoUrl ? (
                 <img
                   src={songDetails.photoUrl}
@@ -189,25 +189,13 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
                   <ImageIcon className="w-12 h-12 text-stone-600" />
                 </div>
               )}
-            </motion.div>
+            </div>
             {/* Upload overlay */}
             <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer rounded-xl gap-1">
               <Upload className="w-6 h-6 text-white" />
               <span className="text-[10px] font-bold text-white uppercase">Trocar foto</span>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomPhoto} />
             </label>
-            {/* Playing pulse */}
-            <AnimatePresence>
-              {isPlaying && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1.05 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-                  className="absolute inset-0 rounded-xl ring-2 ring-amber-500/50"
-                />
-              )}
-            </AnimatePresence>
           </div>
 
           {/* Info */}
@@ -215,7 +203,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
             <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-400 uppercase tracking-widest">
               <Sparkles className="w-3 h-3" /> Música Personalizada
             </span>
-            <h1 className="font-bold text-3xl sm:text-4xl md:text-5xl text-white leading-tight truncate-2">
+            <h1 className="font-bold text-3xl sm:text-4xl md:text-5xl text-white leading-tight line-clamp-2">
               {songDetails.songTitle || `Música de ${songDetails.recipientName}`}
             </h1>
             <p className="text-stone-400 text-sm">
@@ -307,6 +295,29 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
         <p>© {new Date().getFullYear()} SeuBeat Estúdio Angola • Todos os direitos reservados.</p>
         <p className="mt-1">Conectando memórias angolanas a melodias de estúdio profissionais.</p>
       </footer>
+
+      {/* Mini Now Playing */}
+      <AnimatePresence>
+        {isPlaying && songDetails.photoUrl && (
+          <motion.button
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 20 }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full overflow-hidden shadow-xl shadow-amber-500/20 ring-2 ring-amber-500/50 hover:ring-amber-400 hover:shadow-amber-500/40 transition-all cursor-pointer"
+            title="Ir para o topo"
+          >
+            <motion.img
+              src={songDetails.photoUrl}
+              alt="Now Playing"
+              className="w-full h-full object-cover"
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, ease: 'linear', duration: 8 }}
+            />
+          </motion.button>
+        )}
+      </AnimatePresence>
 
     </div>
   );

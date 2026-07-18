@@ -18,22 +18,22 @@ export default function SongLetter(props: SongLetterProps) {
     <div className="bg-[#181818] rounded-2xl border border-white/5 p-6 md:p-8 space-y-5">
 
       <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-        <div className="w-8 h-8 rounded-lg bg-[#1DB954]/10 flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
           <span className="text-base">✍️</span>
         </div>
         <div>
-          <span className="text-[10px] font-bold text-[#1DB954] uppercase tracking-widest block">Carta Dedicatória</span>
+          <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest block">Carta Dedicatória</span>
           <h2 className="text-base font-bold text-white">Palavras do Coração</h2>
         </div>
       </div>
 
       <div className="relative">
         {/* Decorative quote mark */}
-        <span className="absolute -top-2 -left-1 text-5xl text-[#1DB954]/10 font-serif leading-none select-none">"</span>
-        <div className="bg-[#121212] rounded-xl border border-white/5 p-5 md:p-6 font-serif text-sm md:text-base leading-relaxed text-[#b3b3b3] whitespace-pre-wrap italic pl-6">
+        <span className="absolute -top-2 -left-1 text-5xl text-amber-500/10 font-serif leading-none select-none">"</span>
+        <div className="bg-[#121212] rounded-xl border border-white/5 p-5 md:p-6 font-serif text-sm md:text-base leading-relaxed text-[#b3b3b3] whitespace-pre-wrap italic border-l-2 border-amber-500/30 pl-6">
           {getFullComposedLetter(props)}
         </div>
-        <span className="absolute -bottom-3 right-2 text-5xl text-[#1DB954]/10 font-serif leading-none select-none rotate-180">"</span>
+        <span className="absolute -bottom-3 right-2 text-5xl text-amber-500/10 font-serif leading-none select-none rotate-180">"</span>
       </div>
     </div>
   );
