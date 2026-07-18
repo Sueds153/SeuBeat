@@ -21,7 +21,8 @@ import {
   generateLyricsLimiter, 
   emailLimiter,
   getSongLimiter,
-  paymentLimiter
+  paymentLimiter,
+  paymentStatusLimiter
 } from '../middleware/rateLimiter';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 
@@ -748,7 +749,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
   }
 });
 
-router.get('/payment-status', paymentLimiter, async (req, res) => {
+router.get('/payment-status', paymentStatusLimiter, async (req, res) => {
   try {
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });

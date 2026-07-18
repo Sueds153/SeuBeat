@@ -45,7 +45,7 @@ const Step8Schema = z.object({
   path: ['photoUrl'],
 });
 export const Step9Schema = z.object({
-  email: z.string().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Email inválido'),
+  email: z.string().email('Email inválido'),
   phone: z.string().regex(/^\+?[\d\s()-]{7,18}$/, 'Formato inválido (ex: +244 922 000 000)'),
 });
 

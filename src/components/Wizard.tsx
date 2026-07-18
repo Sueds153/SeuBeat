@@ -514,17 +514,14 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       const reader = new FileReader();
       reader.readAsDataURL(proofFile);
       reader.onloadend = async () => {
-        if (!proofMountedRef.current) return;
+        if (!proofMountedRef.current) { setPaymentSubmitting(false); return; }
         const base64Data = reader.result as string;
-        
+
         let voiceBase64 = null;
         let voiceFilename = null;
         let voiceMimeType = null;
-        
-        const postPaymentData = async (proofStr: string, voiceStr: string | null, voiceName: string | null, voiceType: string | null) => {
-          // Marcar como submetido ANTES do fetch para sobreviver a refresh
-          setPaymentSubmitted(true);
 
+        const postPaymentData = async (proofStr: string, voiceStr: string | null, voiceName: string | null, voiceType: string | null) => {
           try {
             const res = await fetch('/api/submit-payment', {
               method: 'POST',
@@ -546,16 +543,17 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
             const data = await res.json();
             if (res.ok && data.success) {
+              setPaymentSubmitted(true);
               setPaymentSubmitError('');
               fbSetUserData(formData.email, formData.phone);
               fbSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()), 'AOA', data.paymentId);
             } else if (res.status === 409) {
+              setPaymentSubmitted(true);
               setPaymentSubmitError('');
             } else {
               setPaymentSubmitError(data.error || 'Erro ao submeter o comprovativo.');
             }
           } catch (fetchErr: any) {
-            // Falha de rede — o servidor pode ter recebido ou não
             setPaymentSubmitError('O servidor demorou a responder, mas pode já ter recebido o seu comprovativo. Use o botão "Verificar Estado" abaixo para confirmar.');
           } finally {
             setPaymentSubmitting(false);
@@ -566,7 +564,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           const voiceReader = new FileReader();
           voiceReader.readAsDataURL(clonedVoiceFile);
           voiceReader.onloadend = async () => {
-            if (!proofMountedRef.current) return;
+            if (!proofMountedRef.current) { setPaymentSubmitting(false); return; }
             voiceBase64 = voiceReader.result as string;
             voiceFilename = clonedVoiceFile.name;
             voiceMimeType = clonedVoiceFile.type;
@@ -616,6 +614,13 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        if (audioBlob.size === 0) {
+          showToast('Nenhum áudio captado. Tente novamente com o microfone ligado.', 'error');
+          setClonedVoiceFile(null);
+          setHasRecorded(false);
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
         const file = new File([audioBlob], 'sample_vocal.wav', { type: 'audio/wav' });
         setClonedVoiceFile(file);
         setHasRecorded(true);
@@ -870,7 +875,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           }
 
           const controller = new AbortController();
-          const fetchTimeout = setTimeout(() => controller.abort(), 120000);
+          const fetchTimeout = setTimeout(() => controller.abort(), 180000);
 
           const { photoFile: _pf, photoUrl: _pu, ...formBody } = formData;
           const payload: Record<string, unknown> = { ...formBody };
@@ -1070,7 +1075,9 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
             const parsed = JSON.parse(voiceId);
             if (parsed?.failed === true) setVoiceCloningFailed(true);
           }
-        } catch {}
+      } catch {
+        // Silencioso — o polling retenta automaticamente a cada 30s
+      }
       })
       .catch(() => {});
   }, [isDone, dbSongId]);
@@ -1117,6 +1124,10 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       } catch (e) {
         sessionStorage.removeItem('seubeat_photo_base64');
       }
+    } else if (!savedBase64 && formData.photoUrl?.startsWith('blob:')) {
+      // blob URL recarregada sem base64 no sessionStorage — foto partida
+      wrappedSetFormData(prev => ({ ...prev, photoUrl: '' }));
+      showToast('A foto foi perdida após o recarregamento. Selecione novamente.', 'error');
     }
   }, []);
 

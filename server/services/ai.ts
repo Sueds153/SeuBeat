@@ -4,7 +4,7 @@ import { generateLyricsWithClaude } from './claude';
 import { generateLyricsWithGemini } from './gemini';
 import { logInfo, logWarn, logError } from '../utils/logger';
 
-const AI_PROVIDER_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 60000);
+const AI_PROVIDER_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 35000);
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, name: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {

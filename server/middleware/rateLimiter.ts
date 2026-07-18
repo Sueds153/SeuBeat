@@ -122,7 +122,7 @@ export const getSongLimiter = rateLimit({
 });
 
 /**
- * Limiter para endpoints de pagamento (submeter comprovativo + consultar status)
+ * Limiter para submeter comprovativo (mais restritivo)
  * 20 requests por hora por IP
  */
 export const paymentLimiter = rateLimit({
@@ -137,7 +137,28 @@ export const paymentLimiter = rateLimit({
     logWarn('Payment rate limit exceeded', { ip: req.ip, path: req.path });
     res.status(429).json({
       success: false,
-      error: 'Demasiadas tentativas. Tente novamente mais tarde.'
+      error: 'Demasiadas tentativas de pagamento. Tente novamente mais tarde.'
+    });
+  }
+});
+
+/**
+ * Limiter para consulta de status de pagamento (mais permissivo)
+ * 120 requests por hora por IP — para nao bloquear o polling automatico
+ */
+export const paymentStatusLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 120,
+  message: {
+    success: false,
+    error: 'Demasiadas requisições.'
+  },
+  skip: (req) => process.env.NODE_ENV !== 'production',
+  handler: (req, res) => {
+    logWarn('Payment status rate limit exceeded', { ip: req.ip });
+    res.status(429).json({
+      success: false,
+      error: 'Demasiadas requisições. Tente novamente mais tarde.'
     });
   }
 });

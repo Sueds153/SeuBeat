@@ -33,6 +33,13 @@ async function deliverWithRetry(req: any, now: string, attempt = 0): Promise<voi
 
   const personalizedUrl = `${getAppUrl()}/song/${slug}?id=${songId}`;
 
+  if (personalizedUrl.includes('localhost')) {
+    logWarn('[DeliveryScheduler] APP_URL nao configurada — URLs nas emails contera localhost', {
+      requestId: req.id,
+      personalizedUrl
+    });
+  }
+
   try {
     const { error: updateError } = await supabase
       .from('song_requests')
