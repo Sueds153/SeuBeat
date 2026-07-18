@@ -921,8 +921,8 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           setAiLetterText(data.letterText);
           setDbSongId(data.dbSongId);
           setDbSongRequestId(data.dbSongRequestId);
-          fbLead('lyrics_generated', crypto.randomUUID());
-          fbCompleteRegistration(crypto.randomUUID());
+          fbLead('lyrics_generated', data.dbSongRequestId);
+          fbCompleteRegistration(data.dbSongRequestId);
 
           setGenerationStatus('lyrics_ready');
           setProcessingStage(3);

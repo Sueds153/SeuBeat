@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { getAdminSupabase } from '../services/supabase';
 import { generateLyrics } from '../services/ai';
 import { sendPersonalizedEmail, sendConfirmationEmail } from '../services/email';
-import { sendSubmitApplicationEvent } from '../services/metaPixelCapi';
+import { sendSubmitApplicationEvent, sendLeadEvent, sendCompleteRegistrationEvent } from '../services/metaPixelCapi';
 import DOMPurify from 'isomorphic-dompurify';
 
 function sanitize(str: string): string {
@@ -343,6 +343,35 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       status: 'lyrics_ready',
       message: 'Letra criada com sucesso!'
     });
+
+    const userFullNameLyrics = userNick || '';
+    const lastNameLyrics = userFullNameLyrics.split(' ').filter(Boolean).slice(-1)[0] || undefined;
+    const eventIp = req.ip || req.socket.remoteAddress || undefined;
+    const eventUa = req.headers['user-agent'];
+
+    sendLeadEvent({
+      eventId: requestData.id,
+      email: email || '',
+      phone: phone || undefined,
+      contentName: 'lyrics_generated',
+      eventSourceUrl: (req.headers.referer as string) || undefined,
+      clientIp: eventIp,
+      clientUserAgent: eventUa,
+      ln: lastNameLyrics,
+    }).catch((err) =>
+      logError('[API] Meta CAPI Lead event failed', err, { requestId: requestData.id })
+    );
+
+    sendCompleteRegistrationEvent({
+      eventId: requestData.id,
+      email: email || '',
+      phone: phone || undefined,
+      eventSourceUrl: (req.headers.referer as string) || undefined,
+      clientIp: eventIp,
+      clientUserAgent: eventUa,
+    }).catch((err) =>
+      logError('[API] Meta CAPI CompleteRegistration event failed', err, { requestId: requestData.id })
+    );
 
     sendConfirmationEmail(email, recipientName, requestData.id)
       .catch((emailErr) => {

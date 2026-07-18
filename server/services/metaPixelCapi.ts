@@ -184,3 +184,27 @@ export async function sendSubmitApplicationEvent(params: {
 }): Promise<boolean> {
   return sendEvent({ ...params, eventName: 'SubmitApplication', contentType: 'product' });
 }
+
+export async function sendLeadEvent(params: {
+  eventId: string;
+  email: string;
+  phone?: string;
+  contentName?: string;
+  eventSourceUrl?: string;
+  clientIp?: string;
+  clientUserAgent?: string;
+  ln?: string;
+}): Promise<boolean> {
+  return sendEvent({ ...params, eventName: 'Lead', contentType: 'product' });
+}
+
+export async function sendCompleteRegistrationEvent(params: {
+  eventId: string;
+  email: string;
+  phone?: string;
+  eventSourceUrl?: string;
+  clientIp?: string;
+  clientUserAgent?: string;
+}): Promise<boolean> {
+  return sendEvent({ ...params, eventName: 'CompleteRegistration', contentType: 'product' });
+}
