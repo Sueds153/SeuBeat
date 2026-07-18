@@ -68,7 +68,7 @@ export async function createApp(): Promise<express.Application> {
         anthropic: !!getEnv('ANTHROPIC_API_KEY'),
         openai: !!getEnv('OPENAI_API_KEY'),
         supabase: !!getEnv('SUPABASE_URL'),
-        smtp: !!getEnv('SMTP_HOST'),
+        brevo: !!getEnv('BREVO_API_KEY'),
         adminPassword: !!getEnv('ADMIN_PASSWORD'),
         jwtSecret: !!getEnv('JWT_SECRET'),
         multicaixa: !!getEnv('MULTICAIXA_ENTIDADE') && !!getEnv('MULTICAIXA_REFERENCIA'),

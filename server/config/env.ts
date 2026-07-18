@@ -1,4 +1,4 @@
-const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANON_KEY', 'SUNO_API_KEY', 'SMTP_HOST', 'ADMIN_PASSWORD', 'JWT_SECRET'] as const;
+const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANON_KEY', 'SUNO_API_KEY', 'BREVO_API_KEY', 'ADMIN_PASSWORD', 'JWT_SECRET'] as const;
 
 export function validateEnv(): void {
   // Mapeamento automático de variáveis com prefixo VITE_ caso as originais não existam

@@ -483,12 +483,16 @@ router.get('/credits', adminAuth, async (req, res) => {
           return { ok: false, error: e.message };
         }
       })(),
-      // Brevo SMTP live check
+      // Brevo API live check
       (async () => {
-        const host = process.env.SMTP_HOST;
-        const user = process.env.SMTP_USER;
-        if (!host || !user) return { ok: false, error: 'SMTP_HOST ou SMTP_USER em falta' };
-        return { ok: true, provider: 'Brevo', host, lastCheck: now.toISOString() };
+        const key = process.env.BREVO_API_KEY;
+        if (!key) return { ok: false, error: 'BREVO_API_KEY em falta' };
+        try {
+          const test = await fetch('https://api.brevo.com/v3/account', { headers: { 'api-key': key, accept: 'application/json' } });
+          if (!test.ok) return { ok: false, error: `Brevo API error (${test.status})` };
+          const data: any = await test.json();
+          return { ok: true, provider: 'Brevo', email: data.email, lastCheck: now.toISOString() };
+        } catch (e: any) { return { ok: false, error: e.message }; }
       })(),
       // Total songs generated
       supabase.from('songs').select('id', { count: 'exact', head: true }).not('lyrics', 'is', null),
@@ -683,10 +687,9 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
         } catch (e: any) { return { ok: false, error: e.message }; }
       })(),
       (async () => {
-        const host = process.env.SMTP_HOST;
-        const user = process.env.SMTP_USER;
-        if (!host || !user) return { ok: false, error: 'SMTP_HOST ou SMTP_USER em falta' };
-        return { ok: true, provider: 'Brevo', host };
+        const key = process.env.BREVO_API_KEY;
+        if (!key) return { ok: false, error: 'BREVO_API_KEY em falta' };
+        return { ok: true, provider: 'Brevo' };
       })()
     ]);
 
