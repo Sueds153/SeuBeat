@@ -237,6 +237,8 @@ export async function resumeSunoTaskWorkflow(requestId: string, songId: string, 
     setProgress(requestId, { status: 'failed', progress: 100, message: 'Erro na consulta Suno', error: err.message || String(err) });
     await updateRequestStatus(requestId, 'failed', err);
     await supabase.from('songs').update({ mureka_status: 'failed' }).eq('id', songId);
+
+    await rollbackSunoWorkflow(supabase, requestId, songId, err);
   }
 }
 
@@ -425,50 +427,113 @@ export async function runBackgroundSunoWorkflow(
       .update({ mureka_status: 'failed' })
       .eq('id', songId);
 
-    // Rollback: reverter pagamento aprovado para 'failed'
+    await rollbackSunoWorkflow(supabase, requestId, songId, err);
+  }
+}
+
+async function rollbackStorageForSong(
+  supabase: NonNullable<ReturnType<typeof getAdminSupabase>>,
+  songId: string,
+  requestId: string,
+  voiceSampleUrl?: string | null
+) {
+  // full-audio: songs/{songId}_original.{ext}
+  try {
+    const { data: files } = await supabase.storage.from('full-audio').list('songs');
+    if (files) {
+      const matches = files.filter(f => f.name.startsWith(songId)).map(f => `songs/${f.name}`);
+      if (matches.length > 0) {
+        await supabase.storage.from('full-audio').remove(matches);
+        logInfo(`[Rollback] Storage limpo: ${matches.length} ficheiro(s) em full-audio`, { songId });
+      }
+    }
+  } catch {}
+  // preview: previews/{songId}_preview.mp3
+  try {
+    await supabase.storage.from('preview').remove([`previews/${songId}_preview.mp3`]);
+  } catch {}
+  // preview: sunovoice/{requestId}_*
+  try {
+    const { data: voiceFiles } = await supabase.storage.from('preview').list('sunovoice');
+    if (voiceFiles) {
+      const matches = voiceFiles.filter(f => f.name.startsWith(requestId)).map(f => `sunovoice/${f.name}`);
+      if (matches.length > 0) {
+        await supabase.storage.from('preview').remove(matches);
+        logInfo(`[Rollback] Storage limpo: ${matches.length} ficheiro(s) de voz em preview`, { requestId });
+      }
+    }
+  } catch {}
+  // voice-samples: original sample (apenas se for path, nao URL externo)
+  if (voiceSampleUrl && !voiceSampleUrl.startsWith('http')) {
     try {
-      const { data: approvedPayments } = await supabase
+      await supabase.storage.from('voice-samples').remove([voiceSampleUrl]);
+    } catch {}
+  }
+}
+
+async function rollbackSunoWorkflow(
+  supabase: NonNullable<ReturnType<typeof getAdminSupabase>>,
+  requestId: string,
+  songId: string,
+  err: any
+) {
+  // Reverter pagamentos aprovados para 'failed' + limpar approved_at
+  try {
+    const { data: approvedPayments } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('request_id', requestId)
+      .eq('status', 'approved');
+
+    if (approvedPayments && approvedPayments.length > 0) {
+      await supabase
         .from('payments')
-        .select('id')
+        .update({
+          status: 'failed',
+          approved_at: null,
+          notes: 'Revertido automaticamente — falha na geração Suno'
+        })
         .eq('request_id', requestId)
         .eq('status', 'approved');
-
-      if (approvedPayments && approvedPayments.length > 0) {
-        await supabase
-          .from('payments')
-          .update({ status: 'failed', notes: 'Revertido automaticamente — falha na geração Suno' })
-          .eq('request_id', requestId)
-          .eq('status', 'approved');
-        logWarn(`[Background Suno] Payment rollback: ${approvedPayments.length} pagamento(s) revertido(s) para 'failed'`, { requestId });
-      }
-    } catch (rollbackErr) {
-      logError('[Background Suno] Payment rollback failed', rollbackErr, { requestId });
+      logWarn(`[Rollback] ${approvedPayments.length} pagamento(s) revertido(s) para 'failed'`, { requestId });
     }
+  } catch (rollbackErr) {
+    logError('[Rollback] Payment rollback failed', rollbackErr, { requestId });
+  }
 
-    // Notificar admin
-    try {
-      await sendAdminNotification(
-        'Falha na geração Suno — Pedido ' + requestId.slice(0, 8),
-        'Ocorreu um erro ao gerar a música no Suno.\n\nPedido: ' + requestId + '\nErro: ' + (err?.message || String(err))
-      );
-    } catch (emailErr) {
-      logError('[Background Suno] Admin notification failed', emailErr, { requestId });
-    }
+  // Limpar ficheiros órfãos do storage
+  try {
+    const { data: sr } = await supabase
+      .from('song_requests')
+      .select('voice_sample_url')
+      .eq('id', requestId)
+      .maybeSingle();
+    await rollbackStorageForSong(supabase, songId, requestId, sr?.voice_sample_url);
+  } catch {}
 
-    // Notificar cliente
-    try {
-      const { data: failedRequest } = await supabase
-        .from('song_requests')
-        .select('email, recipient_name, users(email)')
-        .eq('id', requestId)
-        .single();
-      const userEmail = failedRequest?.email || (failedRequest?.users as any)?.email;
-      if (userEmail) {
-        await sendWorkflowFailedEmail(userEmail, failedRequest?.recipient_name || 'Cliente');
-      }
-    } catch (emailErr) {
-      logError('[Background Suno] Client notification failed', emailErr, { requestId });
+  // Notificar admin
+  try {
+    await sendAdminNotification(
+      'Falha na geração Suno — Pedido ' + requestId.slice(0, 8),
+      'Ocorreu um erro ao gerar a música no Suno.\n\nPedido: ' + requestId + '\nErro: ' + (err?.message || String(err))
+    );
+  } catch (emailErr) {
+    logError('[Rollback] Admin notification failed', emailErr, { requestId });
+  }
+
+  // Notificar cliente
+  try {
+    const { data: failedRequest } = await supabase
+      .from('song_requests')
+      .select('email, recipient_name, users(email)')
+      .eq('id', requestId)
+      .single();
+    const userEmail = failedRequest?.email || (failedRequest?.users as any)?.email;
+    if (userEmail) {
+      await sendWorkflowFailedEmail(userEmail, failedRequest?.recipient_name || 'Cliente');
     }
+  } catch (emailErr) {
+    logError('[Rollback] Client notification failed', emailErr, { requestId });
   }
 }
 
