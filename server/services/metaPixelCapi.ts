@@ -35,7 +35,7 @@ function delay(ms: number): Promise<void> {
 function buildPayload(params: {
   eventName: string;
   eventId: string;
-  email: string;
+  email?: string;
   phone?: string;
   value?: number;
   currency?: string;
@@ -53,9 +53,8 @@ function buildPayload(params: {
 }) {
   const { eventName, eventId, email, phone, value, currency, contentName, contentType, eventSourceUrl, clientIp, clientUserAgent, externalId, zip, dob, ln, ct, st } = params;
 
-  const userData: Record<string, any> = {
-    em: [hashEmail(email)],
-  };
+  const userData: Record<string, any> = {};
+  if (email) userData.em = [hashEmail(email)];
   if (phone) userData.ph = [hashPhone(phone)];
   if (clientIp) userData.client_ip_address = clientIp;
   if (clientUserAgent) userData.client_user_agent = clientUserAgent;
@@ -122,7 +121,7 @@ async function attemptSend(payload: ReturnType<typeof buildPayload>, attempt: nu
 async function sendEvent(params: {
   eventName: string;
   eventId: string;
-  email: string;
+  email?: string;
   phone?: string;
   value?: number;
   currency?: string;
@@ -138,7 +137,10 @@ async function sendEvent(params: {
   ct?: string;
   st?: string;
 }): Promise<boolean> {
-  if (!IS_ENABLED) return false;
+  if (!IS_ENABLED) {
+    logWarn('[MetaCAPI] CAPI desativado — META_PIXEL_ID ou META_ACCESS_TOKEN em falta', { eventName: params.eventName, eventId: params.eventId });
+    return false;
+  }
 
   const payload = buildPayload(params);
 
@@ -155,7 +157,7 @@ async function sendEvent(params: {
 
 export async function sendPurchaseEvent(params: {
   eventId: string;
-  email: string;
+  email?: string;
   phone?: string;
   value: number;
   currency?: string;
@@ -171,7 +173,7 @@ export async function sendPurchaseEvent(params: {
 
 export async function sendSubmitApplicationEvent(params: {
   eventId: string;
-  email: string;
+  email?: string;
   phone?: string;
   value?: number;
   currency?: string;
@@ -187,7 +189,7 @@ export async function sendSubmitApplicationEvent(params: {
 
 export async function sendLeadEvent(params: {
   eventId: string;
-  email: string;
+  email?: string;
   phone?: string;
   contentName?: string;
   eventSourceUrl?: string;
@@ -200,7 +202,7 @@ export async function sendLeadEvent(params: {
 
 export async function sendCompleteRegistrationEvent(params: {
   eventId: string;
-  email: string;
+  email?: string;
   phone?: string;
   eventSourceUrl?: string;
   clientIp?: string;

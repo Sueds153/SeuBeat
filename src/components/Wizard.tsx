@@ -921,6 +921,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           setAiLetterText(data.letterText);
           setDbSongId(data.dbSongId);
           setDbSongRequestId(data.dbSongRequestId);
+          fbSetUserData(formData.email, formData.phone);
           fbLead('lyrics_generated', data.dbSongRequestId);
           fbCompleteRegistration(data.dbSongRequestId);
 
