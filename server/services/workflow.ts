@@ -303,11 +303,11 @@ export async function runBackgroundSunoWorkflow(
         await supabase
           .from('song_requests')
           .update({
-            error_details: JSON.stringify({
+            error_details: {
               stage: 'voice_cloning',
               message: voiceErr?.message || String(voiceErr),
               at: new Date().toISOString()
-            })
+            }
           })
           .eq('id', requestId);
       }

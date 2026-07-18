@@ -90,10 +90,10 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
   // ─── LOADING ───────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+      <div className="min-h-screen bg-[#090807] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-[#1DB954] border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-[#b3b3b3] font-mono">A carregar a tua dedicatória...</p>
+          <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-stone-400 font-mono">A carregar a tua dedicatória...</p>
         </div>
       </div>
     );
@@ -102,14 +102,14 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
   // ─── NOT FOUND ─────────────────────────────────────────────────────────────
   if (notFound) {
     return (
-      <div className="min-h-screen bg-[#121212] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#090807] flex items-center justify-center p-4">
         <div className="text-center space-y-4 max-w-md">
-          <div className="w-20 h-20 mx-auto rounded-full bg-[#282828] flex items-center justify-center">
+          <div className="w-20 h-20 mx-auto rounded-full bg-stone-900 flex items-center justify-center">
             <span className="text-4xl">🎵</span>
           </div>
           <h1 className="text-2xl text-white font-bold">Música não encontrada</h1>
-          <p className="text-[#b3b3b3] text-sm">O link que abriste não é válido ou a música foi removida.</p>
-          <a href="/" className="inline-block px-8 py-3 bg-[#1DB954] text-black rounded-full font-bold text-sm hover:scale-105 transition-transform">
+          <p className="text-stone-400 text-sm">O link que abriste não é válido ou a música foi removida.</p>
+          <a href="/" className="inline-block px-8 py-3 bg-gradient-to-r from-amber-500 to-rose-600 text-stone-950 rounded-full font-bold text-sm hover:scale-105 transition-transform">
             Criar a minha música
           </a>
           <div className="pt-2">
@@ -124,24 +124,24 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
 
   // ─── MAIN ──────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#121212] text-white pb-32 selection:bg-[#1DB954]/30 selection:text-[#1DB954]">
+    <div className="min-h-screen bg-[#090807] text-white pb-32 selection:bg-amber-500/20 selection:text-amber-300">
 
-      {/* Dynamic gradient hero background based on photo */}
+      {/* Dynamic gradient hero background based on theme */}
       <div
         className="absolute top-0 inset-x-0 h-[420px] pointer-events-none"
         style={{
-          background: 'linear-gradient(180deg, rgba(29,185,84,0.18) 0%, rgba(18,18,18,0) 100%)'
+          background: 'linear-gradient(180deg, rgba(245,158,11,0.12) 0%, rgba(9,8,7,0) 100%)'
         }}
       />
 
       {/* ── TOP NAV ── */}
-      <header className="sticky top-0 z-40 bg-[#121212]/95 backdrop-blur-md border-b border-white/5 px-4 md:px-8 py-3">
+      <header className="sticky top-0 z-40 bg-[#090807]/95 backdrop-blur-md border-b border-stone-900 px-4 md:px-8 py-3">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <LogoIcon size={28} />
             <button
               onClick={onBackToLanding}
-              className="flex items-center gap-1.5 text-[#b3b3b3] hover:text-white text-xs font-semibold transition-colors group"
+              className="flex items-center gap-1.5 text-stone-400 hover:text-stone-100 text-xs font-semibold transition-colors group"
             >
               <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
               <span className="hidden sm:inline">CRIA UMA PÁGINA ASSIM</span>
@@ -149,8 +149,8 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#1DB954] animate-pulse" />
-            <span className="text-[10px] font-bold text-[#b3b3b3] uppercase tracking-widest">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">
               <span className="hidden sm:inline">PÁGINA DEDICADA EXCLUSIVA</span>
               <span className="sm:hidden">DEDICATÓRIA</span>
             </span>
@@ -185,8 +185,8 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-[#282828] to-[#1a1a1a] flex items-center justify-center">
-                  <ImageIcon className="w-12 h-12 text-[#535353]" />
+                <div className="w-full h-full bg-gradient-to-br from-stone-800 to-stone-900 flex items-center justify-center">
+                  <ImageIcon className="w-12 h-12 text-stone-600" />
                 </div>
               )}
             </motion.div>
@@ -204,7 +204,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
                   animate={{ opacity: 1, scale: 1.05 }}
                   exit={{ opacity: 0 }}
                   transition={{ repeat: Infinity, duration: 1.5, ease: 'easeInOut' }}
-                  className="absolute inset-0 rounded-xl ring-2 ring-[#1DB954]/50"
+                  className="absolute inset-0 rounded-xl ring-2 ring-amber-500/50"
                 />
               )}
             </AnimatePresence>
@@ -212,30 +212,30 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
 
           {/* Info */}
           <div className="flex-1 min-w-0 space-y-3">
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-[#1DB954] uppercase tracking-widest">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-400 uppercase tracking-widest">
               <Sparkles className="w-3 h-3" /> Música Personalizada
             </span>
             <h1 className="font-bold text-3xl sm:text-4xl md:text-5xl text-white leading-tight truncate-2">
               {songDetails.songTitle || `Música de ${songDetails.recipientName}`}
             </h1>
-            <p className="text-[#b3b3b3] text-sm">
+            <p className="text-stone-400 text-sm">
               Criada por <span className="text-white font-semibold">{songDetails.userNick}</span>
               {' '}para <span className="text-white font-semibold">{songDetails.recipientName}</span>
               {songDetails.recipientNick ? ` · ${songDetails.recipientNick}` : ''}
             </p>
             <div className="flex flex-wrap gap-2">
               {songDetails.musicStyle && (
-                <span className="px-3 py-1 bg-[#282828] rounded-full text-[11px] text-[#b3b3b3] font-medium">
+                <span className="px-3 py-1 bg-stone-900 border border-stone-800 rounded-full text-[11px] text-stone-300 font-medium">
                   🎵 {capitalize(songDetails.musicStyle)}
                 </span>
               )}
               {songDetails.occasion && (
-                <span className="px-3 py-1 bg-[#282828] rounded-full text-[11px] text-[#b3b3b3] font-medium">
+                <span className="px-3 py-1 bg-stone-900 border border-stone-800 rounded-full text-[11px] text-stone-300 font-medium">
                   🎉 {capitalize(songDetails.occasion)}
                 </span>
               )}
               {songDetails.desiredEmotion && (
-                <span className="px-3 py-1 bg-[#282828] rounded-full text-[11px] text-[#b3b3b3] font-medium">
+                <span className="px-3 py-1 bg-stone-900 border border-stone-800 rounded-full text-[11px] text-stone-300 font-medium">
                   💖 {capitalize(songDetails.desiredEmotion)}
                 </span>
               )}
@@ -243,9 +243,9 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
             {/* Like */}
             <button
               onClick={handleLike}
-              className={`flex items-center gap-2 text-xs font-semibold transition-colors ${hasLiked ? 'text-[#1DB954]' : 'text-[#b3b3b3] hover:text-white'}`}
+              className={`flex items-center gap-2 text-xs font-semibold transition-colors ${hasLiked ? 'text-rose-400' : 'text-stone-400 hover:text-white'}`}
             >
-              <Heart className={`w-5 h-5 transition-all ${hasLiked ? 'fill-[#1DB954] text-[#1DB954] scale-110' : ''}`} />
+              <Heart className={`w-5 h-5 transition-all ${hasLiked ? 'fill-rose-500 text-rose-500 scale-110' : ''}`} />
               {likesCount} gostos
             </button>
           </div>
@@ -303,7 +303,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
       </main>
 
       {/* ── FOOTER ── */}
-      <footer className="border-t border-white/5 py-6 text-center text-[#535353] text-[11px] font-mono mt-4">
+      <footer className="border-t border-stone-900 py-6 text-center text-stone-600 text-[11px] font-mono mt-4">
         <p>© {new Date().getFullYear()} SeuBeat Estúdio Angola • Todos os direitos reservados.</p>
         <p className="mt-1">Conectando memórias angolanas a melodias de estúdio profissionais.</p>
       </footer>

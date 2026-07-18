@@ -553,7 +553,7 @@ router.get('/credits', adminAuth, async (req, res) => {
 // J. Force status override
 const VALID_STATUSES: Record<string, string[]> = {
   song_requests: ['lyrics_generating', 'lyrics_ready', 'approved', 'music_processing', 'voice_processing', 'music_ready', 'delivered', 'failed', 'payment_rejected', 'payment_submitted'],
-  payments: ['pending_verification', 'approved', 'rejected'],
+  payments: ['pending_verification', 'approved', 'rejected', 'failed'],
   songs: ['not_started', 'generating', 'processing', 'completed', 'failed']
 };
 
