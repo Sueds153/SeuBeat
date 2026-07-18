@@ -1673,14 +1673,17 @@ const ROTATING_MESSAGES = [
 
             {/* Persuasive Triggers */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-2">
+
+              {/* Card 1 — Imaginação emocional */}
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-rose-900/30 space-y-2">
                 <div className="w-8 h-8 bg-rose-500/10 rounded-full flex items-center justify-center">
                   <Heart className="w-4 h-4 text-rose-400" />
                 </div>
-                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Antecipação</h4>
-                <p className="text-[11px] text-stone-400">Imagine a cara d<strong className="text-stone-300">{formData.recipientName}</strong> ao ouvir esta música feita especialmente para si</p>
+                <h4 className="text-xs font-bold text-rose-300 tracking-wide">Imagina a reação dela...</h4>
+                <p className="text-[11px] text-stone-400">Quando <strong className="text-stone-300">{formData.recipientName}</strong> ouvir o nome dela numa música feita só para ela — vai ser um momento que ninguém esquece.</p>
               </div>
 
+              {/* Card 2 — Urgência (com timer) */}
               <div className="bg-stone-900/30 p-4 rounded-2xl border border-amber-800/40 space-y-2">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-amber-500/10 rounded-full flex items-center justify-center">
@@ -1690,41 +1693,46 @@ const ROTATING_MESSAGES = [
                     {String(countdownMin).padStart(2, '0')}:{String(countdownSec).padStart(2, '0')}
                   </span>
                 </div>
-                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Oferta Exclusiva</h4>
-                <p className="text-[11px] text-stone-400">Este preço especial está reservado para si. Quando o tempo acabar, a oferta pode expirar.</p>
+                <h4 className="text-xs font-bold text-amber-300 tracking-wide">Este preço expira em breve</h4>
+                <p className="text-[11px] text-stone-400">Quando o contador chegar a zero, o valor especial de lançamento pode não estar disponível. Garanta agora.</p>
               </div>
 
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-2">
+              {/* Card 3 — Prova social (com número real) */}
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-blue-900/30 space-y-2">
                 <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center">
                   <Users className="w-4 h-4 text-blue-400" />
                 </div>
-                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Prova Social</h4>
-                <p className="text-[11px] text-stone-400">Centenas de pessoas já emocionaram quem amam com o SeuBeat. <strong className="text-amber-400">{todayCount}</strong> músicas criadas hoje</p>
+                <h4 className="text-xs font-bold text-blue-300 tracking-wide">Não és o primeiro a surpreender</h4>
+                <p className="text-[11px] text-stone-400">Centenas já fizeram isto. Só hoje, <strong className="text-amber-400">{todayCount} músicas</strong> foram criadas para pessoas reais em Angola e não só.</p>
               </div>
 
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-2">
+              {/* Card 4 — A letra já está feita */}
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-emerald-900/30 space-y-2">
                 <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center">
                   <Gift className="w-4 h-4 text-green-400" />
                 </div>
-                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Reciprocidade</h4>
-                <p className="text-[11px] text-stone-400">Criámos esta letra exclusivamente para si. Agora só falta a música para completar o presente!</p>
+                <h4 className="text-xs font-bold text-emerald-300 tracking-wide">A letra já está pronta — só falta a música</h4>
+                <p className="text-[11px] text-stone-400">Já fizemos a nossa parte. Criámos a letra exclusiva para <strong className="text-stone-300">{formData.recipientName}</strong>. O próximo passo é torná-la numa canção real.</p>
               </div>
 
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-2">
+              {/* Card 5 — Unicidade */}
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-purple-900/30 space-y-2">
                 <div className="w-8 h-8 bg-purple-500/10 rounded-full flex items-center justify-center">
                   <Sparkles className="w-4 h-4 text-purple-400" />
                 </div>
-                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Exclusividade</h4>
-                <p className="text-[11px] text-stone-400">Apenas <strong className="text-stone-300">{formData.recipientName}</strong> vai receber esta música — é uma experiência única e pessoal</p>
+                <h4 className="text-xs font-bold text-purple-300 tracking-wide">Única. Dela. Para sempre.</h4>
+                <p className="text-[11px] text-stone-400">Esta música não existe em mais lado nenhum. Foi composta para <strong className="text-stone-300">{formData.recipientName}</strong> e só ela a vai ter.</p>
               </div>
 
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-2">
+              {/* Card 6 — Arrependimento futuro */}
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-rose-900/30 space-y-2">
                 <div className="w-8 h-8 bg-rose-500/10 rounded-full flex items-center justify-center">
                   <Heart className="w-4 h-4 text-rose-400" />
                 </div>
-                <h4 className="text-xs font-bold text-stone-200 uppercase tracking-wider">Aversão à Perda</h4>
-                <p className="text-[11px] text-stone-400">Daqui a um ano, vai preferir ter feito esta música do que não a ter feito. <strong className="text-rose-400">As flores murcham. As memórias ficam.</strong></p>
+                <h4 className="text-xs font-bold text-rose-300 tracking-wide">Daqui a um ano, vais querer ter feito isto</h4>
+                <p className="text-[11px] text-stone-400">As flores murcham. Os presentes partem-se. <strong className="text-rose-400">As memórias ficam para sempre.</strong> Este é o tipo de presente que ela vai contar aos filhos.</p>
               </div>
+
             </div>
 
             {/* Testimonials */}
