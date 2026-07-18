@@ -873,11 +873,17 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           const fetchTimeout = setTimeout(() => controller.abort(), 120000);
 
           const { photoFile: _pf, photoUrl: _pu, ...formBody } = formData;
+          const payload: Record<string, unknown> = { ...formBody };
+          if (!payload.email) delete payload.email;
+          if (!payload.phone) delete payload.phone;
+          if (!payload.recipientNick) payload.recipientNick = undefined;
+          if (!payload.referenceArtist) payload.referenceArtist = undefined;
+          if (!payload.whyCreatedToday) payload.whyCreatedToday = undefined;
           const res = await fetch('/api/generate-lyrics', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              ...formBody,
+              ...payload,
               photoBase64,
               photoFilename,
               photoMimeType
@@ -888,6 +894,10 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
           if (!res.ok) {
             const data = await res.json().catch(() => ({ error: 'Erro na conexão' }));
+            if (data.validation_errors?.length) {
+              const fields = data.validation_errors.map((e: any) => e.field || e.path || 'campo').join(', ');
+              throw new Error(`Campos inválidos: ${fields}.`);
+            }
             throw new Error(data.error || `Erro ${res.status}: Não foi possível gerar a letra.`);
           }
 
@@ -1122,6 +1132,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     switch (step) {
       case 1:
         return formData.recipientRelation !== '' && 
+               formData.recipientGender !== '' &&
                formData.recipientName.trim().length >= 2 &&
                formData.userNick.trim().length >= 2 &&
                formData.recipientNick.trim().length >= 2;

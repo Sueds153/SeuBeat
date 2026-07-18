@@ -42,7 +42,10 @@ const LANGUAGES = [
 
 export const GenerateLyricsSchema = z.object({
   userNick: z.string().min(1, 'Nome requerido').max(50, 'Nome muito longo').trim(),
-  email: z.string().email('Email inválido').toLowerCase().optional(),
+  email: z.preprocess(
+    v => v === '' ? undefined : v,
+    z.string().email('Email inválido').toLowerCase().optional()
+  ),
   phone: z.preprocess(
     v => v === '' ? undefined : v,
     z.string().regex(/^\+?[\d\s()-]{7,18}$/, 'Telefone inválido')
