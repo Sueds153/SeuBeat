@@ -183,7 +183,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
     const songRequest = payment.song_requests as any;
     const requestId = payment.request_id;
     const songData = firstRelated(songRequest?.songs);
-    const userEmail = songRequest?.users?.email;
+    const userEmail = payment.user_email || songRequest?.users?.email;
     const letterText = songData?.letter_text || 'Preparámos uma dedicatória especial para si.';
 
     if (!requestId || !songData) {
@@ -237,7 +237,8 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
           })
           .eq('id', requestId);
         if (userEmail) {
-          sendConfirmationEmail(userEmail, songRequest.recipient_name, requestId).catch(err =>
+          logInfo('[Admin] Enviando email de confirmacao (standard)', { requestId, userEmail });
+          sendConfirmationEmail(userEmail, songRequest.recipient_name, requestId, 'standard_approved').catch(err =>
             logError('[Admin] Falha ao enviar email de confirmacao (standard)', err, { requestId, userEmail })
           );
         }
@@ -257,6 +258,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
       if (userEmail) {
         const slug = (songRequest.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
         const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
+        logInfo('[Admin] Enviando email de entrega (express/premium)', { requestId, userEmail });
         sendPersonalizedEmail(userEmail, songRequest.recipient_name, personalizedUrl, letterText).catch(err =>
           logError('[Admin] Falha ao enviar email de entrega (express/premium)', err, { requestId, userEmail })
         );
@@ -274,6 +276,12 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
       return res.json({ success: true, message: 'Música já está em processamento. A entrega será automática quando concluída.', alreadyProcessing: true });
     }
 
+    if (userEmail) {
+      logInfo('[Admin] Enviando email de confirmacao (suno workflow)', { requestId, userEmail });
+      sendConfirmationEmail(userEmail, songRequest.recipient_name, requestId, 'standard_approved').catch(err =>
+        logError('[Admin] Falha ao enviar email de confirmacao (suno workflow)', err, { requestId, userEmail })
+      );
+    }
     await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', requestId).eq('status', 'approved');
     firePurchaseEvent();
     runBackgroundSunoWorkflow(requestId, songData.id, songRequest.music_style || 'Kizomba', songData.title || 'Música SeuBeat', songData.lyrics || [], {
@@ -312,6 +320,7 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
     }
 
     if (payment?.user_email) {
+      logInfo('[Admin] Enviando email de rejeicao', { paymentId: id, userEmail: payment.user_email });
       sendPaymentRejectionEmail(payment.user_email, notes).catch(err => logError('[Admin] Falha ao enviar email de rejeicao', err, { userId: payment.user_email }));
     }
 
