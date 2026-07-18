@@ -16,7 +16,7 @@ export function publicErrorMessage(err: any, fallback = 'Não foi possível conc
   if (/SUNO_API_KEY/i.test(message)) {
     return 'A geração de música está temporariamente indisponível (Erro de Configuração Suno).';
   }
-  if (/Supabase|database|DB|song_requests|songs|users/i.test(message)) {
+  if (/Supabase|database|DB|song_requests|songs|users|registrar.*banco.*dados|registar.*banco.*dados|banco de dados/i.test(message)) {
     return 'Houve um erro ao guardar os seus dados. Por favor, verifique a sua ligação e tente novamente.';
   }
   if (/timeout|excedeu|timed out|ETIMEDOUT/i.test(message)) {
