@@ -205,15 +205,18 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
         throw new Error('A foto e demasiado grande (max 10MB). Comprima a imagem ou escolha outra.');
       }
 
-      const allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+      const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif'];
       if (photoMimeType && !allowedMimes.includes(photoMimeType)) {
-        throw new Error('Formato de imagem nao suportado. Use JPG, PNG ou WebP.');
+        throw new Error('Formato de imagem nao suportado. Use JPG, PNG, WebP, HEIC ou GIF.');
       }
+
+      const isHeicOrHeif = photoMimeType && ['image/heic', 'image/heif'].includes(photoMimeType);
+      const uploadContentType = isHeicOrHeif ? 'image/jpeg' : (photoMimeType || 'image/jpeg');
 
       const filename = `photos/${Date.now()}_${String(photoFilename || 'foto.jpg').replace(/[^a-zA-Z0-9._-]/g, '_')}`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('photos')
-        .upload(filename, buffer, { contentType: photoMimeType || 'image/jpeg' });
+        .upload(filename, buffer, { contentType: uploadContentType });
 
       if (uploadError || !uploadData) {
         logError('[API] Falha ao carregar foto', uploadError, {

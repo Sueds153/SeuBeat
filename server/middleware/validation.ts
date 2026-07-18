@@ -48,7 +48,7 @@ export const GenerateLyricsSchema = z.object({
   ),
   phone: z.preprocess(
     v => v === '' ? undefined : v,
-    z.string().regex(/^\+?[\d\s()-]{7,18}$/, 'Telefone inválido')
+    z.string().regex(/^\+?[\d\s()-]{7,18}$/, 'Telefone inválido').optional()
   ),
 
   recipientName: z.string().min(1, 'Nome do destinatário requerido').max(100).trim(),
@@ -73,7 +73,7 @@ export const GenerateLyricsSchema = z.object({
 
   photoBase64: z.string().max(10 * 1024 * 1024, 'Foto muito grande (max 10MB)').optional().nullable(),
   photoFilename: z.string().max(255).trim().optional().nullable(),
-  photoMimeType: z.enum(['image/jpeg', 'image/png', 'image/webp'] as const).optional().nullable(),
+  photoMimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif'] as const).optional().nullable(),
 });
 
 export type GenerateLyricsInput = z.infer<typeof GenerateLyricsSchema>;

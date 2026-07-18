@@ -99,12 +99,12 @@ describe('GenerateLyricsSchema', () => {
   });
 
   it('rejects invalid photo mime type', () => {
-    const result = GenerateLyricsSchema.safeParse({ ...validData, photoMimeType: 'image/gif' });
+    const result = GenerateLyricsSchema.safeParse({ ...validData, photoMimeType: 'image/svg+xml' });
     expect(result.success).toBe(false);
   });
 
   it('accepts valid photo mime types', () => {
-    const types = ['image/jpeg', 'image/png', 'image/webp'];
+    const types = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif'];
     for (const mime of types) {
       const result = GenerateLyricsSchema.safeParse({ ...validData, photoMimeType: mime });
       expect(result.success).toBe(true);

@@ -1,6 +1,6 @@
 export function publicErrorMessage(err: any, fallback = 'Não foi possível concluir esta etapa. Tente novamente em instantes.') {
   const message = err?.message || String(err || '');
-  
+
   if (/ANTHROPIC_API_KEY/i.test(message)) {
     return 'A geração de letras está temporariamente indisponível (Erro de Configuração do Claude).';
   }
@@ -34,16 +34,28 @@ export function publicErrorMessage(err: any, fallback = 'Não foi possível conc
   if (/photos?.*bucket|storage.*bucket|not found|no such bucket/i.test(message)) {
     return 'Houve um erro ao guardar a foto. Contacte o suporte se o problema persistir.';
   }
-  if (/demasiado grande|excede.*5MB/i.test(message)) {
-    return 'A foto excede o limite de 5MB. Use um compressor de imagens online ou escolha uma foto menor.';
+  if (/demasiado grande|excede.*(5|10)MB/i.test(message)) {
+    return 'A foto excede o tamanho máximo permitido (10MB). Use um compressor de imagens online ou escolha uma foto menor.';
   }
   if (/carregar a foto/i.test(message)) {
     return 'Não foi possível carregar a foto. Tente com uma imagem diferente (JPG, PNG ou WebP).';
   }
-  if (/perfil|criar o seu/i.test(message)) {
+  if (/perfil|criar o seu|nao foi possivel preparar/i.test(message)) {
     return 'Não foi possível criar o seu perfil. O email informado já está registado. Tente com outro email ou contacte o suporte.';
   }
-  
+  if (/nao suportado/i.test(message)) {
+    return 'Formato de imagem não suportado. Use JPG, PNG, WebP ou HEIC.';
+  }
+  if (/obrigatório|email é obrigatório/i.test(message)) {
+    return 'O email é obrigatório para continuar. Verifique se o preencheu corretamente no passo final.';
+  }
+  if (/guarda-la|atualizar o estado/i.test(message)) {
+    return 'A letra foi gerada mas ocorreu um erro ao salvar. Tente novamente — se o erro persistir, contacte o suporte.';
+  }
+  if (/fetch fail|ECONNREFUSED|ENETUNREACH|ENOTFOUND|ECONNRESET|network.*socket|Client network|connect.*fail/i.test(message)) {
+    return 'O sistema não conseguiu contactar os servidores de IA. Verifique a sua ligação à internet e tente novamente.';
+  }
+
   return fallback;
 }
 

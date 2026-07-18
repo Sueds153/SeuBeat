@@ -880,7 +880,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           const { photoFile: _pf, photoUrl: _pu, ...formBody } = formData;
           const payload: Record<string, unknown> = { ...formBody };
           if (!payload.email) delete payload.email;
-          if (!payload.phone) delete payload.phone;
           if (!payload.recipientNick) payload.recipientNick = undefined;
           if (!payload.referenceArtist) payload.referenceArtist = undefined;
           if (!payload.whyCreatedToday) payload.whyCreatedToday = undefined;
