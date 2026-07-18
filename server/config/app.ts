@@ -172,6 +172,9 @@ export async function startServer(app: express.Application): Promise<import('htt
   return new Promise((resolve) => {
     const server = app.listen(ENV.PORT, '0.0.0.0', () => {
       logInfo(`Servidor iniciado na porta ${ENV.PORT}`);
+      // Aumentar timeout do servidor HTTP para 150s (AI pode demorar até 120s)
+      server.setTimeout(150000);
+      server.keepAliveTimeout = 150000;
       resolve(server);
     });
   });

@@ -167,7 +167,10 @@ export async function generateLyricsWithGemini(formData: any): Promise<LyricsCom
       logError(`[Gemini] Erro na tentativa ${attempt}`, err);
 
       const message = err?.message || String(err || '');
-      if (!/timeout|excedeu|JSON|malformada|curta|500|502|503|504|ETIMEDOUT|AbortError|SAFETY|FINISH_REASON_SAFETY|blocked/i.test(message) || /429|quota|balance|credit/i.test(message)) break;
+      // Parar se o erro for fatal (quota, safety block, auth) ou não for retentável
+      const isFatal = /429|quota|balance|credit|401|403|unauthorized|SAFETY|FINISH_REASON_SAFETY|blocked/i.test(message);
+      const isRetryable = /timeout|excedeu|JSON|malformada|curta|500|502|503|504|ETIMEDOUT|AbortError/i.test(message);
+      if (isFatal || !isRetryable) break;
       if (attempt < GEMINI_MAX_ATTEMPTS) {
         await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
       }

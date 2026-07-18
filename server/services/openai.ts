@@ -132,7 +132,10 @@ export async function generateLyricsWithGPT(formData: any): Promise<LyricsCompos
       logError(`[GPT] Erro na tentativa ${attempt}`, err);
 
       const message = err?.message || String(err || '');
-      if (!/timeout|excedeu|JSON|malformada|500|502|503|504|ETIMEDOUT|AbortError/i.test(message) || /429|quota|balance|credit/i.test(message)) break;
+      // Parar se o erro for fatal (quota, auth, etc.) ou não for retentável
+      const isFatal = /429|quota|balance|credit|401|403|unauthorized/i.test(message);
+      const isRetryable = /timeout|excedeu|JSON|malformada|500|502|503|504|ETIMEDOUT|AbortError/i.test(message);
+      if (isFatal || !isRetryable) break;
       if (attempt < GPT_MAX_ATTEMPTS) {
         await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
       }

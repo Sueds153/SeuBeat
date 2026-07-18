@@ -4,8 +4,8 @@ import { selectPrompt } from './prompts';
 import { logWarn, logInfo, logError } from '../utils/logger';
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
-const CLAUDE_TIMEOUT_MS = Number(process.env.CLAUDE_TIMEOUT_MS || 15000);
-const CLAUDE_MAX_ATTEMPTS = Number(process.env.CLAUDE_MAX_ATTEMPTS || 1);
+const CLAUDE_TIMEOUT_MS = Number(process.env.CLAUDE_TIMEOUT_MS || 60000);
+const CLAUDE_MAX_ATTEMPTS = Number(process.env.CLAUDE_MAX_ATTEMPTS || 2);
 
 function validateClaudeComposition(value: unknown): LyricsComposition {
   if (!value || typeof value !== 'object') {
