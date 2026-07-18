@@ -53,6 +53,7 @@ export function createPreviewAudio(inputPath: string, outputPath: string): Promi
     ffmpeg(inputPath)
       .setStartTime(0)
       .setDuration(30)
+      .audioFilters('afade=t=in:ss=0:d=3,afade=t=out:st=27:d=3')
       .output(outputPath)
       .on('end', () => {
         console.log('✅ Preview de 30s gerado com sucesso!');
@@ -60,6 +61,29 @@ export function createPreviewAudio(inputPath: string, outputPath: string): Promi
       })
       .on('error', (err) => {
         console.error('❌ Erro no FFmpeg ao criar preview:', err);
+        reject(err);
+      })
+      .run();
+  });
+}
+
+// Aplica fade-in (3s) e fade-out (4s) no áudio completo
+export function applyFades(inputPath: string, outputPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!FFMPEG_AVAILABLE) {
+      reject(new Error('FFmpeg indisponível para aplicar fades.'));
+      return;
+    }
+
+    ffmpeg(inputPath)
+      .audioFilters('afade=t=in:ss=0:d=3,afade=t=out:st=-4:d=4')
+      .output(outputPath)
+      .on('end', () => {
+        console.log('✅ Fades aplicados com sucesso!');
+        resolve();
+      })
+      .on('error', (err) => {
+        console.error('❌ Erro no FFmpeg ao aplicar fades:', err);
         reject(err);
       })
       .run();

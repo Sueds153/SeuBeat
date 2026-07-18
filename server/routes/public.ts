@@ -170,6 +170,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
     const {
       userNick,
       recipientName,
+      recipientGender,
       recipientRelation,
       recipientNick,
       occasion,
@@ -239,6 +240,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
     const { data: requestData, error: requestError } = await supabase.from('song_requests').insert([{
       user_id: userData.id,
       recipient_name: recipientName || 'Destinatario',
+      recipient_gender: recipientGender || null,
       recipient_nick: recipientNick || null,
       relationship: recipientRelation || 'Parceiro',
       occasion: occasion || 'Homenagem',
@@ -272,6 +274,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
     const { result: parsedData } = await generateLyrics({
       userNick: userNick || 'Autor',
       recipientName: recipientName || 'Destinatario',
+      recipientGender: recipientGender || '',
       recipientRelation: recipientRelation || 'Parceiro',
       recipientNick: recipientNick || '',
       occasion: occasion || 'Homenagem',
@@ -380,7 +383,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
 
     const { data: songData, error } = await adminSupabase
       .from('songs')
-      .select('*, song_requests!inner(id, recipient_name, status, email, photo_url, final_mixed_audio_url, elevenlabs_voice_id, music_style, memory, deliver_at, users!inner(name))')
+      .select('*, song_requests!inner(id, recipient_name, status, email, photo_url, final_mixed_audio_url, elevenlabs_voice_id, music_style, memory, deliver_at, occasion, relationship, desired_emotion, voice_type, recipient_gender, users!inner(name))')
       .eq('id', req.params.id)
       .single();
 
@@ -464,6 +467,11 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       user_name: (song_requests as any)?.users?.name,
       music_style: (song_requests as any)?.music_style,
       memory: (song_requests as any)?.memory,
+      occasion: (song_requests as any)?.occasion,
+      relationship: (song_requests as any)?.relationship,
+      desired_emotion: (song_requests as any)?.desired_emotion,
+      voice_type: (song_requests as any)?.voice_type,
+      recipient_gender: (song_requests as any)?.recipient_gender,
       elevenlabs_voice_id: (song_requests as any)?.elevenlabs_voice_id,
       status: requestStatus
     };

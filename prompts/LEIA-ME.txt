@@ -13,6 +13,8 @@
 #  2. Depois, ela escolhe o prompt temático dependendo da Ocasião ou Relação:
 #
 #  POR OCASIÃO (Tem prioridade máxima):
+#  - Se a ocasião contiver "aniversario"     → Usa "aniversario.txt"
+#    - Sub-ocasião "aniversario de namoro"   → Usa "aniversario_namoro.txt"
 #  - Se a ocasião contiver "casamento"       → Usa "casamento.txt"
 #  - Se a ocasião contiver "desculpa"        → Usa "pedido_desculpas.txt"
 #  - Se a ocasião contiver "memorial/saudade"→ Usa "memorial.txt"

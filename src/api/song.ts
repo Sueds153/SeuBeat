@@ -13,6 +13,11 @@ export interface SongApiResponse {
     user_name?: string;
     music_style?: string;
     memory?: string;
+    occasion?: string;
+    relationship?: string;
+    desired_emotion?: string;
+    voice_type?: string;
+    recipient_gender?: string;
     photo_url?: string;
     status?: string;
     song_requests?: {

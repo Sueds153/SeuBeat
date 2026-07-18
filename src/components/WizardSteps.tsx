@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import {
-  RecipientType, OccasionType, MusicStyleType, VoiceType, EmotionType, WizardData
+  RecipientType, OccasionType, MusicStyleType, VoiceType, EmotionType, WizardData, RecipientGender
 } from '../types';
 
 interface StepProps {
@@ -69,6 +69,32 @@ export function Step1Relation({
           />
           {fieldErrors?.recipientName && (
             <p className="text-red-400 text-xs mt-1">{fieldErrors.recipientName}</p>
+          )}
+        </div>
+
+        <div>
+          <label className="text-xs font-mono text-stone-400 block mb-1.5 font-semibold">
+            Género do destinatário?
+          </label>
+          <div className="flex gap-2">
+            {(['Masculino', 'Feminino'] as const).map((g) => (
+              <button
+                key={g}
+                id={`gender-btn-${g}`}
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, recipientGender: g as RecipientGender }))}
+                className={`px-4 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                  formData.recipientGender === g
+                    ? 'bg-amber-500/10 border-amber-500 text-amber-300 ring-2 ring-amber-500/15'
+                    : 'bg-stone-950/40 border-stone-850 text-stone-400 hover:text-stone-200 hover:border-stone-700'
+                }`}
+              >
+                {g}
+              </button>
+            ))}
+          </div>
+          {fieldErrors?.recipientGender && (
+            <p className="text-red-400 text-xs mt-1">{fieldErrors.recipientGender}</p>
           )}
         </div>
 
@@ -307,6 +333,26 @@ export function Step5Traits({
           onChange={(e) => setFormData(prev => ({ ...prev, whatMakesSpecial: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
         />
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {[
+            { label: 'Doce e Carinhosa', append: 'É uma pessoa extremamente doce e carinhosa, com um coração gigante que acolhe todos à sua volta.' },
+            { label: 'Forte e Inspiradora', append: 'É uma fonte inesgotável de força e inspiração, supera cada desafio com um sorriso que ilumina.' },
+            { label: 'Divertida e Alegre', append: 'Traz alegria a cada momento com o seu sentido de humor único e gargalhada contagiante.' },
+            { label: 'Sábia e Conselheira', append: 'Tem sempre a palavra certa na hora certa, uma sabedoria que admiro profundamente.' },
+          ].map((pill, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setFormData(prev => ({
+                ...prev,
+                whatMakesSpecial: prev.whatMakesSpecial ? `${prev.whatMakesSpecial} ${pill.append}` : pill.append
+              }))}
+              className="px-2.5 py-1 bg-stone-950 hover:bg-stone-850 border border-stone-850 hover:border-stone-700 text-[10px] text-stone-300 rounded-full font-medium transition-colors cursor-pointer"
+            >
+              {pill.label}
+            </button>
+          ))}
+        </div>
         {fieldErrors?.whatMakesSpecial && (
           <p className="text-red-400 text-xs mt-1">{fieldErrors.whatMakesSpecial}</p>
         )}
@@ -324,6 +370,27 @@ export function Step5Traits({
           onChange={(e) => setFormData(prev => ({ ...prev, onlySheDoes: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
         />
+        <div className="flex flex-wrap gap-1.5 pt-1">
+          {[
+            { label: 'Sorriso Contagiante', append: 'tem um sorriso contagiante que ilumina qualquer divisão onde entra' },
+            { label: 'Olhar Penetrante', append: 'olha nos olhos de uma forma que faz esquecer o mundo à volta' },
+            { label: 'Cozinha Divinal', append: 'faz uma comida que aquece a alma, cada refeição é um abraço' },
+            { label: 'Abraço de Apertar', append: 'abraça com tanta força e verdade que todos os problemas desaparecem' },
+            { label: 'Gargalhada Única', append: 'dá uma gargalhada tão genuína e alta que é impossível não rir junto' },
+          ].map((pill, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setFormData(prev => ({
+                ...prev,
+                onlySheDoes: prev.onlySheDoes ? `${prev.onlySheDoes} ${pill.append}` : pill.append
+              }))}
+              className="px-2.5 py-1 bg-stone-950 hover:bg-stone-850 border border-stone-850 hover:border-stone-700 text-[10px] text-stone-300 rounded-full font-medium transition-colors cursor-pointer"
+            >
+              {pill.label}
+            </button>
+          ))}
+        </div>
         {fieldErrors?.onlySheDoes && (
           <p className="text-red-400 text-xs mt-1">{fieldErrors.onlySheDoes}</p>
         )}

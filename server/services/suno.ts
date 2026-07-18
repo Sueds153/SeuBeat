@@ -187,6 +187,32 @@ export function extractAudioUrl(payload: any): string | null {
   return urls.find(url => /\.(mp3|wav|flac|m4a|aac|ogg)(\?|$)/i.test(url)) || urls[0] || null;
 }
 
+const VOICE_STYLE_MAP: Record<string, string> = {
+  masculina: 'male vocal, deep voice, masculine tone',
+  feminina: 'female vocal, soft voice, feminine tone',
+  dueto: 'male and female duet, alternating vocals, harmonized voices',
+  'sem preferência': '',
+};
+
+const EMOTION_STYLE_MAP: Record<string, string> = {
+  amor: 'romantic mood, warm atmosphere, love theme',
+  emoção: 'emotional, heartfelt, touching atmosphere',
+  gratidão: 'grateful mood, warm and appreciative tone',
+  carinho: 'tender, affectionate, gentle mood',
+  saudade: 'melancholic, nostalgic, wistful atmosphere',
+  inspiração: 'uplifting, inspiring, hopeful mood',
+};
+
+const ARTIST_STYLE_MAP: Record<string, string> = {
+  'Anselmo Ralph': 'anselmo ralph style, romantic kizomba, warm tenor vocal, soft brass, zouk',
+  'Matias Damásio': 'matias damasio style, poetic ballad, emotional vocal, orchestral strings, angolan romantic',
+  'Gerilson Insrael': 'gerilson insrael style, afro pop, energetic rhythm, modern angolan, dance vibe',
+  'Chelsea Dinorath': 'chelsea dinorath style, neo kizomba, r&b influence, smooth female vocal, sensual',
+  'Ary': 'ary style, semba rhythm, soulful vocal, traditional angolan with modern production',
+  'Cef': 'cef style, ghetto zouk, romantic dance, catchy rhythm, angolan urban',
+  'Nelson Freitas': 'nelson freitas style, zouk international, r&b fusion, smooth romantic, cabo love',
+};
+
 function getSunoCallbackUrl() {
   if (process.env.SUNO_CALLBACK_URL) return process.env.SUNO_CALLBACK_URL;
 
@@ -232,7 +258,7 @@ export async function querySunoTask(taskId: string): Promise<SunoResult> {
   });
 }
 
-async function startSunoMusic(lyrics: string[], musicStyle: string, songTitle: string, personaId?: string): Promise<SunoResult> {
+async function startSunoMusic(lyrics: string[], musicStyle: string, songTitle: string, personaId?: string, extraParams?: { voiceType?: string; desiredEmotion?: string; referenceArtist?: string }): Promise<SunoResult> {
   const apiKey = process.env.SUNO_API_KEY;
   if (!apiKey) throw new Error('SUNO_API_KEY nao configurada.');
 
@@ -257,14 +283,36 @@ async function startSunoMusic(lyrics: string[], musicStyle: string, songTitle: s
     // Falha na verificação de créditos não impede o fluxo
   }
 
-  const stylePrompt = STYLE_MAP[musicStyle.trim().toLowerCase()] || 'romantic, emotional pop';
+  const baseStyle = STYLE_MAP[musicStyle.trim().toLowerCase()] || 'romantic, emotional pop';
+  const parts = [baseStyle];
+
+  if (extraParams?.voiceType) {
+    const voiceStyle = VOICE_STYLE_MAP[extraParams.voiceType.trim().toLowerCase()];
+    if (voiceStyle) parts.push(voiceStyle);
+  }
+
+  if (extraParams?.desiredEmotion) {
+    const emotionStyle = EMOTION_STYLE_MAP[extraParams.desiredEmotion.trim().toLowerCase()];
+    if (emotionStyle) parts.push(emotionStyle);
+  }
+
+  if (extraParams?.referenceArtist) {
+    const artistStyle = ARTIST_STYLE_MAP[extraParams.referenceArtist.trim()];
+    if (artistStyle) parts.push(artistStyle);
+  }
+
+  const stylePrompt = parts.join(', ');
 
   logInfo('[Suno] Submitting music generation task', {
     style: musicStyle,
+    enhancedStyle: stylePrompt,
     titleLength: songTitle?.length || 0,
     lyricsLines: lyrics.length,
     hasPersonaId: !!personaId,
     personaIdDebug: personaId ? `${personaId.slice(0, 8)}...` : undefined,
+    voiceType: extraParams?.voiceType,
+    desiredEmotion: extraParams?.desiredEmotion,
+    referenceArtist: extraParams?.referenceArtist,
   });
 
   const payload: Record<string, any> = {
@@ -386,9 +434,9 @@ async function continueSunoMusic(taskId: string, personaId?: string): Promise<Su
   return { taskId: newTaskId, audioUrl: null, status: 'processing' };
 }
 
-export async function generateFullSong(lyrics: string[], musicStyle: string, songTitle: string, personaId?: string): Promise<SunoResult> {
+export async function generateFullSong(lyrics: string[], musicStyle: string, songTitle: string, personaId?: string, extraParams?: { voiceType?: string; desiredEmotion?: string; referenceArtist?: string }): Promise<SunoResult> {
   return sunoBreaker.exec(async () => {
-    const { taskId, audioUrl: immediateAudioUrl } = await startSunoMusic(lyrics, musicStyle, songTitle, personaId);
+    const { taskId, audioUrl: immediateAudioUrl } = await startSunoMusic(lyrics, musicStyle, songTitle, personaId, extraParams);
     const firstResult = await pollSunoTask(taskId, immediateAudioUrl, 'Suno Gen1');
     if (!firstResult.audioUrl) throw new Error('Primeira geracao Suno falhou - sem URL de audio.');
 

@@ -63,9 +63,12 @@ export type EmotionType =
   | 'Saudade'
   | 'Inspiração';
 
+export type RecipientGender = 'Masculino' | 'Feminino';
+
 export interface WizardData {
   recipientRelation: RecipientType | '';
   recipientName: string;
+  recipientGender: RecipientGender | '';
   userNick: string;
   recipientNick: string;
 
@@ -97,6 +100,7 @@ export interface WizardData {
 export const INITIAL_WIZARD_DATA: WizardData = {
   recipientRelation: '',
   recipientName: '',
+  recipientGender: '',
   userNick: '',
   recipientNick: '',
 

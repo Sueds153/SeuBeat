@@ -6,6 +6,7 @@ describe('Step1Schema (Relation)', () => {
     const result = Step1Schema.safeParse({
       recipientRelation: 'esposa',
       recipientName: 'Maria',
+      recipientGender: 'Feminino',
       userNick: 'Amor',
       recipientNick: 'Princesa',
     });
@@ -16,6 +17,7 @@ describe('Step1Schema (Relation)', () => {
     const result = Step1Schema.safeParse({
       recipientRelation: '',
       recipientName: 'Maria',
+      recipientGender: 'Feminino',
       userNick: 'Amor',
       recipientNick: 'Princesa',
     });
@@ -26,6 +28,7 @@ describe('Step1Schema (Relation)', () => {
     const result = Step1Schema.safeParse({
       recipientRelation: 'esposa',
       recipientName: 'A',
+      recipientGender: 'Feminino',
       userNick: 'Amor',
       recipientNick: 'Princesa',
     });
@@ -75,6 +78,7 @@ describe('validateStep helper', () => {
     const errors = validateStep(1, {
       recipientRelation: 'mãe',
       recipientName: 'Maria',
+      recipientGender: 'Feminino',
       userNick: 'Filho',
       recipientNick: 'Mamã',
     });
@@ -85,6 +89,7 @@ describe('validateStep helper', () => {
     const errors = validateStep(1, {
       recipientRelation: '',
       recipientName: 'Maria',
+      recipientGender: 'Feminino',
       userNick: 'Filho',
       recipientNick: 'Mamã',
     });

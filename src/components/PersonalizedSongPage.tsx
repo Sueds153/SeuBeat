@@ -203,6 +203,28 @@ Angola ${(new Date().getFullYear())}
           <p className="text-xs md:text-sm text-stone-400 font-mono tracking-wide uppercase">
             Criada poéticamente no estilo <span className="text-amber-400 font-bold">{capitalize(songDetails.musicStyle)}</span> por <span className="text-rose-400 font-bold">{songDetails.userNick}</span>
           </p>
+          <div className="flex flex-wrap justify-center gap-1.5 mt-1">
+            {songDetails.occasion && (
+              <span className="px-2 py-0.5 bg-stone-900 border border-stone-800 rounded-full text-[10px] font-mono text-stone-400">
+                🎉 {capitalize(songDetails.occasion)}
+              </span>
+            )}
+            {songDetails.relationship && (
+              <span className="px-2 py-0.5 bg-stone-900 border border-stone-800 rounded-full text-[10px] font-mono text-stone-400">
+                👤 {capitalize(songDetails.relationship)}
+              </span>
+            )}
+            {songDetails.desiredEmotion && (
+              <span className="px-2 py-0.5 bg-stone-900 border border-stone-800 rounded-full text-[10px] font-mono text-stone-400">
+                💖 {capitalize(songDetails.desiredEmotion)}
+              </span>
+            )}
+            {songDetails.voiceType && (
+              <span className="px-2 py-0.5 bg-stone-900 border border-stone-800 rounded-full text-[10px] font-mono text-stone-400">
+                🎤 {capitalize(songDetails.voiceType)}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">

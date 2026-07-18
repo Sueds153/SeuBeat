@@ -24,6 +24,10 @@ const MUSIC_STYLES = [
   'zouk', 'balada', 'pop', 'r&b', 'rap', 'funk', 'trap', 'reggae', 'samba', 'hino',
 ] as const;
 
+const GENDERS = [
+  'masculino', 'feminino',
+] as const;
+
 const VOICE_TYPES = [
   'masculina', 'feminina', 'dueto', 'sem preferência',
 ] as const;
@@ -45,6 +49,7 @@ export const GenerateLyricsSchema = z.object({
   ),
 
   recipientName: z.string().min(1, 'Nome do destinatário requerido').max(100).trim(),
+  recipientGender: z.preprocess(lower, z.enum(GENDERS)),
   recipientRelation: z.preprocess(lower, z.enum(RECIPIENT_RELATIONS).catch('outro')),
   recipientNick: z.string().max(50).trim().optional(),
 

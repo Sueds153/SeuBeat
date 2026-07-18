@@ -10,6 +10,11 @@ export interface SongDetails {
   musicStyle: MusicStyleType;
   memory: string;
   whereItHappened: string;
+  occasion: string;
+  relationship: string;
+  desiredEmotion: string;
+  voiceType: string;
+  recipientGender: string;
   letter: string;
   photoUrl: string;
   songTitle: string;
@@ -47,6 +52,11 @@ function buildInitialFromParams(params: URLSearchParams, savedLocalPhoto: string
     musicStyle: (hpMusicStyle as MusicStyleType) || 'Kizomba',
     memory: hpMemory || '',
     whereItHappened: hpWhereItHappened || '',
+    occasion: '',
+    relationship: '',
+    desiredEmotion: '',
+    voiceType: '',
+    recipientGender: '',
     letter: hpLetter || '',
     photoUrl: savedLocalPhoto || '',
     songTitle: hpSongTitle || '',
@@ -69,6 +79,11 @@ function buildInitialFromLocalStorage(savedLocalPhoto: string): SongDetails | nu
       musicStyle: (parsed.musicStyle as MusicStyleType) || 'Kizomba',
       memory: parsed.unforgettableMemory || '',
       whereItHappened: parsed.whereItHappened || '',
+      occasion: '',
+      relationship: '',
+      desiredEmotion: '',
+      voiceType: '',
+      recipientGender: '',
       letter: parsed.messageFromTheHeart || '',
       photoUrl: parsed.photoUrl || savedLocalPhoto || '',
       songTitle: parsed.songTitle || '',
@@ -105,6 +120,11 @@ function applyFetchedSong(prev: SongDetails, dbSong: NonNullable<NonNullable<imp
     userNick,
     musicStyle: musicStyle as MusicStyleType,
     memory,
+    occasion: dbSong.occasion || prev.occasion,
+    relationship: dbSong.relationship || prev.relationship,
+    desiredEmotion: dbSong.desired_emotion || prev.desiredEmotion,
+    voiceType: dbSong.voice_type || prev.voiceType,
+    recipientGender: dbSong.recipient_gender || prev.recipientGender,
     letter: dbSong.letter_text || prev.letter,
     songTitle: dbSong.title || prev.songTitle,
     lyrics: dbSong.lyrics || prev.lyrics,

@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { getAdminSupabase, uploadToSupabase } from './supabase';
-import { downloadFile, createPreviewAudio } from './audio';
+import { downloadFile, createPreviewAudio, applyFades } from './audio';
 import { querySunoTask, generateFullSong } from './suno';
 import { generateValidationPhrase, waitForValidationPhrase, createCustomVoice, waitForVoiceId, checkVoiceAvailability } from './suno-voice';
 import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification, sendWorkflowFailedEmail } from './email';
@@ -80,18 +80,29 @@ export async function updateRequestStatus(requestId: string, status: string, err
 async function persistGeneratedSunoAudio(songId: string, taskId: string, audioUrl: string) {
   const fileInfo = getAudioFileInfo(audioUrl);
   const tempSunoPath = path.join(os.tmpdir(), `${songId}_suno.${fileInfo.ext}`);
+  const tempFadedPath = path.join(os.tmpdir(), `${songId}_faded.${fileInfo.ext}`);
   const tempPreviewPath = path.join(os.tmpdir(), `${songId}_preview.mp3`);
 
   try {
     await downloadFile(audioUrl, tempSunoPath);
 
+    try {
+      await applyFades(tempSunoPath, tempFadedPath);
+    } catch (fadeErr) {
+      logWarn('[Workflow] Fades falharam, a usar áudio original', fadeErr instanceof Error ? fadeErr : undefined);
+      fs.copyFileSync(tempSunoPath, tempFadedPath);
+    }
+
+    const fadedFileExists = fs.existsSync(tempFadedPath) && fs.statSync(tempFadedPath).size > 0;
+    const uploadSource = fadedFileExists ? tempFadedPath : tempSunoPath;
+
     const originalFilename = `songs/${songId}_original.${fileInfo.ext}`;
-    const fullAudioUrl = await uploadToSupabase('full-audio', originalFilename, tempSunoPath, fileInfo.mimeType);
+    const fullAudioUrl = await uploadToSupabase('full-audio', originalFilename, uploadSource, fileInfo.mimeType);
 
     const previewFilename = `previews/${songId}_preview.mp3`;
     let publicPreviewUrl: string | null = null;
     try {
-      await createPreviewAudio(tempSunoPath, tempPreviewPath);
+      await createPreviewAudio(uploadSource, tempPreviewPath);
       publicPreviewUrl = await uploadToSupabase('preview', previewFilename, tempPreviewPath, 'audio/mpeg');
     } catch (err) {
       logWarn('[Workflow] Preview de 30s falhou; áudio completo não será usado como preview', err instanceof Error ? err : undefined);
@@ -100,6 +111,7 @@ async function persistGeneratedSunoAudio(songId: string, taskId: string, audioUr
     return { taskId, fullAudioUrl, publicPreviewUrl };
   } finally {
     try { fs.unlinkSync(tempSunoPath); } catch {}
+    try { fs.unlinkSync(tempFadedPath); } catch {}
     try { fs.unlinkSync(tempPreviewPath); } catch {}
   }
 }
@@ -233,7 +245,8 @@ export async function runBackgroundSunoWorkflow(
   songId: string,
   musicStyle: string,
   songTitle: string,
-  lyrics: string[]
+  lyrics: string[],
+  extraParams?: { voiceType?: string; desiredEmotion?: string; referenceArtist?: string }
 ) {
   const supabase = getAdminSupabase();
   if (!supabase) throw new Error('Supabase client nao inicializado.');
@@ -304,7 +317,7 @@ export async function runBackgroundSunoWorkflow(
 
     setProgress(requestId, { status: 'generating', progress: 30, message: 'A submeter letra ao Suno AI...' });
 
-    const { taskId, audioUrl: finalAudioUrl } = await generateFullSong(lyrics, musicStyle, songTitle, personaId);
+    const { taskId, audioUrl: finalAudioUrl } = await generateFullSong(lyrics, musicStyle, songTitle, personaId, extraParams);
 
     const { error: taskUpdateError } = await supabase
       .from('songs')

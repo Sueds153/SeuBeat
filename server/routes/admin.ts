@@ -272,7 +272,10 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
 
     await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', requestId).eq('status', 'approved');
     firePurchaseEvent();
-    runBackgroundSunoWorkflow(requestId, songData.id, songRequest.music_style || 'Kizomba', songData.title || 'Música SeuBeat', songData.lyrics || []).catch(err => logError('[Admin] Background Suno workflow falhou apos aprovacao', err, { requestId }));
+    runBackgroundSunoWorkflow(requestId, songData.id, songRequest.music_style || 'Kizomba', songData.title || 'Música SeuBeat', songData.lyrics || [], {
+      voiceType: songRequest.voice_type || undefined,
+      desiredEmotion: songRequest.desired_emotion || undefined,
+    }).catch(err => logError('[Admin] Background Suno workflow falhou apos aprovacao', err, { requestId }));
     return res.json({ success: true, message: 'Pagamento aprovado. Música em processamento no Suno.', hasVoiceSample });
   } catch (err: any) {
     res.status(500).json({ error: safeMessage(err) });
@@ -375,12 +378,14 @@ router.post('/song/:id/generate-music', adminAuth, async (req, res) => {
     await supabase.from('songs').update({ mureka_status: 'generating' }).eq('id', id);
     await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', songData.request_id);
 
+    const sr = (songData.song_requests as any) || {};
     runBackgroundSunoWorkflow(
       songData.request_id,
       id,
-      (songData.song_requests as any)?.music_style || 'Kizomba',
+      sr?.music_style || 'Kizomba',
       songData.title || 'Musica SeuBeat',
-      songData.lyrics || []
+      songData.lyrics || [],
+      { voiceType: sr?.voice_type || undefined, desiredEmotion: sr?.desired_emotion || undefined }
     ).catch(err => logError('[Admin] Background Suno falhou apos iniciar', err, { songId: id }));
 
     res.json({ success: true, message: 'Geração Suno iniciada em background.' });
@@ -725,7 +730,10 @@ router.post('/request/:id/retry', adminAuth, async (req, res) => {
 
     await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', id);
     await supabase.from('songs').update({ mureka_status: 'generating' }).eq('id', songData.id);
-    runBackgroundSunoWorkflow(id, songData.id, requestData.music_style || 'Kizomba', songData.title || 'Música SeuBeat', songData.lyrics || []).catch(err => logError('[Admin] Background Suno falhou no retry', err, { requestId: id }));
+    runBackgroundSunoWorkflow(id, songData.id, requestData.music_style || 'Kizomba', songData.title || 'Música SeuBeat', songData.lyrics || [], {
+      voiceType: requestData.voice_type || undefined,
+      desiredEmotion: requestData.desired_emotion || undefined,
+    }).catch(err => logError('[Admin] Background Suno falhou no retry', err, { requestId: id }));
     res.json({ success: true, message: 'Reiniciado.' });
   } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
 });

@@ -112,6 +112,7 @@ function buildFormContext(formData: any) {
   const c = (val: any) => clean(val, 'Não informado');
   return [
     ['Destinatário (Nome)', c(formData.recipientName)],
+    ['Género do Destinatário', c(formData.recipientGender)],
     ['Relação', c(formData.recipientRelation)],
     ['Apelido Carinhoso do Destinatário', c(formData.recipientNick)],
     ['Como quem oferece gosta de ser chamado (Apelido)', c(formData.userNick)],
@@ -160,6 +161,8 @@ DEDICATÓRIA (letterText): Escreva uma carta íntima, curta e poderosa em prosa,
     filho: getPromptFromFile('filho.txt', 'Crie uma música para filho ou filha com amor, proteção, orgulho, crescimento e esperança.'),
     familia: getPromptFromFile('familia.txt', 'Crie uma música familiar calorosa sobre infância, cumplicidade, apoio mútuo e memórias partilhadas.'),
     amizade: getPromptFromFile('amizade.txt', 'Crie uma música de amizade verdadeira sobre lealdade, apoio, histórias vividas e presença.'),
+    aniversario: getPromptFromFile('aniversario.txt', 'Crie uma canção de aniversário celebrando a vida, alegria e gratidão. O Refrão Final deve incluir "Feliz Aniversário [Destinatário]" como mensagem de encerramento.'),
+    aniversarioNamoro: getPromptFromFile('aniversario_namoro.txt', 'Crie uma canção de aniversário de namoro celebrando o tempo juntos e o amor que dura. O Refrão Final deve incluir "Feliz Aniversário de namoro" como mensagem de encerramento.'),
     avo: getPromptFromFile('avo.txt', 'Crie uma homenagem para avós com carinho, sabedoria, memórias de infância e amor geracional.'),
     professor: getPromptFromFile('professor.txt', 'Crie uma homenagem para professor(a) destacando inspiração, conhecimento, impacto positivo e gratidão.'),
     pastor: getPromptFromFile('pastor.txt', 'Crie uma música de gratidão e fé para líder espiritual, com respeito e orientação.'),
@@ -174,7 +177,9 @@ DEDICATÓRIA (letterText): Escreva uma carta íntima, curta e poderosa em prosa,
   };
 
   let basePrompt = prompts.outro;
-  if (ocasiao.includes('casamento')) basePrompt = prompts.casamento;
+  if (ocasiao.includes('aniversario')) {
+    basePrompt = ocasiao.includes('namoro') ? prompts.aniversarioNamoro : prompts.aniversario;
+  } else if (ocasiao.includes('casamento')) basePrompt = prompts.casamento;
   else if (ocasiao.includes('desculpa')) basePrompt = prompts.desculpas;
   else if (ocasiao.includes('memorial') || ocasiao.includes('saudade')) basePrompt = prompts.memorial;
   else if (ocasiao.includes('homenagem')) basePrompt = prompts.homenagem;
