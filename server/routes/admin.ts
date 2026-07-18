@@ -1006,8 +1006,9 @@ router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
     const formData = {
       userNick: requestData.users?.name || 'Autor',
       recipientName: requestData.recipient_name,
+      recipientGender: requestData.recipient_gender || 'Masculino',
       recipientRelation: requestData.relationship,
-      recipientNick: '',
+      recipientNick: requestData.recipient_nick || '',
       occasion: requestData.occasion,
       musicStyle: requestData.music_style,
       voiceType: requestData.voice_type,
@@ -1016,7 +1017,8 @@ router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
       onlySheDoes: '',
       whereItHappened: '',
       messageFromTheHeart: requestData.heart_message || '',
-      desiredEmotion: 'Emocionante',
+      hookPhrase: requestData.hook_phrase || '',
+      desiredEmotion: requestData.desired_emotion || 'Emocionante',
       language: requestData.language || 'português'
     };
 

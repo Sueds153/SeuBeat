@@ -18,27 +18,43 @@ export default function SongLyrics({ lyrics, audioProgress }: SongLyricsProps) {
   ];
 
   return (
-    <div className="bg-stone-950/40 p-5 rounded-2xl border border-stone-850 text-left md:text-center space-y-3">
-      <span className="text-[9px] font-mono text-stone-550 tracking-widest uppercase block border-b border-stone-900 pb-1.5">
-        LETRA COMPLICADA SÍNCRONA:
-      </span>
-      <div className="max-h-[140px] overflow-y-auto space-y-2 py-1 scrollbar-thin">
+    <div className="bg-[#181818] rounded-2xl border border-white/5 p-6 space-y-4">
+      <div className="flex items-center justify-between border-b border-white/5 pb-3">
+        <span className="text-xs font-bold text-white uppercase tracking-widest">Letra</span>
+        <span className="text-[10px] text-[#b3b3b3] font-mono">Sincronizada com o áudio</span>
+      </div>
+
+      <div className="space-y-2 max-h-72 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-[#535353] scrollbar-track-transparent">
         {lines.map((line, idx) => {
           const currentIdx = Math.min(Math.floor((audioProgress / 100) * lines.length), lines.length - 1);
           const isCurrent = idx === currentIdx;
           const isPast = idx < currentIdx;
 
+          // Section headers like [Refrão], [Verso 1] etc.
+          const isHeader = /^\[.+\]$/.test(line.trim());
+
+          if (isHeader) {
+            return (
+              <p key={idx} className="text-[10px] font-bold text-[#535353] uppercase tracking-widest mt-4 first:mt-0">
+                {line.replace(/[\[\]]/g, '')}
+              </p>
+            );
+          }
+
           return (
             <p
               key={idx}
-              className={`text-xs md:text-sm font-serif transition-all duration-300 ${
+              className={`text-sm font-medium leading-relaxed transition-all duration-300 ${
                 isCurrent
-                  ? 'text-amber-400 font-bold scale-105 filter drop-shadow-[0_0_6px_rgba(245,158,11,0.15)]'
+                  ? 'text-white scale-[1.01] origin-left'
                   : isPast
-                  ? 'text-stone-500 font-light line-through decoration-stone-800'
-                  : 'text-stone-300'
+                  ? 'text-[#535353]'
+                  : 'text-[#b3b3b3]'
               }`}
             >
+              {isCurrent && (
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#1DB954] mr-2 mb-0.5 animate-pulse" />
+              )}
               {line}
             </p>
           );

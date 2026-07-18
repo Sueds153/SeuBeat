@@ -19,7 +19,7 @@ export function publicErrorMessage(err: any, fallback = 'Não foi possível conc
   if (/Supabase|database|DB|song_requests|songs|users|registrar.*banco.*dados|registar.*banco.*dados|banco de dados/i.test(message)) {
     return 'Houve um erro ao guardar os seus dados. Por favor, verifique a sua ligação e tente novamente.';
   }
-  if (/timeout|excedeu|timed out|ETIMEDOUT/i.test(message)) {
+  if (/timeout|excedeu|timed out|ETIMEDOUT|The operation was aborted|AbortError|TimeoutError/i.test(message)) {
     return 'O sistema demorou demasiado tempo a responder. Talvez a nossa IA esteja com muito tráfego. Tente novamente.';
   }
   if (/malformada|JSON|unexpected|malformed/i.test(message)) {

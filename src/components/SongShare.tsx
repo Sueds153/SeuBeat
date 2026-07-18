@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Share2, Check } from 'lucide-react';
+import { Share2, Check, Link } from 'lucide-react';
 
 interface SongShareProps {
   songId: string;
@@ -12,46 +12,54 @@ interface SongShareProps {
   letter: string;
 }
 
-function getFullComposedLetter(props: Pick<SongShareProps, 'recipientName' | 'recipientNick' | 'userNick' | 'memory' | 'whereItHappened' | 'letter'>): string {
-  if (props.letter) return props.letter;
-  return `Querido(a) ${props.recipientName} (${props.recipientNick}),\n\nEscrevo estas palavras com o coração totalmente aberto e transbordando de carinho. Há momentos na vida que ficam gravados para sempre na alma, e um deles é, sem dúvida, ${props.memory || 'tudo o que partilhámos juntos'} que aconteceu em ${props.whereItHappened || 'Angola'}.\n\nCom todo o amor do mundo,\n${props.userNick}`;
-}
-
 export default function SongShare(props: SongShareProps) {
-  const [copiedType, setCopiedType] = useState<'link' | 'share' | null>(null);
+  const [copiedType, setCopiedType] = useState<'link' | null>(null);
 
   const getShareUrl = () => {
     const slug = props.recipientName.toLowerCase().replace(/\s+/g, '-');
     return `${window.location.origin}/song/${encodeURIComponent(slug)}?id=${props.songId}`;
   };
 
-  const copyToClipboard = (type: 'link' | 'share') => {
+  const copyToClipboard = () => {
     navigator.clipboard.writeText(getShareUrl());
-    setCopiedType(type);
+    setCopiedType('link');
     setTimeout(() => setCopiedType(null), 2500);
   };
 
   return (
-    <div className="bg-stone-900/10 rounded-[32px] p-6 md:p-8 border border-stone-850/60 text-center space-y-6">
-      <div className="max-w-md mx-auto space-y-2">
-        <h3 className="font-serif text-xl font-bold text-stone-100">Partilhe esta página de Dedicatória Especial 💍</h3>
-        <p className="text-xs text-stone-400">
-          Copie o link individual da página para que o destinatário ouça a sua composição com todo o romance merecido.
+    <div className="bg-[#181818] rounded-2xl border border-white/5 p-6 md:p-8 space-y-5 text-center">
+      <div className="space-y-2">
+        <div className="w-10 h-10 rounded-full bg-[#1DB954]/10 flex items-center justify-center mx-auto">
+          <Share2 className="w-5 h-5 text-[#1DB954]" />
+        </div>
+        <h3 className="text-lg font-bold text-white">Partilha esta dedicatória 💍</h3>
+        <p className="text-sm text-[#b3b3b3] max-w-sm mx-auto">
+          Envia o link para <span className="text-white font-semibold">{props.recipientName}</span> ouvir a música criada especialmente para ela.
         </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 justify-center items-center max-w-xl mx-auto">
-        <button
-          onClick={() => copyToClipboard('link')}
-          className="w-full sm:w-auto px-6 py-3.5 bg-stone-900 hover:bg-stone-850 text-stone-100 font-bold text-xs md:text-sm rounded-xl flex items-center justify-center gap-2 border border-stone-800 cursor-pointer transition-colors uppercase tracking-wider"
-        >
-          {copiedType === 'link' ? (
-            <><Check className="w-4 h-4 text-emerald-400" /><span>Link Copiado!</span></>
-          ) : (
-            <><Share2 className="w-4 h-4 text-amber-500" /><span>Copiar Link Dedicatória</span></>
-          )}
-        </button>
+      {/* Share URL preview */}
+      <div className="flex items-center gap-2 bg-[#121212] border border-white/10 rounded-lg px-3 py-2.5 max-w-md mx-auto text-left">
+        <Link className="w-3.5 h-3.5 text-[#535353] flex-shrink-0" />
+        <span className="text-[11px] text-[#b3b3b3] font-mono truncate flex-1">
+          seubeat.onrender.com/song/{props.recipientName.toLowerCase().replace(/\s+/g, '-')}
+        </span>
       </div>
+
+      <button
+        onClick={copyToClipboard}
+        className={`inline-flex items-center gap-2 px-8 py-3 rounded-full font-bold text-sm transition-all cursor-pointer ${
+          copiedType === 'link'
+            ? 'bg-[#1DB954] text-black scale-95'
+            : 'bg-white text-black hover:scale-105 hover:bg-[#f0f0f0]'
+        }`}
+      >
+        {copiedType === 'link' ? (
+          <><Check className="w-4 h-4" /> Link Copiado!</>
+        ) : (
+          <><Share2 className="w-4 h-4" /> Copiar Link</>
+        )}
+      </button>
     </div>
   );
 }

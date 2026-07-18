@@ -568,6 +568,7 @@ router.post('/song/:id/regenerate-lyrics', generateLyricsLimiter, async (req, re
     const { result: parsedData } = await generateLyrics({
       userNick: userName,
       recipientName: sr.recipient_name || 'Destinatario',
+      recipientGender: sr.recipient_gender || 'Masculino',
       recipientRelation: sr.relationship || 'Parceiro',
       recipientNick: sr.recipient_nick || '',
       occasion: sr.occasion || 'Homenagem',
@@ -580,6 +581,7 @@ router.post('/song/:id/regenerate-lyrics', generateLyricsLimiter, async (req, re
       onlySheDoes: onlySheDoes || '',
       whereItHappened: whereItHappened || '',
       messageFromTheHeart: sr.heart_message || '',
+      hookPhrase: sr.hook_phrase || '',
       desiredEmotion: sr.desired_emotion || 'Emocionante',
       language: sr.language || 'português'
     });
