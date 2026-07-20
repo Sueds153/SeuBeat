@@ -297,6 +297,9 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [persistentMin, setPersistentMin] = useState(60);
   const [persistentSec, setPersistentSec] = useState(0);
   const [showPayment, setShowPayment] = useState(false);
+  const [flashTimer, setFlashTimer] = useState(600);
+  const [flashPriceUsed, setFlashPriceUsed] = useState(false);
+  const flashToastShown = useRef(false);
 
   // Limpar localStorage se a build do wizard mudou (evita cache velho)
   useEffect(() => {
@@ -325,13 +328,23 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       .catch(() => {});
   }, []);
 
-  // Iniciar countdown quando o utilizador chega ao ecrã pós-letra
+  // Iniciar countdown e flash sale quando o utilizador chega ao ecrã pós-letra
   useEffect(() => {
     if (generationStatus === 'lyrics_ready') {
       setShowPayment(true);
       const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
       const plan = selectedPlanID || 'standard';
       fbViewContent(plan, PLAN_VALUES[plan], 'AOA', crypto.randomUUID());
+
+      const stored = sessionStorage.getItem('seubeat_flash_expires_at');
+      if (stored) {
+        const remaining = Math.max(0, Math.floor((parseInt(stored, 10) - Date.now()) / 1000));
+        setFlashTimer(remaining);
+      } else {
+        sessionStorage.setItem('seubeat_flash_expires_at', String(Date.now() + 600000));
+        setFlashTimer(600);
+      }
+      flashToastShown.current = false;
     }
   }, [generationStatus]);
 
@@ -366,6 +379,29 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     }, 1000);
     return () => clearInterval(interval);
   }, [showPayment]);
+
+  // Flash sale countdown (10 min) com persistência em sessionStorage
+  useEffect(() => {
+    if (!showPayment || flashTimer <= 0) return;
+    const interval = setInterval(() => {
+      setFlashTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showPayment]);
+
+  // Toast quando o flash termina
+  useEffect(() => {
+    if (flashTimer === 0 && showPayment && !flashToastShown.current) {
+      flashToastShown.current = true;
+      showToast('A oferta relâmpago do Express terminou — o preço voltou ao valor normal.', 'info');
+    }
+  }, [flashTimer, showPayment]);
 
   const wrappedSetFormData: React.Dispatch<React.SetStateAction<WizardData>> = (action) => {
     setFormData(action);
@@ -1237,8 +1273,9 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       return;
     }
 
+    if (pId === 'express' && flashTimer > 0) setFlashPriceUsed(true);
     setSelectedPlanID(pId);
-    const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
+    const PLAN_VALUES: Record<string, number> = { standard: 7900, express: flashTimer > 0 ? 6900 : 9900, premium: 14900 };
     fbAddPaymentInfo(pId, PLAN_VALUES[pId], 'AOA', crypto.randomUUID());
     if (pId === 'premium') {
       setVoiceUpsellApplied(true);
@@ -1252,14 +1289,14 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
   const getPrice = () => {
     if (voiceUpsellApplied) return '14.900 Kz';
-    if (selectedPlanID === 'express') return '9.900 Kz';
+    if (selectedPlanID === 'express') return flashPriceUsed || flashTimer > 0 ? '6.900 Kz' : '9.900 Kz';
     if (selectedPlanID === 'premium') return '14.900 Kz';
     return '7.900 Kz'; // standard
   };
 
   const getPriceNumber = (): number => {
     if (voiceUpsellApplied) return 14900;
-    if (selectedPlanID === 'express') return 9900;
+    if (selectedPlanID === 'express') return flashPriceUsed || flashTimer > 0 ? 6900 : 9900;
     if (selectedPlanID === 'premium') return 14900;
     return 7900;
   };
@@ -1899,22 +1936,34 @@ const ROTATING_MESSAGES = [
 
                 {/* PLAN 2: EXPRESS */}
                 <div className="bg-stone-900/40 rounded-2.5xl p-6 border-2 border-amber-500/70 shadow-2xl transition-all flex flex-col justify-between relative space-y-6">
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 md:left-auto md:right-4 md:translate-x-0 bg-gradient-to-r from-amber-500 to-rose-500 text-stone-950 font-mono text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
-                    🔥 MAIS POPULAR
+                  <div className={`absolute -top-3.5 left-1/2 -translate-x-1/2 md:left-auto md:right-4 md:translate-x-0 bg-gradient-to-r from-amber-500 to-rose-500 text-stone-950 font-mono text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow ${flashTimer > 0 ? 'animate-pulse' : ''}`}>
+                    {flashTimer > 0 ? '🔥 OFERTA RELÂMPAGO' : '🔥 MAIS POPULAR'}
                   </div>
 
                   <div className="space-y-4">
                     <div>
                       <h4 className="font-serif text-lg font-bold text-amber-300 flex items-center gap-1.5">
                         EXPRESS
+                        {flashTimer > 0 && (
+                          <span className="text-[10px] font-mono font-bold text-red-400 ml-1">
+                            {Math.floor(flashTimer / 60)}:{String(flashTimer % 60).padStart(2, '0')}
+                          </span>
+                        )}
                       </h4>
                       <p className="text-amber-500/80 text-xs mt-0.5">Tudo do Standard, entrega imediata e dueto</p>
                     </div>
                     
                     <div className="text-left py-2">
-                      <div className="flex items-baseline gap-1.5">
+                      <div className="flex items-baseline gap-1.5 flex-wrap">
                         <span className="text-sm text-stone-600 line-through">13.500 Kz</span>
-                        <span className="text-2xl font-serif font-black text-stone-100">9.900 Kz</span>
+                        {flashTimer > 0 ? (
+                          <>
+                            <span className="text-sm text-stone-600 line-through">9.900 Kz</span>
+                            <span className="text-2xl font-serif font-black text-amber-300">6.900 Kz</span>
+                          </>
+                        ) : (
+                          <span className="text-2xl font-serif font-black text-stone-100">9.900 Kz</span>
+                        )}
                       </div>
                       <span className="text-[10px] text-stone-500 block">Kwanza Angola</span>
                     </div>
