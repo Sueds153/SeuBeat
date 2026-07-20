@@ -1519,4 +1519,47 @@ router.post('/cron/deliver-pending', async (req, res) => {
   }
 });
 
+// ─── TEMPORÁRIO: Reenviar Purchase event ao Meta Pixel ──────────────────────
+router.post('/payment/:id/resend-pixel', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+
+    const { data: payment } = await supabase
+      .from('payments')
+      .select('*, song_requests(*, users(*))')
+      .eq('id', id)
+      .single();
+
+    if (!payment) return res.status(404).json({ error: 'Pagamento não encontrado' });
+
+    const songRequest = payment.song_requests as any;
+    const userEmail = payment.user_email || songRequest?.users?.email;
+    const userPhone = songRequest?.phone || null;
+    const numericAmount = parseInt(String(payment.amount || '0').replace(/[^0-9]/g, ''), 10) || 0;
+    const planName = (payment.plan || songRequest?.plan || 'standard') as string;
+    const userFullName = songRequest?.users?.name || '';
+    const lastName = userFullName.split(' ').filter(Boolean).slice(-1)[0] || undefined;
+
+    const result = await sendPurchaseEvent({
+      eventId: id,
+      email: userEmail || '',
+      phone: userPhone || undefined,
+      value: numericAmount,
+      currency: 'AOA',
+      contentName: planName,
+      eventSourceUrl: req.headers.referer || 'https://seubeat.ao/admin',
+      clientIp: req.ip || req.socket.remoteAddress || undefined,
+      clientUserAgent: req.headers['user-agent'],
+      externalId: userEmail || undefined,
+      ln: lastName,
+    });
+
+    res.json({ success: result, message: result ? 'Evento reenviado com sucesso' : 'Falha ao reenviar evento', paymentId: id });
+  } catch (err: any) {
+    res.status(500).json({ error: safeMessage(err) });
+  }
+});
+
 export default router;
