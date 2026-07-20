@@ -1673,10 +1673,73 @@ const ROTATING_MESSAGES = [
               )}
             </div>
 
+            {/* Bridge: O que falta para a música ficar pronta */}
+            <div className="bg-gradient-to-br from-stone-900/60 to-amber-900/10 p-6 rounded-2xl border border-amber-800/30 space-y-5">
+              <div className="flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-stone-200 leading-relaxed">
+                  A letra é só o começo. Verifique os planos que transforma estas palavras numa canção profissional, cantada e entregue à <strong className="text-amber-400">{formData.recipientName}</strong>.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {[
+                  { label: 'Letra personalizada', done: true },
+                  { label: 'Música com instrumental', done: false },
+                  { label: 'Voz a cantar (padrão ou clonada)', done: false },
+                  { label: 'Página de dedicatória com áudio', done: false },
+                ].map((item) => (
+                  <div key={item.label} className={`flex items-center gap-2 p-2.5 rounded-lg ${item.done ? 'bg-emerald-500/10' : 'bg-stone-900/50'}`}>
+                    {item.done
+                      ? <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                      : <div className="w-4 h-4 rounded-full border-2 border-stone-600 shrink-0" />
+                    }
+                    <span className={item.done ? 'text-emerald-300 font-medium' : 'text-stone-400'}>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Dedication Preview Mockup */}
+            <div className="bg-stone-950/80 p-5 rounded-2xl border border-stone-800 space-y-4">
+              <span className="text-[10px] text-stone-500 font-mono tracking-widest uppercase flex items-center gap-2">
+                <Eye className="w-3.5 h-3.5" /> Pré-visualização da dedicatória
+              </span>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-amber-400 to-rose-500 flex items-center justify-center text-2xl font-bold text-white shrink-0 overflow-hidden">
+                  {formData.photoUrl
+                    ? <img src={formData.photoUrl} alt="" className="w-full h-full object-cover rounded-xl" />
+                    : (formData.recipientName?.charAt(0) || '?')
+                  }
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-stone-200 truncate">{aiSongTitle || `Música para ${formData.recipientName}`}</p>
+                  <p className="text-xs text-stone-500">Para {formData.recipientName} · Por {formData.userNick || formData.recipientNick || 'Ti'}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
+                      <Play className="w-4 h-4 text-amber-400 ml-0.5" />
+                    </span>
+                    <div className="h-1.5 flex-1 bg-stone-800 rounded-full overflow-hidden">
+                      <div className="w-0 h-full bg-amber-500 rounded-full" />
+                    </div>
+                    <span className="text-[10px] text-stone-500 font-mono">3:05</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Persuasive Triggers */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 
-              {/* Card 1 — Imaginação emocional */}
+              {/* Card 1 — A letra já está pronta (MOVED from position #4) */}
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-emerald-900/30 space-y-2">
+                <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center">
+                  <Gift className="w-4 h-4 text-green-400" />
+                </div>
+                <h4 className="text-xs font-bold text-emerald-300 tracking-wide">A letra já está pronta — só falta a música</h4>
+                <p className="text-[11px] text-stone-400">Já fizemos a nossa parte. Criámos a letra exclusiva para <strong className="text-stone-300">{formData.recipientName}</strong>. O próximo passo é torná-la numa canção real.</p>
+              </div>
+
+              {/* Card 2 — Imaginação emocional */}
               <div className="bg-stone-900/30 p-4 rounded-2xl border border-rose-900/30 space-y-2">
                 <div className="w-8 h-8 bg-rose-500/10 rounded-full flex items-center justify-center">
                   <Heart className="w-4 h-4 text-rose-400" />
@@ -1685,7 +1748,7 @@ const ROTATING_MESSAGES = [
                 <p className="text-[11px] text-stone-400">Quando <strong className="text-stone-300">{formData.recipientName}</strong> ouvir o nome dela numa música feita só para ela — vai ser um momento que ninguém esquece.</p>
               </div>
 
-              {/* Card 2 — Urgência (com timer) */}
+              {/* Card 3 — Urgência (com timer) */}
               <div className="bg-stone-900/30 p-4 rounded-2xl border border-amber-800/40 space-y-2">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 bg-amber-500/10 rounded-full flex items-center justify-center">
@@ -1699,22 +1762,13 @@ const ROTATING_MESSAGES = [
                 <p className="text-[11px] text-stone-400">Quando o contador chegar a zero, o valor especial de lançamento pode não estar disponível. Garanta agora.</p>
               </div>
 
-              {/* Card 3 — Prova social (com número real) */}
+              {/* Card 4 — Prova social (com número real) */}
               <div className="bg-stone-900/30 p-4 rounded-2xl border border-blue-900/30 space-y-2">
                 <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center">
                   <Users className="w-4 h-4 text-blue-400" />
                 </div>
                 <h4 className="text-xs font-bold text-blue-300 tracking-wide">Não és o primeiro a surpreender</h4>
                 <p className="text-[11px] text-stone-400">Centenas já fizeram isto. Só hoje, <strong className="text-amber-400">{todayCount} músicas</strong> foram criadas para pessoas reais em Angola e não só.</p>
-              </div>
-
-              {/* Card 4 — A letra já está feita */}
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-emerald-900/30 space-y-2">
-                <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center">
-                  <Gift className="w-4 h-4 text-green-400" />
-                </div>
-                <h4 className="text-xs font-bold text-emerald-300 tracking-wide">A letra já está pronta — só falta a música</h4>
-                <p className="text-[11px] text-stone-400">Já fizemos a nossa parte. Criámos a letra exclusiva para <strong className="text-stone-300">{formData.recipientName}</strong>. O próximo passo é torná-la numa canção real.</p>
               </div>
 
               {/* Card 5 — Unicidade */}
@@ -1726,7 +1780,25 @@ const ROTATING_MESSAGES = [
                 <p className="text-[11px] text-stone-400">Esta música não existe em mais lado nenhum. Foi composta para <strong className="text-stone-300">{formData.recipientName}</strong> e só ela a vai ter.</p>
               </div>
 
-              {/* Card 6 — Arrependimento futuro */}
+              {/* Card 6 — O som do nome dela (NEW) */}
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-rose-900/30 space-y-2">
+                <div className="w-8 h-8 bg-rose-500/10 rounded-full flex items-center justify-center">
+                  <Music className="w-4 h-4 text-rose-400" />
+                </div>
+                <h4 className="text-xs font-bold text-rose-300 tracking-wide">O som do nome dela</h4>
+                <p className="text-[11px] text-stone-400">Há algo mágico em ouvir o próprio nome cantado. <strong className="text-stone-300">{formData.recipientName}</strong> vai sentir que esta música foi feita exclusivamente para ela — porque foi.</p>
+              </div>
+
+              {/* Card 7 — O presente que dura (NEW) */}
+              <div className="bg-stone-900/30 p-4 rounded-2xl border border-amber-900/30 space-y-2">
+                <div className="w-8 h-8 bg-amber-500/10 rounded-full flex items-center justify-center">
+                  <Gift className="w-4 h-4 text-amber-400" />
+                </div>
+                <h4 className="text-xs font-bold text-amber-300 tracking-wide">O presente que dura</h4>
+                <p className="text-[11px] text-stone-400">Enquanto outros presentes se guardam numa gaveta, esta música será ouvida vezes sem conta, partilhada, lembrada. <strong className="text-stone-300">{formData.recipientName}</strong> vai ouvi-la daqui a 10, 20 anos e sentir o mesmo.</p>
+              </div>
+
+              {/* Card 8 — Arrependimento futuro */}
               <div className="bg-stone-900/30 p-4 rounded-2xl border border-rose-900/30 space-y-2">
                 <div className="w-8 h-8 bg-rose-500/10 rounded-full flex items-center justify-center">
                   <Heart className="w-4 h-4 text-rose-400" />
