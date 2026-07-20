@@ -1378,7 +1378,7 @@ const ROTATING_MESSAGES = [
   ];
 
   return (
-    <div className="min-h-screen bg-[#151210] text-stone-100 flex flex-col justify-between py-10 px-4 md:px-8">
+    <div className="min-h-screen bg-[#151210] text-stone-100 flex flex-col py-4 md:py-10 px-4 md:px-8 md:justify-between">
       {/* Toast notification */}
       <AnimatePresence>
         {toast && (
@@ -1441,7 +1441,7 @@ const ROTATING_MESSAGES = [
           <motion.div 
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="max-w-2xl mx-auto w-full text-center space-y-8 bg-stone-900/30 p-8 md:p-12 rounded-3xl border border-stone-850 shadow-2xl backdrop-blur relative overflow-hidden"
+            className="max-w-2xl mx-auto w-full text-center space-y-8 bg-stone-900/30 p-4 md:p-12 rounded-3xl border border-stone-850 shadow-2xl backdrop-blur relative overflow-hidden"
           >
             <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-500 to-rose-500" />
             <div className="w-20 h-20 bg-amber-500/5 rounded-full border border-amber-500/20 flex items-center justify-center mx-auto shadow-inner animate-[spin_5s_linear_infinite]">
@@ -1527,7 +1527,7 @@ const ROTATING_MESSAGES = [
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="max-w-2xl mx-auto w-full text-center space-y-6 bg-stone-900/40 p-8 md:p-10 rounded-3xl border border-rose-900/40 shadow-2xl"
+            className="max-w-2xl mx-auto w-full text-center space-y-6 bg-stone-900/40 p-4 md:p-10 rounded-3xl border border-rose-900/40 shadow-2xl"
           >
             <div className="w-16 h-16 bg-rose-500/10 rounded-full border border-rose-500/25 flex items-center justify-center mx-auto">
               <AlertTriangle className="w-8 h-8 text-rose-400" />
@@ -1570,7 +1570,7 @@ const ROTATING_MESSAGES = [
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="max-w-2xl mx-auto w-full text-center space-y-6 bg-stone-900/40 p-8 md:p-10 rounded-3xl border border-amber-900/30 shadow-2xl"
+            className="max-w-2xl mx-auto w-full text-center space-y-6 bg-stone-900/40 p-4 md:p-10 rounded-3xl border border-amber-900/30 shadow-2xl"
           >
             <div className="w-16 h-16 bg-amber-500/10 rounded-full border border-amber-500/25 flex items-center justify-center mx-auto">
               <RefreshCw className="w-8 h-8 text-amber-400 animate-spin" />
@@ -1749,7 +1749,7 @@ const ROTATING_MESSAGES = [
                   }
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-stone-200 truncate">{aiSongTitle || `Música para ${formData.recipientName}`}</p>
+                    <p className="text-sm font-bold text-stone-200 break-words">{aiSongTitle || `Música para ${formData.recipientName}`}</p>
                   <p className="text-xs text-stone-500">Para {formData.recipientName} · Por {formData.userNick || formData.recipientNick || 'Ti'}</p>
                   <div className="flex items-center gap-2 mt-2">
                     <span className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
@@ -1846,7 +1846,35 @@ const ROTATING_MESSAGES = [
 
             </div>
 
-            {/* Testimonials */}
+            {/* Micro Storyboard — O momento da entrega */}
+            <div className="bg-gradient-to-br from-stone-900/60 to-rose-900/10 p-5 sm:p-6 rounded-2xl border border-rose-800/20 space-y-4">
+              <div className="flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-sm font-bold text-stone-200">O MOMENTO DA ENTREGA 🎬</h3>
+                  <p className="text-[11px] text-stone-500 mt-0.5">Imagina a cara dela quando receber...</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-stone-900/40 p-4 rounded-xl border border-stone-800 space-y-3">
+                  <div className="w-9 h-9 bg-blue-500/10 rounded-full flex items-center justify-center text-lg">📱</div>
+                  <h4 className="text-xs font-bold text-blue-300">1. Ela recebe o link</h4>
+                  <p className="text-[11px] text-stone-400 leading-relaxed">No telemóvel dela, chega uma notificação. "Tens uma música dedicada a ti". Ela abre, curiosa.</p>
+                </div>
+                <div className="bg-stone-900/40 p-4 rounded-xl border border-stone-800 space-y-3">
+                  <div className="w-9 h-9 bg-amber-500/10 rounded-full flex items-center justify-center text-lg">🎵</div>
+                  <h4 className="text-xs font-bold text-amber-300">2. A música toca</h4>
+                  <p className="text-[11px] text-stone-400 leading-relaxed">Os primeiros segundos... ela reconhece o estilo. Quando ouve <strong className="text-rose-400">{formData.recipientName}</strong> cantado, o coração acelera.</p>
+                </div>
+                <div className="bg-stone-900/40 p-4 rounded-xl border border-stone-800 space-y-3">
+                  <div className="w-9 h-9 bg-rose-500/10 rounded-full flex items-center justify-center text-lg">🥹</div>
+                  <h4 className="text-xs font-bold text-rose-300">3. A reação</h4>
+                  <p className="text-[11px] text-stone-400 leading-relaxed">Lágrimas, um sorriso que não se apaga. Ela reenvia às amigas. Esse momento — <strong className="text-stone-300">fica para sempre</strong>.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Testimonials + Founder Letter */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
               <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-3">
                 <div className="flex gap-1">
@@ -1871,6 +1899,25 @@ const ROTATING_MESSAGES = [
                   <div>
                     <p className="text-[10px] font-medium text-stone-300">Delfina Neto</p>
                     <p className="text-[9px] text-stone-500 font-mono">Lobito · Semba para a Mãe</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Carta do Fundador — André */}
+              <div className="bg-gradient-to-br from-amber-900/10 to-stone-900/60 p-5 sm:p-6 rounded-2xl border border-amber-800/20 space-y-4 col-span-1 sm:col-span-2">
+                <div className="flex items-start gap-3">
+                  <Quote className="w-5 h-5 text-amber-400 shrink-0 mt-1" />
+                  <div className="space-y-3">
+                    <p className="text-xs text-stone-300 italic leading-relaxed">
+                      "Cada música do SeuBeat nasce de uma história real. Quando criámos a primeira canção, vimos nos olhos de quem recebia algo que nenhum presente material consegue dar — <strong className="text-amber-400">a sensação de ser única.</strong> É por isso que fazemos isto. Para que nunca te faltem palavras quando o coração fala mais alto."
+                    </p>
+                    <div className="flex items-center gap-3 pt-1">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center text-white text-xs font-bold shadow-lg">A</div>
+                      <div>
+                        <p className="text-xs font-bold text-stone-200">André</p>
+                        <p className="text-[10px] text-stone-500 font-mono">Fundador · SeuBeat</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2107,10 +2154,10 @@ const ROTATING_MESSAGES = [
 
                 {/* Audiowave voice comparison cards block */}
                 <div className="bg-stone-950/80 p-5 rounded-2.5xl border border-stone-850 text-left space-y-4 relative">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     
                     {/* Standard Voice Choice */}
-                    <div className="bg-stone-900/50 p-3 rounded-xl border border-stone-800 flex flex-col justify-between h-24">
+                    <div className="bg-stone-900/50 p-3 rounded-xl border border-stone-800 flex flex-col justify-between min-h-[5rem]">
                       <div className="flex justify-between items-start">
                         <span className="text-[10px] text-stone-500 font-mono">OPÇÃO PADRÃO</span>
                         <span className="text-xxs text-stone-500 font-sans italic bg-stone-950 px-1.5 py-0.5 rounded border border-stone-900">Incluído</span>
@@ -2122,7 +2169,7 @@ const ROTATING_MESSAGES = [
                     </div>
 
                     {/* Cloned Voice Choice */}
-                    <div className="bg-amber-500/[0.04] p-3 rounded-xl border-2 border-amber-500/50 flex flex-col justify-between h-24 relative overflow-hidden">
+                    <div className="bg-amber-500/[0.04] p-3 rounded-xl border-2 border-amber-500/50 flex flex-col justify-between min-h-[5rem] relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-8 h-8 bg-amber-500/10 rounded-bl-full flex items-center justify-center">
                         <Check className="w-3.5 h-3.5 text-amber-400" />
                       </div>
@@ -2914,7 +2961,7 @@ const ROTATING_MESSAGES = [
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Left Column: Form Content */}
-            <div className="lg:col-span-7 bg-stone-900/40 rounded-3xl p-6 md:p-8 border border-stone-800 shadow-xl backdrop-blur relative overflow-hidden flex flex-col justify-between min-h-[580px]">
+            <div className="lg:col-span-7 bg-stone-900/40 rounded-3xl p-6 md:p-8 border border-stone-800 shadow-xl backdrop-blur relative flex flex-col justify-between min-h-[400px] lg:min-h-[580px]">
               
               <AnimatePresence mode="wait">
                 <motion.div

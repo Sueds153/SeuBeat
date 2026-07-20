@@ -124,11 +124,11 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
 
   // ─── MAIN ──────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#090807] text-white pb-32 selection:bg-amber-500/20 selection:text-amber-300">
+    <div className="min-h-screen bg-[#090807] text-white pb-16 sm:pb-32 selection:bg-amber-500/20 selection:text-amber-300">
 
       {/* Dynamic gradient hero background based on theme */}
       <div
-        className="absolute top-0 inset-x-0 h-[420px] pointer-events-none"
+        className="absolute top-0 inset-x-0 h-[250px] sm:h-[420px] pointer-events-none"
         style={{
           background: 'linear-gradient(180deg, rgba(245,158,11,0.2) 0%, rgba(9,8,7,0) 100%)'
         }}
@@ -168,7 +168,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
       <main className="max-w-5xl mx-auto px-4 md:px-8 relative z-10">
 
         {/* ── HERO — album art + info ── */}
-        <section className="flex flex-col sm:flex-row items-end gap-6 pt-10 pb-8">
+        <section className="flex flex-col sm:flex-row items-center sm:items-end gap-6 pt-10 pb-8">
 
           {/* Album Art */}
           <div className="relative w-44 h-44 sm:w-52 sm:h-52 flex-shrink-0 group">
@@ -203,7 +203,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
             <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-400 uppercase tracking-widest">
               <Sparkles className="w-3 h-3" /> Música Personalizada
             </span>
-            <h1 className="font-bold text-3xl sm:text-4xl md:text-5xl text-white leading-tight line-clamp-2">
+            <h1 className="font-bold text-2xl sm:text-3xl md:text-4xl text-white leading-tight line-clamp-3 sm:line-clamp-2">
               {songDetails.songTitle || `Música de ${songDetails.recipientName}`}
             </h1>
             <p className="text-stone-400 text-sm">

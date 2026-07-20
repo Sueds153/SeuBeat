@@ -24,7 +24,7 @@ export default function SongLyrics({ lyrics, audioProgress }: SongLyricsProps) {
         <span className="text-[10px] text-[#b3b3b3] font-mono">Sincronizada com o áudio</span>
       </div>
 
-      <div className="space-y-2 max-h-72 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-[#535353] scrollbar-track-transparent">
+      <div className="space-y-2 max-h-96 sm:max-h-72 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-[#535353] scrollbar-track-transparent">
         {lines.map((line, idx) => {
           const currentIdx = Math.min(Math.floor((audioProgress / 100) * lines.length), lines.length - 1);
           const isCurrent = idx === currentIdx;

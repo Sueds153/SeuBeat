@@ -430,12 +430,12 @@ export function Step6Memory({
       </div>
 
       <div className="bg-stone-900 border border-stone-850 rounded-xl p-3.5 space-y-3.5">
-        <div className="flex items-center justify-between pb-2 border-b border-stone-850">
+        <div className="flex items-center justify-between pb-2 border-b border-stone-850 flex-wrap gap-1">
           <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase font-extrabold tracking-wider text-amber-400">
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
             <span>Ideias de Composição & Detalhes Reais</span>
           </div>
-          <span className="text-[9.5px] text-stone-500 font-mono">Toque para preencher ou anexar</span>
+          <span className="text-[9.5px] text-stone-500 font-mono hidden sm:inline">Toque para preencher ou anexar</span>
         </div>
 
         <div className="flex flex-wrap gap-1">
@@ -750,7 +750,7 @@ export function Step8Photo({
     <div className="space-y-4 pt-2">
       <div
         onClick={() => photoFileRef.current?.click()}
-        className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer bg-stone-950/40 relative min-h-[220px] flex flex-col justify-center items-center ${
+        className={`border-2 border-dashed rounded-2xl p-5 sm:p-8 text-center transition-all cursor-pointer bg-stone-950/40 relative min-h-[160px] sm:min-h-[220px] flex flex-col justify-center items-center ${
           formData.photoUrl
             ? 'border-green-500/30 bg-stone-900'
             : 'border-stone-800 hover:border-stone-700'

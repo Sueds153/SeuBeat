@@ -36,7 +36,7 @@ export default forwardRef<HTMLInputElement, SongPlayerProps>(function SongPlayer
 
       {/* Mode badge */}
       <div className="flex items-center justify-between">
-        <span className="text-[11px] text-stone-400 font-medium truncate max-w-[60%]">
+        <span className="text-[11px] text-stone-400 font-medium truncate max-w-[70%] md:max-w-[60%]">
           {songTitle || `A canção de ${recipientName}`}
         </span>
         <span className={`flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
