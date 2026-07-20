@@ -142,7 +142,7 @@ export async function startServer(app: express.Application): Promise<import('htt
             res.send(renderOgPage({
               title: `Música para ${data.recipient_name}`,
               description: `Canção personalizada em ${data.music_style || 'Kizomba'} criada com carinho no SeuBeat.`,
-              image: `${appUrl}/assets/seubeat_card.svg`,
+              image: `${appUrl}/assets/seubeat_card.png`,
               url: fullUrl,
             }));
             return;
@@ -155,7 +155,7 @@ export async function startServer(app: express.Application): Promise<import('htt
       res.send(renderOgPage({
         title: 'SeuBeat — Canções Personalizadas',
         description: 'Surpreenda quem mais ama com uma canção única — Kizomba, Semba, Pop e mais.',
-        image: `${appUrl}/assets/seubeat_card.svg`,
+        image: `${appUrl}/assets/seubeat_card.png`,
         url: fullUrl,
       }));
     });
