@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   ArrowRight, ArrowLeft, Heart, Sparkles, Check, Upload,
-  Mic, Mail, Phone, Eye, Lock, RefreshCw, Play, Pause, AlertTriangle, ShieldCheck, MapPin, Copy, FileText,
-  Users, Gift, Zap, Music, Timer, Quote, Star, MessageCircle
+  Mic, Mail, Eye, Lock, RefreshCw, Play, AlertTriangle, ShieldCheck, Copy, FileText,
+  Timer
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import StepErrorBoundary from './StepErrorBoundary';
@@ -18,6 +18,7 @@ import { validateStep as zodValidateStep, FieldErrors } from '../lib/validation'
 import WhatsAppHelp from './WhatsAppHelp';
 import LogoIcon from './LogoIcon';
 import { fbLead, fbAddPaymentInfo, fbSubmitApplication, fbSetUserData, fbViewContent, fbCompleteRegistration, parsePrice } from '../lib/metaPixel';
+import { DEMO_SONGS } from '../constants/demoSongs';
 
 interface WizardProps {
   onBackToLanding: () => void;
@@ -88,6 +89,8 @@ const STEP_META = [
   }
 ];
 
+const WIZARD_BUILD = '20260716_1';
+
 export default function Wizard({ onBackToLanding }: WizardProps) {
   const [step, setStep] = useState<number>(() => {
     try {
@@ -119,10 +122,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info'; id: number } | null>(null);
   
-  // Audio Player Simulation States
-  const [audioPlaying, setAudioPlaying] = useState(false);
-  const [audioProgress, setAudioProgress] = useState(0); // 0 to 20 seconds
-  
+  // Demo preview player (Ecrã 1)
+  const [demoPlaying, setDemoPlaying] = useState(false);
+  const [demoProgress, setDemoProgress] = useState(0);
+  const demoAudioRef = useRef<HTMLAudioElement | null>(null);
+
   // Checkout & Upsell States
   const [selectedPlanID, setSelectedPlanID] = useState<'standard' | 'express' | 'premium' | null>(() => {
     try {
@@ -198,8 +202,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   });
   const [paymentNotes, setPaymentNotes] = useState<string>('');
   const [paymentSubmitError, setPaymentSubmitError] = useState<string>('');
-  const [paymentTab, setPaymentTab] = useState<'atm' | 'express'>('express');
-
   // AI Song states powered by Claude
   const [aiSongTitle, setAiSongTitle] = useState(() => {
     try {
@@ -272,16 +274,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     return 'idle';
   });
   const [generationError, setGenerationError] = useState('');
-  const [previewAudioUrl, setPreviewAudioUrl] = useState(() => {
-    try {
-      const saved = localStorage.getItem('seubeat_wizard_progress');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return parsed?.previewAudioUrl || '';
-      }
-    } catch {}
-    return '';
-  });
+
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   // Estado para edição de letra
@@ -292,14 +285,14 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [savingLyrics, setSavingLyrics] = useState(false);
   const [lyricsSaved, setLyricsSaved] = useState(false);
   const [todayCount, setTodayCount] = useState(847);
-  const [countdownMin, setCountdownMin] = useState(20);
-  const [countdownSec, setCountdownSec] = useState(0);
   const [persistentMin, setPersistentMin] = useState(60);
   const [persistentSec, setPersistentSec] = useState(0);
-  const [showPayment, setShowPayment] = useState(false);
+  const [flashActive, setFlashActive] = useState(false);
   const [flashTimer, setFlashTimer] = useState(600);
   const [flashPriceUsed, setFlashPriceUsed] = useState(false);
   const flashToastShown = useRef(false);
+  const [conversionStep, setConversionStep] = useState<'preview' | 'plans'>('preview');
+  const [liveActivityIdx, setLiveActivityIdx] = useState(0);
 
   // Limpar localStorage se a build do wizard mudou (evita cache velho)
   useEffect(() => {
@@ -328,10 +321,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       .catch(() => {});
   }, []);
 
-  // Iniciar countdown e flash sale quando o utilizador chega ao ecrã pós-letra
+  // Iniciar flash sale e definir ecrã de preview quando a letra fica pronta
   useEffect(() => {
     if (generationStatus === 'lyrics_ready') {
-      setShowPayment(true);
+      setFlashActive(true);
+      setConversionStep('preview');
       const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
       const plan = selectedPlanID || 'standard';
       fbViewContent(plan, PLAN_VALUES[plan], 'AOA', crypto.randomUUID());
@@ -362,27 +356,9 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Countdown regressivo de 20 min para criar urgência (após letra pronta)
-  useEffect(() => {
-    if (!showPayment) return;
-    const interval = setInterval(() => {
-      setCountdownSec(prev => {
-        if (prev === 0) {
-          setCountdownMin(m => {
-            if (m === 0) { clearInterval(interval); return 0; }
-            return m - 1;
-          });
-          return 59;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [showPayment]);
-
   // Flash sale countdown (10 min) com persistência em sessionStorage
   useEffect(() => {
-    if (!showPayment || flashTimer <= 0) return;
+    if (!flashActive || flashTimer <= 0) return;
     const interval = setInterval(() => {
       setFlashTimer(prev => {
         if (prev <= 1) {
@@ -393,15 +369,15 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [showPayment]);
+  }, [flashActive]);
 
   // Toast quando o flash termina
   useEffect(() => {
-    if (flashTimer === 0 && showPayment && !flashToastShown.current) {
+    if (flashTimer === 0 && flashActive && !flashToastShown.current) {
       flashToastShown.current = true;
       showToast('A oferta relâmpago do Express terminou — o preço voltou ao valor normal.', 'info');
     }
-  }, [flashTimer, showPayment]);
+  }, [flashTimer, flashActive]);
 
   const wrappedSetFormData: React.Dispatch<React.SetStateAction<WizardData>> = (action) => {
     setFormData(action);
@@ -426,7 +402,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         dbSongId,
         dbSongRequestId,
         generationStatus,
-        previewAudioUrl,
         selectedPlanID,
         voiceUpsellApplied
       }));
@@ -445,7 +420,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     dbSongId,
     dbSongRequestId,
     generationStatus,
-    previewAudioUrl,
     selectedPlanID,
     voiceUpsellApplied
   ]);
@@ -628,7 +602,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [suggestTab, setSuggestTab] = useState<'viagem' | 'romance' | 'divertido' | 'quotidiano'>('viagem');
 
   const photoFileRef = useRef<HTMLInputElement>(null);
-  const liveAudioRef = useRef<HTMLAudioElement | null>(null);
   const submissionStartedRef = useRef(false);
   const isRecheckingRef = useRef(false);
 
@@ -782,6 +755,15 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     }
   }, [isSubmitting]);
 
+  // Live activity rotator
+  useEffect(() => {
+    if (!flashActive) return;
+    const interval = setInterval(() => {
+      setLiveActivityIdx(i => (i + 1) % LIVE_ACTIVITIES.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [flashActive]);
+
   const pollCancelledRef = useRef(false);
 
   const pollSongUntilPreview = async (songId: string, maxAttempts = 15) => {
@@ -809,7 +791,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         }
 
         if (previewUrl && (requestStatus === 'music_ready' || song?.data?.mureka_status === 'completed')) {
-          setPreviewAudioUrl(previewUrl);
           setProcessingStage(4);
           setIsSubmitting(false);
           return true;
@@ -862,7 +843,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         setProcessingStage(1);
         setDbSongId('');
         setDbSongRequestId('');
-        setPreviewAudioUrl('');
 
         try {
           let photoBase64 = null;
@@ -984,62 +964,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       submitData();
     }
   }, [isSubmitting, formData]);
-
-  // Audio Preview Progress Clock with real Suno audio playback
-  useEffect(() => {
-    return () => {
-      if (liveAudioRef.current) {
-        liveAudioRef.current.pause();
-        liveAudioRef.current = null;
-      }
-    };
-  }, [formData.voiceType, voiceUpsellApplied, previewAudioUrl]);
-
-  useEffect(() => {
-    if (audioPlaying) {
-      if (!liveAudioRef.current) {
-        const url = previewAudioUrl;
-        if (!url) return;
-        liveAudioRef.current = new Audio(url);
-        
-        liveAudioRef.current.ontimeupdate = () => {
-          if (liveAudioRef.current) {
-            const current = liveAudioRef.current.currentTime;
-            if (current >= 30) {
-              liveAudioRef.current.pause();
-              setAudioPlaying(false);
-              setAudioProgress(30);
-            } else {
-              setAudioProgress(current);
-            }
-          }
-        };
-
-        liveAudioRef.current.onended = () => {
-          setAudioPlaying(false);
-          setAudioProgress(30);
-        };
-      }
-      
-      liveAudioRef.current.play().catch(err => {
-        console.warn("Speech playback interrupted or blocked:", err);
-      });
-    } else {
-      if (liveAudioRef.current) {
-        liveAudioRef.current.pause();
-      }
-    }
-  }, [audioPlaying, aiLyricsSnippet, aiLyrics, previewAudioUrl]);
-
-  // Cleanup live audio player on component unmount
-  useEffect(() => {
-    return () => {
-      if (liveAudioRef.current) {
-        liveAudioRef.current.pause();
-        liveAudioRef.current = null;
-      }
-    };
-  }, []);
 
   // Recording timer countdown ticker simulation
   useEffect(() => {
@@ -1217,7 +1141,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       fbSetUserData(formData.email, formData.phone);
       // Trigger Submitting / Composition simulation
       submissionStartedRef.current = false;
-      setPreviewAudioUrl('');
       setDbSongId('');
       setDbSongRequestId('');
       setGenerationStatus('idle');
@@ -1232,7 +1155,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     submissionStartedRef.current = false;
     setDbSongId('');
     setDbSongRequestId('');
-    setPreviewAudioUrl('');
     setGenerationStatus('idle');
     setGenerationError('');
     setIsSubmitting(true);
@@ -1368,14 +1290,102 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   };
 
   const activeMeta = STEP_META[step - 1];
-
-  const WIZARD_BUILD = '20260716_1';
 const ROTATING_MESSAGES = [
     '❤️ Uma nova música foi criada para uma mãe',
     '💕 Uma nova declaração de amor foi criada',
     '🎂 Uma música de aniversário acabou de ficar pronta',
     '💍 Um pedido de casamento está a transformar-se em música'
   ];
+
+  const LIVE_ACTIVITIES = [
+    { name: 'Rui', text: '"Ela ouviu e ligou a chorar de emoção"' },
+    { name: 'Delfina', text: '"A Mãe Maria ouve todos os dias ao acordar"' },
+    { name: 'Mateus', text: '"Ela disse SIM depois de ouvir a música"' },
+    { name: 'Sara', text: '"Nunca tinha recebido nada igual"' },
+    { name: 'João', text: '"A Clara pôs a música no despertador"' },
+    { name: 'Carmo', text: '"A minha mãe não parou de chorar"' },
+  ];
+
+  const getDemoByStyle = (style: string) => {
+    const map: Record<string, string> = {
+      Kizomba: 'kizomba-mae',
+      Semba: 'semba-avo',
+      Gospel: 'gospel-marido',
+      Afrobeat: 'kizomba-mae',
+      Zouk: 'kizomba-mae',
+      Acoustic: 'semba-avo',
+      'Romantic Pop': 'semba-avo',
+      Balada: 'semba-avo',
+      Pop: 'semba-avo',
+      Hino: 'gospel-marido',
+      Samba: 'kizomba-mae',
+      Reggae: 'kizomba-mae',
+      Trap: 'kizomba-mae',
+      Funk: 'kizomba-mae',
+      Rap: 'kizomba-mae',
+      'R&B': 'semba-avo',
+    };
+    const id = map[style] || 'kizomba-mae';
+    return DEMO_SONGS.find(d => d.id === id) || DEMO_SONGS[0];
+  };
+
+  const handleDemoPlayPause = () => {
+    if (demoPlaying) {
+      if (demoAudioRef.current) {
+        demoAudioRef.current.pause();
+      }
+      setDemoPlaying(false);
+    } else {
+      const demo = getDemoByStyle(formData.musicStyle);
+      if (demoAudioRef.current && demoAudioRef.current.dataset.songId === demo.id) {
+        demoAudioRef.current.play().catch(() => {});
+        setDemoPlaying(true);
+      } else {
+        if (demoAudioRef.current) {
+          demoAudioRef.current.pause();
+          demoAudioRef.current = null;
+        }
+        const audio = new Audio(demo.audioUrl);
+        audio.dataset.songId = demo.id;
+        audio.ontimeupdate = () => {
+          if (audio.currentTime >= 30) {
+            audio.pause();
+            setDemoPlaying(false);
+            setDemoProgress(30);
+          } else {
+            setDemoProgress(audio.currentTime);
+          }
+        };
+        audio.onended = () => {
+          setDemoPlaying(false);
+          setDemoProgress(30);
+        };
+        audio.play().catch(() => {});
+        demoAudioRef.current = audio;
+        setDemoPlaying(true);
+        setDemoProgress(0);
+      }
+    }
+  };
+
+  // Cleanup demo audio on unmount or when leaving Ecrã 1
+  useEffect(() => {
+    if (conversionStep !== 'preview' && demoAudioRef.current) {
+      demoAudioRef.current.pause();
+      demoAudioRef.current = null;
+      setDemoPlaying(false);
+      setDemoProgress(0);
+    }
+  }, [conversionStep]);
+
+  useEffect(() => {
+    return () => {
+      if (demoAudioRef.current) {
+        demoAudioRef.current.pause();
+        demoAudioRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#151210] text-stone-100 flex flex-col py-4 md:py-10 px-4 md:px-8 md:justify-between">
@@ -1605,142 +1615,46 @@ const ROTATING_MESSAGES = [
           </motion.div>
         )}
 
-        {/* -------------------- LYRICS READY: MOSTRAR LETRA + GATILHOS + PLANOS -------------------- */}
-        {!isSubmitting && generationStatus === 'lyrics_ready' && !isDone && (
+        {/* -------------------- ECRÃ 1: PREVIEW EMOCIONAL + CTA -------------------- */}
+        {!isSubmitting && generationStatus === 'lyrics_ready' && !isDone && !showVoiceCloningScreen && conversionStep === 'preview' && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="max-w-4xl mx-auto w-full space-y-8 py-6"
+            className="max-w-lg mx-auto w-full space-y-5 py-6"
           >
             {/* Header */}
             <div className="text-center space-y-2">
               <span className="text-emerald-500 text-xs font-mono font-bold tracking-widest uppercase flex items-center justify-center gap-1.5">
                 <Sparkles className="w-4 h-4" /> LETRA CRIADA COM SUCESSO
               </span>
-              <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-black tracking-tight">
+              <h2 className="font-serif text-2xl md:text-3xl text-stone-100 font-black tracking-tight">
                 {aiSongTitle || `Música para ${formData.recipientName}`}
               </h2>
-              <p className="text-stone-400 text-sm max-w-lg mx-auto">
-                Criada especialmente para <strong className="text-amber-400">{formData.recipientName}</strong>
-                {formData.recipientNick ? ` (${formData.recipientNick})` : ''}
+              <p className="text-stone-400 text-xs max-w-sm mx-auto">
+                Para <strong className="text-amber-400">{formData.recipientName}</strong>
+                {formData.recipientNick ? ` (${formData.recipientNick})` : ''} · Por ti 💝
               </p>
             </div>
 
-            {/* Lyrics Card with Edit */}
-            <div className="bg-stone-900/40 p-6 md:p-8 rounded-3xl border border-amber-900/30 shadow-2xl space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-stone-500 font-mono tracking-widest uppercase">Letra da música</span>
-                <div className="flex gap-2">
-                  {!editingLyrics ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditedLyrics(Array.isArray(aiLyrics) ? aiLyrics.join('\n') : '');
-                        setEditingLyrics(true);
-                      }}
-                      className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs rounded-lg transition-all cursor-pointer"
-                    >
-                      Editar letra
-                    </button>
-                  ) : (
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setEditingLyrics(false)}
-                        className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs rounded-lg transition-all cursor-pointer"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSaveLyrics}
-                        disabled={savingLyrics}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-stone-950 text-xs font-semibold rounded-lg transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        {savingLyrics ? 'A guardar...' : 'Guardar'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
+            {/* Barra de progresso emocional */}
+            <p className="text-[10px] font-mono text-stone-500 text-center">
+              ✅ História · ✅ Letra · 🟡 Música · ⬜ Ela
+            </p>
 
-              {editingLyrics && (
-                <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl text-xs text-amber-300 space-y-1">
-                  <strong>⚠️ Atenção à escrita:</strong>
-                  <p>A letra que escrever será cantada pela inteligência artificial. Escreva corretamente para garantir uma pronúncia perfeita. Evite abreviações, gírias ou erros ortográficos — a IA canta exatamente o que está escrito.</p>
-                </div>
-              )}
-
-              {editingLyrics ? (
-                <textarea
-                  value={editedLyrics}
-                  onChange={(e) => setEditedLyrics(e.target.value)}
-                  className="w-full h-64 bg-stone-950 text-stone-200 text-sm font-mono p-4 rounded-xl border border-stone-800 focus:border-amber-500 focus:outline-none resize-y"
-                  placeholder="Escreva a letra aqui..."
-                />
-              ) : (
-                <div className="bg-stone-950 p-5 rounded-xl border border-stone-850 space-y-3">
-                  <div className="flex items-center gap-2 text-amber-400 text-xs font-mono">
-                    <span>🎵 {formData.musicStyle || 'Kizomba'}</span>
-                  </div>
-                  <div className="text-stone-200 text-sm font-serif leading-relaxed whitespace-pre-line">
-                    {Array.isArray(aiLyrics) ? aiLyrics.join('\n') : aiLyrics}
-                  </div>
-                </div>
-              )}
-
-              {/* Regenerate button */}
-              {!editingLyrics && (
-                <div className="flex items-center justify-between pt-2">
-                  <button
-                    type="button"
-                    onClick={handleRegenerateLyrics}
-                    disabled={savingLyrics || regenerationsUsed >= 2}
-                    className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${savingLyrics ? 'animate-spin' : ''}`} />
-                    <span>Regenerar letra {regenerationsRemaining > 0 ? `(${regenerationsRemaining}/2)` : '(limite atingido)'}</span>
-                  </button>
-                  {lyricsSaved && (
-                    <span className="text-emerald-400 text-xs flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" /> Letra guardada
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Bridge: O que falta para a música ficar pronta */}
-            <div className="bg-gradient-to-br from-stone-900/60 to-amber-900/10 p-6 rounded-2xl border border-amber-800/30 space-y-5">
-              <div className="flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                <p className="text-sm text-stone-200 leading-relaxed">
-                  A letra é só o começo. Verifique os planos que transforma estas palavras numa canção profissional, cantada e entregue à <strong className="text-amber-400">{formData.recipientName}</strong>.
+            {/* Preço âncora + urgência */}
+            <div className="text-center space-y-0.5">
+              <p className="text-[10px] font-mono text-stone-500">
+                🎁 A partir de 6.900 Kz · Pago único
+              </p>
+              {flashTimer > 0 && (
+                <p className="text-[10px] font-mono text-red-400/80">
+                  ⏱️ Preço relâmpago termina em {Math.floor(flashTimer / 60)}:{String(flashTimer % 60).padStart(2, '0')}
                 </p>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                {[
-                  { label: 'Letra personalizada', done: true },
-                  { label: 'Música com instrumental', done: false },
-                  { label: 'Voz a cantar (padrão ou clonada)', done: false },
-                  { label: 'Página de dedicatória com áudio', done: false },
-                ].map((item) => (
-                  <div key={item.label} className={`flex items-center gap-2 p-2.5 rounded-lg ${item.done ? 'bg-emerald-500/10' : 'bg-stone-900/50'}`}>
-                    {item.done
-                      ? <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                      : <div className="w-4 h-4 rounded-full border-2 border-stone-600 shrink-0" />
-                    }
-                    <span className={item.done ? 'text-emerald-300 font-medium' : 'text-stone-400'}>{item.label}</span>
-                  </div>
-                ))}
-              </div>
+              )}
             </div>
 
-            {/* Dedication Preview Mockup */}
-            <div className="bg-stone-950/80 p-5 rounded-2xl border border-stone-800 space-y-4">
-              <span className="text-[10px] text-stone-500 font-mono tracking-widest uppercase flex items-center gap-2">
-                <Eye className="w-3.5 h-3.5" /> Pré-visualização da dedicatória
-              </span>
+            {/* Dedication Preview — grande e visual */}
+            <div className="bg-stone-950/80 p-4 rounded-2xl border border-stone-800">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-amber-400 to-rose-500 flex items-center justify-center text-2xl font-bold text-white shrink-0 overflow-hidden">
                   {formData.photoUrl
@@ -1749,520 +1663,363 @@ const ROTATING_MESSAGES = [
                   }
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-stone-200 break-words">{aiSongTitle || `Música para ${formData.recipientName}`}</p>
-                  <p className="text-xs text-stone-500">Para {formData.recipientName} · Por {formData.userNick || formData.recipientNick || 'Ti'}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center">
-                      <Play className="w-4 h-4 text-amber-400 ml-0.5" />
-                    </span>
-                    <div className="h-1.5 flex-1 bg-stone-800 rounded-full overflow-hidden">
-                      <div className="w-0 h-full bg-amber-500 rounded-full" />
-                    </div>
-                    <span className="text-[10px] text-stone-500 font-mono">3:05</span>
-                  </div>
+                  <p className="text-sm font-bold text-stone-200 break-words">{aiSongTitle || `Música para ${formData.recipientName}`}</p>
+                  <p className="text-xs text-stone-500">Para {formData.recipientName} · Por {formData.userNick || 'Ti'}</p>
+                  <p className="text-[10px] text-stone-500 font-mono mt-2">
+                    🎵 {formData.musicStyle || 'Kizomba'} · 3-4 min · <em className="text-amber-400/70 not-italic">Para ouvir e chorar 🥹</em>
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Persuasive Triggers */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-
-              {/* Card 1 — A letra já está pronta (MOVED from position #4) */}
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-emerald-900/30 space-y-2">
-                <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center">
-                  <Gift className="w-4 h-4 text-green-400" />
-                </div>
-                <h4 className="text-xs font-bold text-emerald-300 tracking-wide">A letra já está pronta — só falta a música</h4>
-                <p className="text-[11px] text-stone-400">Já fizemos a nossa parte. Criámos a letra exclusiva para <strong className="text-stone-300">{formData.recipientName}</strong>. O próximo passo é torná-la numa canção real.</p>
-              </div>
-
-              {/* Card 2 — Imaginação emocional */}
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-rose-900/30 space-y-2">
-                <div className="w-8 h-8 bg-rose-500/10 rounded-full flex items-center justify-center">
-                  <Heart className="w-4 h-4 text-rose-400" />
-                </div>
-                <h4 className="text-xs font-bold text-rose-300 tracking-wide">Imagina a reação dela...</h4>
-                <p className="text-[11px] text-stone-400">Quando <strong className="text-stone-300">{formData.recipientName}</strong> ouvir o nome dela numa música feita só para ela — vai ser um momento que ninguém esquece.</p>
-              </div>
-
-              {/* Card 3 — Urgência (com timer) */}
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-amber-800/40 space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-amber-500/10 rounded-full flex items-center justify-center">
-                    <Timer className="w-4 h-4 text-amber-400" />
+            {/* Demo player — amostra real no estilo escolhido */}
+            <div className="bg-stone-900/30 p-3 rounded-xl border border-stone-800/60">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleDemoPlayPause}
+                  className="w-9 h-9 rounded-full bg-amber-500/20 hover:bg-amber-500/30 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
+                  aria-label={demoPlaying ? 'Pausar demo' : 'Ouvir demo'}
+                >
+                  {demoPlaying ? (
+                    <div className="flex items-end gap-0.5 h-4">
+                      <span className="w-0.5 bg-amber-400 rounded-full animate-pulse h-3" />
+                      <span className="w-0.5 bg-amber-400 rounded-full animate-pulse h-4" />
+                      <span className="w-0.5 bg-amber-400 rounded-full animate-pulse h-2" />
+                    </div>
+                  ) : (
+                    <Play className="w-4 h-4 text-amber-400 ml-0.5" />
+                  )}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-mono text-amber-400/80 font-medium">
+                    🎵 {formData.musicStyle || 'Kizomba'} real · 30s sample
+                  </p>
+                  <div className="h-1 bg-stone-800 rounded-full mt-1.5 overflow-hidden">
+                    <div
+                      className="h-full bg-amber-500/60 rounded-full transition-all duration-300"
+                      style={{ width: `${(demoProgress / 30) * 100}%` }}
+                    />
                   </div>
-                  <span className={`text-lg font-bold font-mono ${countdownMin <= 5 ? 'text-red-400 animate-pulse' : 'text-amber-400'}`}>
-                    {String(countdownMin).padStart(2, '0')}:{String(countdownSec).padStart(2, '0')}
+                </div>
+              </div>
+              <p className="text-[9px] text-stone-600 font-mono text-center mt-1.5">
+                Ouve como vai soar o resultado final
+              </p>
+            </div>
+
+            {/* Letra da música */}
+            {!editingLyrics ? (
+              <div className="bg-stone-900/40 p-4 rounded-2xl border border-stone-800 max-h-44 overflow-y-auto">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] text-stone-500 font-mono tracking-widest uppercase">Letra da música</span>
+                  <span className="text-[10px] text-amber-400/60 font-mono">🎵 {formData.musicStyle || 'Kizomba'}</span>
+                </div>
+                <div className="text-stone-300 text-sm font-serif leading-relaxed whitespace-pre-line">
+                  {Array.isArray(aiLyrics) ? aiLyrics.join('\n') : aiLyrics}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-stone-900/40 p-4 rounded-2xl border border-amber-900/30 space-y-3">
+                <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl text-xs text-amber-300 space-y-1">
+                  <strong>⚠️ Atenção à escrita:</strong>
+                  <p>A letra que escrever será cantada pela inteligência artificial. Escreva corretamente para garantir uma pronúncia perfeita. Evite abreviações, gírias ou erros ortográficos — a IA canta exatamente o que está escrito.</p>
+                </div>
+                <textarea
+                  value={editedLyrics}
+                  onChange={(e) => setEditedLyrics(e.target.value)}
+                  className="w-full h-48 bg-stone-950 text-stone-200 text-sm font-mono p-4 rounded-xl border border-stone-800 focus:border-amber-500 focus:outline-none resize-y"
+                  placeholder="Escreva a letra aqui..."
+                />
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setEditingLyrics(false)} className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs rounded-xl transition-all cursor-pointer">Cancelar</button>
+                  <button onClick={handleSaveLyrics} disabled={savingLyrics} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-stone-950 text-xs font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-50">
+                    {savingLyrics ? 'A guardar...' : 'Guardar'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Editar / Regenerar links (só quando não está a editar) */}
+            {!editingLyrics && (
+              <div className="flex items-center justify-center gap-4 text-xs">
+                <button
+                  onClick={() => {
+                    setEditedLyrics(Array.isArray(aiLyrics) ? aiLyrics.join('\n') : '');
+                    setEditingLyrics(true);
+                  }}
+                  className="text-stone-400 hover:text-amber-400 transition-colors cursor-pointer underline underline-offset-2"
+                >
+                  Editar letra
+                </button>
+                <span className="text-stone-700">·</span>
+                <button
+                  onClick={handleRegenerateLyrics}
+                  disabled={regenerationsUsed >= 2}
+                  className="text-stone-400 hover:text-amber-400 transition-colors cursor-pointer underline underline-offset-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Regenerar {regenerationsRemaining > 0 ? `(${regenerationsRemaining}/2)` : '(limite)'}
+                </button>
+                {lyricsSaved && (
+                  <span className="text-emerald-400 text-xs flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" /> Guardada
                   </span>
-                </div>
-                <h4 className="text-xs font-bold text-amber-300 tracking-wide">Este preço expira em breve</h4>
-                <p className="text-[11px] text-stone-400">Quando o contador chegar a zero, o valor especial de lançamento pode não estar disponível. Garanta agora.</p>
+                )}
               </div>
+            )}
 
-              {/* Card 4 — Prova social (com número real) */}
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-blue-900/30 space-y-2">
-                <div className="w-8 h-8 bg-blue-500/10 rounded-full flex items-center justify-center">
-                  <Users className="w-4 h-4 text-blue-400" />
-                </div>
-                <h4 className="text-xs font-bold text-blue-300 tracking-wide">Não és o primeiro a surpreender</h4>
-                <p className="text-[11px] text-stone-400">Centenas já fizeram isto. Só hoje, <strong className="text-amber-400">{todayCount} músicas</strong> foram criadas para pessoas reais em Angola e não só.</p>
+            {/* Linha emocional */}
+            <p className="text-center text-sm text-stone-300 font-medium leading-relaxed">
+              Já imaginaste a cara {formData.recipientGender === 'Masculino' ? 'do' : 'da'} <strong className="text-amber-400">{formData.recipientName}</strong> a ouvir o <strong className="text-amber-400/80">NOME {formData.recipientGender === 'Masculino' ? 'DELE' : 'DELA'}</strong> cantado? 🥹
+            </p>
+
+            {/* CTA principal — ocupar ecrã inteiro no mobile */}
+            <button
+              onClick={() => setConversionStep('plans')}
+              className="w-full py-4 bg-gradient-to-r from-amber-500 to-rose-600 text-stone-950 font-black text-sm rounded-2xl hover:opacity-95 active:scale-[0.98] transition-all cursor-pointer shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+            >
+              <span>SIM, QUERO QUE {formData.recipientGender === 'Masculino' ? 'ELE' : 'ELA'} OUÇA ISTO ❤️</span>
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          </motion.div>
+        )}
+
+        {/* -------------------- ECRÃ 2: PLANOS (2 OPÇÕES + ADD-ON PREMIUM) -------------------- */}
+        {!isSubmitting && generationStatus === 'lyrics_ready' && !isDone && !showVoiceCloningScreen && conversionStep === 'plans' && !showUpsellModal && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-lg mx-auto w-full space-y-5 py-6"
+          >
+            <h3 className="text-center font-serif text-xl font-bold tracking-tight text-stone-200">
+              Escolhe como queres receber
+            </h3>
+            <p className="text-[10px] font-mono text-stone-500 text-center leading-relaxed -mt-4">
+              💬 {LIVE_ACTIVITIES[liveActivityIdx].text}<br />
+              <span className="text-amber-400/80">— {LIVE_ACTIVITIES[liveActivityIdx].name}</span><span className="text-stone-600"> · agora</span>
+            </p>
+
+            {/* EXPRESS — hero */}
+            <div className="bg-stone-900/40 rounded-2.5xl p-5 border-2 border-amber-500/70 shadow-2xl relative space-y-4">
+              <div className="absolute -top-3 right-4 bg-gradient-to-r from-amber-500 to-rose-500 text-stone-950 font-mono text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
+                {flashTimer > 0 ? '🔥 OFERTA RELÂMPAGO' : '🔥 MAIS POPULAR'}
               </div>
-
-              {/* Card 5 — Unicidade */}
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-purple-900/30 space-y-2">
-                <div className="w-8 h-8 bg-purple-500/10 rounded-full flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 text-purple-400" />
-                </div>
-                <h4 className="text-xs font-bold text-purple-300 tracking-wide">Única. Dela. Para sempre.</h4>
-                <p className="text-[11px] text-stone-400">Esta música não existe em mais lado nenhum. Foi composta para <strong className="text-stone-300">{formData.recipientName}</strong> e só ela a vai ter.</p>
-              </div>
-
-              {/* Card 6 — O som do nome dela (NEW) */}
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-rose-900/30 space-y-2">
-                <div className="w-8 h-8 bg-rose-500/10 rounded-full flex items-center justify-center">
-                  <Music className="w-4 h-4 text-rose-400" />
-                </div>
-                <h4 className="text-xs font-bold text-rose-300 tracking-wide">O som do nome dela</h4>
-                <p className="text-[11px] text-stone-400">Há algo mágico em ouvir o próprio nome cantado. <strong className="text-stone-300">{formData.recipientName}</strong> vai sentir que esta música foi feita exclusivamente para ela — porque foi.</p>
-              </div>
-
-              {/* Card 7 — O presente que dura (NEW) */}
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-amber-900/30 space-y-2">
-                <div className="w-8 h-8 bg-amber-500/10 rounded-full flex items-center justify-center">
-                  <Gift className="w-4 h-4 text-amber-400" />
-                </div>
-                <h4 className="text-xs font-bold text-amber-300 tracking-wide">O presente que dura</h4>
-                <p className="text-[11px] text-stone-400">Enquanto outros presentes se guardam numa gaveta, esta música será ouvida vezes sem conta, partilhada, lembrada. <strong className="text-stone-300">{formData.recipientName}</strong> vai ouvi-la daqui a 10, 20 anos e sentir o mesmo.</p>
-              </div>
-
-              {/* Card 8 — Arrependimento futuro */}
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-rose-900/30 space-y-2">
-                <div className="w-8 h-8 bg-rose-500/10 rounded-full flex items-center justify-center">
-                  <Heart className="w-4 h-4 text-rose-400" />
-                </div>
-                <h4 className="text-xs font-bold text-rose-300 tracking-wide">Daqui a um ano, vais querer ter feito isto</h4>
-                <p className="text-[11px] text-stone-400">As flores murcham. Os presentes partem-se. <strong className="text-rose-400">As memórias ficam para sempre.</strong> Este é o tipo de presente que ela vai contar aos filhos.</p>
-              </div>
-
-            </div>
-
-            {/* Micro Storyboard — O momento da entrega */}
-            <div className="bg-gradient-to-br from-stone-900/60 to-rose-900/10 p-5 sm:p-6 rounded-2xl border border-rose-800/20 space-y-4">
-              <div className="flex items-start gap-3">
-                <Sparkles className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-stone-200">O MOMENTO DA ENTREGA 🎬</h3>
-                  <p className="text-[11px] text-stone-500 mt-0.5">Imagina a cara dela quando receber...</p>
+                  <h4 className="font-serif text-lg font-bold text-amber-300">EXPRESS ⚡</h4>
+                  <p className="text-amber-500/80 text-xs">Entrega imediata + Dueto</p>
                 </div>
+                {flashTimer > 0 && (
+                  <span className="text-[11px] font-mono font-bold text-red-400">
+                    ⏱️ {Math.floor(flashTimer / 60)}:{String(flashTimer % 60).padStart(2, '0')}
+                  </span>
+                )}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="bg-stone-900/40 p-4 rounded-xl border border-stone-800 space-y-3">
-                  <div className="w-9 h-9 bg-blue-500/10 rounded-full flex items-center justify-center text-lg">📱</div>
-                  <h4 className="text-xs font-bold text-blue-300">1. Ela recebe o link</h4>
-                  <p className="text-[11px] text-stone-400 leading-relaxed">No telemóvel dela, chega uma notificação. "Tens uma música dedicada a ti". Ela abre, curiosa.</p>
-                </div>
-                <div className="bg-stone-900/40 p-4 rounded-xl border border-stone-800 space-y-3">
-                  <div className="w-9 h-9 bg-amber-500/10 rounded-full flex items-center justify-center text-lg">🎵</div>
-                  <h4 className="text-xs font-bold text-amber-300">2. A música toca</h4>
-                  <p className="text-[11px] text-stone-400 leading-relaxed">Os primeiros segundos... ela reconhece o estilo. Quando ouve <strong className="text-rose-400">{formData.recipientName}</strong> cantado, o coração acelera.</p>
-                </div>
-                <div className="bg-stone-900/40 p-4 rounded-xl border border-stone-800 space-y-3">
-                  <div className="w-9 h-9 bg-rose-500/10 rounded-full flex items-center justify-center text-lg">🥹</div>
-                  <h4 className="text-xs font-bold text-rose-300">3. A reação</h4>
-                  <p className="text-[11px] text-stone-400 leading-relaxed">Lágrimas, um sorriso que não se apaga. Ela reenvia às amigas. Esse momento — <strong className="text-stone-300">fica para sempre</strong>.</p>
-                </div>
+              <div className="text-left">
+                {flashTimer > 0 ? (
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    <span className="text-sm text-stone-600 line-through">13.500 Kz</span>
+                    <span className="text-sm text-stone-600 line-through">9.900 Kz</span>
+                    <span className="text-2xl font-serif font-black text-amber-300">6.900 Kz</span>
+                  </div>
+                ) : (
+                  <span className="text-2xl font-serif font-black text-stone-100">9.900 Kz</span>
+                )}
               </div>
+              <ul className="text-xs text-stone-400 space-y-1.5">
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500 shrink-0" /> Tudo do Standard + Voz em Dueto</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500 shrink-0" /> Entrega imediata após aprovação</li>
+              </ul>
+              {flashTimer > 0 && (
+                <p className="text-center text-[10px] text-red-400/80 font-mono">⏱️ Este preço é para quem decide agora</p>
+              )}
+              <button
+                id="express-plan-btn"
+                onClick={() => handlePlanSelection('express')}
+                className="w-full py-3 bg-gradient-to-r from-amber-500 to-rose-600 text-stone-950 font-bold text-xs rounded-xl hover:opacity-95 transition-all cursor-pointer"
+              >
+                Receber agora
+              </button>
             </div>
 
-            {/* Testimonials + Founder Letter */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-3">
-                <div className="flex gap-1">
-                  {[...Array(5)].map((_, i) => (<Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />))}
-                </div>
-                <p className="text-[11px] text-stone-400 italic leading-relaxed">"Não sei cantar nem escrever poesia, mas queria dar algo pessoal à Cláudia. Quando a música começou a tocar e o cantor pronunciou o nome dela, ela desabou em lágrimas. Foi indescritível!"</p>
+            {flashTimer === 0 && (
+            <>
+            {/* STANDARD */}
+            <div className="bg-stone-900/40 rounded-2.5xl p-5 border border-stone-850 space-y-4">
+              <div>
+                <h4 className="font-serif text-lg font-bold text-stone-300">STANDARD</h4>
+                <p className="text-stone-500 text-xs">Entrega em 24h</p>
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-sm text-stone-600 line-through">10.500 Kz</span>
+                <span className="text-2xl font-serif font-black text-stone-100">7.900 Kz</span>
+              </div>
+              <ul className="text-xs text-stone-400 space-y-1.5">
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500 shrink-0" /> Música completa + Download MP3</li>
+                <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500 shrink-0" /> Página de dedicatória online</li>
+              </ul>
+              <button
+                id="standard-plan-btn"
+                onClick={() => handlePlanSelection('standard')}
+                className="w-full py-3 bg-stone-800 hover:bg-stone-700 text-white font-semibold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                Receber amanhã
+              </button>
+            </div>
+            </>)}
+
+            {/* Premium add-on info */}
+            <div className="bg-stone-900/20 rounded-2xl p-4 border border-dashed border-purple-800/40 space-y-2">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-600 to-rose-700 flex items-center justify-center text-white text-[9px] font-bold">RS</div>
+                  <span className="text-lg">👑</span>
                   <div>
-                    <p className="text-[10px] font-medium text-stone-300">Rui dos Santos</p>
-                    <p className="text-[9px] text-stone-500 font-mono">Luanda · Kizomba para a Esposa</p>
+                    <span className="text-xs font-bold text-purple-300">Premium — Voz Clonada</span>
+                    <p className="text-[10px] text-stone-500">A música cantada com a tua própria voz</p>
                   </div>
                 </div>
-              </div>
-              <div className="bg-stone-900/30 p-4 rounded-2xl border border-stone-800 space-y-3">
-                <div className="flex gap-1">
-                  {[...Array(5)].map((_, i) => (<Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />))}
-                </div>
-                <p className="text-[11px] text-stone-400 italic leading-relaxed">"Diz que foi o presente mais lindo de toda a vida dela. Podem fazer sem medo, vale cada kwanza!"</p>
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-600 to-amber-700 flex items-center justify-center text-white text-[9px] font-bold">DN</div>
-                  <div>
-                    <p className="text-[10px] font-medium text-stone-300">Delfina Neto</p>
-                    <p className="text-[9px] text-stone-500 font-mono">Lobito · Semba para a Mãe</p>
-                  </div>
+                <div className="text-right">
+                  <span className="text-xs font-bold text-stone-200">+5.000 Kz</span>
+                  <span className="text-[9px] text-stone-600 font-mono block">s/ Express 9.900</span>
                 </div>
               </div>
-
-              {/* Carta do Fundador — André */}
-              <div className="bg-gradient-to-br from-amber-900/10 to-stone-900/60 p-5 sm:p-6 rounded-2xl border border-amber-800/20 space-y-4 col-span-1 sm:col-span-2">
-                <div className="flex items-start gap-3">
-                  <Quote className="w-5 h-5 text-amber-400 shrink-0 mt-1" />
-                  <div className="space-y-3">
-                    <p className="text-xs text-stone-300 italic leading-relaxed">
-                      "Cada música do SeuBeat nasce de uma história real. Quando criámos a primeira canção, vimos nos olhos de quem recebia algo que nenhum presente material consegue dar — <strong className="text-amber-400">a sensação de ser única.</strong> É por isso que fazemos isto. Para que nunca te faltem palavras quando o coração fala mais alto."
-                    </p>
-                    <div className="flex items-center gap-3 pt-1">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-rose-600 flex items-center justify-center text-white text-xs font-bold shadow-lg">A</div>
-                      <div>
-                        <p className="text-xs font-bold text-stone-200">André</p>
-                        <p className="text-[10px] text-stone-500 font-mono">Fundador · SeuBeat</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <p className="text-[10px] text-stone-500 flex items-center gap-1">
+                <Check className="w-3 h-3 text-purple-400 shrink-0" /> Inclui: voz clonada, dueto, carta narrada, entrega imediata
+              </p>
+              <p className="text-[9px] text-stone-500 text-center pt-1">
+                <button
+                  onClick={() => handlePlanSelection('premium')}
+                  className="text-purple-400 hover:text-purple-300 underline underline-offset-2 font-medium cursor-pointer"
+                >
+                  Adicionar voz clonada
+                </button>
+                · Total: <strong>14.900 Kz</strong> · Garantia 100%
+              </p>
             </div>
 
-            {/* Plan Selection */}
-            <div className="space-y-4 pt-4">
-              <h3 className="text-left font-serif text-xl font-bold tracking-tight text-stone-200">
-                Selecione o seu plano para gerar a música:
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                
-                {/* PLAN 1: STANDARD */}
-                <div className="bg-stone-900/40 rounded-2.5xl p-6 border border-stone-850 hover:border-stone-700 transition-all flex flex-col justify-between relative space-y-6">
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-serif text-lg font-bold text-stone-300">STANDARD</h4>
-                      <p className="text-stone-500 text-xs mt-0.5">Música personalizada com entrega em 24h</p>
-                    </div>
-                    
-                    <div className="text-left py-2">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-sm text-stone-600 line-through">10.500 Kz</span>
-                        <span className="text-2xl font-serif font-black text-stone-100">7.900 Kz</span>
-                      </div>
-                      <span className="text-[10px] text-stone-500 block">Kwanza Angola</span>
-                    </div>
-
-                    <ul className="text-xs text-stone-400 space-y-2 pt-2 border-t border-stone-900">
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Música completa (3-4 min)</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Voz Masculina ou Feminina</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Página personalizada online</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Download MP3</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Entrega em 24h</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <button
-                    id="standard-plan-btn"
-                    onClick={() => handlePlanSelection('standard')}
-                    className="w-full py-3 bg-stone-800 hover:bg-stone-750 text-white font-semibold text-xs rounded-xl transition-all cursor-pointer text-center block"
-                  >
-                    Receber amanhã
-                  </button>
-                  <span className="text-[10px] text-stone-500 text-center block font-mono">✓ 100% satisfação ou reembolso</span>
-                </div>
-
-                {/* PLAN 2: EXPRESS */}
-                <div className="bg-stone-900/40 rounded-2.5xl p-6 border-2 border-amber-500/70 shadow-2xl transition-all flex flex-col justify-between relative space-y-6">
-                  <div className={`absolute -top-3.5 left-1/2 -translate-x-1/2 md:left-auto md:right-4 md:translate-x-0 bg-gradient-to-r from-amber-500 to-rose-500 text-stone-950 font-mono text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow ${flashTimer > 0 ? 'animate-pulse' : ''}`}>
-                    {flashTimer > 0 ? '🔥 OFERTA RELÂMPAGO' : '🔥 MAIS POPULAR'}
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-serif text-lg font-bold text-amber-300 flex items-center gap-1.5">
-                        EXPRESS
-                        {flashTimer > 0 && (
-                          <span className="text-[10px] font-mono font-bold text-red-400 ml-1">
-                            {Math.floor(flashTimer / 60)}:{String(flashTimer % 60).padStart(2, '0')}
-                          </span>
-                        )}
-                      </h4>
-                      <p className="text-amber-500/80 text-xs mt-0.5">Tudo do Standard, entrega imediata e dueto</p>
-                    </div>
-                    
-                    <div className="text-left py-2">
-                      <div className="flex items-baseline gap-1.5 flex-wrap">
-                        <span className="text-sm text-stone-600 line-through">13.500 Kz</span>
-                        {flashTimer > 0 ? (
-                          <>
-                            <span className="text-sm text-stone-600 line-through">9.900 Kz</span>
-                            <span className="text-2xl font-serif font-black text-amber-300">6.900 Kz</span>
-                          </>
-                        ) : (
-                          <span className="text-2xl font-serif font-black text-stone-100">9.900 Kz</span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-stone-500 block">Kwanza Angola</span>
-                    </div>
-
-                    <ul className="text-xs text-stone-400 space-y-2 pt-2 border-t border-stone-900">
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Tudo do Standard</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Voz em Dueto</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Entrega imediata após aprovação</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>1 revisão de letra incluída</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-center text-[10px] text-amber-500/80 font-mono font-medium">
-                      83% dos clientes escolhem esta opção.
-                    </p>
-                    <button
-                      id="express-plan-btn"
-                      onClick={() => handlePlanSelection('express')}
-                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-xs rounded-xl transition-all cursor-pointer text-center block"
-                    >
-                      Receber agora
-                    </button>
-                    <span className="text-[10px] text-amber-500/60 text-center block font-mono">✓ 100% satisfação ou reembolso</span>
-                  </div>
-                </div>
-
-                {/* PLAN 3: PREMIUM */}
-                <div className="bg-stone-900/40 rounded-2.5xl p-6 border border-stone-850 hover:border-stone-700 transition-all flex flex-col justify-between relative space-y-6">
-                  <div className="absolute -top-3.5 right-4 bg-purple-600 text-stone-100 font-mono text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
-                    ❤️ MELHOR PRESENTE
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="font-serif text-lg font-bold text-stone-300">PREMIUM</h4>
-                      <p className="text-stone-500 text-xs mt-0.5">Tudo do Express com a sua própria voz</p>
-                    </div>
-                    
-                    <div className="text-left py-2">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-sm text-stone-600 line-through">19.900 Kz</span>
-                        <span className="text-2xl font-serif font-black text-stone-100">14.900 Kz</span>
-                      </div>
-                      <span className="text-[10px] text-stone-500 block">Kwanza Angola</span>
-                    </div>
-
-                    <ul className="text-xs text-stone-400 space-y-2 pt-2 border-t border-stone-900">
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Tudo do Express</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-500 shrink-0" />
-                        <span>Voz personalizada do cliente (timbre clonado)</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  <button
-                    id="premium-plan-btn"
-                    onClick={() => handlePlanSelection('premium')}
-                    className="w-full py-3 bg-stone-800 hover:bg-stone-750 text-stone-100 hover:text-white font-semibold text-xs rounded-xl transition-all cursor-pointer text-center block"
-                  >
-                    Quero a experiência Premium
-                  </button>
-                  <span className="text-[10px] text-stone-500 text-center block font-mono">✓ 100% satisfação ou reembolso</span>
-                </div>
-
+            {/* Trust */}
+            <div className="text-center space-y-2 pt-1">
+              <div className="flex items-center justify-center gap-1.5 text-[10px] text-stone-500 font-mono">
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                <span>100% satisfação ou reembolso</span>
               </div>
-            </div>
-
-            {/* Garantia */}
-            <div className="bg-gradient-to-r from-amber-900/10 to-rose-900/10 border border-amber-800/20 rounded-2xl p-4 text-center space-y-1">
-              <ShieldCheck className="w-5 h-5 text-amber-400 mx-auto" />
-              <p className="text-xs font-bold text-amber-300">Garantia de Satisfação</p>
-              <p className="text-[11px] text-stone-400">Se não amar a música final, reembolsamos 100% do valor. Sem perguntas.</p>
-            </div>
-
-            {/* Trust badges */}
-            <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-[10px] text-stone-500 font-mono">
-              <span className="flex items-center gap-1.5"><Lock className="w-3 h-3" /> Pagamento seguro</span>
-              <span className="flex items-center gap-1.5"><ShieldCheck className="w-3 h-3" /> Dados protegidos</span>
-              <span className="flex items-center gap-1.5"><Heart className="w-3 h-3" /> Feito com amor em Angola</span>
+              <div className="flex items-center justify-center gap-4 text-[9px] text-stone-600 font-mono">
+                <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Pagamento seguro</span>
+                <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> Feito com amor em Angola</span>
+              </div>
             </div>
           </motion.div>
         )}
 
-        {/* -------------------- THE UPSELL OVERLAY MODAL -------------------- */}
-        <AnimatePresence>
-          {showUpsellModal && (
-            <div className="fixed inset-0 z-50 overflow-y-auto p-4 bg-stone-950/90 backdrop-blur-md flex items-start justify-center md:items-center py-8 md:py-12">
-              {/* Backing ambient glowing accent circles */}
-              <div className="absolute w-[300px] h-[300px] bg-amber-500/10 rounded-full filter blur-[100px] pointer-events-none" />
-              <div className="absolute w-[250px] h-[250px] bg-rose-500/5 rounded-full filter blur-[80px] pointer-events-none translate-x-[100px] translate-y-[-50px]" />
+        {/* -------------------- ECRÃ 3: UPSELL INLINE (VOZ CLONADA) -------------------- */}
+        {!isSubmitting && generationStatus === 'lyrics_ready' && !isDone && !showVoiceCloningScreen && showUpsellModal && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="max-w-lg mx-auto w-full space-y-6 py-6"
+          >
+            {/* Back link */}
+            <button
+              onClick={() => { setShowUpsellModal(false); setConversionStep('plans'); }}
+              className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-300 transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Voltar aos planos</span>
+            </button>
 
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.93, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 15 }}
-                transition={{ type: "spring", damping: 25, stiffness: 180 }}
-                className="bg-gradient-to-b from-stone-900 to-stone-950 border border-stone-800/80 rounded-[32px] p-6 md:p-8 max-w-lg w-full text-center space-y-6 shadow-2xl relative overflow-hidden"
-              >
-                {/* Upper Premium Badge */}
-                <div className="flex justify-center">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-mono font-bold uppercase rounded-full tracking-wider shadow-sm">
-                    <Sparkles className="w-3 h-3 animate-pulse" /> VOZ DE ESTÚDIO EXCLUSIVA
-                  </span>
-                </div>
-
-                {/* Main Mic sphere badge with wave animation */}
-                <div className="relative w-18 h-18 mx-auto flex items-center justify-center">
-                  <div className="absolute inset-0 bg-gradient-to-tr from-amber-500 to-rose-500 rounded-full opacity-10 animate-ping" />
-                  <div className="absolute inset-2 bg-gradient-to-tr from-amber-500 to-rose-500 rounded-full blur-md opacity-30" />
-                  <div className="relative w-14 h-14 bg-stone-950 border border-stone-800/80 rounded-full flex items-center justify-center text-amber-500 shadow-inner">
-                    <Mic className="w-6 h-6 text-amber-400" />
-                  </div>
-                </div>
-
-                {/* Text titles */}
-                <div className="space-y-2">
-                  <h3 className="font-serif text-2xl md:text-3xl font-black text-stone-100 tracking-tight leading-none">
-                    A música completa cantada com a <span className="bg-gradient-to-r from-amber-400 via-amber-300 to-rose-400 bg-clip-text text-transparent">sua própria voz</span>!
-                  </h3>
-                  <p className="text-stone-400 text-xs md:text-sm max-w-md mx-auto leading-relaxed">
-                    Surpreenda ao máximo. Grave 20 segundos de voz — o nosso estúdio clona o seu timbre com IA e cria uma <strong className="text-stone-200">música cantada inteiramente pela sua voz</strong>, mais uma carta de dedicatória narrada por si.
-                  </p>
-                </div>
-
-                {/* Audiowave voice comparison cards block */}
-                <div className="bg-stone-950/80 p-5 rounded-2.5xl border border-stone-850 text-left space-y-4 relative">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    
-                    {/* Standard Voice Choice */}
-                    <div className="bg-stone-900/50 p-3 rounded-xl border border-stone-800 flex flex-col justify-between min-h-[5rem]">
-                      <div className="flex justify-between items-start">
-                        <span className="text-[10px] text-stone-500 font-mono">OPÇÃO PADRÃO</span>
-                        <span className="text-xxs text-stone-500 font-sans italic bg-stone-950 px-1.5 py-0.5 rounded border border-stone-900">Incluído</span>
-                      </div>
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-semibold text-stone-300">Voz Inteligente</h4>
-                        <p className="text-[10px] text-stone-550 leading-snug">Timbre estúdio predefinido de alta qualidade.</p>
-                      </div>
-                    </div>
-
-                    {/* Cloned Voice Choice */}
-                    <div className="bg-amber-500/[0.04] p-3 rounded-xl border-2 border-amber-500/50 flex flex-col justify-between min-h-[5rem] relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-8 h-8 bg-amber-500/10 rounded-bl-full flex items-center justify-center">
-                        <Check className="w-3.5 h-3.5 text-amber-400" />
-                      </div>
-                      <span className="text-[10px] text-amber-400 font-mono font-bold">RECOMENDADO</span>
-                      <div className="space-y-0.5">
-                        <h4 className="text-xs font-bold text-amber-300">Sua Voz de Estúdio</h4>
-                        <p className="text-[10px] text-amber-450 leading-snug">Usa o seu tom e expressão de verdade.</p>
-                      </div>
-                    </div>
-
-                  </div>
-
-                  {/* Value highlights bullet lists */}
-                  <div className="space-y-3 pt-2">
-                    <span className="text-[9px] text-stone-500 font-mono tracking-widest uppercase block border-b border-stone-900 pb-1.55">PORQUE ADICIONAR ESTE UPGRADE?</span>
-                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-stone-400 font-medium">
-                      <li className="flex items-center gap-2">
-                        <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                        <span>Fator surpresa inigualável</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                        <span>Garantia de fortes lágrimas</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                        <span>Grave em 20 seg por WhatsApp</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                        <span>Disponível para sempre</span>
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Single Premium Promotion Pricing Info Bubble */}
-                  <div className="flex items-center justify-between p-3 bg-amber-500/5 rounded-xl border border-amber-500/20">
-                    <div className="text-left">
-                      <span className="text-xs text-stone-400 flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Total com Voz Clonada:
-                      </span>
-                      <span className="text-[10px] text-stone-500 font-mono block">Express 9.900 + Voz 5.000</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-lg font-black text-amber-400 font-mono block">14.900 Kz</span>
-                      <span className="text-[9px] text-stone-500 font-mono uppercase">Kwanza Angola</span>
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Actions Block */}
-                <div className="space-y-3">
-                  <button
-                    id="upsell-accept-btn"
-                    onClick={() => {
-                      // Força sempre o plano Express como base antes de aplicar o upsell de voz
-                      setSelectedPlanID('express');
-                      setVoiceUpsellApplied(true);
-                      setShowUpsellModal(false);
-                      setShowVoiceCloningScreen(true);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-400 to-rose-600 text-stone-950 font-black text-xs md:text-sm rounded-2xl hover:opacity-95 active:scale-[0.98] transition-transform cursor-pointer uppercase tracking-wider shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
-                  >
-                    <Mic className="w-4 h-4 text-stone-950 fill-stone-950" />
-                    <span>Quero a Música Cantada pela Minha Voz — 14.900 Kz</span>
-                  </button>
-
-                  <button
-                    id="upsell-decline-btn"
-                    onClick={() => {
-                      setVoiceUpsellApplied(false);
-                      setShowUpsellModal(false);
-                      setIsDone(true);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="w-full py-2.5 text-stone-500 hover:text-stone-300 font-semibold text-xs rounded-xl hover:bg-stone-900/40 transition-colors cursor-pointer"
-                  >
-                    Não obrigado, usar voz padrão gratuita
-                  </button>
-                </div>
-
-                {/* Footer terms trust micro info */}
-                <div className="text-[9px] text-stone-600 font-mono tracking-wide flex items-center justify-center gap-1">
-                  <Lock className="w-3 h-3 text-stone-750" />
-                  <span>Seguro & Protegido • Devolução 100% caso não goste do resultado</span>
-                </div>
-
-              </motion.div>
+            {/* Badge */}
+            <div className="flex justify-center">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-mono font-bold uppercase rounded-full tracking-wider shadow-sm">
+                <Sparkles className="w-3 h-3 animate-pulse" /> UPGRADE EXCLUSIVO
+              </span>
             </div>
-          )}
-        </AnimatePresence>
+
+            {/* Title */}
+            <div className="text-center space-y-2">
+              <h3 className="font-serif text-2xl md:text-3xl font-black text-stone-100 tracking-tight">
+                Queres ir mais longe? 🎙️
+              </h3>
+              <p className="text-stone-400 text-xs md:text-sm max-w-sm mx-auto leading-relaxed">
+                A <strong className="text-amber-400">{formData.recipientName}</strong> vai ouvir a <strong className="text-stone-200">tua voz</strong> a cantar para ela. Lágrima garantida.
+              </p>
+            </div>
+
+            {/* Voice comparison */}
+            <div className="bg-stone-950/80 p-4 rounded-2xl border border-stone-850 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-stone-900/50 p-3 rounded-xl border border-stone-800">
+                  <span className="text-[10px] text-stone-500 font-mono">OPÇÃO PADRÃO</span>
+                  <span className="text-xxs text-stone-500 font-sans italic bg-stone-950 px-1.5 py-0.5 rounded border border-stone-900 ml-1.5">Incluído</span>
+                  <h4 className="text-xs font-semibold text-stone-300 mt-1">Voz Inteligente</h4>
+                  <p className="text-[10px] text-stone-500 leading-snug">Timbre estúdio predefinido de alta qualidade.</p>
+                </div>
+                <div className="bg-amber-500/[0.04] p-3 rounded-xl border-2 border-amber-500/50 relative overflow-hidden">
+                  <span className="text-[10px] text-amber-400 font-mono font-bold">RECOMENDADO</span>
+                  <div className="absolute top-0 right-0 w-8 h-8 bg-amber-500/10 rounded-bl-full flex items-center justify-center">
+                    <Check className="w-3.5 h-3.5 text-amber-400" />
+                  </div>
+                  <h4 className="text-xs font-bold text-amber-300 mt-1">Sua Voz de Estúdio</h4>
+                  <p className="text-[10px] text-amber-400 leading-snug">Usa o seu tom e expressão de verdade.</p>
+                </div>
+              </div>
+
+              <span className="text-[9px] text-stone-500 font-mono tracking-widest uppercase block border-b border-stone-900 pb-1.5">PORQUE ADICIONAR ESTE UPGRADE?</span>
+              <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-stone-400 font-medium">
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Fator surpresa inigualável</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Garantia de fortes lágrimas</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Grave em 20 seg pelo telefone</li>
+                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Carta narrada incluída</li>
+              </ul>
+
+              <div className="flex items-center justify-between p-3 bg-amber-500/5 rounded-xl border border-amber-500/20">
+                <div className="text-left">
+                  <span className="text-xs text-stone-400 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Total com Voz Clonada:
+                  </span>
+                  <span className="text-[10px] text-stone-500 font-mono block">{selectedPlanID === 'standard' ? 'Standard 7.900 + Voz 5.000' : 'Express 9.900 + Voz 5.000'}</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-lg font-black text-amber-400 font-mono block">14.900 Kz</span>
+                  <span className="text-[9px] text-stone-500 font-mono uppercase">Kwanza Angola</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-3">
+              <button
+                id="upsell-accept-btn"
+                onClick={() => {
+                  setSelectedPlanID('express');
+                  setVoiceUpsellApplied(true);
+                  setShowUpsellModal(false);
+                  setShowVoiceCloningScreen(true);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-400 to-rose-600 text-stone-950 font-black text-xs md:text-sm rounded-2xl hover:opacity-95 active:scale-[0.98] transition-all cursor-pointer uppercase tracking-wider shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+              >
+                <Mic className="w-4 h-4" />
+                <span>Quero a Música Cantada pela Minha Voz — 14.900 Kz</span>
+              </button>
+
+              <button
+                id="upsell-decline-btn"
+                onClick={() => {
+                  setVoiceUpsellApplied(false);
+                  setShowUpsellModal(false);
+                  setIsDone(true);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="w-full py-3 text-stone-500 hover:text-stone-300 font-semibold text-xs rounded-xl hover:bg-stone-900/40 transition-colors cursor-pointer"
+              >
+                Não obrigado, usar {selectedPlanID === 'standard' ? 'Standard' : 'Express'} sem voz clonada
+              </button>
+            </div>
+
+            <div className="text-[9px] text-stone-600 font-mono tracking-wide text-center">
+              <Lock className="w-3 h-3 inline" /> Seguro & Protegido · Devolução 100% caso não goste do resultado
+            </div>
+          </motion.div>
+        )}
 
         {/* -------------------- SHOW VOICE CLONING (RECORDING) SCREEN -------------------- */}
         {showVoiceCloningScreen && !isDone && (
@@ -2481,6 +2238,9 @@ const ROTATING_MESSAGES = [
               <p className="text-stone-400 text-xs md:text-sm max-w-md mx-auto leading-relaxed">
                 A história e o briefing foram registados com sucesso na central SeuBeat. Prepare-se para ver lágrima e emoção genuína ao presentear.
               </p>
+              <p className="text-[11px] font-mono text-amber-400/80 text-center max-w-sm mx-auto">
+                A música está pronta. Assim que confirmarmos o pagamento, {formData.recipientGender === 'Masculino' ? 'ele' : 'ela'} recebe o link.
+              </p>
             </div>
 
             {/* Price confirmation box */}
@@ -2556,65 +2316,23 @@ const ROTATING_MESSAGES = [
                   </div>
                 </div>
 
-                {/* ATM / Express Step Guides */}
+                {/* Instruções simplificadas — método único */}
                 <div className="space-y-3 text-left pt-2">
-                  <h5 className="text-[10px] font-mono text-amber-500 uppercase tracking-wider block font-bold">Como Pagar por Multicaixa</h5>
-
-                  {/* Tabs */}
-                  <div className="flex gap-1 bg-stone-900 rounded-xl p-1 border border-stone-850">
-                    <button
-                      onClick={() => setPaymentTab('express')}
-                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        paymentTab === 'express' ? 'bg-amber-500 text-stone-950' : 'text-stone-400 hover:text-stone-200'
-                      }`}
-                    >
-                      📱 Multicaixa Express
-                    </button>
-                    <button
-                      onClick={() => setPaymentTab('atm')}
-                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        paymentTab === 'atm' ? 'bg-amber-500 text-stone-950' : 'text-stone-400 hover:text-stone-200'
-                      }`}
-                    >
-                      🏧 ATM (caixa físico)
-                    </button>
+                  <h5 className="text-[10px] font-mono text-amber-500 uppercase tracking-wider block font-bold">📱 Como pagar pelo Multicaixa</h5>
+                  <div className="space-y-2 text-xs text-stone-400">
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">1</div>
+                      <p>Abre o Multicaixa (app ou ATM) → <strong className="text-stone-200">Pagamentos</strong> → <strong className="text-stone-200">Pagamento de Serviços</strong></p>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">2</div>
+                      <p>Digita: <strong className="text-white">Entidade {paymentDetails.entidade}</strong> · <strong className="text-white">Ref. {paymentDetails.referencia}</strong> · <strong className="text-amber-400">Valor {getPrice()}</strong></p>
+                    </div>
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">3</div>
+                      <p>Confirma, faz <strong className="text-stone-200">printscreen</strong> do comprovativo e carrega abaixo 📸</p>
+                    </div>
                   </div>
-
-                  {/* Express steps */}
-                  {paymentTab === 'express' && (
-                    <div className="space-y-2 text-xs text-stone-400 font-sans">
-                      <div className="flex items-start gap-2.5">
-                        <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">1</div>
-                        <p>App → Login PIN → <strong className="text-stone-200">Pagamentos</strong> → <strong className="text-stone-200">Pagamento de Serviços/Compras</strong></p>
-                      </div>
-                      <div className="flex items-start gap-2.5">
-                        <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">2</div>
-                        <p>Digite: Entidade <strong className="text-white">{paymentDetails.entidade}</strong> · Ref. <strong className="text-white">{paymentDetails.referencia}</strong> · Valor <strong className="text-amber-400">{getPrice()}</strong></p>
-                      </div>
-                      <div className="flex items-start gap-2.5">
-                        <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">3</div>
-                        <p>Confirme com PIN/biometria, faça <strong className="text-stone-200">printscreen</strong> da confirmação e carregue abaixo</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ATM steps */}
-                  {paymentTab === 'atm' && (
-                    <div className="space-y-2 text-xs text-stone-400 font-sans">
-                      <div className="flex items-start gap-2.5">
-                        <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">1</div>
-                        <p>Cartão → PIN → <strong className="text-stone-200">Pagamentos</strong> → <strong className="text-stone-200">Pagamento de Serviços</strong> → <strong className="text-stone-200">Compras/Outros</strong></p>
-                      </div>
-                      <div className="flex items-start gap-2.5">
-                        <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">2</div>
-                        <p>Digite: Entidade <strong className="text-white">{paymentDetails.entidade}</strong> · Ref. <strong className="text-white">{paymentDetails.referencia}</strong> · Valor <strong className="text-amber-400">{getPrice()}</strong></p>
-                      </div>
-                      <div className="flex items-start gap-2.5">
-                        <div className="w-4 h-4 rounded-full bg-stone-900 border border-stone-850 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">3</div>
-                        <p>Confirme, guarde o <strong className="text-stone-200">comprovativo impresso</strong>, tire foto e carregue abaixo</p>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Upload Section */}
@@ -2679,6 +2397,10 @@ const ROTATING_MESSAGES = [
                           />
                         </div>
                       )}
+
+                      <p className="text-[10px] text-stone-500 font-mono text-center">
+                        ⏱️ Demora 2 minutos. {formData.recipientGender === 'Masculino' ? 'Ele' : 'Ela'} vai ouvir ainda hoje.
+                      </p>
 
                       {paymentSubmitError && (
                         <>
@@ -2928,8 +2650,6 @@ const ROTATING_MESSAGES = [
                     wrappedSetFormData(INITIAL_WIZARD_DATA);
                     setStep(1);
                     setIsSubmitting(false);
-                    setAudioPlaying(false);
-                    setAudioProgress(0);
                     setSelectedPlanID(null);
                     setVoiceUpsellApplied(false);
                     setShowVoiceCloningScreen(false);
