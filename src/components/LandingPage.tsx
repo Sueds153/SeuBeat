@@ -9,6 +9,7 @@ import FAQ from './FAQ';
 import { PRICING_PLANS } from '../constants/pricing';
 import { WHATSAPP_URL } from '../constants/whatsapp';
 import { fbInitiateCheckout, fbViewContent, parsePrice } from '../lib/metaPixel';
+import { useTypewriter } from '../hooks/useTypewriter';
 
 interface LandingPageProps {
   onStartWizard: () => void;
@@ -55,10 +56,52 @@ const OCCASION_REPLIES: Record<string, { msg: string; style: string }> = {
 };
 
 const HERO_VARIANTS = [
-  'música inesquecível ❤️',
-  'canção que emociona 🥹',
-  'presente que não se esquece 💝',
+  'numa música inesquecível ❤️',
+  'numa canção que emociona 🥹',
+  'num presente que não se esquece 💝',
 ];
+
+function TypewriterQuote() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setEnabled(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const fullText = '"Ela ouviu e não parou de chorar…\nfoi o melhor presente da minha vida."';
+  const { displayed, isDone } = useTypewriter({ text: fullText, speed: 40, enabled });
+
+  return (
+    <div ref={ref}>
+      <p className="font-serif text-lg md:text-xl text-stone-200 italic leading-snug whitespace-pre-line">
+        {displayed.split('\n').map((line, i) => (
+          <span key={i}>
+            {i > 0 && <br />}
+            {i === 1 ? (
+              <span className="text-amber-400">{line}</span>
+            ) : (
+              line
+            )}
+          </span>
+        ))}
+        {!isDone && <span className="inline-block w-[2px] h-[1em] bg-amber-400/70 ml-0.5 animate-pulse align-middle" />}
+      </p>
+    </div>
+  );
+}
 
 export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -69,7 +112,6 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const [showCount, setShowCount] = useState(false);
   const [animatedCount, setAnimatedCount] = useState(0);
   const [heroIdx, setHeroIdx] = useState(0);
-  const [liveUsers] = useState(() => Math.floor(12 + Math.random() * 18));
 
   useEffect(() => {
     const el = countRef.current;
@@ -116,7 +158,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   }, []);
 
   return (
-    <div id="landing-page-root" className="relative min-h-screen overflow-x-hidden bg-[#151210] text-stone-100 selection:bg-amber-500/30 selection:text-amber-200">
+    <div id="landing-page-root" className="relative min-h-screen bg-[#151210] text-stone-100 selection:bg-amber-500/30 selection:text-amber-200">
 
       {/* ─── PROMO BAR ─── */}
       <div className="w-full bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-stone-950 text-center py-2 max-sm:py-1.5 px-4 text-xs max-sm:text-[10px] max-sm:leading-tight font-bold tracking-wide animate-pulse-slow z-50 relative">
@@ -218,12 +260,9 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               </div>
             </div>
 
-            {/* Citation Quote — Emotional Hook */}
+            {/* Citation Quote — Emotional Hook with Typewriter */}
             <div className="inline-flex flex-col gap-1 pl-4 border-l-2 border-amber-500/60">
-              <p className="font-serif text-lg md:text-xl text-stone-200 italic leading-snug">
-                "Ela ouviu e não parou de chorar…<br />
-                <span className="text-amber-400">foi o melhor presente da minha vida."</span>
-              </p>
+              <TypewriterQuote />
               <span className="text-xs text-stone-500 font-mono">— Rui M., Luanda · Kizomba para a Esposa</span>
             </div>
 
@@ -233,8 +272,8 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Lançamento Exclusivo em Angola</span>
               </div>
-              <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl text-stone-100 tracking-tight leading-[1.1]">
-                Transforme a sua história numa{' '}
+              <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl text-stone-100 tracking-tight leading-[1.4]">
+                Transforme a sua história{' '}
                 <AnimatePresence mode="wait">
                   <motion.span
                     key={heroIdx}
@@ -343,7 +382,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               </div>
 
               {/* Floating badge top-right */}
-              <div className="absolute -top-4 right-4 md:-right-4 bg-gradient-to-br from-amber-500 to-rose-600 text-stone-950 rounded-2xl px-4 py-2 text-xs font-black shadow-xl shadow-amber-500/30 rotate-0 md:rotate-3">
+              <div className="absolute -top-4 right-4 md:-right-2 bg-gradient-to-br from-amber-500 to-rose-600 text-stone-950 rounded-2xl px-4 py-2 text-xs font-black shadow-xl shadow-amber-500/30 rotate-0 md:rotate-3">
                 🎵 Entrega em 24h
               </div>
             </div>
@@ -593,7 +632,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       </section>
 
       {/* ─── 8. CTA FINAL ─── */}
-      <section className="py-24 px-4 md:px-8 relative overflow-hidden">
+      <section className="py-24 px-4 md:px-8 relative">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-950/10 to-transparent pointer-events-none" />
         <div className="max-w-2xl mx-auto text-center space-y-8 relative z-10">
           <div className="space-y-4">
@@ -616,7 +655,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
           <button
             onClick={onStartWizard}
-            className="inline-flex items-center gap-3 px-10 py-5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-extrabold text-base md:text-lg rounded-full shadow-2xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer"
+            className="inline-flex items-center gap-3 px-6 sm:px-10 py-5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-extrabold text-base md:text-lg rounded-full shadow-2xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer"
           >
             <span>♪ Criar a minha canção</span>
             <ArrowRight className="w-5 h-5" />
