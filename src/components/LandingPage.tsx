@@ -1,6 +1,6 @@
 import { ArrowRight, Sparkles, Check, Play, MessageCircle, Menu, X, Shield } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import LogoIcon from './LogoIcon';
 import AudioDemo from './AudioDemo';
 import Testimonials from './Testimonials';
@@ -54,11 +54,62 @@ const OCCASION_REPLIES: Record<string, { msg: string; style: string }> = {
   'Em Memória': { msg: 'Quem vive no coração nunca parte. Eterniza-o.', style: 'Semba' },
 };
 
+const HERO_VARIANTS = [
+  'música inesquecível ❤️',
+  'canção que emociona 🥹',
+  'presente que não se esquece 💝',
+];
+
 export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [todayCount] = useState(() => Math.floor(847 + Math.random() * 200));
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const timer = useCountdown(120);
+  const countRef = useRef<HTMLSpanElement>(null);
+  const [showCount, setShowCount] = useState(false);
+  const [animatedCount, setAnimatedCount] = useState(0);
+  const [heroIdx, setHeroIdx] = useState(0);
+  const [liveUsers] = useState(() => Math.floor(12 + Math.random() * 18));
+
+  useEffect(() => {
+    const el = countRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setShowCount(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!showCount) return;
+    const duration = 1500;
+    const startTime = performance.now();
+    let raf: number;
+    const frame = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      setAnimatedCount(Math.floor(progress * todayCount));
+      if (progress < 1) {
+        raf = requestAnimationFrame(frame);
+      }
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [showCount, todayCount]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHeroIdx(prev => (prev + 1) % HERO_VARIANTS.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     fbViewContent('landing', 0, 'AOA', crypto.randomUUID());
@@ -68,8 +119,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
     <div id="landing-page-root" className="relative min-h-screen overflow-x-hidden bg-[#151210] text-stone-100 selection:bg-amber-500/30 selection:text-amber-200">
 
       {/* ─── PROMO BAR ─── */}
-      <div className="w-full bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-stone-950 text-center py-2 px-4 text-xs font-bold tracking-wide animate-pulse-slow z-50 relative">
-        🔥 +{todayCount} músicas criadas esta semana · <span className="underline underline-offset-2">30% OFF</span> termina em <span className="font-mono bg-stone-950/20 px-1.5 py-0.5 rounded">{timer}</span>
+      <div className="w-full bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-stone-950 text-center py-2 max-sm:py-1.5 px-4 text-xs max-sm:text-[10px] max-sm:leading-tight font-bold tracking-wide animate-pulse-slow z-50 relative">
+        🔥 +{todayCount} músicas{'\u00A0'}·{' '}
+        <span className="underline underline-offset-2">30% OFF</span>{' '}
+        <span className="max-sm:hidden">termina em </span>
+        <span className="font-mono bg-stone-950/20 px-1.5 max-sm:px-1 max-sm:py-0 rounded">{timer}</span>
       </div>
 
       {/* Ambient Background */}
@@ -85,7 +139,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             <span className="font-sans text-2xl font-black tracking-tight block leading-none">
               <span className="text-stone-100">Seu</span><span className="bg-gradient-to-r from-amber-400 to-rose-500 bg-clip-text text-transparent">Beat</span>
             </span>
-            <span className="text-[9px] text-stone-500 block tracking-[0.18em] font-mono uppercase mt-0.5">Sua Música. Seu Momento.</span>
+            <span className="text-[10px] text-stone-500 block tracking-[0.18em] font-mono uppercase mt-0.5">Sua Música. Seu Momento.</span>
           </div>
         </div>
 
@@ -124,7 +178,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                   key={l.href}
                   href={l.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-2xl font-serif text-stone-200 hover:text-amber-400 transition-colors"
+                  className="text-2xl font-serif text-stone-200 hover:text-amber-400 transition-colors py-3"
                 >
                   {l.label}
                 </a>
@@ -142,7 +196,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
         <button
           id="nav-cta-btn"
           onClick={onStartWizard}
-          className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 text-xs md:text-sm font-extrabold rounded-full shadow-lg shadow-amber-500/10 active:scale-95 transition-all shrink-0 cursor-pointer"
+          className="px-5 py-3 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 text-xs md:text-sm font-extrabold rounded-full shadow-lg shadow-amber-500/10 active:scale-95 transition-all shrink-0 cursor-pointer"
         >
           Criar Música ❤️
         </button>
@@ -181,9 +235,18 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               </div>
               <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl text-stone-100 tracking-tight leading-[1.1]">
                 Transforme a sua história numa{' '}
-                <span className="bg-gradient-to-r from-amber-400 via-rose-400 to-amber-500 bg-clip-text text-transparent italic">
-                  música inesquecível ❤️
-                </span>
+                <AnimatePresence mode="wait">
+                  <motion.span
+                    key={heroIdx}
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    transition={{ duration: 0.3 }}
+                    className="bg-gradient-to-r from-amber-400 via-rose-400 to-amber-500 bg-clip-text text-transparent italic"
+                  >
+                    {HERO_VARIANTS[heroIdx]}
+                  </motion.span>
+                </AnimatePresence>
               </h1>
               <p className="text-stone-400 text-sm md:text-base max-w-lg leading-relaxed">
                 Surpreenda quem mais ama com uma canção premium personalizada — Kizomba, Semba ou Pop Romântico. As suas memórias, cantadas para sempre.
@@ -231,7 +294,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             {/* Social proof micro-stats */}
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-stone-500 font-mono">
               <div className="flex items-center gap-1.5">
-                <span className="text-amber-400 font-bold text-base">+{todayCount}</span>
+                <span ref={countRef} className="text-amber-400 font-bold text-base">+{showCount ? animatedCount : 0}</span>
                 <span>músicas criadas</span>
               </div>
               <div className="w-px h-4 bg-stone-800" />
@@ -383,8 +446,9 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           {/* Painel de Compromisso + Reciprocidade */}
           {selectedOccasion && (
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 10, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: 'spring', damping: 10, stiffness: 200, mass: 0.8 }}
               className="max-w-lg mx-auto text-center space-y-5 pt-2"
             >
               <div className="bg-gradient-to-br from-amber-500/10 via-stone-900/50 to-stone-900/30 border border-amber-500/20 rounded-2xl p-6 space-y-4">
@@ -403,7 +467,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 </button>
                 <button
                   onClick={() => setSelectedOccasion(null)}
-                  className="text-[11px] text-stone-500 hover:text-stone-300 transition-colors cursor-pointer"
+                  className="text-[11px] text-stone-500 hover:text-stone-300 transition-colors cursor-pointer px-3 py-2"
                 >
                   Não, quero escolher outra ocasião
                 </button>
@@ -435,10 +499,14 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-10 items-stretch max-w-5xl mx-auto">
-            {PRICING_PLANS.map((plan) => (
-              <div
+            {PRICING_PLANS.map((plan, idx) => (
+              <motion.div
                 id={`pricing-card-${plan.id}`}
                 key={plan.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-50px' }}
+                transition={{ duration: 0.4, delay: idx * 0.15, ease: 'easeOut' }}
                 className={`rounded-3xl p-6 md:p-8 flex flex-col justify-between relative transition-all duration-300 ${
                   plan.popular
                     ? 'bg-gradient-to-b from-amber-950/40 via-stone-900/60 to-stone-900/30 border-2 border-amber-500 shadow-xl shadow-amber-500/5 md:scale-[1.03] z-10'
@@ -504,7 +572,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                     ✓ {plan.guarantee || 'Suporte pós-venda incluído'}
                   </span>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -541,7 +609,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               <p className="text-amber-400/60 text-xs font-mono italic">
                 Sabia que 9 em cada 10 pessoas choram ao ouvir a música que dedicaram?
               </p>
-              <p className="text-stone-600 text-[11px] font-mono italic mt-1">
+              <p className="text-stone-600 text-[11px] font-mono italic mt-1 max-sm:hidden">
                 "Daqui a um ano, vai preferir ter feito esta música do que não a ter feito. As flores murcham. As memórias ficam. A dúvida é: vais querer ter essa memória?"
               </p>
           </div>
@@ -599,9 +667,9 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
           {/* Links rápidos */}
           <div className="flex items-center gap-6 text-stone-400 font-medium">
-            <a href="/terms" className="hover:text-amber-400 transition-colors">Termos</a>
-            <a href="/privacy" className="hover:text-amber-400 transition-colors">Privacidade</a>
-            <a href="#faq-section" className="hover:text-amber-400 transition-colors">Ajuda</a>
+            <a href="/terms" className="hover:text-amber-400 transition-colors px-3 py-2">Termos</a>
+            <a href="/privacy" className="hover:text-amber-400 transition-colors px-3 py-2">Privacidade</a>
+            <a href="#faq-section" className="hover:text-amber-400 transition-colors px-3 py-2">Ajuda</a>
           </div>
 
           {/* Contacto directo */}
@@ -610,7 +678,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               href={WHATSAPP_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 bg-green-900/30 border border-green-800/50 rounded-full text-green-400 hover:bg-green-900/50 transition-colors"
+              className="flex items-center gap-2 px-4 py-3 bg-green-900/30 border border-green-800/50 rounded-full text-green-400 hover:bg-green-900/50 transition-colors"
             >
               <MessageCircle className="w-4 h-4" />
               <span className="font-semibold">WhatsApp: 922 058 136</span>
