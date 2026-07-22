@@ -1622,23 +1622,38 @@ const ROTATING_MESSAGES = [
             animate={{ opacity: 1, y: 0 }}
             className="max-w-lg mx-auto w-full space-y-5 py-6"
           >
+            {/* ← Voltar a editar */}
+            <button
+              onClick={() => {
+                submissionStartedRef.current = false;
+                setGenerationStatus('idle');
+                setGenerationError('');
+                setIsSubmitting(false);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-300 transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Voltar a editar dados</span>
+            </button>
+
             {/* Header */}
             <div className="text-center space-y-2">
               <span className="text-emerald-500 text-xs font-mono font-bold tracking-widest uppercase flex items-center justify-center gap-1.5">
                 <Sparkles className="w-4 h-4" /> LETRA CRIADA COM SUCESSO
               </span>
               <h2 className="font-serif text-2xl md:text-3xl text-stone-100 font-black tracking-tight">
-                {aiSongTitle || `Música para ${formData.recipientName}`}
+                {aiSongTitle || (formData.recipientName ? `Música para ${formData.recipientName}` : 'Música personalizada')}
               </h2>
               <p className="text-stone-400 text-xs max-w-sm mx-auto">
-                Para <strong className="text-amber-400">{formData.recipientName}</strong>
+                Para <strong className="text-amber-400">{formData.recipientName || 'alguém especial'}</strong>
                 {formData.recipientNick ? ` (${formData.recipientNick})` : ''} · Por ti 💝
               </p>
             </div>
 
             {/* Barra de progresso emocional */}
             <p className="text-[10px] font-mono text-stone-500 text-center">
-              ✅ História · ✅ Letra · 🟡 Música · ⬜ Ela
+              ✅ História · ✅ Letra · 🟡 Música · ⬜ {formData.recipientGender === 'Masculino' ? 'Ele' : 'Ela'}
             </p>
 
             {/* Preço âncora + urgência */}
@@ -1659,12 +1674,12 @@ const ROTATING_MESSAGES = [
                 <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-amber-400 to-rose-500 flex items-center justify-center text-2xl font-bold text-white shrink-0 overflow-hidden">
                   {formData.photoUrl
                     ? <img src={formData.photoUrl} alt="" className="w-full h-full object-cover rounded-xl" />
-                    : (formData.recipientName?.charAt(0) || '?')
+                    : <span className="text-3xl">💝</span>
                   }
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-stone-200 break-words">{aiSongTitle || `Música para ${formData.recipientName}`}</p>
-                  <p className="text-xs text-stone-500">Para {formData.recipientName} · Por {formData.userNick || 'Ti'}</p>
+                  <p className="text-sm font-bold text-stone-200 break-words">{aiSongTitle || (formData.recipientName ? `Música para ${formData.recipientName}` : 'Música personalizada')}</p>
+                  <p className="text-xs text-stone-500">Para {formData.recipientName || 'alguém especial'} · Por {formData.userNick || 'Ti'}</p>
                   <p className="text-[10px] text-stone-500 font-mono mt-2">
                     🎵 {formData.musicStyle || 'Kizomba'} · 3-4 min · <em className="text-amber-400/70 not-italic">Para ouvir e chorar 🥹</em>
                   </p>
@@ -1769,7 +1784,7 @@ const ROTATING_MESSAGES = [
 
             {/* Linha emocional */}
             <p className="text-center text-sm text-stone-300 font-medium leading-relaxed">
-              Já imaginaste a cara {formData.recipientGender === 'Masculino' ? 'do' : 'da'} <strong className="text-amber-400">{formData.recipientName}</strong> a ouvir o <strong className="text-amber-400/80">NOME {formData.recipientGender === 'Masculino' ? 'DELE' : 'DELA'}</strong> cantado? 🥹
+              Já imaginaste a cara {formData.recipientGender === 'Masculino' ? 'do' : 'da'} <strong className="text-amber-400">{formData.recipientName || (formData.recipientGender === 'Masculino' ? 'alguém especial' : 'alguém especial')}</strong> a ouvir o <strong className="text-amber-400/80">NOME {formData.recipientGender === 'Masculino' ? 'DELE' : 'DELA'}</strong> cantado? 🥹
             </p>
 
             {/* CTA principal — ocupar ecrã inteiro no mobile */}
@@ -1790,6 +1805,19 @@ const ROTATING_MESSAGES = [
             animate={{ opacity: 1, y: 0 }}
             className="max-w-lg mx-auto w-full space-y-5 py-6"
           >
+            {/* ← Voltar */}
+            <button
+              onClick={() => setConversionStep('preview')}
+              className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-stone-300 transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Voltar à pré-visualização</span>
+            </button>
+
+            <p className="text-[10px] font-mono text-amber-400/80 text-center">
+              🎵 Música para <strong className="text-stone-200">{formData.recipientName || 'alguém especial'}</strong>
+            </p>
+
             <h3 className="text-center font-serif text-xl font-bold tracking-tight text-stone-200">
               Escolhe como queres receber
             </h3>
@@ -1906,6 +1934,34 @@ const ROTATING_MESSAGES = [
                 <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Pagamento seguro</span>
                 <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> Feito com amor em Angola</span>
               </div>
+            </div>
+
+            <div className="text-center pt-1">
+              <button
+                onClick={() => {
+                  localStorage.removeItem('seubeat_wizard_progress');
+                  sessionStorage.removeItem('seubeat_photo_base64');
+                  wrappedSetFormData(INITIAL_WIZARD_DATA);
+                  setStep(1);
+                  setIsSubmitting(false);
+                  setSelectedPlanID(null);
+                  setVoiceUpsellApplied(false);
+                  setShowVoiceCloningScreen(false);
+                  setIsRecording(false);
+                  setHasRecorded(false);
+                  setRecordingSeconds(0);
+                  setClonedVoiceFile(null);
+                  setIsDone(false);
+                  setPaymentSubmitted(false);
+                  setPaymentStatus('pending');
+                  setProofFile(null);
+                  setProofPreviewUrl('');
+                  setConversionStep('preview');
+                }}
+                className="text-[10px] text-stone-500 hover:text-amber-400 transition-colors cursor-pointer underline underline-offset-2"
+              >
+                ou quero criar outra canção
+              </button>
             </div>
           </motion.div>
         )}

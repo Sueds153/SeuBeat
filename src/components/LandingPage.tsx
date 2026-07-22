@@ -1,5 +1,6 @@
 import { ArrowRight, Sparkles, Check, Play, MessageCircle, Menu, X, Shield } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import LogoIcon from './LogoIcon';
 import AudioDemo from './AudioDemo';
 import Testimonials from './Testimonials';
@@ -44,9 +45,19 @@ const OCCASIONS = [
   { icon: '🕊️', label: 'Em Memória', desc: 'Eterniza quem nunca esquecemos' },
 ];
 
+const OCCASION_REPLIES: Record<string, { msg: string; style: string }> = {
+  'Aniversário de Casamento': { msg: 'Uma vida partilhada merece uma banda sonora à altura.', style: 'Kizomba' },
+  'Declaração de Amor': { msg: 'Nada diz "amo-te" como uma canção feita só para ela.', style: 'Semba' },
+  'Aniversário': { msg: 'O melhor presente não se embrulha — ouve-se.', style: 'Pop' },
+  'Para a Mãe': { msg: 'Mãe é única. A música também vai ser.', style: 'Gospel' },
+  'Agradecimento': { msg: 'Gratidão que se canta, nunca se esquece.', style: 'Kizomba' },
+  'Em Memória': { msg: 'Quem vive no coração nunca parte. Eterniza-o.', style: 'Semba' },
+};
+
 export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [todayCount] = useState(() => Math.floor(847 + Math.random() * 200));
+  const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const timer = useCountdown(120);
 
   useEffect(() => {
@@ -342,20 +353,63 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-            {OCCASIONS.map((occ, idx) => (
-              <button
-                key={idx}
-                onClick={onStartWizard}
-                className="group bg-stone-900/30 hover:bg-stone-900/70 border border-stone-800 hover:border-amber-500/40 rounded-2xl p-5 flex flex-col items-center text-center space-y-3 transition-all hover:-translate-y-1 cursor-pointer"
-              >
-                <span className="text-3xl group-hover:scale-110 transition-transform">{occ.icon}</span>
-                <div>
-                  <p className="text-stone-200 text-xs font-semibold leading-tight">{occ.label}</p>
-                  <p className="text-stone-500 text-[10px] mt-1 font-mono leading-tight">{occ.desc}</p>
-                </div>
-              </button>
-            ))}
+            {OCCASIONS.map((occ, idx) => {
+              const isSelected = selectedOccasion === occ.label;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setSelectedOccasion(occ.label);
+                    document.getElementById('occasions-section')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className={`group rounded-2xl p-5 flex flex-col items-center text-center space-y-3 transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-amber-500/15 border-2 border-amber-500 shadow-lg shadow-amber-500/10 -translate-y-1'
+                      : selectedOccasion
+                        ? 'bg-stone-900/15 border border-stone-800 opacity-40 hover:opacity-70 hover:bg-stone-900/30'
+                        : 'bg-stone-900/30 hover:bg-stone-900/70 border border-stone-800 hover:border-amber-500/40 hover:-translate-y-1'
+                  }`}
+                >
+                  <span className={`text-3xl transition-transform ${isSelected ? 'scale-110' : 'group-hover:scale-110'}`}>{occ.icon}</span>
+                  <div>
+                    <p className="text-stone-200 text-xs font-semibold leading-tight">{occ.label}</p>
+                    <p className="text-stone-500 text-[10px] mt-1 font-mono leading-tight">{occ.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
+
+          {/* Painel de Compromisso + Reciprocidade */}
+          {selectedOccasion && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-lg mx-auto text-center space-y-5 pt-2"
+            >
+              <div className="bg-gradient-to-br from-amber-500/10 via-stone-900/50 to-stone-900/30 border border-amber-500/20 rounded-2xl p-6 space-y-4">
+                <p className="text-stone-200 text-sm leading-relaxed font-serif italic">
+                  "{OCCASION_REPLIES[selectedOccasion].msg}"
+                </p>
+                <div className="flex items-center justify-center gap-2 text-xs text-amber-400 font-mono">
+                  <Sparkles className="w-4 h-4" />
+                  <span>🎵 Sugerimos: <strong>{OCCASION_REPLIES[selectedOccasion].style}</strong></span>
+                </div>
+                <button
+                  onClick={onStartWizard}
+                  className="w-full py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-black text-sm rounded-2xl shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  Sim, quero uma {selectedOccasion.toLowerCase()} em música ❤️
+                </button>
+                <button
+                  onClick={() => setSelectedOccasion(null)}
+                  className="text-[11px] text-stone-500 hover:text-stone-300 transition-colors cursor-pointer"
+                >
+                  Não, quero escolher outra ocasião
+                </button>
+              </div>
+            </motion.div>
+          )}
         </div>
       </section>
 
@@ -424,6 +478,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                       </li>
                     ))}
                   </ul>
+                  {plan.popularity && (
+                    <p className="text-center text-[10px] text-amber-500/80 font-mono font-medium pt-1">
+                      🔥 {plan.popularity} dos clientes escolhem esta opção
+                    </p>
+                  )}
                 </div>
 
                 <div className="pt-8">
@@ -479,8 +538,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               <p className="text-stone-500 text-xs font-mono">
                 Lê e edita a letra à vontade · A música nasce após o teu sim
               </p>
-              <p className="text-stone-600 text-[11px] font-mono italic mt-2">
-                "Daqui a um ano, vai preferir ter feito esta música do que não a ter feito. As flores murcham. As memórias ficam."
+              <p className="text-amber-400/60 text-xs font-mono italic">
+                Sabia que 9 em cada 10 pessoas choram ao ouvir a música que dedicaram?
+              </p>
+              <p className="text-stone-600 text-[11px] font-mono italic mt-1">
+                "Daqui a um ano, vai preferir ter feito esta música do que não a ter feito. As flores murcham. As memórias ficam. A dúvida é: vais querer ter essa memória?"
               </p>
           </div>
 
