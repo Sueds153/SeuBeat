@@ -4,8 +4,8 @@ export const Step1Schema = z.object({
   recipientRelation: z.string().min(1, 'Selecione a relação'),
   recipientName: z.string().min(2, 'Mínimo 2 caracteres'),
   recipientGender: z.string().min(1, 'Selecione o género'),
-  userNick: z.string().min(2, 'Mínimo 2 caracteres'),
-  recipientNick: z.string().min(2, 'Mínimo 2 caracteres'),
+  userNick: z.string().optional(),
+  recipientNick: z.string().optional(),
 });
 
 const Step2Schema = z.object({

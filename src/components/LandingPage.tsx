@@ -16,7 +16,18 @@ interface LandingPageProps {
 }
 
 function useCountdown(targetMinutes: number) {
-  const [remaining, setRemaining] = useState(targetMinutes * 60);
+  const getInitial = () => {
+    try {
+      const stored = localStorage.getItem('seubeat_promo_started_at');
+      if (stored) {
+        const elapsed = Math.floor((Date.now() - parseInt(stored, 10)) / 1000);
+        return Math.max(0, targetMinutes * 60 - elapsed);
+      }
+      localStorage.setItem('seubeat_promo_started_at', String(Date.now()));
+    } catch {}
+    return targetMinutes * 60;
+  };
+  const [remaining, setRemaining] = useState(getInitial);
   useEffect(() => {
     const interval = setInterval(() => {
       setRemaining(prev => Math.max(0, prev - 1));
@@ -26,7 +37,8 @@ function useCountdown(targetMinutes: number) {
   const h = Math.floor(remaining / 3600);
   const m = Math.floor((remaining % 3600) / 60);
   const s = remaining % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  const formatted = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return { timer: formatted, isActive: remaining > 0 };
 }
 
 const NAV_LINKS = [
@@ -107,7 +119,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [todayCount] = useState(() => Math.floor(847 + Math.random() * 200));
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
-  const timer = useCountdown(120);
+  const { timer, isActive: promoActive } = useCountdown(120);
   const countRef = useRef<HTMLSpanElement>(null);
   const [showCount, setShowCount] = useState(false);
   const [animatedCount, setAnimatedCount] = useState(0);
@@ -164,8 +176,14 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       <div className="w-full bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-stone-950 text-center py-2 max-sm:py-1.5 px-4 text-xs max-sm:text-[10px] max-sm:leading-tight font-bold tracking-wide animate-pulse-slow z-50 relative">
         🔥 +{todayCount} músicas{'\u00A0'}·{' '}
         <span className="underline underline-offset-2">30% OFF</span>{' '}
-        <span className="max-sm:hidden">termina em </span>
-        <span className="font-mono bg-stone-950/20 px-1.5 max-sm:px-1 max-sm:py-0 rounded">{timer}</span>
+        {promoActive ? (
+          <>
+            <span className="max-sm:hidden">termina em </span>
+            <span className="font-mono bg-stone-950/20 px-1.5 max-sm:px-1 max-sm:py-0 rounded">{timer}</span>
+          </>
+        ) : (
+          <span className="text-amber-950">por tempo limitado</span>
+        )}
       </div>
 
       {/* Ambient Background */}
