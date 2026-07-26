@@ -311,6 +311,9 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               <p className="text-amber-400/80 text-xs font-mono mt-1">
                 Em 3 minutos. Sem saber cantar. Sem instrumentos.
               </p>
+              <p className="text-stone-400 text-sm leading-relaxed italic">
+                Flores murcham. Chocolate acaba. Uma música dura para sempre!
+              </p>
             </div>
 
             {/* Trust badges */}

@@ -1952,6 +1952,9 @@ const ROTATING_MESSAGES = [
             <p className="text-center text-[10px] text-rose-400/60 font-mono italic">
               ⏳ Se não escolher agora, a letra que criou para {formData.recipientName.split(' ')[0]} fica guardada — mas a poupança de 30% não espera para sempre.
             </p>
+            <p className="text-center text-xs text-stone-400 font-serif italic">
+              O melhor presente que {formData.recipientGender === 'Masculino' ? 'ele' : 'ela'} já vai receber. E vais ser tu a dar.
+            </p>
 
             {/* Trust */}
             <div className="text-center space-y-2 pt-1">
@@ -2325,6 +2328,9 @@ const ROTATING_MESSAGES = [
               </p>
               <p className="text-[11px] font-mono text-amber-400/80 text-center max-w-sm mx-auto">
                 A música está pronta. Assim que confirmarmos o pagamento, {formData.recipientGender === 'Masculino' ? 'ele' : 'ela'} recebe o link.
+              </p>
+              <p className="text-stone-400 text-xs font-serif italic max-w-md mx-auto">
+                Daqui a 10 anos, esta música ainda vai tocar. E tu vais estar nela.
               </p>
             </div>
 
