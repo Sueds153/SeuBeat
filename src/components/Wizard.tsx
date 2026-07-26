@@ -118,6 +118,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingStage, setProcessingStage] = useState(0);
   const [rotatingMsgIndex, setRotatingMsgIndex] = useState(0);
+  const [paymentSocialIdx, setPaymentSocialIdx] = useState(0);
   const [showProcessingWarning, setShowProcessingWarning] = useState(false);
   // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info'; id: number } | null>(null);
@@ -764,6 +765,15 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     return () => clearInterval(interval);
   }, [flashActive]);
 
+  // Payment social proof rotator
+  useEffect(() => {
+    if (!isDone) return;
+    const interval = setInterval(() => {
+      setPaymentSocialIdx(i => (i + 1) % PAYMENT_SOCIAL_PROOFS.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isDone]);
+
   const pollCancelledRef = useRef(false);
 
   const pollSongUntilPreview = async (songId: string, maxAttempts = 15) => {
@@ -1302,6 +1312,13 @@ const ROTATING_MESSAGES = [
     { name: 'Sara', text: '"Nunca tinha recebido nada igual"' },
     { name: 'João', text: '"A Clara pôs a música no despertador"' },
     { name: 'Carmo', text: '"A minha mãe não parou de chorar"' },
+  ];
+
+  const PAYMENT_SOCIAL_PROOFS = [
+    '👥 +247 já pagaram hoje',
+    '👤 A Maria pagou há 2 minutos',
+    '👤 O João acabou de enviar comprovativo',
+    '👥 9 em cada 10 recomendam o SeuBeat',
   ];
 
   const getDemoByStyle = (style: string) => {
@@ -2319,6 +2336,15 @@ const ROTATING_MESSAGES = [
               )}
             </div>
 
+            {/* Checklist — progresso */}
+            <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono text-stone-500 max-w-md mx-auto flex-wrap">
+              <span className="flex items-center gap-1"><Check className="w-3 h-3 text-emerald-400 shrink-0" />Letra pronta</span>
+              <span className="text-stone-700 hidden xs:inline">·</span>
+              <span className="flex items-center gap-1"><Check className="w-3 h-3 text-emerald-400 shrink-0" />Plano escolhido</span>
+              <span className="text-stone-700">·</span>
+              <span className="flex items-center gap-1 text-amber-400 font-semibold"><span className="text-[11px]">⏳</span>Falta pagar (2 min)</span>
+            </div>
+
             {/* Price confirmation box */}
             <div className="bg-stone-950 rounded-2xl p-5 border border-stone-850 text-left max-w-md mx-auto space-y-4">
               <div className="flex items-center justify-between border-b border-stone-900 pb-3">
@@ -2339,6 +2365,27 @@ const ROTATING_MESSAGES = [
                   <span className="text-[10px] text-stone-550 font-mono block">VALOR TOTAL</span>
                   <strong className="text-amber-400 font-serif text-base">{getPrice()}</strong>
                 </div>
+              </div>
+
+              {/* Bónus — indicação */}
+              <div className="flex items-center gap-2 text-[10px] text-stone-500 font-mono justify-center">
+                <span className="text-[13px]">🎁</span>
+                <span>Pague hoje e ganhe <strong className="text-amber-400">10% OFF</strong> na próxima</span>
+              </div>
+
+              {/* Prova social — pagamentos */}
+              <div className="flex items-center justify-center h-5">
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={paymentSocialIdx}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="text-[10px] text-stone-500 font-mono"
+                  >
+                    {PAYMENT_SOCIAL_PROOFS[paymentSocialIdx]}
+                  </motion.p>
+                </AnimatePresence>
               </div>
 
               {/* Reference Payment Details */}
@@ -2489,6 +2536,11 @@ const ROTATING_MESSAGES = [
                           </div>
                         </>
                       )}
+
+                      <p className="text-[10px] text-emerald-500/70 font-mono text-center flex items-center justify-center gap-1">
+                        <span>🛡️</span>
+                        <span>Entregamos a música ou devolvemos. Pode editar a letra à vontade.</span>
+                      </p>
 
                       <button
                         type="button"
