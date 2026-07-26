@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { getAdminSupabase, uploadToSupabase } from './supabase';
-import { downloadFile, createPreviewAudio, applyFades } from './audio';
+import { downloadFile, createPreviewAudio, applyFades, convertToWav } from './audio';
 import { querySunoTask, generateFullSong } from './suno';
 import { generateValidationPhrase, waitForValidationPhrase, createCustomVoice, waitForVoiceId, checkVoiceAvailability } from './suno-voice';
 import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification, sendWorkflowFailedEmail } from './email';
@@ -570,20 +570,19 @@ export async function processSunoVoice(
     const resolvedUrl = await resolveVoiceSampleUrl(supabase, voiceSampleUrl);
 
     // Download voice sample
-    const tempSamplePath = path.join(os.tmpdir(), `${requestId}_sample`);
+    const tempSamplePath = path.join(os.tmpdir(), `${requestId}_sample_raw`);
     await downloadFile(resolvedUrl, tempSamplePath);
 
-    // Check file extension or default to .wav
-    const cleanUrl = resolvedUrl.split('?')[0];
-    const ext = path.extname(cleanUrl) || '.wav';
-    const tempFile = `${tempSamplePath}${ext}`;
-    fs.renameSync(tempSamplePath, tempFile);
+    // Converter para WAF real com FFmpeg (o browser grava em WebM/Opus, mas a API Suno espera WAV genuíno)
+    const tempWavPath = path.join(os.tmpdir(), `${requestId}_converted.wav`);
+    await convertToWav(tempSamplePath, tempWavPath);
+    try { fs.unlinkSync(tempSamplePath); } catch {}
 
     // Upload para bucket público (preview) para a API Suno Voice conseguir aceder
-    const publicFilename = `sunovoice/${requestId}_${Date.now()}${ext}`;
-    const publicVoiceUrl = await uploadToSupabase('preview', publicFilename, tempFile, 'audio/wav');
+    const publicFilename = `sunovoice/${requestId}_${Date.now()}.wav`;
+    const publicVoiceUrl = await uploadToSupabase('preview', publicFilename, tempWavPath, 'audio/wav');
 
-    try { fs.unlinkSync(tempFile); } catch {}
+    try { fs.unlinkSync(tempWavPath); } catch {}
 
     if (!publicVoiceUrl) {
       throw new Error('Failed to upload voice sample to public URL');
@@ -651,7 +650,14 @@ export async function processSunoVoice(
     setProgress(requestId, { status: 'music_processing', progress: 30, message: 'Voz não disponível, a gerar música sem voz personalizada.' });
     const supabase2 = getAdminSupabase();
     if (supabase2) {
-      await supabase2.from('song_requests').update({ elevenlabs_voice_id: '{"failed":true}' }).eq('id', requestId).maybeSingle();
+      await supabase2.from('song_requests').update({
+        elevenlabs_voice_id: '{"failed":true}',
+        error_details: {
+          stage: 'voice_cloning',
+          message: err?.message || String(err),
+          at: new Date().toISOString()
+        }
+      }).eq('id', requestId).maybeSingle();
     }
     return null;
   }

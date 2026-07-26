@@ -766,7 +766,11 @@ router.post('/request/:id/force-voice', adminAuth, async (req, res) => {
 
     await supabase.from('song_requests').update({ status: 'voice_processing' }).eq('id', id);
     const voiceSampleUrl = requestData.voice_sample_url;
-    processSunoVoice(id, songData.id, voiceSampleUrl).catch(err => logError('[Admin] Force Suno Voice falhou', err, { requestId: id }));
+    processSunoVoice(id, songData.id, voiceSampleUrl).then(voiceId => {
+      if (voiceId) {
+        supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', id).maybeSingle().then();
+      }
+    }).catch(err => logError('[Admin] Force Suno Voice falhou', err, { requestId: id }));
     res.json({ success: true, message: 'Processamento de voz Suno Voice forçado.' });
   } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
 });

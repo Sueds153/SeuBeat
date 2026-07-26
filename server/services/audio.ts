@@ -89,3 +89,27 @@ export function applyFades(inputPath: string, outputPath: string): Promise<void>
       .run();
   });
 }
+
+export function convertToWav(inputPath: string, outputPath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!FFMPEG_AVAILABLE) {
+      reject(new Error('FFmpeg indisponível para converter áudio.'));
+      return;
+    }
+
+    ffmpeg(inputPath)
+      .audioCodec('pcm_s16le')
+      .audioChannels(1)
+      .audioFrequency(44100)
+      .output(outputPath)
+      .on('end', () => {
+        console.log('✅ Áudio convertido para WAV com sucesso!');
+        resolve();
+      })
+      .on('error', (err) => {
+        console.error('❌ Erro no FFmpeg ao converter para WAV:', err);
+        reject(err);
+      })
+      .run();
+  });
+}

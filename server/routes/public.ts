@@ -733,6 +733,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       }
       const voiceBuffer = decodeBase64Payload(voiceSampleBase64);
       if (voiceBuffer.length > 5 * 1024 * 1024) throw new Error('Amostra de voz demasiado grande. Máx. 5MB.');
+      if (voiceBuffer.length < 1024) throw new Error('Amostra de voz demasiado pequena. Grava pelo menos 3 segundos.');
       const sanitizedVoiceFilename = String(voiceSampleFilename || 'sample.wav').replace(/[^a-zA-Z0-9._-]/g, '_');
       const filename = `voices/${Date.now()}_${sanitizedVoiceFilename}`;
       const { data, error } = await supabase.storage
