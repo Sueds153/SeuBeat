@@ -1,4 +1,4 @@
-import { logWarn, logError } from '../utils/logger';
+import { logInfo, logWarn, logError } from '../utils/logger';
 import { getAppUrl } from '../utils/helpers';
 
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
@@ -23,6 +23,15 @@ async function sendViaBrevo(to: string, subject: string, htmlContent: string): P
   const cfg = getConfig();
   if (warnIfMissing(cfg)) return { mocked: true, to };
 
+  const payload = {
+    sender: { name: cfg.fromName, email: cfg.fromEmail },
+    to: [{ email: to }],
+    subject,
+    htmlContent,
+  };
+  logInfo('[Email] Sending via Brevo', { fromEmail: cfg.fromEmail, fromName: cfg.fromName, to, subject: subject.substring(0, 50) });
+
+  const body = JSON.stringify(payload);
   const res = await fetch(BREVO_API_URL, {
     method: 'POST',
     headers: {
@@ -30,12 +39,7 @@ async function sendViaBrevo(to: string, subject: string, htmlContent: string): P
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
-    body: JSON.stringify({
-      sender: { name: cfg.fromName, email: cfg.fromEmail },
-      to: [{ email: to }],
-      subject,
-      htmlContent,
-    }),
+    body,
   });
 
   if (!res.ok) {
