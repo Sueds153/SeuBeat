@@ -3,11 +3,21 @@ import { getAppUrl } from '../utils/helpers';
 
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
+function parseEmail(raw: string): { name: string; email: string } {
+  const match = raw.match(/^(?:"?([^"]*)"?\s)?<?([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>?$/);
+  if (match) {
+    return { name: (match[1] || '').trim(), email: match[2] };
+  }
+  return { name: '', email: raw.trim() };
+}
+
 function getConfig() {
+  const rawFrom = process.env.EMAIL_FROM || 'josuemiguelsued@gmail.com';
+  const parsed = parseEmail(rawFrom);
   return {
     apiKey: process.env.BREVO_API_KEY || '',
-    fromName: process.env.EMAIL_FROM_NAME || 'SeuBeat',
-    fromEmail: process.env.EMAIL_FROM || 'josuemiguelsued@gmail.com',
+    fromName: process.env.EMAIL_FROM_NAME || parsed.name || 'SeuBeat',
+    fromEmail: parsed.email,
   };
 }
 
