@@ -286,8 +286,20 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [savingLyrics, setSavingLyrics] = useState(false);
   const [lyricsSaved, setLyricsSaved] = useState(false);
   const [todayCount, setTodayCount] = useState(847);
-  const [persistentMin, setPersistentMin] = useState(60);
-  const [persistentSec, setPersistentSec] = useState(0);
+  const getPersistentRemaining = () => {
+    try {
+      const stored = localStorage.getItem('seubeat_promo_started_at');
+      if (stored) {
+        const elapsed = Math.floor((Date.now() - parseInt(stored, 10)) / 1000);
+        return Math.max(0, 30 * 60 - elapsed);
+      }
+      localStorage.setItem('seubeat_promo_started_at', String(Date.now()));
+    } catch {}
+    return 30 * 60;
+  };
+  const [persistentRemaining, setPersistentRemaining] = useState(getPersistentRemaining);
+  const persistentMin = Math.floor(persistentRemaining / 60);
+  const persistentSec = persistentRemaining % 60;
   const [flashActive, setFlashActive] = useState(false);
   const [flashTimer, setFlashTimer] = useState(600);
   const [flashPriceUsed, setFlashPriceUsed] = useState(false);
@@ -343,16 +355,10 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     }
   }, [generationStatus]);
 
-  // Countdown persistente desde o início do wizard
+  // Countdown persistente — lê o mesmo timer da landing page
   useEffect(() => {
     const interval = setInterval(() => {
-      setPersistentSec(prev => {
-        if (prev === 0) {
-          setPersistentMin(m => Math.max(0, m - 1));
-          return 59;
-        }
-        return prev - 1;
-      });
+      setPersistentRemaining(prev => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(interval);
   }, []);

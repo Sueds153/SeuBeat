@@ -119,7 +119,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [todayCount] = useState(() => Math.floor(847 + Math.random() * 200));
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
-  const { timer, isActive: promoActive } = useCountdown(120);
+  const { timer, isActive: promoActive } = useCountdown(30);
   const countRef = useRef<HTMLSpanElement>(null);
   const [showCount, setShowCount] = useState(false);
   const [animatedCount, setAnimatedCount] = useState(0);
