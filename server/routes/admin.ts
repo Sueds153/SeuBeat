@@ -336,12 +336,33 @@ router.get('/requests', adminAuth, async (req, res) => {
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
 
-    const { data, error } = await supabase
+    const { data: requestsData, error } = await supabase
       .from('song_requests')
-      .select('*, users(name, email, phone), songs(id, title, audio_url, mureka_status, created_at, letter_text, lyrics), payments(plan, amount, status, created_at, payment_reference, user_email)')
+      .select('*, users(name, email, phone), songs(id, title, audio_url, mureka_status, created_at, letter_text, lyrics)')
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ error: safeMessage(error) });
+
+    const requestIds = (requestsData || []).map(r => r.id).filter(Boolean);
+    let paymentsMap: Record<string, any[]> = {};
+
+    if (requestIds.length > 0) {
+      const { data: paymentsData } = await supabase
+        .from('payments')
+        .select('id, plan, amount, status, created_at, payment_reference, user_email, request_id, proof_url, proof_filename, notes, approved_at')
+        .in('request_id', requestIds);
+
+      for (const p of paymentsData || []) {
+        if (!paymentsMap[p.request_id]) paymentsMap[p.request_id] = [];
+        paymentsMap[p.request_id].push(p);
+      }
+    }
+
+    const data = (requestsData || []).map(r => ({
+      ...r,
+      payments: paymentsMap[r.id] || []
+    }));
+
     res.json({ success: true, requests: data });
   } catch (err: any) {
     res.status(500).json({ error: safeMessage(err) });

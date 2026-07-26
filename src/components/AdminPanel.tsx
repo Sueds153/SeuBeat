@@ -864,7 +864,7 @@ export default function AdminPanel() {
   const filteredRequests = useMemo(() => {
     return requests.filter(r => {
       if (reqStatusFilter && r.status !== reqStatusFilter) return false;
-      if (reqPlanFilter && r.plan !== reqPlanFilter) return false;
+      if (reqPlanFilter && r.payments?.[0]?.plan !== reqPlanFilter) return false;
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
       const name = (r.users?.name || '').toLowerCase();
