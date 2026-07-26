@@ -10,6 +10,7 @@ import { getAdminSupabase } from '../services/supabase';
 import { renderOgPage } from '../services/ogTemplate';
 import adminRouter from '../routes/admin';
 import publicRouter from '../routes/public';
+import webhookRouter from '../routes/webhook';
 
 const sentryDsn = getEnv('SENTRY_DSN');
 
@@ -78,6 +79,7 @@ export async function createApp(): Promise<express.Application> {
 
   app.use('/api/admin', adminIpRestriction, adminRouter);
   app.use('/api', publicRouter);
+  app.use('/api', webhookRouter);
 
   if (sentryDsn) {
     const { setupExpressErrorHandler } = await import('@sentry/node');
