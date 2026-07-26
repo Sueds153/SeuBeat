@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   ArrowRight, ArrowLeft, Heart, Sparkles, Check, Upload,
-  Mic, Mail, Eye, Lock, RefreshCw, Play, AlertTriangle, ShieldCheck, Copy, FileText,
+  Mic, Mail, Eye, Lock, RefreshCw, Play, AlertTriangle, ShieldCheck, Copy,
   Timer
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -179,7 +179,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
   // Estado do upload de comprovativo de pagamento
   const [proofFile, setProofFile] = useState<File | null>(null);
-  const [proofPreviewUrl, setProofPreviewUrl] = useState<string>('');
+
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [paymentSubmitted, setPaymentSubmitted] = useState(() => {
     try {
@@ -488,6 +488,12 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const proofMountedRef = useRef(true);
   useEffect(() => { proofMountedRef.current = true; return () => { proofMountedRef.current = false; }; }, []);
 
+  useEffect(() => {
+    if (proofFile && !paymentSubmitting && !paymentSubmitted) {
+      submitPaymentProof();
+    }
+  }, [proofFile]);
+
   const handleProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -498,17 +504,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       }
       setProofFile(file);
       setPaymentSubmitError('');
-      
-      // Se for uma imagem, gerar preview
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (proofMountedRef.current) setProofPreviewUrl(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        setProofPreviewUrl('');
-      }
     }
   };
 
@@ -604,6 +599,15 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       setPaymentSubmitting(false);
     }
   };
+
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
+
+  // Auto-submit comprovativo quando ficheiro é selecionado
+  useEffect(() => {
+    if (proofFile && !paymentSubmitted && !paymentSubmitting && !paymentSubmitError) {
+      submitPaymentProof();
+    }
+  }, [proofFile]);
 
   // Memory writing suggestions UI tab state
   const [suggestTab, setSuggestTab] = useState<'viagem' | 'romance' | 'divertido' | 'quotidiano'>('viagem');
@@ -2334,20 +2338,6 @@ const ROTATING_MESSAGES = [
               </p>
             </div>
 
-            {/* Creation summary */}
-            <div className="bg-stone-950/60 rounded-xl border border-stone-800 p-3 text-left max-w-md mx-auto space-y-1">
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono text-stone-500">
-                <span>🎵 <strong className="text-stone-300">{formData.musicStyle || 'Kizomba'}</strong></span>
-                <span>🎂 <strong className="text-stone-300">{formData.occasion || 'Homenagem'}</strong></span>
-                <span>💕 Para <strong className="text-amber-400">{formData.recipientName}</strong></span>
-              </div>
-              {formData.messageFromTheHeart && (
-                <p className="text-[10px] text-stone-600 italic line-clamp-2 pt-1 border-t border-stone-800/60">
-                  "{formData.messageFromTheHeart.length > 100 ? formData.messageFromTheHeart.slice(0, 100) + '…' : formData.messageFromTheHeart}"
-                </p>
-              )}
-            </div>
-
             {/* Checklist — progresso */}
             <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono text-stone-500 max-w-md mx-auto flex-wrap">
               <span className="flex items-center gap-1"><Check className="w-3 h-3 text-emerald-400 shrink-0" />Letra pronta</span>
@@ -2377,12 +2367,6 @@ const ROTATING_MESSAGES = [
                   <span className="text-[10px] text-stone-550 font-mono block">VALOR TOTAL</span>
                   <strong className="text-amber-400 font-serif text-base">{getPrice()}</strong>
                 </div>
-              </div>
-
-              {/* Bónus — indicação */}
-              <div className="flex items-center gap-2 text-[10px] text-stone-500 font-mono justify-center">
-                <span className="text-[13px]">🎁</span>
-                <span>Pague hoje e ganhe <strong className="text-amber-400">10% OFF</strong> na próxima</span>
               </div>
 
               {/* Prova social — pagamentos */}
@@ -2451,23 +2435,32 @@ const ROTATING_MESSAGES = [
                   </div>
                 </div>
 
-                {/* Instruções simplificadas — método único */}
+                {/* Instruções — collapsible */}
                 <div className="space-y-3 text-left pt-2">
-                  <h5 className="text-[10px] font-mono text-amber-500 uppercase tracking-wider block font-bold">📱 Como pagar pelo Multicaixa</h5>
-                  <div className="space-y-2 text-xs text-stone-400">
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">1</div>
-                      <p>Abre o Multicaixa (app ou ATM) → <strong className="text-stone-200">Pagamentos</strong> → <strong className="text-stone-200">Pagamento de Serviços</strong></p>
+                  <button
+                    type="button"
+                    onClick={() => setInstructionsOpen(!instructionsOpen)}
+                    className="flex items-center gap-1.5 text-[10px] font-mono text-amber-500 uppercase tracking-wider font-bold cursor-pointer hover:text-amber-400 transition-colors"
+                  >
+                    <span>{instructionsOpen ? '▾' : '▸'}</span>
+                    <span>📱 Como pagar pelo Multicaixa</span>
+                  </button>
+                  {instructionsOpen && (
+                    <div className="space-y-2 text-xs text-stone-400">
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">1</div>
+                        <p>Abre o Multicaixa (app ou ATM) → <strong className="text-stone-200">Pagamentos</strong> → <strong className="text-stone-200">Pagamento de Serviços</strong></p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">2</div>
+                        <p>Digita: <strong className="text-white">Entidade {paymentDetails.entidade}</strong> · <strong className="text-white">Ref. {paymentDetails.referencia}</strong> · <strong className="text-amber-400">Valor {getPrice()}</strong></p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">3</div>
+                        <p>Confirma, faz <strong className="text-stone-200">printscreen</strong> do comprovativo e carrega abaixo 📸</p>
+                      </div>
                     </div>
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">2</div>
-                      <p>Digita: <strong className="text-white">Entidade {paymentDetails.entidade}</strong> · <strong className="text-white">Ref. {paymentDetails.referencia}</strong> · <strong className="text-amber-400">Valor {getPrice()}</strong></p>
-                    </div>
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">3</div>
-                      <p>Confirma, faz <strong className="text-stone-200">printscreen</strong> do comprovativo e carrega abaixo 📸</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
                 {/* Upload Section */}
@@ -2481,97 +2474,47 @@ const ROTATING_MESSAGES = [
 
                   {!paymentSubmitted ? (
                     <div className="space-y-4">
-                      {/* Area de drag and drop ou select */}
-                      <label className="flex flex-col items-center justify-center border border-dashed border-stone-850 hover:border-amber-500/40 bg-stone-950 hover:bg-stone-900/60 p-6 rounded-xl cursor-pointer transition-all duration-300 relative">
-                        <Upload className="w-6 h-6 text-stone-500 mb-2" />
-                        <span className="text-xs text-stone-300 font-semibold mb-1">Carregar arquivo de comprovativo</span>
-                        <span className="text-[10px] text-stone-500 font-mono">JPG, PNG ou PDF (máx. 10MB)</span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          className="hidden"
-                          onChange={handleProofChange}
-                        />
-                      </label>
-
-                      {proofFile && (
-                        <div className="bg-stone-950 p-3 rounded-xl border border-stone-850 flex items-center justify-between gap-3 text-xs">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                            <span className="text-stone-300 truncate font-mono text-[11px]">{proofFile.name}</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setProofFile(null);
-                              setProofPreviewUrl('');
-                            }}
-                            className="text-stone-500 hover:text-rose-400 text-xs font-semibold cursor-pointer"
-                          >
-                            Remover
-                          </button>
+                      {paymentSubmitting ? (
+                        <div className="flex flex-col items-center justify-center p-8 space-y-3">
+                          <RefreshCw className="w-6 h-6 animate-spin text-amber-400" />
+                          <span className="text-xs text-stone-400 font-mono">A enviar comprovativo...</span>
                         </div>
-                      )}
-
-                      {/* Preview: image ou ícone PDF */}
-                      {proofFile && !proofPreviewUrl && proofFile.type === 'application/pdf' && (
-                        <div className="mt-2 rounded-xl border border-stone-800 bg-stone-950 p-4 flex items-center gap-3">
-                          <FileText className="w-8 h-8 text-rose-400 shrink-0" />
-                          <div>
-                            <p className="text-xs text-stone-300 font-medium">{proofFile.name}</p>
-                            <p className="text-[10px] text-stone-500">PDF · {(proofFile.size / 1024 / 1024).toFixed(1)}MB</p>
-                          </div>
-                        </div>
-                      )}
-                      {proofPreviewUrl && (
-                        <div className="mt-2 relative rounded-xl overflow-hidden border border-stone-800 max-h-40 bg-stone-950">
-                          <img
-                            src={proofPreviewUrl}
-                            alt="Preview Comprovativo"
-                            className="w-full h-full object-contain max-h-40 mx-auto"
-                          />
-                        </div>
-                      )}
-
-                      <p className="text-[10px] text-stone-500 font-mono text-center">
-                        ⏱️ Demora 2 minutos. {formData.recipientGender === 'Masculino' ? 'Ele' : 'Ela'} vai ouvir ainda hoje.
-                      </p>
-                      <p className="text-[9px] text-rose-400/50 font-mono text-center italic">
-                        ⏳ A letra e a música que criou para {formData.recipientName.split(' ')[0]} estão prontas. Se sair agora, perde esta página e o desconto de 30%.
-                      </p>
-
-                      {paymentSubmitError && (
+                      ) : (
                         <>
-                          <p className="text-rose-400 text-xs font-mono text-left">{paymentSubmitError}</p>
-                          <div className="flex justify-start">
-                            <WhatsAppHelp context="pagamento" label="Falar com apoio" />
-                          </div>
+                          <label className="flex flex-col items-center justify-center border border-dashed border-stone-850 hover:border-amber-500/40 bg-stone-950 hover:bg-stone-900/60 p-6 rounded-xl cursor-pointer transition-all duration-300 relative">
+                            <Upload className="w-6 h-6 text-stone-500 mb-2" />
+                            <span className="text-xs text-stone-300 font-semibold mb-1">Carregar arquivo de comprovativo</span>
+                            <span className="text-[10px] text-stone-500 font-mono">JPG, PNG ou PDF (máx. 10MB)</span>
+                            <input
+                              type="file"
+                              accept="image/*,application/pdf"
+                              className="hidden"
+                              onChange={handleProofChange}
+                            />
+                          </label>
+
+                          <p className="text-[10px] text-stone-500 font-mono text-center">
+                            ⏱️ Demora 2 minutos. {formData.recipientGender === 'Masculino' ? 'Ele' : 'Ela'} vai ouvir ainda hoje.
+                          </p>
+                          <p className="text-[9px] text-rose-400/50 font-mono text-center italic">
+                            ⏳ A letra e a música que criou para {formData.recipientName.split(' ')[0]} estão prontas. Se sair agora, perde esta página e o desconto de 30%.
+                          </p>
+
+                          <p className="text-[10px] text-emerald-500/70 font-mono text-center flex items-center justify-center gap-1">
+                            <span>🛡️</span>
+                            <span>Entregamos a música ou devolvemos. Pode editar a letra à vontade.</span>
+                          </p>
+
+                          {paymentSubmitError && (
+                            <>
+                              <p className="text-rose-400 text-xs font-mono text-left">{paymentSubmitError}</p>
+                              <div className="flex justify-start">
+                                <WhatsAppHelp context="pagamento" label="Falar com apoio" />
+                              </div>
+                            </>
+                          )}
                         </>
                       )}
-
-                      <p className="text-[10px] text-emerald-500/70 font-mono text-center flex items-center justify-center gap-1">
-                        <span>🛡️</span>
-                        <span>Entregamos a música ou devolvemos. Pode editar a letra à vontade.</span>
-                      </p>
-
-                      <button
-                        type="button"
-                        onClick={submitPaymentProof}
-                        disabled={!proofFile || paymentSubmitting}
-                        className="w-full py-3 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 disabled:from-stone-800 disabled:to-stone-850 disabled:text-stone-500 text-stone-950 font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 cursor-pointer"
-                      >
-                        {paymentSubmitting ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 animate-spin text-stone-950" />
-                            <span>A Enviar Comprovativo...</span>
-                          </>
-                        ) : (
-                          <>
-                            <ShieldCheck className="w-4 h-4 text-stone-950" />
-                            <span>Confirmar e Enviar Comprovativo</span>
-                          </>
-                        )}
-                      </button>
                     </div>
                   ) : paymentStatus === 'rejected' ? (
                     <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-4 text-left space-y-3">
