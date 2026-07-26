@@ -689,7 +689,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
     const parsedAmount = typeof amount === 'string' ? parseAngolanAmount(amount) : typeof amount === 'number' && !isNaN(amount) ? amount : 0;
     const ALLOWED_AMOUNTS: Record<string, number[]> = {
       standard: [7900],
-      express: [9900, 14900],
+      express: [9900],
       premium: [14900],
     };
     if (!ALLOWED_AMOUNTS[plan]?.includes(parsedAmount)) {

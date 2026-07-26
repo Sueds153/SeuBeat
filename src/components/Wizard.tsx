@@ -2051,7 +2051,7 @@ const ROTATING_MESSAGES = [
               <button
                 id="upsell-accept-btn"
                 onClick={() => {
-                  setSelectedPlanID('express');
+                  setSelectedPlanID('premium');
                   setVoiceUpsellApplied(true);
                   setShowUpsellModal(false);
                   setShowVoiceCloningScreen(true);
