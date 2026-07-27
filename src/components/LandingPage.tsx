@@ -175,7 +175,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       {/* ─── PROMO BAR ─── */}
       <div className="w-full bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-stone-950 text-center py-2 max-sm:py-1.5 px-4 text-xs max-sm:text-[10px] max-sm:leading-tight font-bold tracking-wide animate-pulse-slow z-50 relative">
         🔥 +{todayCount} músicas{'\u00A0'}·{' '}
-        <span className="underline underline-offset-2">30% OFF</span>{' '}
+        <span className="underline underline-offset-2">Oferta</span>{' '}
         {promoActive ? (
           <>
             <span className="max-sm:hidden">termina em </span>

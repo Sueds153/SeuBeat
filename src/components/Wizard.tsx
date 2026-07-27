@@ -1808,6 +1808,9 @@ const ROTATING_MESSAGES = [
               💬 {LIVE_ACTIVITIES[liveActivityIdx].text}<br />
               <span className="text-amber-400/80">— {LIVE_ACTIVITIES[liveActivityIdx].name}</span><span className="text-stone-600"> · agora</span>
             </p>
+            <p className="text-center text-[10px] font-mono text-emerald-500/70">
+              👥 <strong className="text-emerald-400">+{todayCount}</strong> já pagaram hoje
+            </p>
 
             {/* EXPRESS — hero */}
             <div className="bg-stone-900/40 rounded-2.5xl p-5 border-2 border-amber-500/70 shadow-2xl relative space-y-4">
@@ -1890,7 +1893,7 @@ const ROTATING_MESSAGES = [
 
             {/* Loss aversion */}
             <p className="text-center text-[10px] text-rose-400/60 font-mono italic">
-              ⏳ Se não escolher agora, a letra que criou para {formData.recipientName.split(' ')[0]} fica guardada — mas a poupança de 30% não espera para sempre.
+              ⏳ A letra está guardada, mas esta página expira em {String(persistentMin).padStart(2, '0')}:{String(persistentSec).padStart(2, '0')} e o progresso perde-se.
             </p>
             <p className="text-center text-xs text-stone-400 font-serif italic">
               O melhor presente que {formData.recipientGender === 'Masculino' ? 'ele' : 'ela'} já vai receber. E vais ser tu a dar.
