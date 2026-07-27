@@ -1813,8 +1813,8 @@ const ROTATING_MESSAGES = [
               💬 {LIVE_ACTIVITIES[liveActivityIdx].text}<br />
               <span className="text-amber-400/80">— {LIVE_ACTIVITIES[liveActivityIdx].name}</span><span className="text-stone-600"> · agora</span>
             </p>
-            <p className="text-center text-[10px] font-mono text-emerald-500/70">
-              👥 <strong className="text-emerald-400">+{todayCount}</strong> já pagaram hoje
+            <p className="text-center text-[10px] font-mono text-amber-400/90">
+              🔥 <strong className="text-amber-300">+{todayCount}</strong> músicas · Oferta expira em <span className="text-rose-400">{String(persistentMin).padStart(2, '0')}:{String(persistentSec).padStart(2, '0')}</span>
             </p>
 
             {/* EXPRESS — hero */}
@@ -1896,10 +1896,6 @@ const ROTATING_MESSAGES = [
               </p>
             </div>
 
-            {/* Loss aversion */}
-            <p className="text-center text-[10px] text-rose-400/60 font-mono italic">
-              ⏳ A letra está guardada, mas esta página expira em {String(persistentMin).padStart(2, '0')}:{String(persistentSec).padStart(2, '0')} e o progresso perde-se.
-            </p>
             <p className="text-center text-xs text-stone-400 font-serif italic">
               O melhor presente que {formData.recipientGender === 'Masculino' ? 'ele' : 'ela'} já vai receber. E vais ser tu a dar.
             </p>
