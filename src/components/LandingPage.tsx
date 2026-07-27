@@ -60,11 +60,11 @@ const OCCASIONS = [
 
 const OCCASION_REPLIES: Record<string, { msg: string; style: string }> = {
   'Aniversário de Casamento': { msg: 'Uma vida partilhada merece uma banda sonora à altura.', style: 'Kizomba' },
-  'Declaração de Amor': { msg: 'Nada diz "amo-te" como uma canção feita só para ela.', style: 'Semba' },
+  'Declaração de Amor': { msg: 'Nada diz "amo-te" como uma canção feita só para essa pessoa especial.', style: 'Semba' },
   'Aniversário': { msg: 'O melhor presente não se embrulha — ouve-se.', style: 'Pop' },
   'Para a Mãe': { msg: 'Mãe é única. A música também vai ser.', style: 'Gospel' },
   'Agradecimento': { msg: 'Gratidão que se canta, nunca se esquece.', style: 'Kizomba' },
-  'Em Memória': { msg: 'Quem vive no coração nunca parte. Eterniza-o.', style: 'Semba' },
+  'Em Memória': { msg: 'Quem vive no coração nunca parte. Eterniza essa memória em música.', style: 'Semba' },
 };
 
 const HERO_VARIANTS = [
@@ -171,6 +171,22 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
   return (
     <div id="landing-page-root" className="relative min-h-screen bg-[#151210] text-stone-100 selection:bg-amber-500/30 selection:text-amber-200">
+      <style>{`
+        @keyframes glow-pulse {
+          0%, 100% { box-shadow: 0 0 20px rgba(245,158,11,0.2), 0 0 40px rgba(245,158,11,0.1); }
+          50% { box-shadow: 0 0 32px rgba(245,158,11,0.45), 0 0 60px rgba(245,158,11,0.2); }
+        }
+        .animate-glow-pulse {
+          animation: glow-pulse 2s ease-in-out infinite;
+        }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        details[open] > div.faq-body { animation: faq-open 0.25s ease-out; }
+        @keyframes faq-open {
+          from { opacity: 0; max-height: 0; }
+          to { opacity: 1; max-height: 500px; }
+        }
+      `}</style>
 
       {/* ─── PROMO BAR ─── */}
       <div className="w-full bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-stone-950 text-center py-2 max-sm:py-1.5 px-4 text-xs max-sm:text-[10px] max-sm:leading-tight font-bold tracking-wide animate-pulse-slow z-50 relative">
@@ -329,7 +345,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 <button
                   id="hero-primary-cta"
                   onClick={onStartWizard}
-                  className="px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm md:text-base rounded-full shadow-xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all inline-flex items-center justify-center gap-2 cursor-pointer"
+                  className="px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm md:text-base rounded-full shadow-xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all inline-flex items-center justify-center gap-2 cursor-pointer animate-glow-pulse"
                 >
                   <span>Criar Minha Música</span>
                   <ArrowRight className="w-5 h-5 shrink-0" />
@@ -427,8 +443,12 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               { step: 'II', title: 'O Estúdio cria a música', desc: 'A nossa tecnologia transforma as tuas respostas numa letra emocionante com vozes naturais e instrumentação profissional — no ritmo de Kizomba, Semba ou Pop favorito.', color: 'text-rose-400 bg-rose-500/10 border-rose-500/20' },
               { step: 'III', title: 'Surpreenda alguém especial', desc: 'Receba uma página de dedicatória lindíssima com a letra sincronizada e leitor interativo. Prepare os lenços — as lágrimas são garantidas.', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
             ].map((item, idx) => (
-              <div
+              <motion.div
                 key={idx}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: '-50px' }}
+                transition={{ duration: 0.4, delay: idx * 0.12, ease: 'easeOut' }}
                 className="bg-stone-900/20 border border-stone-850 p-6 md:p-8 rounded-2xl space-y-4 text-left relative overflow-hidden group hover:border-stone-800 transition-colors"
               >
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-serif font-bold text-2xl border ${item.color}`}>
@@ -436,7 +456,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 </div>
                 <h3 className="font-serif text-lg md:text-xl font-medium text-stone-200">{item.title}</h3>
                 <p className="text-stone-400 text-xs md:text-sm leading-relaxed">{item.desc}</p>
-              </div>
+              </motion.div>
             ))}
           </div>
         </div>
@@ -636,7 +656,13 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       </section>
 
       {/* ─── 7. TESTIMONIALS ─── */}
-      <section className="py-20 border-t border-stone-900/60 max-w-7xl mx-auto px-4 md:px-8 text-center space-y-14">
+      <motion.section
+        initial={{ opacity: 0, x: -30 }}
+        whileInView={{ opacity: 1, x: 0 }}
+        viewport={{ once: true, margin: '-50px' }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="py-20 border-t border-stone-900/60 max-w-7xl mx-auto px-4 md:px-8 text-center space-y-14"
+      >
         <div className="max-w-2xl mx-auto space-y-3">
           <span className="text-amber-500 text-xs font-mono font-bold uppercase tracking-widest block">Corações Conquistados</span>
           <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
@@ -647,10 +673,16 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           </p>
         </div>
         <Testimonials />
-      </section>
+      </motion.section>
 
       {/* ─── 8. CTA FINAL ─── */}
-      <section className="py-24 px-4 md:px-8 relative">
+      <motion.section
+        initial={{ opacity: 0, scale: 0.95 }}
+        whileInView={{ opacity: 1, scale: 1 }}
+        viewport={{ once: true, margin: '-50px' }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="py-24 px-4 md:px-8 relative"
+      >
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-950/10 to-transparent pointer-events-none" />
         <div className="max-w-2xl mx-auto text-center space-y-8 relative z-10">
           <div className="space-y-4">
@@ -691,7 +723,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             </span>
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* ─── 9. FAQ ─── */}
       <section id="faq-section" className="py-20 border-t border-stone-900/60 bg-stone-950 px-4 md:px-8 text-center space-y-12">
