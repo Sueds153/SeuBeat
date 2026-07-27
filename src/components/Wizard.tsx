@@ -300,10 +300,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [persistentRemaining, setPersistentRemaining] = useState(getPersistentRemaining);
   const persistentMin = Math.floor(persistentRemaining / 60);
   const persistentSec = persistentRemaining % 60;
-  const [flashActive, setFlashActive] = useState(false);
-  const [flashTimer, setFlashTimer] = useState(600);
-  const [flashPriceUsed, setFlashPriceUsed] = useState(false);
-  const flashToastShown = useRef(false);
   const [conversionStep, setConversionStep] = useState<'preview' | 'plans'>('preview');
   const [liveActivityIdx, setLiveActivityIdx] = useState(0);
 
@@ -334,24 +330,13 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       .catch(() => {});
   }, []);
 
-  // Iniciar flash sale e definir ecrã de preview quando a letra fica pronta
+  // Definir ecrã de preview quando a letra fica pronta
   useEffect(() => {
     if (generationStatus === 'lyrics_ready') {
-      setFlashActive(true);
       setConversionStep('preview');
       const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
       const plan = selectedPlanID || 'standard';
       fbViewContent(plan, PLAN_VALUES[plan], 'AOA', crypto.randomUUID());
-
-      const stored = sessionStorage.getItem('seubeat_flash_expires_at');
-      if (stored) {
-        const remaining = Math.max(0, Math.floor((parseInt(stored, 10) - Date.now()) / 1000));
-        setFlashTimer(remaining);
-      } else {
-        sessionStorage.setItem('seubeat_flash_expires_at', String(Date.now() + 600000));
-        setFlashTimer(600);
-      }
-      flashToastShown.current = false;
     }
   }, [generationStatus]);
 
@@ -362,29 +347,6 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
-
-  // Flash sale countdown (10 min) com persistência em sessionStorage
-  useEffect(() => {
-    if (!flashActive || flashTimer <= 0) return;
-    const interval = setInterval(() => {
-      setFlashTimer(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [flashActive]);
-
-  // Toast quando o flash termina
-  useEffect(() => {
-    if (flashTimer === 0 && flashActive && !flashToastShown.current) {
-      flashToastShown.current = true;
-      showToast('A oferta relâmpago do Express terminou — o preço voltou ao valor normal.', 'info');
-    }
-  }, [flashTimer, flashActive]);
 
   const wrappedSetFormData: React.Dispatch<React.SetStateAction<WizardData>> = (action) => {
     setFormData(action);
@@ -768,12 +730,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
   // Live activity rotator
   useEffect(() => {
-    if (!flashActive) return;
     const interval = setInterval(() => {
       setLiveActivityIdx(i => (i + 1) % LIVE_ACTIVITIES.length);
     }, 5000);
     return () => clearInterval(interval);
-  }, [flashActive]);
+  }, []);
 
   // Payment social proof rotator
   useEffect(() => {
@@ -1213,9 +1174,8 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       return;
     }
 
-    if (pId === 'express' && flashTimer > 0) setFlashPriceUsed(true);
     setSelectedPlanID(pId);
-    const PLAN_VALUES: Record<string, number> = { standard: 7900, express: flashTimer > 0 ? 6900 : 9900, premium: 14900 };
+    const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
     fbAddPaymentInfo(pId, PLAN_VALUES[pId], 'AOA', crypto.randomUUID());
     if (pId === 'premium') {
       setVoiceUpsellApplied(true);
@@ -1229,14 +1189,14 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 
   const getPrice = () => {
     if (voiceUpsellApplied) return '14.900 Kz';
-    if (selectedPlanID === 'express') return flashPriceUsed || flashTimer > 0 ? '6.900 Kz' : '9.900 Kz';
+    if (selectedPlanID === 'express') return '9.900 Kz';
     if (selectedPlanID === 'premium') return '14.900 Kz';
     return '7.900 Kz'; // standard
   };
 
   const getPriceNumber = (): number => {
     if (voiceUpsellApplied) return 14900;
-    if (selectedPlanID === 'express') return flashPriceUsed || flashTimer > 0 ? 6900 : 9900;
+    if (selectedPlanID === 'express') return 9900;
     if (selectedPlanID === 'premium') return 14900;
     return 7900;
   };
@@ -1681,16 +1641,11 @@ const ROTATING_MESSAGES = [
               ✅ História · ✅ Letra · 🟡 Música · ⬜ {formData.recipientGender === 'Masculino' ? 'Ele' : 'Ela'}
             </p>
 
-            {/* Preço âncora + urgência */}
+            {/* Preço âncora */}
             <div className="text-center space-y-0.5">
               <p className="text-[10px] font-mono text-stone-500">
-                🎁 A partir de 6.900 Kz · Pago único
+                🎁 A partir de 7.900 Kz · Pago único
               </p>
-              {flashTimer > 0 && (
-                <p className="text-[10px] font-mono text-red-400/80">
-                  ⏱️ Preço relâmpago termina em {Math.floor(flashTimer / 60)}:{String(flashTimer % 60).padStart(2, '0')}
-                </p>
-              )}
             </div>
 
             {/* Dedication Preview — grande e visual */}
@@ -1857,37 +1812,21 @@ const ROTATING_MESSAGES = [
             {/* EXPRESS — hero */}
             <div className="bg-stone-900/40 rounded-2.5xl p-5 border-2 border-amber-500/70 shadow-2xl relative space-y-4">
               <div className="absolute -top-3 right-4 bg-gradient-to-r from-amber-500 to-rose-500 text-stone-950 font-mono text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
-                {flashTimer > 0 ? '🔥 OFERTA RELÂMPAGO' : '🔥 MAIS POPULAR'}
+                🔥 + ADQUIRIDO
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="font-serif text-lg font-bold text-amber-300">EXPRESS ⚡</h4>
                   <p className="text-amber-500/80 text-xs">Entrega imediata + Dueto</p>
                 </div>
-                {flashTimer > 0 && (
-                  <span className="text-[11px] font-mono font-bold text-red-400">
-                    ⏱️ {Math.floor(flashTimer / 60)}:{String(flashTimer % 60).padStart(2, '0')}
-                  </span>
-                )}
               </div>
               <div className="text-left">
-                {flashTimer > 0 ? (
-                  <div className="flex items-baseline gap-1.5 flex-wrap">
-                    <span className="text-sm text-stone-600 line-through">13.500 Kz</span>
-                    <span className="text-sm text-stone-600 line-through">9.900 Kz</span>
-                    <span className="text-2xl font-serif font-black text-amber-300">6.900 Kz</span>
-                  </div>
-                ) : (
-                  <span className="text-2xl font-serif font-black text-stone-100">9.900 Kz</span>
-                )}
+                <span className="text-2xl font-serif font-black text-stone-100">9.900 Kz</span>
               </div>
               <ul className="text-xs text-stone-400 space-y-1.5">
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500 shrink-0" /> Tudo do Standard + Voz em Dueto</li>
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-500 shrink-0" /> Entrega imediata após aprovação</li>
               </ul>
-              {flashTimer > 0 && (
-                <p className="text-center text-[10px] text-red-400/80 font-mono">⏱️ Este preço é para quem decide agora</p>
-              )}
               <button
                 id="express-plan-btn"
                 onClick={() => handlePlanSelection('express')}
@@ -1897,8 +1836,6 @@ const ROTATING_MESSAGES = [
               </button>
             </div>
 
-            {flashTimer === 0 && (
-            <>
             {/* STANDARD */}
             <div className="bg-stone-900/40 rounded-2.5xl p-5 border border-stone-850 space-y-4">
               <div>
@@ -1921,7 +1858,6 @@ const ROTATING_MESSAGES = [
                 Receber amanhã
               </button>
             </div>
-            </>)}
 
             {/* Premium add-on info */}
             <div className="bg-stone-900/20 rounded-2xl p-4 border border-dashed border-purple-800/40 space-y-2">
