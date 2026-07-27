@@ -22,11 +22,12 @@ interface StepProps {
   handlePhotoChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   suggestTab: 'viagem' | 'romance' | 'divertido' | 'quotidiano';
   setSuggestTab: React.Dispatch<React.SetStateAction<'viagem' | 'romance' | 'divertido' | 'quotidiano'>>;
+  todayCount: number;
 }
 
 export function Step1Relation({
-  formData, setFormData, relationshipCards, fieldErrors
-}: Pick<StepProps, 'formData' | 'setFormData' | 'relationshipCards' | 'fieldErrors'>) {
+  formData, setFormData, relationshipCards, fieldErrors, todayCount
+}: Pick<StepProps, 'formData' | 'setFormData' | 'relationshipCards' | 'fieldErrors' | 'todayCount'>) {
   return (
     <div className="space-y-4 pt-2">
       <label className="text-xs font-mono text-stone-400 block font-semibold">Para quem é esta canção? (Selecione)</label>
@@ -140,11 +141,11 @@ export function Step1Relation({
         </p>
       </div>
       <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        {formData.recipientRelation === 'Mãe' ? '🤱 Já criámos músicas para mais de 200 mães angolanas — a sua pode ser a próxima.' :
-         formData.recipientRelation === 'Namorado' || formData.recipientRelation === 'Esposa' || formData.recipientRelation === 'Marido' ? '💕 Mais de 500 declarações de amor já viraram música — junte-se a quem já emocionou quem ama.' :
-         formData.recipientRelation === 'Pai' ? '⭐ Mais de 150 músicas já foram criadas para pais — mostre o seu amor de uma forma única.' :
-         formData.recipientRelation === 'Filho' ? '👶 Mais de 200 músicas já foram criadas para filhos — eternize este momento.' :
-         '🎵 Milhares de músicas já foram criadas — a sua pode ser a próxima.'}
+        {formData.recipientRelation === 'Mãe' ? `🤱 +${todayCount} já fizeram para uma mãe` :
+         formData.recipientRelation === 'Namorado' || formData.recipientRelation === 'Esposa' || formData.recipientRelation === 'Marido' ? `💕 +${todayCount} declarações em música` :
+         formData.recipientRelation === 'Pai' ? `⭐ +${todayCount} já fizeram para um pai` :
+         formData.recipientRelation === 'Filho' ? `👶 +${todayCount} músicas para filhos` :
+         `🎵 +${todayCount} músicas criadas`}
       </p>
     </div>
   );
@@ -212,8 +213,8 @@ export function Step2Occasion({
 }
 
 export function Step3Style({
-  formData, setFormData, musicStyleCards, artistCards, fieldErrors
-}: Pick<StepProps, 'formData' | 'setFormData' | 'musicStyleCards' | 'artistCards' | 'fieldErrors'>) {
+  formData, setFormData, musicStyleCards, artistCards, fieldErrors, todayCount
+}: Pick<StepProps, 'formData' | 'setFormData' | 'musicStyleCards' | 'artistCards' | 'fieldErrors' | 'todayCount'>) {
   return (
     <div className="space-y-4 pt-2">
       <div>
@@ -279,7 +280,7 @@ export function Step3Style({
       <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
         {formData.musicStyle === 'Kizomba' ? '💃 A Kizomba é o estilo mais escolhido — perfeito para histórias de amor.' :
          formData.musicStyle === 'Semba' ? '🎸 O Semba é a alma musical de Angola — uma escolha cheia de tradição.' :
-         formData.musicStyle === 'Gospel' ? '✨ O Gospel é o estilo que mais emociona — mais de 100 músicas já foram criadas.' :
+         formData.musicStyle === 'Gospel' ? `✨ Gospel: +${todayCount} músicas criadas` :
          '🎙️ No próximo passo: escolher quem vai cantar esta história'}
       </p>
     </div>
@@ -335,7 +336,7 @@ export function Step5Traits({
     <div className="space-y-4 pt-2">
       <div className="space-y-2">
         <label className="text-xs font-mono text-stone-400 block font-semibold">
-          O que torna esta pessoa especial? <span className="text-rose-500 font-black">*Obrigatório</span>
+          O que mais amas nessa pessoa? <span className="text-rose-500 font-black">*Obrigatório</span>
         </label>
         <textarea
           id="makes-special-textarea"
@@ -372,7 +373,7 @@ export function Step5Traits({
 
       <div className="space-y-2 pt-2 border-t border-stone-900">
         <label className="text-xs font-mono text-stone-400 block font-semibold">
-          O que só essa pessoa faz? (Manias, hábitos)
+          O que ela faz que ninguém mais faz?
         </label>
         <textarea
           id="only-she-does-textarea"

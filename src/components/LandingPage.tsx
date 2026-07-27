@@ -290,7 +290,13 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Lançamento Exclusivo em Angola</span>
               </div>
-              <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl text-stone-100 tracking-tight leading-[1.4]">
+              <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl text-stone-100 tracking-tight leading-[1.3]">
+                Flores murcham. Chocolate acaba.
+              </h1>
+              <p className="font-serif text-2xl sm:text-3xl md:text-4xl text-amber-400 tracking-tight leading-[1.3]">
+                Uma música<span className="text-stone-100"> dura para sempre!</span>
+              </p>
+              <p className="text-stone-400 text-sm md:text-base max-w-lg leading-relaxed">
                 Transforme a sua história{' '}
                 <AnimatePresence mode="wait">
                   <motion.span
@@ -304,15 +310,6 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                     {HERO_VARIANTS[heroIdx]}
                   </motion.span>
                 </AnimatePresence>
-              </h1>
-              <p className="text-stone-400 text-sm md:text-base max-w-lg leading-relaxed">
-                Surpreenda quem mais ama com uma canção premium personalizada — Kizomba, Semba ou Pop Romântico. As suas memórias, cantadas para sempre.
-              </p>
-              <p className="text-amber-400/80 text-xs font-mono mt-1">
-                Em 3 minutos. Sem saber cantar. Sem instrumentos.
-              </p>
-              <p className="text-stone-400 text-sm leading-relaxed italic">
-                Flores murcham. Chocolate acaba. Uma música dura para sempre!
               </p>
             </div>
 

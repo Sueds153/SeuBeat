@@ -5,6 +5,7 @@ interface Testimonial {
   name: string;
   role: string;
   location: string;
+  punchline: string;
   content: string;
   songCreated: string;
   photoColor: string;
@@ -16,6 +17,7 @@ const TESTIMONIALS_DATA: Testimonial[] = [
     name: "Rui dos Santos",
     role: "Marido Apaixonado",
     location: "Luanda",
+    punchline: "Ela desabou em lágrimas. Foi indescritível!",
     content: "Não sei cantar nem sei escrever poesia, mas queria muito dar algo pessoal à Cláudia no nosso aniversário de 10 anos. A música superou tudo o que sonhava. Quando começou a tocar e o cantor pronunciou o nome dela e a piada das nossas viagens à Mussulo, ela desabou em lágrimas. Foi indescritível!",
     songCreated: "Kizomba Romântica • Cláudia",
     photoColor: "from-amber-600 to-rose-700",
@@ -25,6 +27,7 @@ const TESTIMONIALS_DATA: Testimonial[] = [
     name: "Delfina Neto",
     role: "Filha Grata",
     location: "Lobito",
+    punchline: "Foi o presente mais lindo de toda a vida dela.",
     content: "Criei um Semba lindo para o Aniversário da minha Mãe Maria. Ela ouve todos os dias ao acordar e já enviou a música a todas as amigas no grupo de WhatsApp lá da paróquia. Diz que foi o presente mais lindo de toda a vida dela. Podem fazer sem medo, vale cada kwanza!",
     songCreated: "Semba Tradicional • Mãe Maria",
     photoColor: "from-emerald-600 to-amber-700",
@@ -34,6 +37,7 @@ const TESTIMONIALS_DATA: Testimonial[] = [
     name: "Mateus Camilo",
     role: "Namorado Romântico",
     location: "Talatona",
+    punchline: "Ela disse SIM. Foi perfeito.",
     content: "Usei o plano de voz de estúdio personalizada para pedi-la em casamento. Gravei o meu tom lírico no telemóvel e as linhas vocais assumiram a minha própria assinatura num Pop acústico clássico. Ela sentiu toda a emoção e dedicação de estúdio real! Obviamente que ela disse SIM. Ganhei pontos para a vida toda.",
     songCreated: "Pop Acústico (Voz Customizada) • Irina",
     photoColor: "from-blue-600 to-rose-700",
@@ -67,9 +71,19 @@ export default function Testimonials() {
             </div>
 
             {/* Testimonial Quote */}
-            <p className="text-stone-300 font-sans text-sm md:text-base leading-relaxed italic relative z-10">
-              "{t.content}"
-            </p>
+            <div>
+              <p className="text-stone-200 font-serif text-base leading-relaxed relative z-10 font-semibold">
+                "{t.punchline}"
+              </p>
+              <details className="group mt-2">
+                <summary className="text-[10px] text-stone-500 hover:text-amber-400 font-mono cursor-pointer list-none select-none">
+                  Ler história completa ▾
+                </summary>
+                <p className="text-stone-400 font-sans text-xs leading-relaxed mt-2 italic border-l-2 border-stone-800 pl-3">
+                  "{t.content}"
+                </p>
+              </details>
+            </div>
           </div>
 
           {/* User Bio Footer */}

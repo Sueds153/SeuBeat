@@ -1767,6 +1767,11 @@ const ROTATING_MESSAGES = [
               Já imaginaste a cara {formData.recipientGender === 'Masculino' ? 'do' : 'da'} <strong className="text-amber-400">{formData.recipientName || (formData.recipientGender === 'Masculino' ? 'alguém especial' : 'alguém especial')}</strong> a ouvir o <strong className="text-amber-400/80">NOME {formData.recipientGender === 'Masculino' ? 'DELE' : 'DELA'}</strong> cantado? 🥹
             </p>
 
+            {/* Dor da indiferença */}
+            <p className="text-center text-[10px] text-rose-400/40 font-mono italic leading-relaxed">
+              🎁 Este presente já devia ter sido entregue no ano passado.
+            </p>
+
             {/* CTA principal — ocupar ecrã inteiro no mobile */}
             <button
               onClick={() => setConversionStep('plans')}
@@ -2436,7 +2441,7 @@ const ROTATING_MESSAGES = [
                             ⏱️ Demora 2 minutos. {formData.recipientGender === 'Masculino' ? 'Ele' : 'Ela'} vai ouvir ainda hoje.
                           </p>
                           <p className="text-[9px] text-rose-400/50 font-mono text-center italic">
-                            ⏳ A letra e a música que criou para {formData.recipientName.split(' ')[0]} estão prontas. Se sair agora, perde esta página e o desconto de 30%.
+                            ⏳ A letra e a música que criou para {formData.recipientName.split(' ')[0]} estão prontas. Se sair agora, a página expira e o progresso perde-se.
                           </p>
 
                           <p className="text-[10px] text-emerald-500/70 font-mono text-center flex items-center justify-center gap-1">
@@ -2763,6 +2768,7 @@ const ROTATING_MESSAGES = [
                         setFormData={wrappedSetFormData}
                         relationshipCards={RELATIONSHIP_CARDS}
                         fieldErrors={fieldErrors}
+                        todayCount={todayCount}
                       />
                     </StepErrorBoundary>
                   )}
@@ -2786,6 +2792,7 @@ const ROTATING_MESSAGES = [
                         musicStyleCards={MUSIC_STYLE_CARDS}
                         artistCards={ARTIST_CARDS}
                         fieldErrors={fieldErrors}
+                        todayCount={todayCount}
                       />
                     </StepErrorBoundary>
                   )}
