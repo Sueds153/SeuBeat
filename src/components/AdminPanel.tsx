@@ -4,13 +4,31 @@ import {
   Clock, RefreshCw, Eye, LogOut, ChevronDown, ChevronRight,
   Download, Play, AlertTriangle, Sparkles, TrendingUp, Shield,
   Activity, RotateCcw, Mic, Mail, Pencil, Upload, Search, FileText, ExternalLink, List, Zap,
-  Menu, X
+  Menu, Megaphone, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LogoIcon from './LogoIcon';
 import WhatsAppHelp from './WhatsAppHelp';
 
 const ADMIN_PASSWORD_KEY = 'seubeat_admin_auth';
+
+const NAV_ITEMS = [
+  { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
+  { id: 'payments', label: 'Pagamentos', icon: CreditCard },
+  { id: 'requests', label: 'Pedidos', icon: Music },
+  { id: 'songs', label: 'Músicas', icon: Sparkles },
+  { id: 'clients', label: 'Clientes', icon: Users },
+  { id: 'metrics', label: 'Métricas', icon: TrendingUp },
+  { id: 'campaigns', label: 'Campanhas', icon: Megaphone },
+  { id: 'credits', label: 'Créditos API', icon: Activity },
+  { id: 'diagnostics', label: 'Diagnóstico', icon: Shield },
+];
+
+const REJECT_TEMPLATES = [
+  { label: 'Comprovativo ilegível', value: 'O comprovativo enviado está ilegível. Por favor, envie uma foto mais nítida do comprovativo de pagamento.' },
+  { label: 'Valor incorreto', value: 'O valor do pagamento não corresponde ao plano selecionado. Por favor, verifique e envie o valor correto.' },
+  { label: 'Dados incompletos', value: 'Os dados enviados estão incompletos. Por favor, preencha todos os campos obrigatórios e tente novamente.' },
+];
 
 interface Stats {
   totalUsers: number;
@@ -119,6 +137,16 @@ interface CreditsResult {
   };
 }
 
+interface CampaignRow {
+  campaign: string;
+  source: string;
+  medium: string;
+  total_requests: number;
+  converted: number;
+  delivered: number;
+  revenue: number;
+}
+
 interface ProgressEntry {
   status: string;
   progress: number;
@@ -126,7 +154,7 @@ interface ProgressEntry {
   error?: string;
 }
 
-type AdminView = 'dashboard' | 'payments' | 'requests' | 'songs' | 'clients' | 'credits' | 'diagnostics' | 'metrics';
+type AdminView = 'dashboard' | 'payments' | 'requests' | 'songs' | 'clients' | 'credits' | 'diagnostics' | 'metrics' | 'campaigns';
 
 const STATUS_COLORS: Record<string, string> = {
   pending_verification: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
@@ -224,6 +252,62 @@ const VALID_STATUSES_FRONTEND: Record<string, { label: string; value: string }[]
   ],
 };
 
+// ─── STAT CARD ───
+const StatCard = ({ icon: Icon, label, value, color, subtitle, onClick }: {
+  icon: any; label: string; value: string | number; color: string; subtitle?: string; onClick?: () => void;
+}) => {
+  const Comp = onClick ? 'button' : 'div';
+  return (
+    <Comp onClick={onClick} className={`bg-stone-900/50 border border-stone-800 rounded-2xl p-5 flex items-start gap-4 ${onClick ? 'cursor-pointer hover:bg-stone-800/40 hover:border-amber-500/20 active:scale-[0.98] transition-all text-left w-full' : ''}`}>
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <div>
+        <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">{label}</p>
+        <p className="text-2xl font-bold font-mono text-stone-100 mt-0.5">{value}</p>
+        {subtitle && <p className="text-[10px] text-stone-600 mt-0.5">{subtitle}</p>}
+      </div>
+    </Comp>
+  );
+};
+
+const PLAN_COLORS: Record<string, string> = {
+  standard: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  express: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+  premium: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+};
+
+const PlanBadge = ({ plan }: { plan?: string }) => {
+  if (!plan) return null;
+  const color = PLAN_COLORS[plan.toLowerCase()] || 'bg-stone-700/50 text-stone-400 border-stone-700';
+  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${color} whitespace-nowrap uppercase`}>{plan}</span>;
+};
+
+const DiagBadge = ({ ok, label, detail }: { ok: boolean; label: string; detail?: string }) => (
+  <div className={`flex items-start gap-3 p-3 rounded-xl border ${ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-rose-500/20 bg-rose-500/5'}`}>
+    <div className={`mt-0.5 w-4 h-4 shrink-0 ${ok ? 'text-emerald-400' : 'text-rose-400'}`}>
+      {ok ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+    </div>
+    <div>
+      <p className={`text-xs font-mono font-bold ${ok ? 'text-emerald-400' : 'text-rose-400'}`}>{label}</p>
+      {detail && <p className="text-[10px] text-stone-500 mt-0.5">{detail}</p>}
+    </div>
+  </div>
+);
+
+const Pagination = ({ page, totalPages, setPage }: { page: number; totalPages: number; setPage: (n: number) => void }) => {
+  if (totalPages <= 1) return null;
+  return (
+    <div className="flex items-center justify-center gap-2 py-3">
+      <button onClick={() => setPage(1)} disabled={page <= 1} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">«</button>
+      <button onClick={() => setPage(page - 1)} disabled={page <= 1} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">‹</button>
+      <span className="text-[10px] font-mono text-stone-500 px-2">{page} / {totalPages}</span>
+      <button onClick={() => setPage(page + 1)} disabled={page >= totalPages} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">›</button>
+      <button onClick={() => setPage(totalPages)} disabled={page >= totalPages} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">»</button>
+    </div>
+  );
+};
+
 export default function AdminPanel() {
   const [authenticated, setAuthenticated] = useState(() => {
     return !!sessionStorage.getItem('seubeat_admin_token');
@@ -269,6 +353,8 @@ export default function AdminPanel() {
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [profitability, setProfitability] = useState<any>(null);
   const [profitLoading, setProfitLoading] = useState(false);
+  const [campaigns, setCampaigns] = useState<CampaignRow[] | null>(null);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
   const [logsModal, setLogsModal] = useState<{ id: string; loading: boolean; logs: any[] } | null>(null);
   const [previewLyrics, setPreviewLyrics] = useState<{ title: string; lyrics: string[]; letterText?: string } | null>(null);
   const [notification, setNotification] = useState<{ message: string } | null>(null);
@@ -496,6 +582,14 @@ export default function AdminPanel() {
     setProfitLoading(false);
   }, [adminToken, apiFetch]);
 
+  const fetchCampaigns = useCallback(async () => {
+    if (!adminToken) return;
+    setCampaignsLoading(true);
+    const data = await apiFetch('/api/admin/utm-stats');
+    if (data?.data) setCampaigns(data.data);
+    setCampaignsLoading(false);
+  }, [adminToken, apiFetch]);
+
   const fetchLogs = useCallback(async (requestId: string) => {
     setLogsModal({ id: requestId, loading: true, logs: [] });
     const d = await apiFetch(`/api/admin/request/${requestId}/logs`);
@@ -567,6 +661,7 @@ export default function AdminPanel() {
     else if (activeView === 'credits') fetchCredits();
     else if (activeView === 'diagnostics') fetchDiagnostics();
     else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
+    else if (activeView === 'campaigns') fetchCampaigns();
     else if (activeView === 'clients') fetchClientsList();
   }, [authenticated, activeView]);
 
@@ -586,6 +681,7 @@ export default function AdminPanel() {
     else if (activeView === 'songs') fetchSongs();
     else if (activeView === 'clients') fetchClientsList();
     else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
+    else if (activeView === 'campaigns') fetchCampaigns();
     else if (activeView === 'credits') fetchCredits();
     else if (activeView === 'diagnostics') fetchDiagnostics();
   }, [activeView, fetchPayments, fetchRequests, fetchSongs, fetchClientsList, fetchMetrics, fetchProfitability, fetchCredits, fetchDiagnostics]);
@@ -606,6 +702,7 @@ export default function AdminPanel() {
     else if (activeView === 'credits') fetchCredits();
     else if (activeView === 'diagnostics') fetchDiagnostics();
     else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
+    else if (activeView === 'campaigns') fetchCampaigns();
     else if (activeView === 'clients') fetchClientsList();
     resetViewPoll();
   }, [activeView, fetchStats, fetchPayments, fetchRequests, fetchProgress, fetchSongs, fetchCredits, fetchDiagnostics, fetchMetrics, fetchProfitability, fetchClientsList, resetViewPoll]);
@@ -1009,78 +1106,6 @@ export default function AdminPanel() {
     );
   }
 
-  // ─── STAT CARD ───
-  const StatCard = ({ icon: Icon, label, value, color, subtitle, onClick }: {
-    icon: any; label: string; value: string | number; color: string; subtitle?: string; onClick?: () => void;
-  }) => {
-    const Comp = onClick ? 'button' : 'div';
-    return (
-      <Comp onClick={onClick} className={`bg-stone-900/50 border border-stone-800 rounded-2xl p-5 flex items-start gap-4 ${onClick ? 'cursor-pointer hover:bg-stone-800/40 hover:border-amber-500/20 active:scale-[0.98] transition-all text-left w-full' : ''}`}>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
-          <Icon className="w-5 h-5" />
-        </div>
-        <div>
-          <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">{label}</p>
-          <p className="text-2xl font-bold font-mono text-stone-100 mt-0.5">{value}</p>
-          {subtitle && <p className="text-[10px] text-stone-600 mt-0.5">{subtitle}</p>}
-        </div>
-      </Comp>
-    );
-  };
-
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-    { id: 'payments', label: 'Pagamentos', icon: CreditCard },
-    { id: 'requests', label: 'Pedidos', icon: Music },
-    { id: 'songs', label: 'Músicas', icon: Sparkles },
-    { id: 'clients', label: 'Clientes', icon: Users },
-    { id: 'metrics', label: 'Métricas', icon: TrendingUp },
-    { id: 'credits', label: 'Créditos API', icon: Activity },
-    { id: 'diagnostics', label: 'Diagnóstico', icon: Shield },
-  ];
-
-  const PLAN_COLORS: Record<string, string> = {
-    standard: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
-    express: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-    premium: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
-  };
-  const PlanBadge = ({ plan }: { plan?: string }) => {
-    if (!plan) return null;
-    const color = PLAN_COLORS[plan.toLowerCase()] || 'bg-stone-700/50 text-stone-400 border-stone-700';
-    return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${color} whitespace-nowrap uppercase`}>{plan}</span>;
-  };
-
-  const DiagBadge = ({ ok, label, detail }: { ok: boolean; label: string; detail?: string }) => (
-    <div className={`flex items-start gap-3 p-3 rounded-xl border ${ok ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-rose-500/20 bg-rose-500/5'}`}>
-      <div className={`mt-0.5 w-4 h-4 shrink-0 ${ok ? 'text-emerald-400' : 'text-rose-400'}`}>
-        {ok ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-      </div>
-      <div>
-        <p className={`text-xs font-mono font-bold ${ok ? 'text-emerald-400' : 'text-rose-400'}`}>{label}</p>
-        {detail && <p className="text-[10px] text-stone-500 mt-0.5">{detail}</p>}
-      </div>
-    </div>
-  );
-
-  const Pagination = ({ page, totalPages, setPage }: { page: number; totalPages: number; setPage: (n: number) => void }) => {
-    if (totalPages <= 1) return null;
-    return (
-      <div className="flex items-center justify-center gap-2 py-3">
-        <button onClick={() => setPage(1)} disabled={page <= 1} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">«</button>
-        <button onClick={() => setPage(page - 1)} disabled={page <= 1} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">‹</button>
-        <span className="text-[10px] font-mono text-stone-500 px-2">{page} / {totalPages}</span>
-        <button onClick={() => setPage(page + 1)} disabled={page >= totalPages} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">›</button>
-        <button onClick={() => setPage(totalPages)} disabled={page >= totalPages} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">»</button>
-      </div>
-    );
-  };
-
-  const REJECT_TEMPLATES = [
-    { label: 'Comprovativo ilegível', value: 'O comprovativo enviado está ilegível. Por favor, envie uma foto mais nítida do comprovativo de pagamento.' },
-    { label: 'Valor incorreto', value: 'O valor do pagamento não corresponde ao plano selecionado. Por favor, verifique e envie o valor correto.' },
-    { label: 'Dados incompletos', value: 'Os dados enviados estão incompletos. Por favor, preencha todos os campos obrigatórios e tente novamente.' },
-  ];
-
   const exportCSV = async (type: string) => {
     try {
       const res = await fetch(`/api/admin/export/${type}`, { headers: apiHeaders });
@@ -1211,7 +1236,7 @@ export default function AdminPanel() {
           </div>
 
           <nav className="space-y-1 flex-grow">
-            {navItems.map(item => {
+            {NAV_ITEMS.map(item => {
               const isActive = activeView === item.id;
               return (
                 <button
@@ -2448,6 +2473,85 @@ export default function AdminPanel() {
                         detail={diagnostics.sunoVoice?.error} />
                       <DiagBadge ok={diagnostics.email.ok} label="Brevo SMTP (Envio de Emails)"
                         detail={diagnostics.email.ok ? `Servidor: ${diagnostics.email.host || 'configurado'}` : diagnostics.email.error} />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* CAMPANHAS */}
+              {activeView === 'campaigns' && (
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="font-serif text-2xl font-bold text-stone-100">Campanhas</h1>
+                      <p className="text-stone-500 text-sm mt-1">Estatísticas de campanhas UTM — parâmetros capturados automaticamente via URL</p>
+                    </div>
+                    <button onClick={fetchCampaigns} disabled={campaignsLoading} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
+                      <RefreshCw className={`w-3.5 h-3.5 ${campaignsLoading ? 'animate-spin' : ''}`} /> {campaignsLoading ? 'A carregar...' : 'Atualizar'}
+                    </button>
+                  </div>
+
+                  {campaignsLoading && (
+                    <div className="flex items-center justify-center h-40"><RefreshCw className="w-6 h-6 text-stone-600 animate-spin" /></div>
+                  )}
+
+                  {!campaigns && !campaignsLoading && (
+                    <div className="text-center py-16 text-stone-600 font-mono text-sm">Clique em "Atualizar" para carregar as campanhas.</div>
+                  )}
+
+                  {campaigns && !campaignsLoading && (
+                    <div className="space-y-5">
+                      {/* Summary Stats */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <StatCard icon={Megaphone} label="Campanhas" value={campaigns.length} color="bg-violet-500/15 text-violet-400" onClick={() => {}} />
+                        <StatCard icon={Music} label="Total Pedidos UTM" value={campaigns.reduce((s, c) => s + c.total_requests, 0)} color="bg-purple-500/15 text-purple-400" onClick={() => {}} />
+                        <StatCard icon={CheckCircle} label="Convertidos" value={campaigns.reduce((s, c) => s + c.converted, 0)} color="bg-emerald-500/15 text-emerald-400" onClick={() => {}} />
+                        <StatCard icon={TrendingUp} label="Receita UTM" value={`${campaigns.reduce((s, c) => s + c.revenue, 0).toLocaleString('pt')} Kz`} color="bg-rose-500/15 text-rose-400" onClick={() => {}} />
+                      </div>
+
+                      {/* Campaigns Table */}
+                      <div className="overflow-x-auto rounded-2xl border border-stone-800">
+                        <table className="w-full text-xs min-w-[600px]">
+                          <thead className="bg-stone-900/80">
+                            <tr>
+                              {['Campanha', 'Origem', 'Meio', 'Pedidos', 'Convertidos', 'Entregues', 'Receita', 'Tx. Conversão'].map(h => (
+                                <th key={h} className="text-left px-4 py-3 text-[10px] font-mono text-stone-500 uppercase tracking-wider">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-stone-800/50">
+                            {campaigns.map((row, i) => {
+                              const convRate = row.total_requests > 0 ? ((row.converted / row.total_requests) * 100).toFixed(1) : '0.0';
+                              return (
+                                <tr key={row.campaign + i} className="hover:bg-stone-800/20 transition-colors">
+                                  <td className="px-4 py-3 text-stone-200 font-medium">{row.campaign}</td>
+                                  <td className="px-4 py-3 text-stone-400 font-mono">{row.source}</td>
+                                  <td className="px-4 py-3 text-stone-400 font-mono">{row.medium}</td>
+                                  <td className="px-4 py-3 text-stone-300 font-mono">{row.total_requests}</td>
+                                  <td className="px-4 py-3">
+                                    <span className="text-emerald-400 font-mono">{row.converted}</span>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <span className="text-stone-300 font-mono">{row.delivered}</span>
+                                  </td>
+                                  <td className="px-4 py-3 text-amber-400 font-mono">{row.revenue.toLocaleString('pt')} Kz</td>
+                                  <td className="px-4 py-3">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-16 bg-stone-800 rounded-full h-2 overflow-hidden">
+                                        <div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full" style={{ width: `${Math.min(100, parseFloat(convRate) * 2)}%` }} />
+                                      </div>
+                                      <span className="text-[10px] font-mono text-stone-500">{convRate}%</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                            {campaigns.length === 0 && (
+                              <tr><td colSpan={8} className="text-center py-8 text-stone-600 text-sm">Nenhuma campanha registada. Os parâmetros UTM são capturados automaticamente quando alguém acede via <code className="text-amber-400">?utm_campaign=...</code></td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )}
                 </div>

@@ -1,6 +1,6 @@
 import express from 'express';
 import { randomUUID } from 'node:crypto';
-import { getAdminSupabase } from '../services/supabase';
+import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
 import { generateLyrics } from '../services/ai';
 import { sendPersonalizedEmail, sendConfirmationEmail } from '../services/email';
 import { sendSubmitApplicationEvent, sendLeadEvent, sendCompleteRegistrationEvent } from '../services/metaPixelCapi';
@@ -151,7 +151,7 @@ router.post('/suno-callback', async (req, res) => {
   res.json({ success: true });
 });
 
-router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
+router.post('/generate-lyrics', generateLyricsLimiter, emailLimiter, async (req, res) => {
   const supabase = getAdminSupabase();
   let dbSongRequestId: string | null = null;
   let dbSongId: string | null = null;
@@ -422,12 +422,12 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
     const { id } = req.params;
     if (!UUID_REGEX.test(id)) return res.status(400).json({ success: false, error: 'ID inválido.' });
 
-    const adminSupabase = getAdminSupabase();
-    if (!adminSupabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
+    const publicSupabase = getPublicSupabase();
+    if (!publicSupabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
 
     logDebug('Fetching song', { songId: id });
 
-    const { data: songData, error } = await adminSupabase
+    const { data: songData, error } = await publicSupabase
       .from('songs')
       .select('*, song_requests!inner(id, recipient_name, status, email, photo_url, final_mixed_audio_url, elevenlabs_voice_id, music_style, memory, deliver_at, occasion, relationship, desired_emotion, voice_type, recipient_gender, users!inner(name))')
       .eq('id', req.params.id)
@@ -447,32 +447,36 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
     const deliverAt = sr?.deliver_at;
     let audioUrl = songData.preview_url || null;
 
+    const adminSupabase = getAdminSupabase();
+
     // Auto-delivery: se status='approved' e deliver_at já passou, entrega automaticamente
     if (requestStatus === 'approved' && deliverAt && new Date(deliverAt) <= new Date()) {
       const fullUrl = sr?.final_mixed_audio_url || songData.full_song_url || songData.audio_url;
-      const { error: deliveryError } = await adminSupabase
-        .from('song_requests')
-        .update({ status: 'delivered', deliver_at: null })
-        .eq('id', songData.request_id)
-        .eq('status', 'approved');
+      if (adminSupabase) {
+        const { error: deliveryError } = await adminSupabase
+          .from('song_requests')
+          .update({ status: 'delivered', deliver_at: null })
+          .eq('id', songData.request_id)
+          .eq('status', 'approved');
 
-      if (!deliveryError) {
-        requestStatus = 'delivered';
+        if (!deliveryError) {
+          requestStatus = 'delivered';
 
-        const userEmail = sr?.email;
-        if (userEmail) {
-          const slug = (sr?.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-          const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
-          sendPersonalizedEmail(userEmail, sr?.recipient_name, personalizedUrl, songData.letter_text || 'Dedicatória.').catch(err => logError('[API] Falha ao enviar email de entrega', err, { songId: id }));
-        }
+          const userEmail = sr?.email;
+          if (userEmail) {
+            const slug = (sr?.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+            const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
+            sendPersonalizedEmail(userEmail, sr?.recipient_name, personalizedUrl, songData.letter_text || 'Dedicatória.').catch(err => logError('[API] Falha ao enviar email de entrega', err, { songId: id }));
+          }
 
-        if (fullUrl) {
-          const match = fullUrl.match(/full-audio\/(.+)/);
-          if (match && adminSupabase) {
-            const { data } = await adminSupabase.storage.from('full-audio').createSignedUrl(match[1], 604800);
-            audioUrl = data?.signedUrl || fullUrl;
-          } else {
-            audioUrl = fullUrl;
+          if (fullUrl) {
+            const match = fullUrl.match(/full-audio\/(.+)/);
+            if (match) {
+              const { data } = await adminSupabase.storage.from('full-audio').createSignedUrl(match[1], 604800);
+              audioUrl = data?.signedUrl || fullUrl;
+            } else {
+              audioUrl = fullUrl;
+            }
           }
         }
       }
@@ -664,7 +668,7 @@ router.post('/song/:id/regenerate-lyrics', generateLyricsLimiter, async (req, re
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/stats/today-count', async (_req, res) => {
   try {
-    const supabase = getAdminSupabase();
+    const supabase = getPublicSupabase ? getPublicSupabase() : null;
     if (!supabase) return res.json({ count: 847 });
 
     const today = new Date();

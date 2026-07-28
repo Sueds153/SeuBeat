@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { LyricsComposition, WizardFormData } from './types';
 import { selectPrompt } from './prompts';
-import { withAIServiceRetry, validateComposition } from './aiShared';
+import { withAIServiceRetry, validateComposition, extractJSON } from './aiShared';
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 90000);
@@ -26,63 +26,6 @@ O JSON gerado deve obrigatoriamente seguir esta estrutura:
   "letterText": "Dedicatória curta (2-3 frases) em prosa, sem repetir a letra.",
   "lyricsSnippet": "Pequeno trecho da letra (máx 200 caracteres) para pré-visualização."
 }`;
-
-function repairTruncatedJSON(text: string): string {
-  // Se o JSON foi truncado a meio de um array de lyrics, tenta fechar
-  let s = text.trim();
-  // Remover vírgula final antes de fechar
-  s = s.replace(/,\s*$/, '');
-  // Contar chaves/parênteses abertos
-  let openBraces = 0;
-  let openBrackets = 0;
-  let inString = false;
-  let escaped = false;
-  for (const ch of s) {
-    if (escaped) { escaped = false; continue; }
-    if (ch === '\\' && inString) { escaped = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
-    if (inString) continue;
-    if (ch === '{') openBraces++;
-    else if (ch === '}') openBraces--;
-    else if (ch === '[') openBrackets++;
-    else if (ch === ']') openBrackets--;
-  }
-  // Fechar o que está aberto
-  for (let i = 0; i < openBrackets; i++) s += ']';
-  for (let i = 0; i < openBraces; i++) s += '}';
-  return s;
-}
-
-function extractJSON(text: string): unknown {
-  const cleanText = text.trim();
-  try {
-    return JSON.parse(cleanText);
-  } catch {}
-
-  const jsonMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  if (jsonMatch) {
-    try {
-      return JSON.parse(jsonMatch[1]);
-    } catch {}
-  }
-
-  const firstBrace = cleanText.indexOf('{');
-  const lastBrace = cleanText.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    try {
-      return JSON.parse(cleanText.slice(firstBrace, lastBrace + 1));
-    } catch {}
-  }
-
-  if (firstBrace !== -1) {
-    try {
-      const partial = cleanText.slice(firstBrace);
-      return JSON.parse(repairTruncatedJSON(partial));
-    } catch {}
-  }
-
-  throw new Error('Não foi possível extrair um objeto JSON válido da resposta do Gemini.');
-}
 
 export async function generateLyricsWithGemini(formData: WizardFormData): Promise<LyricsComposition> {
   const apiKey = process.env.GEMINI_API_KEY;

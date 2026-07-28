@@ -38,13 +38,25 @@ export async function fetchSong(id: string, signal?: AbortSignal): Promise<SongA
   return res.json();
 }
 
-export async function fetchSongWithTimeout(id: string): Promise<SongApiResponse | null> {
+export async function fetchSongWithTimeout(id: string, signal?: AbortSignal): Promise<SongApiResponse | null> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+  const combinedSignal = signal
+    ? combineAbortSignals(controller.signal, signal)
+    : controller.signal;
   try {
-    return await fetchSong(id, controller.signal);
+    return await fetchSong(id, combinedSignal);
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+function combineAbortSignals(...signals: AbortSignal[]): AbortSignal {
+  const controller = new AbortController();
+  for (const sig of signals) {
+    if (sig.aborted) { controller.abort(sig.reason); return controller.signal; }
+    sig.addEventListener('abort', () => controller.abort(sig.reason), { once: true });
+  }
+  return controller.signal;
 }
 

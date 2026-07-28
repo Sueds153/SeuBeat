@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
+import * as Sentry from '@sentry/react';
 import WhatsAppHelp from './WhatsAppHelp';
 
 interface Props {
@@ -24,6 +25,7 @@ export default class StepErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error(`[StepErrorBoundary:${this.props.stepName || '?'}]`, error, info.componentStack);
+    Sentry.captureException(error, { contexts: { react: { componentStack: info.componentStack, step: this.props.stepName || '?' } } });
   }
 
   handleRetry = () => {

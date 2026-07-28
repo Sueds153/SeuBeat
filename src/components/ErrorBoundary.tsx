@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
+import * as Sentry from '@sentry/react';
 import WhatsAppHelp from './WhatsAppHelp';
 
 interface Props {
@@ -28,6 +29,7 @@ export default class ErrorBoundary extends Component<Props, State> {
       return;
     }
     console.error('[ErrorBoundary]', error.message, error.stack, info.componentStack);
+    Sentry.captureException(error, { contexts: { react: { componentStack: info.componentStack } } });
     fetch('/api/log-error', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

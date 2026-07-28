@@ -31,7 +31,7 @@ export function useTypewriter({ text, speed = 40, enabled = true }: UseTypewrite
       } else {
         setDisplayed(text.slice(0, indexRef.current));
       }
-    }, 40);
+    }, speed);
 
     return () => clearInterval(interval);
   }, [text, enabled]);

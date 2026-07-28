@@ -22,7 +22,7 @@ export {
   createCustomVoice, waitForVoiceId, checkVoiceAvailability,
 } from './suno-voice';
 export { extractAudioUrl, querySunoTask, generateFullSong } from './suno';
-export { getAdminSupabase, uploadToSupabase } from './supabase';
+export { getAdminSupabase, getPublicSupabase, uploadToSupabase } from './supabase';
 export {
   requestProgressMap, setProgress, updateRequestStatus,
   resumeSunoTaskWorkflow, runBackgroundSunoWorkflow, processSunoVoice,

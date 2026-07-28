@@ -147,6 +147,7 @@ export function useSong(): UseSongResult {
   });
 
   useEffect(() => {
+    const abortController = new AbortController();
     const savedLocalPhoto = localStorage.getItem('seubeat_temp_photo') || '';
     const { params, dbSongId } = parseURLParams();
 
@@ -154,8 +155,9 @@ export function useSong(): UseSongResult {
       const initial = buildInitialFromParams(params, savedLocalPhoto);
       setSongDetails(initial);
 
-      fetchSongWithTimeout(dbSongId)
+      fetchSongWithTimeout(dbSongId, abortController.signal)
         .then(data => {
+          if (abortController.signal.aborted) return;
           if (data === null) {
             setNotFound(true);
           } else if (data.success && data.data) {
@@ -164,13 +166,14 @@ export function useSong(): UseSongResult {
             setFetchError(true);
           }
         })
-        .catch(() => setFetchError(true))
-        .finally(() => setIsLoading(false));
+        .catch(() => { if (!abortController.signal.aborted) setFetchError(true); })
+        .finally(() => { if (!abortController.signal.aborted) setIsLoading(false); });
     } else {
       const fallbackId = localStorage.getItem('seubeat_last_song_id');
       if (fallbackId) {
-        fetchSongWithTimeout(fallbackId)
+        fetchSongWithTimeout(fallbackId, abortController.signal)
           .then(data => {
+            if (abortController.signal.aborted) return;
             if (data === null) {
               setNotFound(true);
             } else if (data.success && data.data) {
@@ -179,12 +182,14 @@ export function useSong(): UseSongResult {
               setFetchError(true);
             }
           })
-          .catch(() => setFetchError(true))
-          .finally(() => setIsLoading(false));
+          .catch(() => { if (!abortController.signal.aborted) setFetchError(true); })
+          .finally(() => { if (!abortController.signal.aborted) setIsLoading(false); });
       } else {
         setIsLoading(false);
       }
     }
+
+    return () => abortController.abort();
   }, []);
 
   return { isLoading, notFound, fetchError, songDetails, setSongDetails };

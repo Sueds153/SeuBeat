@@ -2,6 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import fs from 'fs';
 
 let adminClient: SupabaseClient | null = null;
+let publicClient: SupabaseClient | null = null;
 
 function getSupabaseUrl(): string {
   return process.env.SUPABASE_URL || '';
@@ -16,6 +17,17 @@ export function getAdminSupabase(): SupabaseClient | null {
   }
   adminClient = createClient(url, key);
   return adminClient;
+}
+
+export function getPublicSupabase(): SupabaseClient | null {
+  if (publicClient) return publicClient;
+  const url = getSupabaseUrl();
+  const key = process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    throw new Error('SUPABASE_ANON_KEY não configurada. O public client não pode ser inicializado.');
+  }
+  publicClient = createClient(url, key);
+  return publicClient;
 }
 
 export async function uploadToSupabase(bucket: string, filename: string, filePath: string, mimeType: string): Promise<string> {

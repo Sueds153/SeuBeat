@@ -9,6 +9,28 @@ export function clean(value: unknown, fallback = 'Não informado'): string {
   return trimmed || fallback;
 }
 
+function repairTruncatedJSON(text: string): string {
+  let s = text.trim();
+  s = s.replace(/,\s*$/, '');
+  let openBraces = 0;
+  let openBrackets = 0;
+  let inString = false;
+  let escaped = false;
+  for (const ch of s) {
+    if (escaped) { escaped = false; continue; }
+    if (ch === '\\' && inString) { escaped = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === '{') openBraces++;
+    else if (ch === '}') openBraces--;
+    else if (ch === '[') openBrackets++;
+    else if (ch === ']') openBrackets--;
+  }
+  for (let i = 0; i < openBrackets; i++) s += ']';
+  for (let i = 0; i < openBraces; i++) s += '}';
+  return s;
+}
+
 export function extractJSON(text: string): unknown {
   const cleanText = text.trim();
   try {
@@ -27,6 +49,12 @@ export function extractJSON(text: string): unknown {
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
     try {
       return JSON.parse(cleanText.slice(firstBrace, lastBrace + 1));
+    } catch {}
+  }
+
+  if (firstBrace !== -1) {
+    try {
+      return JSON.parse(repairTruncatedJSON(cleanText.slice(firstBrace)));
     } catch {}
   }
 

@@ -22,7 +22,7 @@ const router = express.Router();
 // Login endpoint — devolve JWT
 router.post('/login', adminLimiter, (req, res) => adminLogin(req, res));
 
-function safeMessage(err: any): string {
+function safeMessage(err: unknown): string {
   return publicErrorMessage(err);
 }
 
@@ -59,7 +59,7 @@ function safeAudioFilename(title: string | null | undefined): string {
 router.get('/stats', adminAuth, async (req, res) => {
   try {
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const [usersRes, requestsRes, paymentsRes, songsRes] = await Promise.all([
       supabase.from('users').select('id', { count: 'exact' }),
@@ -98,8 +98,8 @@ router.get('/stats', adminAuth, async (req, res) => {
       musicGenerated,
       requestsByStatus
     });
-  } catch (err: any) {
-    res.status(500).json({ error: safeMessage(err) });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 
@@ -107,17 +107,17 @@ router.get('/stats', adminAuth, async (req, res) => {
 router.get('/payments', adminAuth, async (req, res) => {
   try {
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const { data, error } = await supabase
       .from('payments')
       .select('*, song_requests(id, recipient_name, occasion, music_style, status, users(name, email, phone))')
       .order('created_at', { ascending: false });
 
-    if (error) return res.status(500).json({ error: safeMessage(error) });
+    if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
     res.json({ success: true, payments: data });
-  } catch (err: any) {
-    res.status(500).json({ error: safeMessage(err) });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 
@@ -126,7 +126,7 @@ router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const { data: payment, error } = await supabase
       .from('payments')
@@ -134,24 +134,24 @@ router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
       .eq('id', id)
       .single();
 
-    if (error || !payment) return res.status(404).json({ error: 'Pagamento não encontrado.' });
+    if (error || !payment) return res.status(404).json({ success: false, error: 'Pagamento não encontrado.' });
 
     let path = payment.proof_path;
     if (!path && payment.proof_url) {
       path = payment.proof_url.replace(/^storage:/, '');
     }
 
-    if (!path) return res.status(404).json({ error: 'Comprovativo não encontrado.' });
+    if (!path) return res.status(404).json({ success: false, error: 'Comprovativo não encontrado.' });
 
     const { data: signedData } = await supabase.storage
       .from('payment-proofs')
       .createSignedUrl(path, 3600);
 
-    if (!signedData?.signedUrl) return res.status(500).json({ error: 'Não foi possível gerar URL do comprovativo.' });
+    if (!signedData?.signedUrl) return res.status(500).json({ success: false, error: 'Não foi possível gerar URL do comprovativo.' });
 
     res.json({ url: signedData.signedUrl });
-  } catch (err: any) {
-    res.status(500).json({ error: safeMessage(err) });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 
@@ -162,7 +162,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
     const { notes } = req.body;
 
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
@@ -177,7 +177,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
       .single();
 
     if (paymentError || !payment) {
-      return res.status(409).json({ error: 'Pagamento não encontrado ou já processado.' });
+      return res.status(409).json({ success: false, error: 'Pagamento não encontrado ou já processado.' });
     }
 
     const songRequest = payment.song_requests as any;
@@ -187,7 +187,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
     const letterText = songData?.letter_text || 'Preparámos uma dedicatória especial para si.';
 
     if (!requestId || !songData) {
-      return res.status(400).json({ error: 'Dados da música em falta.' });
+      return res.status(400).json({ success: false, error: 'Dados da música em falta.' });
     }
 
     logAdminAction({ action: 'approve', entityType: 'payment', entityId: id, notes: notes || undefined });
@@ -289,8 +289,8 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
       desiredEmotion: songRequest.desired_emotion || undefined,
     }).catch(err => logError('[Admin] Background Suno workflow falhou apos aprovacao', err, { requestId }));
     return res.json({ success: true, message: 'Pagamento aprovado. Música em processamento no Suno.', hasVoiceSample });
-  } catch (err: any) {
-    res.status(500).json({ error: safeMessage(err) });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 
@@ -300,7 +300,7 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
     const { id } = req.params;
     const { notes } = req.body;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const { data: payment } = await supabase
       .from('payments')
@@ -309,7 +309,7 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
       .eq('status', 'pending_verification')
       .single();
 
-    if (!payment) return res.status(409).json({ error: 'Pagamento não encontrado ou já processado.' });
+    if (!payment) return res.status(409).json({ success: false, error: 'Pagamento não encontrado ou já processado.' });
 
     await supabase.from('payments').update({ status: 'rejected', notes: notes || null }).eq('id', id).eq('status', 'pending_verification');
 
@@ -325,8 +325,8 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
     }
 
     res.json({ success: true, message: 'Pagamento rejeitado.' });
-  } catch (err: any) {
-    res.status(500).json({ error: safeMessage(err) });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 
@@ -334,14 +334,14 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
 router.get('/requests', adminAuth, async (req, res) => {
   try {
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const { data: requestsData, error } = await supabase
       .from('song_requests')
       .select('*, users(name, email, phone), songs(id, title, audio_url, mureka_status, created_at, letter_text, lyrics)')
       .order('created_at', { ascending: false });
 
-    if (error) return res.status(500).json({ error: safeMessage(error) });
+    if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
 
     const requestIds = (requestsData || []).map(r => r.id).filter(Boolean);
     let paymentsMap: Record<string, any[]> = {};
@@ -364,8 +364,8 @@ router.get('/requests', adminAuth, async (req, res) => {
     }));
 
     res.json({ success: true, requests: data });
-  } catch (err: any) {
-    res.status(500).json({ error: safeMessage(err) });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 
@@ -373,17 +373,17 @@ router.get('/requests', adminAuth, async (req, res) => {
 router.get('/songs', adminAuth, async (req, res) => {
   try {
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const { data, error } = await supabase
       .from('songs')
       .select('*, song_requests(recipient_name, music_style, occasion, users(name, email, phone))')
       .order('created_at', { ascending: false });
 
-    if (error) return res.status(500).json({ error: safeMessage(error) });
+    if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
     res.json({ success: true, songs: data });
-  } catch (err: any) {
-    res.status(500).json({ error: safeMessage(err) });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 
@@ -392,7 +392,7 @@ router.post('/song/:id/generate-music', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const { data: songData, error } = await supabase
       .from('songs')
@@ -400,14 +400,14 @@ router.post('/song/:id/generate-music', adminAuth, async (req, res) => {
       .eq('id', id)
       .single();
 
-    if (error || !songData) return res.status(404).json({ error: 'Música não encontrada' });
+    if (error || !songData) return res.status(404).json({ success: false, error: 'Música não encontrada' });
 
     if (songData.request_id && songData.mureka_task_id && !songData.audio_url) {
       resumeSunoTaskWorkflow(songData.request_id, id, songData.mureka_task_id).catch(err => logError('[Admin] Resume Suno task falhou', err, { songId: id }));
       return res.json({ success: true, message: 'Verificação da task Suno existente iniciada.' });
     }
 
-    if (!songData.request_id) return res.status(400).json({ error: 'Musica sem pedido associado.' });
+    if (!songData.request_id) return res.status(400).json({ success: false, error: 'Musica sem pedido associado.' });
 
     await supabase.from('songs').update({ mureka_status: 'generating' }).eq('id', id);
     await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', songData.request_id);
@@ -423,8 +423,8 @@ router.post('/song/:id/generate-music', adminAuth, async (req, res) => {
     ).catch(err => logError('[Admin] Background Suno falhou apos iniciar', err, { songId: id }));
 
     res.json({ success: true, message: 'Geração Suno iniciada em background.' });
-  } catch (err: any) {
-    res.status(500).json({ error: safeMessage(err) });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 
@@ -432,7 +432,7 @@ router.post('/song/:id/generate-music', adminAuth, async (req, res) => {
 router.get('/credits', adminAuth, async (req, res) => {
   try {
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const now = new Date();
     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -448,7 +448,7 @@ router.get('/credits', adminAuth, async (req, res) => {
           const creditsData = await creditsRes.json();
           const credits = creditsData.data || 0;
           return { ok: true, credits, low: credits < 20, lastCheck: now.toISOString() };
-        } catch (e: any) { return { ok: false, error: e.message }; }
+        } catch (err: unknown) { return { ok: false, error: err instanceof Error ? err.message : String(err) }; }
       })(),
       // Claude live check
       (async () => {
@@ -462,11 +462,12 @@ router.get('/credits', adminAuth, async (req, res) => {
             messages: [{ role: 'user', content: 'ping' }]
           });
           return { ok: !!(response && response.content), model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022', lastCheck: now.toISOString() };
-        } catch (e: any) {
-          if (e.message?.includes('quota') || e.message?.includes('limit') || e.message?.includes('429')) {
-            return { ok: true, quota_exceeded: true, error: e.message, model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022', lastCheck: now.toISOString() };
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes('quota') || msg.includes('limit') || msg.includes('429')) {
+            return { ok: true, quota_exceeded: true, error: msg, model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022', lastCheck: now.toISOString() };
           }
-          return { ok: false, error: e.message };
+          return { ok: false, error: msg };
         }
       })(),
       // OpenAI live check
@@ -491,11 +492,12 @@ router.get('/credits', adminAuth, async (req, res) => {
             };
           }
           return { ok: true, model: process.env.OPENAI_MODEL || 'gpt-4o', lastCheck: now.toISOString() };
-        } catch (e: any) {
-          if (e.message?.includes('quota') || e.message?.includes('limit') || e.message?.includes('429') || e.message?.includes('insufficient')) {
-            return { ok: true, quota_exceeded: true, error: e.message, model: process.env.OPENAI_MODEL || 'gpt-4o', lastCheck: now.toISOString() };
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes('quota') || msg.includes('limit') || msg.includes('429') || msg.includes('insufficient')) {
+            return { ok: true, quota_exceeded: true, error: msg, model: process.env.OPENAI_MODEL || 'gpt-4o', lastCheck: now.toISOString() };
           }
-          return { ok: false, error: e.message };
+          return { ok: false, error: msg };
         }
       })(),
       // Gemini live check
@@ -510,11 +512,12 @@ router.get('/credits', adminAuth, async (req, res) => {
             config: { maxOutputTokens: 1 },
           });
           return { ok: true, model: process.env.GEMINI_MODEL || 'gemini-2.5-flash', lastCheck: now.toISOString() };
-        } catch (e: any) {
-          if (e.message?.includes('quota') || e.message?.includes('limit') || e.message?.includes('429') || e.message?.includes('insufficient') || e.message?.includes('RATE_LIMIT') || e.message?.includes('dailyLimitExceeded') || e.message?.includes('quotaExceeded')) {
-            return { ok: true, quota_exceeded: true, error: e.message, model: process.env.GEMINI_MODEL || 'gemini-2.5-flash', lastCheck: now.toISOString() };
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (msg.includes('quota') || msg.includes('limit') || msg.includes('429') || msg.includes('insufficient') || msg.includes('RATE_LIMIT') || msg.includes('dailyLimitExceeded') || msg.includes('quotaExceeded')) {
+            return { ok: true, quota_exceeded: true, error: msg, model: process.env.GEMINI_MODEL || 'gemini-2.5-flash', lastCheck: now.toISOString() };
           }
-          return { ok: false, error: e.message };
+          return { ok: false, error: msg };
         }
       })(),
       // Brevo API live check
@@ -526,7 +529,7 @@ router.get('/credits', adminAuth, async (req, res) => {
           if (!test.ok) return { ok: false, error: `Brevo API error (${test.status})` };
           const data: any = await test.json();
           return { ok: true, provider: 'Brevo', email: data.email, lastCheck: now.toISOString() };
-        } catch (e: any) { return { ok: false, error: e.message }; }
+        } catch (err: unknown) { return { ok: false, error: err instanceof Error ? err.message : String(err) }; }
       })(),
       // Total songs generated
       supabase.from('songs').select('id', { count: 'exact', head: true }).not('lyrics', 'is', null),
@@ -585,7 +588,7 @@ router.get('/credits', adminAuth, async (req, res) => {
         },
       },
     });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 // J. Force status override
@@ -601,22 +604,22 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
     const { table, status, field } = req.body;
 
     if (!table || !status) {
-      return res.status(400).json({ error: 'Parâmetros "table" e "status" são obrigatórios.' });
+      return res.status(400).json({ success: false, error: 'Parâmetros "table" e "status" são obrigatórios.' });
     }
 
     const allowed = VALID_STATUSES[table];
     if (!allowed) {
-      return res.status(400).json({ error: `Tabela inválida. Use: ${Object.keys(VALID_STATUSES).join(', ')}` });
+      return res.status(400).json({ success: false, error: `Tabela inválida. Use: ${Object.keys(VALID_STATUSES).join(', ')}` });
     }
 
     if (!allowed.includes(status)) {
-      return res.status(400).json({ error: `Status inválido para "${table}". Permitidos: ${allowed.join(', ')}` });
+      return res.status(400).json({ success: false, error: `Status inválido para "${table}". Permitidos: ${allowed.join(', ')}` });
     }
 
     const statusField = field || (table === 'songs' ? 'mureka_status' : 'status');
 
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const { data, error } = await supabase
       .from(table)
@@ -625,8 +628,8 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
       .select()
       .single();
 
-    if (error) return res.status(500).json({ error: safeMessage(error) });
-    if (!data) return res.status(404).json({ error: 'Registo não encontrado.' });
+    if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
+    if (!data) return res.status(404).json({ success: false, error: 'Registo não encontrado.' });
 
     logInfo('[Admin] Status forçado manualmente', { table, id, status, field: statusField });
     logAdminAction({ action: 'force_status', entityType: table, entityId: id, previousData: { [statusField]: data[statusField] || data.status }, newData: { [statusField]: status }, notes: `Forçado para ${status}` });
@@ -650,7 +653,7 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
     }
 
     res.json({ success: true, message: `Status atualizado para "${status}" em "${table}".`, data });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 // H. Diagnostics
@@ -664,7 +667,7 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
           const { data, error } = await supabase.storage.listBuckets();
           if (error) return { ok: false, error: error.message };
           return { ok: true, buckets: data.map(b => ({ name: b.name, public: b.public })) };
-        } catch (e: any) { return { ok: false, error: e.message }; }
+        } catch (err: unknown) { return { ok: false, error: err instanceof Error ? err.message : String(err) }; }
       })(),
       (async () => {
         const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -677,7 +680,7 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
             messages: [{ role: 'user', content: 'ping' }]
           });
           return { ok: !!(response && response.content) };
-        } catch (e: any) { return { ok: false, error: e.message }; }
+        } catch (err: unknown) { return { ok: false, error: err instanceof Error ? err.message : String(err) }; }
       })(),
       (async () => {
         const key = process.env.OPENAI_API_KEY;
@@ -686,7 +689,7 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
           const openai = new OpenAI({ apiKey: key });
           await openai.models.list({ timeout: 5000 });
           return { ok: true };
-        } catch (e: any) { return { ok: false, error: e.message }; }
+        } catch (err: unknown) { return { ok: false, error: err instanceof Error ? err.message : String(err) }; }
       })(),
       // Gemini diagnostic
       (async () => {
@@ -700,7 +703,7 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
             config: { maxOutputTokens: 8 },
           });
           return { ok: !!response };
-        } catch (e: any) { return { ok: false, error: e.message }; }
+        } catch (err: unknown) { return { ok: false, error: err instanceof Error ? err.message : String(err) }; }
       })(),
       (async () => {
         const key = process.env.SUNO_API_KEY;
@@ -710,7 +713,7 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
           if (!creditsRes.ok) return { ok: false, error: `HTTP ${creditsRes.status}` };
           const creditsData = await creditsRes.json();
           return { ok: true, credits: creditsData.data || 0 };
-        } catch (e: any) { return { ok: false, error: e.message }; }
+        } catch (err: unknown) { return { ok: false, error: err instanceof Error ? err.message : String(err) }; }
       })(),
       (async () => {
         const key = process.env.SUNO_API_KEY;
@@ -718,7 +721,7 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
         try {
           const res = await fetch('https://api.sunoapi.org/api/v1/voice/record-info?taskId=ping_test', { headers: { 'Authorization': `Bearer ${key}` } });
           return { ok: res.status !== 401 && res.status !== 403 };
-        } catch (e: any) { return { ok: false, error: e.message }; }
+        } catch (err: unknown) { return { ok: false, error: err instanceof Error ? err.message : String(err) }; }
       })(),
       (async () => {
         const key = process.env.BREVO_API_KEY;
@@ -747,18 +750,18 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
         },
       },
     });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 router.post('/request/:id/retry', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
     const { data: requestData } = await supabase.from('song_requests').select('*, songs(*)').eq('id', id).single();
-    if (!requestData) return res.status(404).json({ error: 'Pedido não encontrado' });
+    if (!requestData) return res.status(404).json({ success: false, error: 'Pedido não encontrado' });
     const songData = firstRelated(requestData.songs);
-    if (!songData) return res.status(400).json({ error: 'Música associada em falta.' });
+    if (!songData) return res.status(400).json({ success: false, error: 'Música associada em falta.' });
 
     if (songData.mureka_task_id && !songData.audio_url) {
       resumeSunoTaskWorkflow(id, songData.id, songData.mureka_task_id).catch(err => logError('[Admin] Resume Suno task falhou no retry', err, { requestId: id }));
@@ -772,18 +775,18 @@ router.post('/request/:id/retry', adminAuth, async (req, res) => {
       desiredEmotion: requestData.desired_emotion || undefined,
     }).catch(err => logError('[Admin] Background Suno falhou no retry', err, { requestId: id }));
     res.json({ success: true, message: 'Reiniciado.' });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 router.post('/request/:id/force-voice', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
     const { data: requestData } = await supabase.from('song_requests').select('*, songs(*)').eq('id', id).single();
     const songData = firstRelated(requestData?.songs);
-    if (!requestData || !songData) return res.status(404).json({ error: 'Pedido ou música não encontrada' });
-    if (!requestData.voice_sample_url) return res.status(400).json({ error: 'Sem amostra de voz.' });
+    if (!requestData || !songData) return res.status(404).json({ success: false, error: 'Pedido ou música não encontrada' });
+    if (!requestData.voice_sample_url) return res.status(400).json({ success: false, error: 'Sem amostra de voz.' });
 
     await supabase.from('song_requests').update({ status: 'voice_processing' }).eq('id', id);
     const voiceSampleUrl = requestData.voice_sample_url;
@@ -793,28 +796,28 @@ router.post('/request/:id/force-voice', adminAuth, async (req, res) => {
       }
     }).catch(err => logError('[Admin] Force Suno Voice falhou', err, { requestId: id }));
     res.json({ success: true, message: 'Processamento de voz Suno Voice forçado.' });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 router.post('/request/:id/resend-email', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
     const { data: requestData } = await supabase.from('song_requests').select('*, songs(*), users(*)').eq('id', id).single();
     const songData = firstRelated(requestData?.songs);
-    if (!requestData || !songData || !requestData.users?.email) return res.status(404).json({ error: 'Dados insuficientes.' });
+    if (!requestData || !songData || !requestData.users?.email) return res.status(404).json({ success: false, error: 'Dados insuficientes.' });
 
     const deliverableStatuses = ['delivered', 'approved', 'music_ready'];
     if (!deliverableStatuses.includes(requestData.status)) {
-      return res.status(400).json({ error: `Estado "${requestData.status}" não permite reenvio de email.` });
+      return res.status(400).json({ success: false, error: `Estado "${requestData.status}" não permite reenvio de email.` });
     }
 
     const slug = (requestData.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
     const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
     await sendPersonalizedEmail(requestData.users.email, requestData.recipient_name, personalizedUrl, songData.letter_text || 'Dedicatória.');
     res.json({ success: true, message: 'Email reenviado.' });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 router.post('/song/:id/edit-lyrics', adminAuth, async (req, res) => {
@@ -822,21 +825,21 @@ router.post('/song/:id/edit-lyrics', adminAuth, async (req, res) => {
     const { id } = req.params;
     const { title, lyrics, letterText } = req.body;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
     const lyricsArray = Array.isArray(lyrics) ? lyrics : typeof lyrics === 'string' ? lyrics.split('\n').filter((l: string) => l.trim().length > 0) : [];
     const { data, error } = await supabase.from('songs').update({ title, lyrics: lyricsArray, letter_text: letterText || null }).eq('id', id).select().single();
-    if (error) return res.status(500).json({ error: safeMessage(error) });
+    if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
     res.json({ success: true, song: data });
-  } catch (err: any) { res.status(500).json({ error: err.message }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: err instanceof Error ? err.message : String(err) }); }
 });
 
 router.get('/song/:id/audio-url', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return res.status(400).json({ error: 'ID inválido.' });
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return res.status(400).json({ success: false, error: 'ID inválido.' });
 
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const { data: song, error } = await supabase
       .from('songs')
@@ -844,7 +847,7 @@ router.get('/song/:id/audio-url', adminAuth, async (req, res) => {
       .eq('id', id)
       .single();
 
-    if (error || !song) return res.status(404).json({ error: 'Música não encontrada.' });
+    if (error || !song) return res.status(404).json({ success: false, error: 'Música não encontrada.' });
 
     const fullUrl = song.full_song_url || song.audio_url;
     const fullPath = extractStoragePath(fullUrl, 'full-audio');
@@ -855,28 +858,28 @@ router.get('/song/:id/audio-url', adminAuth, async (req, res) => {
         .from('full-audio')
         .createSignedUrl(fullPath, 3600, options);
 
-      if (signedError || !data?.signedUrl) return res.status(500).json({ error: 'Não foi possível gerar link seguro da música completa.' });
+      if (signedError || !data?.signedUrl) return res.status(500).json({ success: false, error: 'Não foi possível gerar link seguro da música completa.' });
       return res.json({ success: true, url: data.signedUrl, filename: downloadName, source: 'full-audio' });
     }
 
     const fallbackUrl = fullUrl || song.preview_url;
-    if (!fallbackUrl) return res.status(404).json({ error: 'Áudio indisponível.' });
+    if (!fallbackUrl) return res.status(404).json({ success: false, error: 'Áudio indisponível.' });
     res.json({ success: true, url: fallbackUrl, filename: safeAudioFilename(song.title), source: fallbackUrl === song.preview_url ? 'preview' : 'external' });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 router.post('/song/:id/upload-audio', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return res.status(400).json({ error: 'ID inválido.' });
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return res.status(400).json({ success: false, error: 'ID inválido.' });
     const { audioBase64, audioFilename, audioMimeType } = req.body;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
-    if (typeof audioBase64 !== 'string') return res.status(400).json({ error: 'Áudio ausente ou inválido.' });
+    if (typeof audioBase64 !== 'string') return res.status(400).json({ success: false, error: 'Áudio ausente ou inválido.' });
     const base64Data = audioBase64.replace(/^data:[^;]+;base64,/, '');
     const buffer = Buffer.from(base64Data, 'base64');
-    if (buffer.length > 50 * 1024 * 1024) return res.status(400).json({ error: 'Áudio demasiado grande. Máx. 50MB.' });
+    if (buffer.length > 50 * 1024 * 1024) return res.status(400).json({ success: false, error: 'Áudio demasiado grande. Máx. 50MB.' });
     const sanitizedAudioFilename = String(audioFilename || 'manual_audio.mp3').replace(/[^a-zA-Z0-9._-]/g, '_');
     const filename = `songs/${Date.now()}_${sanitizedAudioFilename}`;
 
@@ -900,8 +903,8 @@ router.post('/song/:id/upload-audio', adminAuth, async (req, res) => {
       await supabase.storage.from('preview').upload(previewFilename, previewBuffer, { contentType: 'audio/mpeg', upsert: true });
       const { data: previewUrlData } = supabase.storage.from('preview').getPublicUrl(previewFilename);
       previewUrl = previewUrlData?.publicUrl || null;
-    } catch (previewErr: any) {
-      logWarn('[Admin] Preview de 30s falhou no upload manual; áudio completo não será exposto como preview', { songId: id, error: previewErr?.message });
+    } catch (previewErr: unknown) {
+      logWarn('[Admin] Preview de 30s falhou no upload manual; áudio completo não será exposto como preview', { songId: id, error: previewErr instanceof Error ? previewErr.message : String(previewErr) });
     } finally {
       try { await fs.promises.unlink(tempInput); } catch {}
       try { await fs.promises.unlink(tempPreview); } catch {}
@@ -933,17 +936,17 @@ router.post('/song/:id/upload-audio', adminAuth, async (req, res) => {
       }
     }
     res.json({ success: true });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 router.get('/clients', adminAuth, async (req, res) => {
   try {
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
     const { data, error } = await supabase.from('users').select('*, song_requests(id, status, created_at)').order('created_at', { ascending: false });
-    if (error) return res.status(500).json({ error: safeMessage(error) });
+    if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
     res.json({ success: true, clients: data });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 // P. GET progress map (exposed for frontend polling)
@@ -956,8 +959,8 @@ router.get('/progress', adminAuth, async (req, res) => {
       if (now - p.updatedAt > PROGRESS_TTL_MS) delete progress[id];
     }
     res.json(progress);
-  } catch (err: any) {
-    res.status(500).json({ error: safeMessage(err) });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 
@@ -966,10 +969,10 @@ router.post('/undo', adminAuth, async (req, res) => {
   try {
     const { entityType, entityId, action } = req.body;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     if (!entityType || !entityId || !action) {
-      return res.status(400).json({ error: 'Parâmetros "entityType", "entityId" e "action" obrigatórios.' });
+      return res.status(400).json({ success: false, error: 'Parâmetros "entityType", "entityId" e "action" obrigatórios.' });
     }
 
     if (action === 'approve' || action === 'reject') {
@@ -993,7 +996,7 @@ router.post('/undo', adminAuth, async (req, res) => {
 
     if (action === 'force_status') {
       const { previousStatus } = req.body;
-      if (!previousStatus) return res.status(400).json({ error: 'Força-status undo requer "previousStatus".' });
+      if (!previousStatus) return res.status(400).json({ success: false, error: 'Força-status undo requer "previousStatus".' });
       if (entityType === 'song_requests' || entityType === 'payments') {
         await supabase.from(entityType).update({ status: previousStatus }).eq('id', entityId);
         logAdminAction({ action: 'undo', entityType, entityId, notes: `Undo force_status: revertido para ${previousStatus}` });
@@ -1006,8 +1009,8 @@ router.post('/undo', adminAuth, async (req, res) => {
       }
     }
 
-    res.status(400).json({ error: 'Combinação entityType/action não suportada para undo.' });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+    res.status(400).json({ success: false, error: 'Combinação entityType/action não suportada para undo.' });
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 // K. Update request style/voice
@@ -1016,15 +1019,15 @@ router.post('/request/:id/update-style', adminAuth, async (req, res) => {
     const { id } = req.params;
     const { music_style, voice_type } = req.body;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
     const updateData: Record<string, string> = {};
     if (music_style) updateData.music_style = music_style;
     if (voice_type) updateData.voice_type = voice_type;
-    if (Object.keys(updateData).length === 0) return res.status(400).json({ error: 'Nada para atualizar.' });
+    if (Object.keys(updateData).length === 0) return res.status(400).json({ success: false, error: 'Nada para atualizar.' });
     const { data, error } = await supabase.from('song_requests').update(updateData).eq('id', id).select().single();
-    if (error) return res.status(500).json({ error: safeMessage(error) });
+    if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
     res.json({ success: true, data });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 // L. Regenerate lyrics (re-call Claude)
@@ -1032,7 +1035,7 @@ router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const { data: requestData, error: reqError } = await supabase
       .from('song_requests')
@@ -1040,9 +1043,9 @@ router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
       .eq('id', id)
       .single();
 
-    if (reqError || !requestData) return res.status(404).json({ error: 'Pedido não encontrado' });
+    if (reqError || !requestData) return res.status(404).json({ success: false, error: 'Pedido não encontrado' });
     const existingSong = firstRelated(requestData.songs);
-    if (!existingSong) return res.status(400).json({ error: 'Música associada em falta.' });
+    if (!existingSong) return res.status(400).json({ success: false, error: 'Música associada em falta.' });
 
     const formData = {
       userNick: requestData.users?.name || 'Autor',
@@ -1078,9 +1081,9 @@ router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
       .select()
       .single();
 
-    if (songError) return res.status(500).json({ error: safeMessage(songError) });
+    if (songError) return res.status(500).json({ success: false, error: safeMessage(songError) });
     res.json({ success: true, song: updatedSong });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 // M. Request event logs
@@ -1088,10 +1091,10 @@ router.get('/request/:id/logs', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const { data: requestData } = await supabase.from('song_requests').select('*, songs(*), payments(*)').eq('id', id).single();
-    if (!requestData) return res.status(404).json({ error: 'Pedido não encontrado' });
+    if (!requestData) return res.status(404).json({ success: false, error: 'Pedido não encontrado' });
 
     const logs: { timestamp: string; event: string; detail: string }[] = [];
     const push = (ts: string, event: string, detail: string) => logs.push({ timestamp: ts, event, detail });
@@ -1111,14 +1114,14 @@ router.get('/request/:id/logs', adminAuth, async (req, res) => {
 
     logs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     res.json({ success: true, logs });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 // N. Advanced metrics
 router.get('/metrics', adminAuth, async (req, res) => {
   try {
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const [requestsRes, paymentsRes, songsRes] = await Promise.all([
       supabase.from('song_requests').select('id, status, created_at, music_style', { count: 'exact' }),
@@ -1197,14 +1200,14 @@ router.get('/metrics', adminAuth, async (req, res) => {
           return sum + num;
         }, 0)
     });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 // P. Profitability
 router.get('/profitability', adminAuth, async (req, res) => {
   try {
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const { ENV } = await import('../config/env');
     const sunoCostPerCreditUSD = ENV.SUNO_COST_PER_CREDIT_USD;
@@ -1299,7 +1302,7 @@ router.get('/profitability', adminAuth, async (req, res) => {
       },
       byPlan: planDetails,
     });
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 // O. Export CSV
@@ -1307,7 +1310,7 @@ router.get('/export/:type', adminAuth, async (req, res) => {
   try {
     const { type } = req.params;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     let rows: Record<string, any>[] = [];
     let headers: string[] = [];
@@ -1342,7 +1345,7 @@ router.get('/export/:type', adminAuth, async (req, res) => {
         }));
       }
     } else {
-      return res.status(400).json({ error: 'Tipo inválido. Use: requests, payments, clients' });
+      return res.status(400).json({ success: false, error: 'Tipo inválido. Use: requests, payments, clients' });
     }
 
     const csvHeader = headers.join(',');
@@ -1355,7 +1358,7 @@ router.get('/export/:type', adminAuth, async (req, res) => {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${type}_${Date.now()}.csv"`);
     res.send('\uFEFF' + csv);
-  } catch (err: any) { res.status(500).json({ error: safeMessage(err) }); }
+  } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 
 // Q2. Delete request and all its resources from storage
@@ -1363,7 +1366,7 @@ router.delete('/request/:id', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     // 1. Obter todos os caminhos dos ficheiros associados para apagar da Storage
     const { data: requestData, error: fetchError } = await supabase
@@ -1373,7 +1376,7 @@ router.delete('/request/:id', adminAuth, async (req, res) => {
       .single();
 
     if (fetchError || !requestData) {
-      return res.status(404).json({ error: 'Pedido não encontrado.' });
+      return res.status(404).json({ success: false, error: 'Pedido não encontrado.' });
     }
 
     // Coleções de remoções de Storage agrupadas por bucket
@@ -1441,8 +1444,8 @@ router.delete('/request/:id', adminAuth, async (req, res) => {
           } else {
             logInfo(`[Admin Delete] Ficheiros removidos do bucket "${bucket}" com sucesso`, { paths: uniquePaths });
           }
-        } catch (e: any) {
-          logWarn(`[Admin Delete] Excepção ao remover do bucket "${bucket}"`, { error: e.message });
+        } catch (err: unknown) {
+          logWarn(`[Admin Delete] Excepção ao remover do bucket "${bucket}"`, { error: err instanceof Error ? err.message : String(err) });
         }
       })
     ).catch(err => logError('[Admin Delete] Erro crítico no cleanup de storage', err));
@@ -1454,7 +1457,7 @@ router.delete('/request/:id', adminAuth, async (req, res) => {
       .eq('id', id);
 
     if (deleteError) {
-      return res.status(500).json({ error: `Falha ao apagar pedido: ${deleteError.message}` });
+      return res.status(500).json({ success: false, error: `Falha ao apagar pedido: ${deleteError.message}` });
     }
 
     logAdminAction({
@@ -1470,8 +1473,8 @@ router.delete('/request/:id', adminAuth, async (req, res) => {
     });
 
     res.json({ success: true, message: 'Pedido e ficheiros associados apagados com sucesso.' });
-  } catch (err: any) {
-    res.status(500).json({ error: safeMessage(err) });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 
@@ -1480,11 +1483,11 @@ router.post('/cron/deliver-pending', async (req, res) => {
   try {
     const cronKey = req.headers['x-cron-key'] || req.query.key;
     if (cronKey !== process.env.CRON_SECRET) {
-      return res.status(401).json({ error: 'Chave inválida.' });
+      return res.status(401).json({ success: false, error: 'Chave inválida.' });
     }
 
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'DB não disponível' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const now = new Date().toISOString();
     const { data: pending, error: fetchError } = await supabase
@@ -1495,7 +1498,7 @@ router.post('/cron/deliver-pending', async (req, res) => {
       .not('deliver_at', 'is', null);
 
     if (fetchError) {
-      return res.status(500).json({ error: `Erro ao buscar entregas pendentes: ${fetchError.message}` });
+      return res.status(500).json({ success: false, error: `Erro ao buscar entregas pendentes: ${fetchError.message}` });
     }
 
     if (!pending || pending.length === 0) {
@@ -1539,8 +1542,65 @@ router.post('/cron/deliver-pending', async (req, res) => {
     }
 
     res.json({ success: true, delivered, message: `${delivered} música(s) entregue(s) automaticamente.` });
-  } catch (err: any) {
-    res.status(500).json({ error: safeMessage(err) });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+// UTM Campaign Stats
+router.get('/utm-stats', adminAuth, async (req, res) => {
+  try {
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
+    const { data, error } = await supabase
+      .from('song_requests')
+      .select('utm_campaign, utm_source, utm_medium, utm_term, utm_content, plan, status, payments(amount)')
+      .not('utm_campaign', 'is', null)
+      .neq('utm_campaign', '');
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+
+    const campaignMap = new Map<string, {
+      campaign: string;
+      source: string;
+      medium: string;
+      total_requests: number;
+      converted: number;
+      delivered: number;
+      revenue: number;
+    }>();
+
+    for (const row of data || []) {
+      const key = row.utm_campaign || 'Sem nome';
+      const existing = campaignMap.get(key) || {
+        campaign: key,
+        source: row.utm_source || '—',
+        medium: row.utm_medium || '—',
+        total_requests: 0,
+        converted: 0,
+        delivered: 0,
+        revenue: 0,
+      };
+      existing.total_requests++;
+      if (row.status === 'approved' || row.status === 'delivered') {
+        existing.converted++;
+        const paymentArr = (row as any).payments as { amount: string | number }[] | undefined;
+        const amount = parseFloat(String(paymentArr?.[0]?.amount || '0'));
+        if (!isNaN(amount)) existing.revenue += amount;
+      }
+      if (row.status === 'delivered') existing.delivered++;
+      campaignMap.set(key, existing);
+    }
+
+    const campaigns = Array.from(campaignMap.values())
+      .sort((a, b) => b.total_requests - a.total_requests);
+
+    res.json({ success: true, data: campaigns });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Erro ao carregar estatísticas UTM';
+    res.status(500).json({ success: false, error: message });
   }
 });
 

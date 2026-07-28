@@ -7,7 +7,11 @@ function getAdminPassword(): string | undefined {
 }
 
 function getJwtSecret(): string {
-  return process.env.JWT_SECRET || '';
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 16) {
+    throw new Error('JWT_SECRET não configurado ou demasiado curto (mín. 16 caracteres).');
+  }
+  return secret;
 }
 
 const ATTEMPT_LIMIT = 10;
@@ -51,34 +55,48 @@ export function adminLogin(req: express.Request, res: express.Response) {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
 
   if (isRateLimited(ip)) {
-    return res.status(429).json({ error: 'Demasiadas tentativas. Tente novamente mais tarde.' });
+    return res.status(429).json({ success: false, error: 'Demasiadas tentativas. Tente novamente mais tarde.' });
   }
 
   const { password } = req.body;
   const adminPassword = getAdminPassword();
 
   if (!adminPassword) {
-    return res.status(500).json({ error: 'ADMIN_PASSWORD não configurado no servidor.' });
+    return res.status(500).json({ success: false, error: 'ADMIN_PASSWORD não configurado no servidor.' });
   }
 
   if (!password || !timingSafeCompare(String(password), adminPassword)) {
-    return res.status(401).json({ error: 'Password inválida.' });
+    return res.status(401).json({ success: false, error: 'Password inválida.' });
   }
 
-  const token = jwt.sign({ role: 'admin', iat: Date.now() }, getJwtSecret(), { expiresIn: '2h' });
+  let secret: string;
+  try {
+    secret = getJwtSecret();
+  } catch {
+    return res.status(500).json({ success: false, error: 'JWT_SECRET não configurado.' });
+  }
+
+  const token = jwt.sign({ role: 'admin', iat: Date.now() }, secret, { expiresIn: '2h' });
   res.json({ success: true, token, expiresIn: 7200 });
 }
 
 export function adminAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   const authHeader = req.headers['authorization'] as string | undefined;
 
+  let secret: string;
+  try {
+    secret = getJwtSecret();
+  } catch {
+    return res.status(500).json({ success: false, error: 'JWT_SECRET não configurado.' });
+  }
+
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.slice(7);
     try {
-      jwt.verify(token, getJwtSecret());
+      jwt.verify(token, secret);
       return next();
     } catch {
-      return res.status(401).json({ error: 'Sessão expirada. Faça login novamente.' });
+      return res.status(401).json({ success: false, error: 'Sessão expirada. Faça login novamente.' });
     }
   }
 
@@ -88,7 +106,7 @@ export function adminAuth(req: express.Request, res: express.Response, next: exp
     return next();
   }
 
-  return res.status(401).json({ error: 'Acesso não autorizado.' });
+  return res.status(401).json({ success: false, error: 'Acesso não autorizado.' });
 }
 
 

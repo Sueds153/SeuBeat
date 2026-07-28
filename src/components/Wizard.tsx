@@ -94,6 +94,107 @@ const STEP_META = [
 
 const WIZARD_BUILD = '20260716_1';
 
+const RELATIONSHIP_CARDS = [
+  { type: 'Mãe', label: 'Mãe', icon: '❤️' },
+  { type: 'Pai', label: 'Pai', icon: '⭐' },
+  { type: 'Esposa', label: 'Esposa', icon: '💍' },
+  { type: 'Marido', label: 'Marido', icon: '🤵' },
+  { type: 'Namorado', label: 'Namorado(a)', icon: '💕' },
+  { type: 'Ex-namorado', label: 'Ex-namorado(a)', icon: '💔' },
+  { type: 'Filho', label: 'Filho(a)', icon: '👶' },
+  { type: 'Irmão', label: 'Irmão(ã)', icon: '👨‍👩‍👧' },
+  { type: 'Amigo', label: 'Amigo(a)', icon: '🤝' },
+  { type: 'Avó-Avô', label: 'Avó/Avô', icon: '👵' },
+  { type: 'Professor', label: 'Professor(a)', icon: '🎓' },
+  { type: 'Pastor', label: 'Pastor(a)', icon: '🙏' },
+  { type: 'Colega', label: 'Colega', icon: '💼' },
+  { type: 'Para-mim', label: 'Para mim', icon: '✨' },
+  { type: 'Outro', label: 'Outro', icon: '➕' }
+];
+
+const OCCASION_CARDS = [
+  { type: 'Aniversário', label: 'Aniversário', icon: '🎂' },
+  { type: 'Aniversário de namoro', label: 'Aniversário de namoro', icon: '💕' },
+  { type: 'Casamento', label: 'Casamento', icon: '💍' },
+  { type: 'Declaração', label: 'Declaração de amor', icon: '❤️' },
+  { type: 'Agradecimento', label: 'Agradecimento', icon: '🙏' },
+  { type: 'Homenagem', label: 'Homenagem', icon: '🏆' },
+  { type: 'Pedido de desculpas', label: 'Pedido de desculpas', icon: '💔' },
+  { type: 'Saudade', label: 'Saudade', icon: '📍' },
+  { type: 'Sem motivo', label: 'Sem motivo', icon: '✨' }
+];
+
+const MUSIC_STYLE_CARDS = [
+  { style: 'Kizomba', label: 'Kizomba', desc: 'Tarraxinha lenta, romântica e envolvente.', icon: '💃' },
+  { style: 'Semba', label: 'Semba', desc: 'Ritmo angolano com muita tradição e guitarra viva.', icon: '🎸' },
+  { style: 'Afrobeat', label: 'Afrobeat', desc: 'Moderno, dinâmico e carregado de energia.', icon: '🥁' },
+  { style: 'Gospel', label: 'Gospel', desc: 'Harmonioso, coros de fé e piano edificador.', icon: '✨' },
+  { style: 'Acoustic', label: 'Acústico', desc: 'Expressividade pura assente em violão e piano.', icon: '🕯️' },
+  { style: 'Romantic Pop', label: 'Romantic Pop', desc: 'Balada radiofónica internacional com refrão forte.', icon: '🎹' },
+  { style: 'Zouk', label: 'Zouk', desc: 'Ritmo caribenho romântico com sintetizadores suaves.', icon: '🌴' },
+  { style: 'Balada', label: 'Balada', desc: 'Emocional e orquestrada, piano e cordas a envolver.', icon: '🎻' },
+  { style: 'Pop', label: 'Pop', desc: 'Melodia cativante e produção polida, estilo radiofónico.', icon: '🌟' },
+  { style: 'R&B', label: 'R&B', desc: 'Voz suave e groove envolvente, alma e sentimento.', icon: '🎤' },
+  { style: 'Rap', label: 'Rap', desc: 'Flow ritmado e batida urbana, palavra poderosa.', icon: '🎧' },
+  { style: 'Funk', label: 'Funk', desc: 'Batida contagiante, groove elétrico e dançante angolano.', icon: '🕺' },
+  { style: 'Trap', label: 'Trap', desc: 'Batida pesada 808, flow moderno e atitude urbana.', icon: '🔥' },
+  { style: 'Reggae', label: 'Reggae', desc: 'Ritmo descontraído, vibração positiva e bass pesado.', icon: '🌿' },
+  { style: 'Samba', label: 'Samba', desc: 'Percussão vibrante, gingado brasileiro e energia festiva.', icon: '🥁' },
+  { style: 'Hino', label: 'Hino', desc: 'Épico e solene, ideal para hinos corporativos e institucionais.', icon: '🏛️' }
+];
+
+const ARTIST_CARDS = [
+  { name: 'Anselmo Ralph', style: 'R&B / Kizomba' },
+  { name: 'Matias Damásio', style: 'Semba / Romântico' },
+  { name: 'Gerilson Insrael', style: 'Afro Pop / Kizomba' },
+  { name: 'Chelsea Dinorath', style: 'Neo-kizomba / R&B' },
+  { name: 'Ary', style: 'Semba / Soul' },
+  { name: 'Cef', style: 'Ghetto Zouk' },
+  { name: 'Nelson Freitas', style: 'Zouk / R&B' },
+  { name: 'Outro', style: 'Estilo Próprio' }
+];
+
+const VOICE_CARDS = [
+  { type: 'Masculina', label: '👨 Masculina', desc: 'Voz quente, aveludada e profunda.' },
+  { type: 'Feminina', label: '👩 Feminina', desc: 'Voz expressiva, meiga, meiga e angelical.' },
+  { type: 'Dueto', label: '👩‍❤️‍👨 Dueto', desc: 'Harmonização perfeita de tom masculino e feminino de estúdio.' },
+  { type: 'Sem preferência', label: '✨ Sem preferência', desc: 'A nossa equipa seleciona o timbre que melhor se adequa à letra criada.' }
+];
+
+const LOCATION_CARDS = [
+  { name: 'Luanda', icon: '📍' },
+  { name: 'Benguela', icon: '📍' },
+  { name: 'Huambo', icon: '📍' },
+  { name: 'Lubango', icon: '📍' },
+  { name: 'Namibe', icon: '📍' },
+  { name: 'Outro', icon: '➕' }
+];
+
+const EMOTION_CARDS = [
+  { type: 'Amor', icon: '❤️', label: 'Amor' },
+  { type: 'Emoção', icon: '🥹', label: 'Emoção' },
+  { type: 'Gratidão', icon: '🙏', label: 'Gratidão' },
+  { type: 'Carinho', icon: '💕', label: 'Carinho' },
+  { type: 'Saudade', icon: '😢', label: 'Saudade' },
+  { type: 'Inspiração', icon: '✨', label: 'Inspiração' }
+];
+
+const LIVE_ACTIVITIES = [
+  { name: 'Rui', text: '"Ela ouviu e ligou a chorar de emoção"' },
+  { name: 'Delfina', text: '"A Mãe Maria ouve todos os dias ao acordar"' },
+  { name: 'Mateus', text: '"Ela disse SIM depois de ouvir a música"' },
+  { name: 'Sara', text: '"Nunca tinha recebido nada igual"' },
+  { name: 'João', text: '"A Clara pôs a música no despertador"' },
+  { name: 'Carmo', text: '"A minha mãe não parou de chorar"' },
+];
+
+const PAYMENT_SOCIAL_PROOFS = [
+  '👥 +247 já pagaram hoje',
+  '👤 A Maria pagou há 2 minutos',
+  '👤 O João acabou de enviar comprovativo',
+  '👥 9 em cada 10 recomendam o SeuBeat',
+];
+
 export default function Wizard({ onBackToLanding }: WizardProps) {
   const [step, setStep] = useState<number>(() => {
     try {
@@ -450,19 +551,23 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   }, [formData.email]);
 
   // Helper para mostrar toasts
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = (message: string, type: 'error' | 'success' | 'info' = 'info') => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     const id = Date.now();
     setToast({ message, type, id });
-    setTimeout(() => {
+    toastTimeoutRef.current = setTimeout(() => {
       setToast(null);
+      toastTimeoutRef.current = null;
     }, 4000);
   };
+  useEffect(() => () => { if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current); }, []);
 
   const proofMountedRef = useRef(true);
   useEffect(() => { proofMountedRef.current = true; return () => { proofMountedRef.current = false; }; }, []);
 
   useEffect(() => {
-    if (proofFile && !paymentSubmitting && !paymentSubmitted) {
+    if (proofFile && !paymentSubmitting && !paymentSubmitted && !paymentSubmitError) {
       submitPaymentProof();
     }
   }, [proofFile]);
@@ -576,13 +681,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
   const [instructionsOpen, setInstructionsOpen] = useState(false);
 
-  // Auto-submit comprovativo quando ficheiro é selecionado
-  useEffect(() => {
-    if (proofFile && !paymentSubmitted && !paymentSubmitting && !paymentSubmitError) {
-      submitPaymentProof();
-    }
-  }, [proofFile]);
-
   // Memory writing suggestions UI tab state
   const [suggestTab, setSuggestTab] = useState<'viagem' | 'romance' | 'divertido' | 'quotidiano'>('viagem');
 
@@ -638,91 +736,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     }
   };
 
-  // Card items configurations
-  const RELATIONSHIP_CARDS = [
-    { type: 'Mãe', label: 'Mãe', icon: '❤️' },
-    { type: 'Pai', label: 'Pai', icon: '⭐' },
-    { type: 'Esposa', label: 'Esposa', icon: '💍' },
-    { type: 'Marido', label: 'Marido', icon: '🤵' },
-    { type: 'Namorado', label: 'Namorado(a)', icon: '💕' },
-    { type: 'Ex-namorado', label: 'Ex-namorado(a)', icon: '💔' },
-    { type: 'Filho', label: 'Filho(a)', icon: '👶' },
-    { type: 'Irmão', label: 'Irmão(ã)', icon: '👨‍👩‍👧' },
-    { type: 'Amigo', label: 'Amigo(a)', icon: '🤝' },
-    { type: 'Avó-Avô', label: 'Avó/Avô', icon: '👵' },
-    { type: 'Professor', label: 'Professor(a)', icon: '🎓' },
-    { type: 'Pastor', label: 'Pastor(a)', icon: '🙏' },
-    { type: 'Colega', label: 'Colega', icon: '💼' },
-    { type: 'Para-mim', label: 'Para mim', icon: '✨' },
-    { type: 'Outro', label: 'Outro', icon: '➕' }
-  ];
-
-  const OCCASION_CARDS = [
-    { type: 'Aniversário', label: 'Aniversário', icon: '🎂' },
-    { type: 'Aniversário de namoro', label: 'Aniversário de namoro', icon: '💕' },
-    { type: 'Casamento', label: 'Casamento', icon: '💍' },
-    { type: 'Declaração', label: 'Declaração de amor', icon: '❤️' },
-    { type: 'Agradecimento', label: 'Agradecimento', icon: '🙏' },
-    { type: 'Homenagem', label: 'Homenagem', icon: '🏆' },
-    { type: 'Pedido de desculpas', label: 'Pedido de desculpas', icon: '💔' },
-    { type: 'Saudade', label: 'Saudade', icon: '📍' },
-    { type: 'Sem motivo', label: 'Sem motivo', icon: '✨' }
-  ];
-
-  const MUSIC_STYLE_CARDS = [
-    { style: 'Kizomba', label: 'Kizomba', desc: 'Tarraxinha lenta, romântica e envolvente.', icon: '💃' },
-    { style: 'Semba', label: 'Semba', desc: 'Ritmo angolano com muita tradição e guitarra viva.', icon: '🎸' },
-    { style: 'Afrobeat', label: 'Afrobeat', desc: 'Moderno, dinâmico e carregado de energia.', icon: '🥁' },
-    { style: 'Gospel', label: 'Gospel', desc: 'Harmonioso, coros de fé e piano edificador.', icon: '✨' },
-    { style: 'Acoustic', label: 'Acústico', desc: 'Expressividade pura assente em violão e piano.', icon: '🕯️' },
-    { style: 'Romantic Pop', label: 'Romantic Pop', desc: 'Balada radiofónica internacional com refrão forte.', icon: '🎹' },
-    { style: 'Zouk', label: 'Zouk', desc: 'Ritmo caribenho romântico com sintetizadores suaves.', icon: '🌴' },
-    { style: 'Balada', label: 'Balada', desc: 'Emocional e orquestrada, piano e cordas a envolver.', icon: '🎻' },
-    { style: 'Pop', label: 'Pop', desc: 'Melodia cativante e produção polida, estilo radiofónico.', icon: '🌟' },
-    { style: 'R&B', label: 'R&B', desc: 'Voz suave e groove envolvente, alma e sentimento.', icon: '🎤' },
-    { style: 'Rap', label: 'Rap', desc: 'Flow ritmado e batida urbana, palavra poderosa.', icon: '🎧' },
-    { style: 'Funk', label: 'Funk', desc: 'Batida contagiante, groove elétrico e dançante angolano.', icon: '🕺' },
-    { style: 'Trap', label: 'Trap', desc: 'Batida pesada 808, flow moderno e atitude urbana.', icon: '🔥' },
-    { style: 'Reggae', label: 'Reggae', desc: 'Ritmo descontraído, vibração positiva e bass pesado.', icon: '🌿' },
-    { style: 'Samba', label: 'Samba', desc: 'Percussão vibrante, gingado brasileiro e energia festiva.', icon: '🥁' },
-    { style: 'Hino', label: 'Hino', desc: 'Épico e solene, ideal para hinos corporativos e institucionais.', icon: '🏛️' }
-  ];
-
-  const ARTIST_CARDS = [
-    { name: 'Anselmo Ralph', style: 'R&B / Kizomba' },
-    { name: 'Matias Damásio', style: 'Semba / Romântico' },
-    { name: 'Gerilson Insrael', style: 'Afro Pop / Kizomba' },
-    { name: 'Chelsea Dinorath', style: 'Neo-kizomba / R&B' },
-    { name: 'Ary', style: 'Semba / Soul' },
-    { name: 'Cef', style: 'Ghetto Zouk' },
-    { name: 'Nelson Freitas', style: 'Zouk / R&B' },
-    { name: 'Outro', style: 'Estilo Próprio' }
-  ];
-
-  const VOICE_CARDS = [
-    { type: 'Masculina', label: '👨 Masculina', desc: 'Voz quente, aveludada e profunda.' },
-    { type: 'Feminina', label: '👩 Feminina', desc: 'Voz expressiva, meiga, meiga e angelical.' },
-    { type: 'Dueto', label: '👩‍❤️‍👨 Dueto', desc: 'Harmonização perfeita de tom masculino e feminino de estúdio.' },
-    { type: 'Sem preferência', label: '✨ Sem preferência', desc: 'A nossa equipa seleciona o timbre que melhor se adequa à letra criada.' }
-  ];
-
-  const LOCATION_CARDS = [
-    { name: 'Luanda', icon: '📍' },
-    { name: 'Benguela', icon: '📍' },
-    { name: 'Huambo', icon: '📍' },
-    { name: 'Lubango', icon: '📍' },
-    { name: 'Namibe', icon: '📍' },
-    { name: 'Outro', icon: '➕' }
-  ];
-
-  const EMOTION_CARDS = [
-    { type: 'Amor', icon: '❤️', label: 'Amor' },
-    { type: 'Emoção', icon: '🥹', label: 'Emoção' },
-    { type: 'Gratidão', icon: '🙏', label: 'Gratidão' },
-    { type: 'Carinho', icon: '💕', label: 'Carinho' },
-    { type: 'Saudade', icon: '😢', label: 'Saudade' },
-    { type: 'Inspiração', icon: '✨', label: 'Inspiração' }
-  ];
+  
 
   // Processing message rotator while the real backend workflow runs.
   useEffect(() => {
@@ -1064,6 +1078,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     }
   };
 
+  const blobUrlRef = useRef<string | null>(null);
   useEffect(() => {
     const savedBase64 = sessionStorage.getItem('seubeat_photo_base64');
     if (savedBase64 && (!formData.photoUrl || formData.photoUrl.startsWith('blob:'))) {
@@ -1076,15 +1091,17 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const blob = new Blob([ab], { type: mimeString });
         const file = new File([blob], 'foto.' + (mimeString.split('/')[1] || 'jpg'), { type: mimeString });
         const url = URL.createObjectURL(file);
+        if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+        blobUrlRef.current = url;
         wrappedSetFormData(prev => ({ ...prev, photoFile: file, photoUrl: url }));
       } catch (e) {
         sessionStorage.removeItem('seubeat_photo_base64');
       }
     } else if (!savedBase64 && formData.photoUrl?.startsWith('blob:')) {
-      // blob URL recarregada sem base64 no sessionStorage — foto partida
       wrappedSetFormData(prev => ({ ...prev, photoUrl: '' }));
       showToast('A foto foi perdida após o recarregamento. Selecione novamente.', 'error');
     }
+    return () => { if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current); };
   }, []);
 
   const prevPhotoUrlRef = useRef(formData.photoUrl);
@@ -1288,22 +1305,6 @@ const ROTATING_MESSAGES = [
     '💕 Uma nova declaração de amor foi criada',
     '🎂 Uma música de aniversário acabou de ficar pronta',
     '💍 Um pedido de casamento está a transformar-se em música'
-  ];
-
-  const LIVE_ACTIVITIES = [
-    { name: 'Rui', text: '"Ela ouviu e ligou a chorar de emoção"' },
-    { name: 'Delfina', text: '"A Mãe Maria ouve todos os dias ao acordar"' },
-    { name: 'Mateus', text: '"Ela disse SIM depois de ouvir a música"' },
-    { name: 'Sara', text: '"Nunca tinha recebido nada igual"' },
-    { name: 'João', text: '"A Clara pôs a música no despertador"' },
-    { name: 'Carmo', text: '"A minha mãe não parou de chorar"' },
-  ];
-
-  const PAYMENT_SOCIAL_PROOFS = [
-    '👥 +247 já pagaram hoje',
-    '👤 A Maria pagou há 2 minutos',
-    '👤 O João acabou de enviar comprovativo',
-    '👥 9 em cada 10 recomendam o SeuBeat',
   ];
 
   const getDemoByStyle = (style: string) => {
