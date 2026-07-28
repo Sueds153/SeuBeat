@@ -1,4 +1,8 @@
 import './instrument';
+import {initGA, gaPageView} from './lib/analytics';
+
+initGA();
+gaPageView();
 
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';

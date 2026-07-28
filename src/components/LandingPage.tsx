@@ -9,7 +9,9 @@ import FAQ from './FAQ';
 import { PRICING_PLANS } from '../constants/pricing';
 import { WHATSAPP_URL } from '../constants/whatsapp';
 import { fbInitiateCheckout, fbViewContent, parsePrice } from '../lib/metaPixel';
+import { gaViewContent, gaInitiateCheckout } from '../lib/analytics';
 import { useTypewriter } from '../hooks/useTypewriter';
+import { useUtm } from '../hooks/useUtm';
 
 interface LandingPageProps {
   onStartWizard: () => void;
@@ -125,6 +127,8 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const [animatedCount, setAnimatedCount] = useState(0);
   const [heroIdx, setHeroIdx] = useState(0);
 
+  useUtm();
+
   useEffect(() => {
     const el = countRef.current;
     if (!el) return;
@@ -167,6 +171,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
   useEffect(() => {
     fbViewContent('landing', 0, 'AOA', crypto.randomUUID());
+    gaViewContent('landing');
   }, []);
 
   return (
@@ -635,6 +640,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                     id={`pricing-cta-btn-${plan.id}`}
                     onClick={() => {
                       fbInitiateCheckout(plan.id, parsePrice(plan.price), 'AOA', crypto.randomUUID());
+                      gaInitiateCheckout(plan.id, parsePrice(plan.price));
                       onStartWizard();
                     }}
                     className={`w-full py-3.5 rounded-full text-xs md:text-sm font-bold transition-all cursor-pointer ${

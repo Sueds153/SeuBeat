@@ -18,7 +18,9 @@ import { validateStep as zodValidateStep, FieldErrors } from '../lib/validation'
 import WhatsAppHelp from './WhatsAppHelp';
 import LogoIcon from './LogoIcon';
 import { fbLead, fbAddPaymentInfo, fbSubmitApplication, fbSetUserData, fbViewContent, fbCompleteRegistration, parsePrice } from '../lib/metaPixel';
+import { gaViewContent, gaLead, gaCompleteRegistration, gaAddPaymentInfo, gaSubmitApplication, gaWizardStep, gaPageView } from '../lib/analytics';
 import { DEMO_SONGS } from '../constants/demoSongs';
+import { useUtm } from '../hooks/useUtm';
 
 interface WizardProps {
   onBackToLanding: () => void;
@@ -121,8 +123,10 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [paymentSocialIdx, setPaymentSocialIdx] = useState(0);
   const [showProcessingWarning, setShowProcessingWarning] = useState(false);
   // Toast notification state
-  const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info'; id: number } | null>(null);
-  
+const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info'; id: number } | null>(null);
+
+  useUtm();
+
   // Demo preview player (Ecrã 1)
   const [demoPlaying, setDemoPlaying] = useState(false);
   const [demoProgress, setDemoProgress] = useState(0);
@@ -337,6 +341,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
       const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
       const plan = selectedPlanID || 'standard';
       fbViewContent(plan, PLAN_VALUES[plan], 'AOA', crypto.randomUUID());
+      gaViewContent(plan, PLAN_VALUES[plan]);
     }
   }, [generationStatus]);
 
@@ -347,6 +352,11 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     }, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // GA4: registar cada passo do wizard
+  useEffect(() => {
+    gaWizardStep(step);
+  }, [step]);
 
   const wrappedSetFormData: React.Dispatch<React.SetStateAction<WizardData>> = (action) => {
     setFormData(action);
@@ -521,6 +531,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
               setPaymentSubmitError('');
               fbSetUserData(formData.email, formData.phone);
               fbSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()), 'AOA', data.paymentId);
+              gaSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()));
             } else if (res.status === 409) {
               setPaymentSubmitted(true);
               setPaymentSubmitError('');
@@ -922,6 +933,8 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           fbSetUserData(formData.email, formData.phone);
           fbLead('lyrics_generated', data.dbSongRequestId);
           fbCompleteRegistration(data.dbSongRequestId);
+          gaLead(data.dbSongRequestId);
+          gaCompleteRegistration();
 
           setGenerationStatus('lyrics_ready');
           setProcessingStage(3);
@@ -1177,6 +1190,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     setSelectedPlanID(pId);
     const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
     fbAddPaymentInfo(pId, PLAN_VALUES[pId], 'AOA', crypto.randomUUID());
+    gaAddPaymentInfo(pId, PLAN_VALUES[pId]);
     if (pId === 'premium') {
       setVoiceUpsellApplied(true);
       setShowVoiceCloningScreen(true);
