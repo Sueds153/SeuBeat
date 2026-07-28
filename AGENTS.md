@@ -5,7 +5,7 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 
 ## Constraints & Preferences
 - Não quebrar nada existente — cada mudança validada com lint + testes (138 tests).
-- Wizard.tsx e AdminPanel.tsx mantidos como estão (2296 e 1771 linhas) — risco de extração elevado, acordado manter.
+- Wizard.tsx e AdminPanel.tsx mantidos como estão (2982 e 3036 linhas) — risco de extração elevado, acordado manter.
 
 ## Progress
 ### Done
@@ -21,7 +21,7 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Fase 1b**: API layer criada (`src/api/song.ts`, `lyrics.ts`, `payment.ts`).
 - **Fase 1c**: Hooks criados (`useSong`, `useAudioPlayer`).
 - **Fase 1d**: `PersonalizedSongPage.tsx` de ~760→~300 linhas, 4 subcomponentes extraídos (`SongPlayer`, `SongLyrics`, `SongLetter`, `SongShare`).
-- **Fase 3a**: `server/config/env.ts`, `server/config/app.ts`, `server/middleware/security.ts` extraídos. `server.ts` de 121→20 linhas.
+- **Fase 3a**: `server/config/env.ts`, `server/config/app.ts`, `server/middleware/security.ts` extraídos. `server.ts` (raiz) de 121→56 linhas.
 - **Fase 3b**: Barrel exports (`index.ts`) em todas as pastas.
 - **Separação do Supabase client**: `getSupabase()` renomeado para `getAdminSupabase()`, novo `getPublicSupabase()` com anon key.
 - **GET /api/song/:id** movido para public client (RLS respeitado, blast radius reduzido).
@@ -84,7 +84,7 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 ## Testes
 - **138 testes**, 11 ficheiros — todos passam (vitest + jsdom).
 - Distribuição: validation (18), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (11), SongPlayer (8), metaPixel (12), song-api (4), useAudioPlayer (4), smoke (1), metaPixelCapi (2).
-- **Playwright E2E**: 12 testes (landing, wizard, dedication, admin).
+- **Playwright E2E**: 13 testes (landing, wizard, dedication, admin).
 
 ## Next Steps
 1. **Rollback automático no Suno** — se workflow falhar após pagamento aprovado, reverter `payments.status` + notificar admin.
@@ -120,5 +120,5 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - `src/lib/validation.ts`: Zod schemas partilhados (frontend).
 - `src/components/WizardSteps.tsx`: erros inline via `fieldErrors`.
 - `src/components/WhatsAppHelp.tsx`: botão de ajuda WhatsApp.
-- `e2e/`: 12 testes Playwright.
+- `e2e/`: 13 testes Playwright.
 - `playwright.config.ts`: config Chromium headless + webServer.

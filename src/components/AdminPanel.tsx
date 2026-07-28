@@ -63,6 +63,11 @@ interface SongRequest {
   heart_message?: string;
   desired_emotion?: string;
   photo_url?: string | null;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
+  utm_term?: string | null;
+  utm_content?: string | null;
   users?: { name: string; email: string; phone: string };
   songs?: { id: string; title: string; audio_url: string | null; mureka_status: string; created_at: string; letter_text?: string; lyrics?: string[] }[];
   payments?: { plan: string; amount: string; status: string; created_at?: string; payment_reference?: string; user_email?: string }[];
@@ -1698,7 +1703,7 @@ export default function AdminPanel() {
                                     <p className="text-sm text-stone-400">{req.recipient_name}</p>
                                     {plan && <PlanBadge plan={plan} />}
                                   </div>
-                                  <p className="text-[10px] font-mono text-stone-500">{req.occasion} • {req.music_style} • {req.users?.email}</p>
+                                  <p className="text-[10px] font-mono text-stone-500">{req.occasion} • {req.music_style} • {req.users?.email}{req.utm_campaign ? ` • 🎯 ${req.utm_campaign}` : ''}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
@@ -1766,6 +1771,9 @@ export default function AdminPanel() {
                                         <div><p className="text-stone-500 text-[9px]">Voz</p><p className="text-stone-200 mt-0.5">{req.voice_type}</p></div>
                                         <div><p className="text-stone-500 text-[9px]">Idioma</p><p className="text-stone-200 mt-0.5">{cap(req.language || 'português')}</p></div>
                                         <div><p className="text-stone-500 text-[9px]">Emoção</p><p className="text-stone-200 mt-0.5">{req.desired_emotion || '—'}</p></div>
+                                        {(req.utm_source || req.utm_campaign) && (
+                                          <div className="col-span-2 sm:col-span-4"><p className="text-stone-500 text-[9px]">UTM</p><p className="text-stone-200 mt-0.5 font-mono text-[10px]">{[req.utm_source, req.utm_medium, req.utm_campaign, req.utm_term, req.utm_content].filter(Boolean).join(' › ')}</p></div>
+                                        )}
                                       </div>
                                       {(req.special_traits || req.memory || req.heart_message) && (
                                         <div className="mt-2 pt-2 border-t border-stone-800 space-y-1.5">

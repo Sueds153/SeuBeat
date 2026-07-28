@@ -71,6 +71,12 @@ export const GenerateLyricsSchema = z.object({
   photoBase64: z.string().max(10 * 1024 * 1024, 'Foto muito grande (max 10MB)').optional().nullable(),
   photoFilename: z.string().max(255).trim().optional().nullable(),
   photoMimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif'] as const).optional().nullable(),
+
+  utm_source: z.string().max(500).trim().optional().nullable(),
+  utm_medium: z.string().max(500).trim().optional().nullable(),
+  utm_campaign: z.string().max(500).trim().optional().nullable(),
+  utm_term: z.string().max(500).trim().optional().nullable(),
+  utm_content: z.string().max(500).trim().optional().nullable(),
 });
 
 export type GenerateLyricsInput = z.infer<typeof GenerateLyricsSchema>;

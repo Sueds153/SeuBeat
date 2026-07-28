@@ -24,6 +24,15 @@ function buildGeneratePayload(formData: Record<string, unknown>, photoBase64?: s
   if (!payload.recipientNick) payload.recipientNick = undefined;
   if (!payload.referenceArtist) payload.referenceArtist = undefined;
   if (!payload.whyCreatedToday) payload.whyCreatedToday = undefined;
+
+  const raw = sessionStorage.getItem('seubeat_utm_params');
+  if (raw) {
+    try {
+      const utm = JSON.parse(raw);
+      Object.assign(payload, utm);
+    } catch {}
+  }
+
   return {
     ...payload,
     photoBase64,

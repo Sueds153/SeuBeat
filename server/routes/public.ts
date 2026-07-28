@@ -191,7 +191,12 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       messageFromTheHeart,
       hookPhrase,
       desiredEmotion,
-      language
+      language,
+      utm_source,
+      utm_medium,
+      utm_campaign,
+      utm_term,
+      utm_content
     } = validation.data;
 
     if (!supabase) {
@@ -260,7 +265,12 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       email: userEmail,
       phone,
       status: 'lyrics_generating',
-      photo_url: photoUrl
+      photo_url: photoUrl,
+      utm_source: utm_source || null,
+      utm_medium: utm_medium || null,
+      utm_campaign: utm_campaign || null,
+      utm_term: utm_term || null,
+      utm_content: utm_content || null
     }]).select().single();
 
     if (requestError || !requestData?.id) {
