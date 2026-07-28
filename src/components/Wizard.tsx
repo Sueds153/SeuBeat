@@ -21,6 +21,7 @@ import { fbLead, fbAddPaymentInfo, fbSubmitApplication, fbSetUserData, fbViewCon
 import { gaViewContent, gaLead, gaCompleteRegistration, gaAddPaymentInfo, gaSubmitApplication, gaWizardStep, gaPageView } from '../lib/analytics';
 import { DEMO_SONGS } from '../constants/demoSongs';
 import { useUtm } from '../hooks/useUtm';
+import { CURRENCY } from '../constants/currency';
 
 interface WizardProps {
   onBackToLanding: () => void;
@@ -340,7 +341,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       setConversionStep('preview');
       const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
       const plan = selectedPlanID || 'standard';
-      fbViewContent(plan, PLAN_VALUES[plan], 'AOA', crypto.randomUUID());
+      fbViewContent(plan, PLAN_VALUES[plan], CURRENCY, crypto.randomUUID());
       gaViewContent(plan, PLAN_VALUES[plan]);
     }
   }, [generationStatus]);
@@ -530,7 +531,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
               setPaymentSubmitted(true);
               setPaymentSubmitError('');
               fbSetUserData(formData.email, formData.phone);
-              fbSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()), 'AOA', data.paymentId);
+              fbSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()), CURRENCY, data.paymentId);
               gaSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()));
             } else if (res.status === 409) {
               setPaymentSubmitted(true);
@@ -1189,7 +1190,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
     setSelectedPlanID(pId);
     const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
-    fbAddPaymentInfo(pId, PLAN_VALUES[pId], 'AOA', crypto.randomUUID());
+    fbAddPaymentInfo(pId, PLAN_VALUES[pId], CURRENCY, crypto.randomUUID());
     gaAddPaymentInfo(pId, PLAN_VALUES[pId]);
     if (pId === 'premium') {
       setVoiceUpsellApplied(true);

@@ -1,4 +1,5 @@
 import ReactGA from 'react-ga4';
+import { CURRENCY } from '../constants/currency';
 
 const MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
 const IS_ENABLED = Boolean(MEASUREMENT_ID);
@@ -29,7 +30,7 @@ export function gaPageView(path?: string): void {
   } catch {}
 }
 
-export function gaViewContent(contentName?: string, value?: number, currency = 'AOA'): void {
+export function gaViewContent(contentName?: string, value?: number, currency = CURRENCY): void {
   if (!IS_ENABLED || !initialized) return;
   try {
     ReactGA.event('view_item', {
@@ -42,7 +43,7 @@ export function gaViewContent(contentName?: string, value?: number, currency = '
   } catch {}
 }
 
-export function gaInitiateCheckout(plan?: string, value?: number, currency = 'AOA'): void {
+export function gaInitiateCheckout(plan?: string, value?: number, currency = CURRENCY): void {
   if (!IS_ENABLED || !initialized) return;
   try {
     ReactGA.event('begin_checkout', {
@@ -54,7 +55,7 @@ export function gaInitiateCheckout(plan?: string, value?: number, currency = 'AO
   } catch {}
 }
 
-export function gaAddPaymentInfo(plan?: string, value?: number, currency = 'AOA'): void {
+export function gaAddPaymentInfo(plan?: string, value?: number, currency = CURRENCY): void {
   if (!IS_ENABLED || !initialized) return;
   try {
     ReactGA.event('add_payment_info', {
@@ -86,7 +87,7 @@ export function gaCompleteRegistration(): void {
   } catch {}
 }
 
-export function gaSubmitApplication(plan?: string, value?: number, currency = 'AOA'): void {
+export function gaSubmitApplication(plan?: string, value?: number, currency = CURRENCY): void {
   if (!IS_ENABLED || !initialized) return;
   try {
     ReactGA.event('add_to_cart', {
@@ -98,7 +99,7 @@ export function gaSubmitApplication(plan?: string, value?: number, currency = 'A
   } catch {}
 }
 
-export function gaPurchase(plan?: string, value?: number, currency = 'AOA'): void {
+export function gaPurchase(plan?: string, value?: number, currency = CURRENCY): void {
   if (!IS_ENABLED || !initialized) return;
   try {
     ReactGA.event('purchase', {

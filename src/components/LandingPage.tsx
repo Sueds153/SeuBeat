@@ -12,6 +12,7 @@ import { fbInitiateCheckout, fbViewContent, parsePrice } from '../lib/metaPixel'
 import { gaViewContent, gaInitiateCheckout } from '../lib/analytics';
 import { useTypewriter } from '../hooks/useTypewriter';
 import { useUtm } from '../hooks/useUtm';
+import { CURRENCY } from '../constants/currency';
 
 interface LandingPageProps {
   onStartWizard: () => void;
@@ -170,7 +171,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   }, []);
 
   useEffect(() => {
-    fbViewContent('landing', 0, 'AOA', crypto.randomUUID());
+    fbViewContent('landing', 0, CURRENCY, crypto.randomUUID());
     gaViewContent('landing');
   }, []);
 
@@ -639,7 +640,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                   <button
                     id={`pricing-cta-btn-${plan.id}`}
                     onClick={() => {
-                      fbInitiateCheckout(plan.id, parsePrice(plan.price), 'AOA', crypto.randomUUID());
+                      fbInitiateCheckout(plan.id, parsePrice(plan.price), CURRENCY, crypto.randomUUID());
                       gaInitiateCheckout(plan.id, parsePrice(plan.price));
                       onStartWizard();
                     }}

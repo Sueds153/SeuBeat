@@ -2,6 +2,8 @@ const PIXEL_ID = import.meta.env.VITE_META_PIXEL_ID as string | undefined;
 const IS_ENABLED = Boolean(PIXEL_ID);
 let initialized = false;
 
+import { CURRENCY } from '../constants/currency';
+
 declare global {
   interface Window {
     fbq: any;
@@ -66,12 +68,12 @@ export function fbPageView(): void {
   window.fbq('track', 'PageView');
 }
 
-export function fbInitiateCheckout(plan?: string, value?: number, currency: string = 'AOA', eventID?: string): void {
+export function fbInitiateCheckout(plan?: string, value?: number, currency: string = CURRENCY, eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
   window.fbq('track', 'InitiateCheckout', { content_name: plan, value, currency, event_source_url: getEventSourceUrl() }, { eventID });
 }
 
-export function fbAddPaymentInfo(plan?: string, value?: number, currency: string = 'AOA', eventID?: string): void {
+export function fbAddPaymentInfo(plan?: string, value?: number, currency: string = CURRENCY, eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
   window.fbq('track', 'AddPaymentInfo', { content_name: plan, value, currency, event_source_url: getEventSourceUrl() }, { eventID });
 }
@@ -81,12 +83,12 @@ export function fbLead(contentName?: string, eventID?: string): void {
   window.fbq('track', 'Lead', { content_name: contentName, event_source_url: getEventSourceUrl() }, { eventID });
 }
 
-export function fbPurchase(plan?: string, value?: number, currency: string = 'AOA', eventID?: string): void {
+export function fbPurchase(plan?: string, value?: number, currency: string = CURRENCY, eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
   window.fbq('track', 'Purchase', { content_name: plan, value, currency, content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
 }
 
-export function fbSubmitApplication(plan?: string, value?: number, currency: string = 'AOA', eventID?: string): void {
+export function fbSubmitApplication(plan?: string, value?: number, currency: string = CURRENCY, eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
   window.fbq('track', 'SubmitApplication', { content_name: plan, value, currency, content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
 }
@@ -101,7 +103,7 @@ export function fbSetUserData(email: string, phone?: string): void {
   }
 }
 
-export function fbViewContent(plan?: string, value?: number, currency: string = 'AOA', eventID?: string): void {
+export function fbViewContent(plan?: string, value?: number, currency: string = CURRENCY, eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
   window.fbq('track', 'ViewContent', { content_name: plan, value, currency, content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
 }
