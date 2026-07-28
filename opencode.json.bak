@@ -1,9 +1,13 @@
 {
-  "mcpServers": {
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
     "sentry": {
-      "command": "npx",
-      "args": ["@sentry/mcp-server"],
-      "env": {
+      "type": "local",
+      "command": [
+        "npx",
+        "@sentry/mcp-server"
+      ],
+      "environment": {
         "SENTRY_ACCESS_TOKEN": "${SENTRY_ACCESS_TOKEN}"
       }
     }

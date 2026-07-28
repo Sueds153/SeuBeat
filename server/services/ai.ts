@@ -1,4 +1,4 @@
-import { LyricsComposition, AIProvider } from './types';
+import { LyricsComposition, AIProvider, WizardFormData } from './types';
 import { generateLyricsWithGPT } from './openai';
 import { generateLyricsWithClaude } from './claude';
 import { generateLyricsWithGemini } from './gemini';
@@ -18,8 +18,8 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, name: string): Pr
   });
 }
 
-export async function generateLyrics(formData: any): Promise<{ result: LyricsComposition; provider: AIProvider }> {
-  const providers: { name: AIProvider; key: string; fn: (data: any) => Promise<LyricsComposition> }[] = [
+export async function generateLyrics(formData: WizardFormData): Promise<{ result: LyricsComposition; provider: AIProvider }> {
+  const providers: { name: AIProvider; key: string; fn: (data: WizardFormData) => Promise<LyricsComposition> }[] = [
     { name: 'openai', key: 'OPENAI_API_KEY', fn: generateLyricsWithGPT },
     { name: 'gemini', key: 'GEMINI_API_KEY', fn: generateLyricsWithGemini },
     { name: 'claude', key: 'ANTHROPIC_API_KEY', fn: generateLyricsWithClaude },
@@ -31,7 +31,7 @@ export async function generateLyrics(formData: any): Promise<{ result: LyricsCom
     throw new Error('Nenhuma chave de API de IA configurada (ANTHROPIC_API_KEY, OPENAI_API_KEY ou GEMINI_API_KEY).');
   }
 
-  let lastError: any;
+  let lastError: unknown;
 
   for (const { name, fn } of available) {
     try {
@@ -39,9 +39,9 @@ export async function generateLyrics(formData: any): Promise<{ result: LyricsCom
       const result = await withTimeout(fn(formData), AI_PROVIDER_TIMEOUT_MS, name);
       logInfo(`[AI] Letra gerada com sucesso via ${name}`);
       return { result, provider: name };
-    } catch (err: any) {
+    } catch (err: unknown) {
       lastError = err;
-      logWarn(`[AI] Provedor ${name} falhou: ${err?.message}`);
+      logWarn(`[AI] Provedor ${name} falhou: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

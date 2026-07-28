@@ -106,7 +106,7 @@ const logger = winston.createLogger({
   ]
 });
 
-let sentryModule: any = null;
+let sentryModule: unknown = null;
 
 async function ensureSentry() {
   if (sentryModule === undefined) {
@@ -119,49 +119,52 @@ async function ensureSentry() {
   return sentryModule;
 }
 
-async function captureSentry(level: string, message: string, err?: Error | any, metadata?: Record<string, any>) {
+async function captureSentry(level: string, message: string, err?: Error | unknown, metadata?: unknown) {
   const Sentry = await ensureSentry();
-  if (!Sentry?.captureException) return;
+  if (!Sentry || typeof Sentry !== 'object' || !('captureException' in Sentry)) return;
+  const sentry = Sentry as { captureException: (e: Error, opts: Record<string, unknown>) => void };
+  const meta = metadata && typeof metadata === 'object' ? metadata as Record<string, unknown> : {};
   const error = err instanceof Error ? err : new Error(String(err || message));
-  Sentry.captureException(error, {
+  sentry.captureException(error, {
     level: level === 'fatal' ? 'fatal' : 'error',
     tags: { source: 'winston' },
-    extra: { ...metadata, logMessage: message },
+    extra: { ...meta, logMessage: message },
   });
 }
 
-// Métodos de conveniência com contexto
-export function logInfo(message: string, metadata?: Record<string, any>) {
+export function logInfo(message: string, metadata?: unknown) {
   logger.info(message, metadata);
 }
 
-export function logWarn(message: string, metadata?: Record<string, any>) {
+export function logWarn(message: string, metadata?: unknown) {
   logger.warn(message, metadata);
 }
 
-export function logError(message: string, error?: Error | any, metadata?: Record<string, any>) {
+export function logError(message: string, error?: Error | unknown, metadata?: unknown) {
   const errorObj = error instanceof Error
     ? { message: error.message, stack: error.stack, name: error.name }
     : { error: String(error) };
   
-  logger.error(message, { ...errorObj, ...metadata });
+  const meta = metadata && typeof metadata === 'object' ? metadata as Record<string, unknown> : {};
+  logger.error(message, { ...errorObj, ...meta });
   captureSentry('error', message, error, metadata);
 }
 
-export function logDebug(message: string, metadata?: Record<string, any>) {
+export function logDebug(message: string, metadata?: unknown) {
   logger.debug(message, metadata);
 }
 
-export function logHttp(message: string, metadata?: Record<string, any>) {
+export function logHttp(message: string, metadata?: unknown) {
   logger.http(message, metadata);
 }
 
-export function logFatal(message: string, error?: Error | any, metadata?: Record<string, any>) {
+export function logFatal(message: string, error?: Error | unknown, metadata?: unknown) {
   const errorObj = error instanceof Error
     ? { message: error.message, stack: error.stack, name: error.name }
     : { error: String(error) };
   
-  logger.log('fatal', message, { ...errorObj, ...metadata });
+  const meta = metadata && typeof metadata === 'object' ? metadata as Record<string, unknown> : {};
+  logger.log('fatal', message, { ...errorObj, ...meta });
   captureSentry('fatal', message, error, metadata).then(() => process.exit(1));
 }
 

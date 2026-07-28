@@ -4,7 +4,7 @@
 Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + Suno API).
 
 ## Constraints & Preferences
-- Não quebrar nada existente — cada mudança validada com lint + testes (118 tests).
+- Não quebrar nada existente — cada mudança validada com lint + testes (138 tests).
 - Wizard.tsx e AdminPanel.tsx mantidos como estão (2296 e 1771 linhas) — risco de extração elevado, acordado manter.
 
 ## Progress
@@ -49,6 +49,11 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **pollSongUntilPreview fix**: lê `song?.data?.status` em vez de `song?.status`; `maxAttempts` 60→15; aviso visual após 30s (commit `0f1bf24`).
 - **Bugfix: StrictMode refs permanentes**: `pollCancelledRef` e `proofMountedRef` tinham cleanup que setava `current`, mas o body do effect não resetava no remount. React 19 preserva refs entre o ciclo unmount/remount do StrictMode, deixando o valor permanentemente alterado. Fix: adicionar reset no body do effect (`pollCancelledRef.current = false` / `proofMountedRef.current = true`).
 - **E2E test full-flow**: Playwright test que percorre Wizard (9 passos) → geração de letras (mock) → seleção de plano (Standard) → upsell (declinar) → pagamento → comprovativo → ecrã de sucesso. 15s de execução.
+- **Item 1 (shared Zod server schema)**: `server/shared/validation.ts` com `GenerateLyricsSchema`, `UpdateLyricsSchema`, `validateInput`. Barrel `server/shared/index.ts`.
+- **Item 2 (`err: any` → `err: unknown`)**: Patched todos os catch blocks em audio.ts, metaPixelCapi.ts, email.ts, ai.ts, config/app.ts, helpers.ts, openai.ts, claude.ts, gemini.ts, prompts.ts, suno-voice.ts, suno.ts, workflow.ts, routes/public.ts.
+- **Item 3 (`any` → tipos concretos)**: `WizardFormData` interface; `extractJSON` → `unknown`; `Record<string, any>` → `Record<string, unknown>`; `errorHandler(err: any)` → `Error & { status? }`; `getAppUrl(req?: any)` → `req?: Request`; `deliverWithRetry(req: any)` → `req: PendingRequest`; `as any` casts removidos em workflow.ts (6) e public.ts (8).
+- **Item 4 (error responses consistentes)**: Todos os 25 `{ error: ... }` em public.ts mudados para `{ success: false, error: ... }`.
+- **Item 5 (retry logic unificada)**: `aiShared.ts` criado com `extractJSON`, `clean`, `validateComposition`, `withAIServiceRetry`. `openai.ts`, `claude.ts`, `gemini.ts` refatorados para usar shared utils, eliminando código duplicado de retry/validação.
 
 ## AI Providers (Ordem de fallback)
 1. **OpenAI** (`gpt-4o-mini`) — tentado primeiro
@@ -77,8 +82,8 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - **CI corre em ubuntu-latest com Node 22**, npm ci, lint, test.
 
 ## Testes
-- **118 testes**, 10 ficheiros — todos passam (vitest + jsdom).
-- Distribuição: validation (18), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (11), SongPlayer (8), metaPixel (12), song-api (4), useAudioPlayer (4), smoke (1).
+- **138 testes**, 11 ficheiros — todos passam (vitest + jsdom).
+- Distribuição: validation (18), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (11), SongPlayer (8), metaPixel (12), song-api (4), useAudioPlayer (4), smoke (1), metaPixelCapi (2).
 - **Playwright E2E**: 12 testes (landing, wizard, dedication, admin).
 
 ## Next Steps
@@ -87,7 +92,7 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 3. **E2E tests completos** com API reais (Wizard → pagamento → dedicatória).
 
 ## Critical Context
-- **118 testes passam sempre** após cada mudança (vitest).
+- **138 testes passam sempre** após cada mudança (vitest).
 - **Supabase**: `service_role` key usada apenas onde necessário (admin routes, auth.admin.*, workflows, signed URLs). Anon key usada no endpoint público de dedicatória.
 - **AI providers**: OpenAI + Gemini + Claude configurados. Fallback automático se um falhar.
 - **Suno**: API key configurada, 500+ créditos. `deliveryScheduler.ts` para entregas Standard.
@@ -101,6 +106,7 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - `server/services/workflow.ts`: orquestração Suno + transições de status.
 - `server/services/email.ts`: `sendPersonalizedEmail`, `sendConfirmationEmail`, `sendPaymentRejectionEmail`.
 - `server/services/ai.ts`: orquestrador de providers (OpenAI → Gemini → Claude).
+- `server/services/aiShared.ts`: shared utils de retry, extractJSON, validateComposition.
 - `server/routes/public.ts`: rotas públicas (wizard, pagamento, dedicatória).
 - `server/routes/admin.ts`: painel admin + aprovação/rejeição + cron.
 - `server/middleware/security.ts`: Helmet, CORS, logger.

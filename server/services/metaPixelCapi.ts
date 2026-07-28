@@ -53,7 +53,7 @@ function buildPayload(params: {
 }) {
   const { eventName, eventId, email, phone, value, currency, contentName, contentType, eventSourceUrl, clientIp, clientUserAgent, externalId, zip, dob, ln, ct, st } = params;
 
-  const userData: Record<string, any> = {};
+  const userData: Record<string, unknown> = {};
   if (email) userData.em = [hashEmail(email)];
   if (phone) userData.ph = [hashPhone(phone)];
   if (clientIp) userData.client_ip_address = clientIp;
@@ -65,7 +65,7 @@ function buildPayload(params: {
   if (ct) userData.ct = [hashGeneric(ct)];
   if (st) userData.st = [hashGeneric(st)];
 
-  const customData: Record<string, any> = {};
+  const customData: Record<string, unknown> = {};
   if (value !== undefined) customData.value = value;
   if (currency) customData.currency = currency;
   if (contentName) customData.content_name = contentName;
@@ -108,12 +108,12 @@ async function attemptSend(payload: ReturnType<typeof buildPayload>, attempt: nu
     const json = await res.json();
     logInfo('[MetaCAPI] Evento enviado com sucesso', { eventName: payload.data[0].event_name, eventId: payload.data[0].event_id, eventsReceived: json.events_received });
     return true;
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (attempt < MAX_RETRIES) {
-      logWarn(`[MetaCAPI] Tentativa ${attempt}/${MAX_RETRIES} falhou (rede), reenviando...`, { error: err.message });
+      logWarn(`[MetaCAPI] Tentativa ${attempt}/${MAX_RETRIES} falhou (rede), reenviando...`, { error: err instanceof Error ? err.message : String(err) });
       return false;
     }
-    logError('[MetaCAPI] Erro de rede ao enviar evento após todas as tentativas', err);
+    logError('[MetaCAPI] Erro de rede ao enviar evento após todas as tentativas', err instanceof Error ? err : new Error(String(err)));
     return false;
   }
 }

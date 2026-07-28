@@ -4,8 +4,8 @@ export async function logAdminAction(params: {
   action: string;
   entityType: string;
   entityId?: string;
-  previousData?: any;
-  newData?: any;
+  previousData?: Record<string, unknown>;
+  newData?: Record<string, unknown>;
   notes?: string;
 }) {
   try {

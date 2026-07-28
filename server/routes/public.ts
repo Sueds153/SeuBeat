@@ -30,15 +30,15 @@ const router = express.Router();
 
 router.use(globalLimiter);
 
-function safeMessage(err: any) {
+function safeMessage(err: unknown) {
   return publicErrorMessage(err);
 }
 
-async function markRequestFailed(requestId: string, err: any) {
+async function markRequestFailed(requestId: string, err: unknown) {
   try {
     await updateRequestStatus(requestId, 'failed', err);
-  } catch (statusErr: any) {
-    logError('[API] Falha ao marcar pedido como failed.', statusErr, {
+  } catch (statusErr: unknown) {
+    logError('[API] Falha ao marcar pedido como failed.', statusErr instanceof Error ? statusErr : new Error(String(statusErr)), {
       requestId,
       error: safeMessage(statusErr)
     });
@@ -130,10 +130,10 @@ export async function ensureUserProfile(
     if (retryUser?.id) return retryUser;
 
     logError('[API] Falha ao criar perfil', profileCreateError, {
-      supabaseMessage: (profileCreateError as any)?.message,
-      supabaseDetails: (profileCreateError as any)?.details,
-      supabaseHint: (profileCreateError as any)?.hint,
-      supabaseCode: (profileCreateError as any)?.code,
+      supabaseMessage: profileCreateError?.message,
+      supabaseDetails: profileCreateError?.details,
+      supabaseHint: profileCreateError?.hint,
+      supabaseCode: profileCreateError?.code,
     });
     throw new Error('Nao foi possivel criar o seu perfil.');
   }
@@ -265,10 +265,10 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
 
     if (requestError || !requestData?.id) {
       logError('[API] Falha ao criar song_request', requestError, {
-        supabaseMessage: (requestError as any)?.message,
-        supabaseDetails: (requestError as any)?.details,
-        supabaseHint: (requestError as any)?.hint,
-        supabaseCode: (requestError as any)?.code,
+        supabaseMessage: requestError?.message,
+        supabaseDetails: requestError?.details,
+        supabaseHint: requestError?.hint,
+        supabaseCode: requestError?.code,
       });
       throw new Error('Nao foi possivel registrar o seu pedido no banco de dados.');
     }
@@ -377,7 +377,7 @@ router.post('/generate-lyrics', generateLyricsLimiter, async (req, res) => {
       .catch((emailErr) => {
         logError('[API] Falha ao enviar email de confirmacao', emailErr, { requestId: requestData.id, email });
       });
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (dbSongRequestId) {
       await markRequestFailed(dbSongRequestId, err);
       setProgress(dbSongRequestId, { status: 'failed', progress: 100, message: 'Erro ao gerar.', error: safeMessage(err) });
@@ -410,10 +410,10 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9
 router.get('/song/:id', getSongLimiter, async (req, res) => {
   try {
     const { id } = req.params;
-    if (!UUID_REGEX.test(id)) return res.status(400).json({ error: 'ID inválido.' });
+    if (!UUID_REGEX.test(id)) return res.status(400).json({ success: false, error: 'ID inválido.' });
 
     const adminSupabase = getAdminSupabase();
-    if (!adminSupabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });
+    if (!adminSupabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
 
     logDebug('Fetching song', { songId: id });
 
@@ -426,13 +426,13 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
     if (error || !songData) {
       logWarn('[API] Musica nao encontrada ou inacessivel', {
         songId: id,
-        supabaseMessage: (error as any)?.message,
-        supabaseCode: (error as any)?.code
+        supabaseMessage: error?.message,
+        supabaseCode: error?.code
       });
-      return res.status(404).json({ error: 'Musica nao encontrada.' });
+      return res.status(404).json({ success: false, error: 'Musica nao encontrada.' });
     }
 
-    const sr = songData.song_requests as any;
+    const sr = songData.song_requests;
     let requestStatus = sr?.status;
     const deliverAt = sr?.deliver_at;
     let audioUrl = songData.preview_url || null;
@@ -498,24 +498,24 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       mureka_status: songData.mureka_status,
       preview_url: songData.preview_url,
       audio_url: audioUrl,
-      recipient_name: (song_requests as any)?.recipient_name,
-      photo_url: (song_requests as any)?.photo_url,
-      user_name: (song_requests as any)?.users?.name,
-      music_style: (song_requests as any)?.music_style,
-      memory: (song_requests as any)?.memory,
-      occasion: (song_requests as any)?.occasion,
-      relationship: (song_requests as any)?.relationship,
-      desired_emotion: (song_requests as any)?.desired_emotion,
-      voice_type: (song_requests as any)?.voice_type,
-      recipient_gender: (song_requests as any)?.recipient_gender,
-      elevenlabs_voice_id: (song_requests as any)?.elevenlabs_voice_id,
+      recipient_name: song_requests?.recipient_name,
+      photo_url: song_requests?.photo_url,
+      user_name: song_requests?.users?.name,
+      music_style: song_requests?.music_style,
+      memory: song_requests?.memory,
+      occasion: song_requests?.occasion,
+      relationship: song_requests?.relationship,
+      desired_emotion: song_requests?.desired_emotion,
+      voice_type: song_requests?.voice_type,
+      recipient_gender: song_requests?.recipient_gender,
+      elevenlabs_voice_id: song_requests?.elevenlabs_voice_id,
       status: requestStatus
     };
 
     return res.json({ success: true, data: publicData });
-  } catch (err: any) {
-    logError('[API] Falha ao consultar musica publica', err, { songId: req.params.id });
-    res.status(500).json({ error: 'Nao foi possivel consultar a musica.' });
+  } catch (err: unknown) {
+    logError('[API] Falha ao consultar musica publica', err instanceof Error ? err : new Error(String(err)), { songId: req.params.id });
+    res.status(500).json({ success: false, error: 'Nao foi possivel consultar a musica.' });
   }
 });
 
@@ -525,7 +525,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
 router.put('/song/:id/lyrics', globalLimiter, async (req, res) => {
   try {
     const { id } = req.params;
-    if (!UUID_REGEX.test(id)) return res.status(400).json({ error: 'ID inválido.' });
+    if (!UUID_REGEX.test(id)) return res.status(400).json({ success: false, error: 'ID inválido.' });
 
     const validation = validateInput(UpdateLyricsSchema, req.body);
     if ('errors' in validation) {
@@ -533,10 +533,10 @@ router.put('/song/:id/lyrics', globalLimiter, async (req, res) => {
     }
 
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
 
     const { data: existing } = await supabase.from('songs').select('id, request_id').eq('id', id).maybeSingle();
-    if (!existing) return res.status(404).json({ error: 'Música não encontrada.' });
+    if (!existing) return res.status(404).json({ success: false, error: 'Música não encontrada.' });
 
     const rawLyrics = validation.data.lyrics;
     const lyricsArray = Array.isArray(rawLyrics) ? rawLyrics : rawLyrics.split('\n').filter(l => l.trim().length > 0);
@@ -554,8 +554,8 @@ router.put('/song/:id/lyrics', globalLimiter, async (req, res) => {
 
     logInfo('[API] Letra editada manualmente', { songId: id });
     res.json({ success: true, message: 'Letra atualizada com sucesso.' });
-  } catch (err: any) {
-    logError('[API] Falha ao editar letra', err, { songId: req.params.id });
+  } catch (err: unknown) {
+    logError('[API] Falha ao editar letra', err instanceof Error ? err : new Error(String(err)), { songId: req.params.id });
     res.status(500).json({ success: false, error: publicErrorMessage(err) });
   }
 });
@@ -566,10 +566,10 @@ router.put('/song/:id/lyrics', globalLimiter, async (req, res) => {
 router.post('/song/:id/regenerate-lyrics', generateLyricsLimiter, async (req, res) => {
   try {
     const { id } = req.params;
-    if (!UUID_REGEX.test(id)) return res.status(400).json({ error: 'ID inválido.' });
+    if (!UUID_REGEX.test(id)) return res.status(400).json({ success: false, error: 'ID inválido.' });
 
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
 
     const { data: songData, error: songError } = await supabase
       .from('songs')
@@ -578,19 +578,19 @@ router.post('/song/:id/regenerate-lyrics', generateLyricsLimiter, async (req, re
       .single();
 
     if (songError || !songData) {
-      return res.status(404).json({ error: 'Música não encontrada.' });
+      return res.status(404).json({ success: false, error: 'Música não encontrada.' });
     }
 
-    const sr = songData.song_requests as any;
+    const sr = songData.song_requests;
 
     // Verificar limite de regenerações
-    const currentCount = (songData as any).regeneration_count || 0;
+    const currentCount = songData.regeneration_count || 0;
     if (currentCount >= 2) {
-      return res.status(429).json({ error: 'Limite de regenerações atingido (máx. 2). Edite manualmente a letra.' });
+      return res.status(429).json({ success: false, error: 'Limite de regenerações atingido (máx. 2). Edite manualmente a letra.' });
     }
 
     const userData = await supabase.from('users').select('name').eq('id', sr.user_id).single();
-    const userName = (userData.data as any)?.name || 'Autor';
+    const userName = userData.data?.name || 'Autor';
 
     const { onlySheDoes, whereItHappened, whyCreatedToday, referenceArtist } = req.body;
 
@@ -643,8 +643,8 @@ router.post('/song/:id/regenerate-lyrics', generateLyricsLimiter, async (req, re
       regenerations_remaining: 2 - newCount,
       message: newCount >= 2 ? 'Última regeneração utilizada.' : `Letra regenerada (${newCount}/2).`
     });
-  } catch (err: any) {
-    logError('[API] Falha ao regenerar letra', err, { songId: req.params.id });
+  } catch (err: unknown) {
+    logError('[API] Falha ao regenerar letra', err instanceof Error ? err : new Error(String(err)), { songId: req.params.id });
     res.status(500).json({ success: false, error: publicErrorMessage(err) });
   }
 });
@@ -680,11 +680,11 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
   try {
     const { songRequestId, userEmail, phone, plan, amount, proofBase64, proofFilename, proofMimeType, voiceSampleBase64, voiceSampleFilename, voiceSampleMimeType } = req.body;
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });
-    if (!songRequestId) return res.status(400).json({ error: 'ID do pedido em falta.' });
-    if (!userEmail) return res.status(400).json({ error: 'Email do cliente em falta.' });
-    if (typeof userEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) return res.status(400).json({ error: 'Email inválido.' });
-    if (!['standard', 'express', 'premium'].includes(plan)) return res.status(400).json({ error: 'Plano invalido.' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
+    if (!songRequestId) return res.status(400).json({ success: false, error: 'ID do pedido em falta.' });
+    if (!userEmail) return res.status(400).json({ success: false, error: 'Email do cliente em falta.' });
+    if (typeof userEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) return res.status(400).json({ success: false, error: 'Email inválido.' });
+    if (!['standard', 'express', 'premium'].includes(plan)) return res.status(400).json({ success: false, error: 'Plano invalido.' });
 
     const parsedAmount = typeof amount === 'string' ? parseAngolanAmount(amount) : typeof amount === 'number' && !isNaN(amount) ? amount : 0;
     const ALLOWED_AMOUNTS: Record<string, number[]> = {
@@ -693,7 +693,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       premium: [14900],
     };
     if (!ALLOWED_AMOUNTS[plan]?.includes(parsedAmount)) {
-      return res.status(400).json({ error: 'O montante não corresponde ao plano selecionado.' });
+      return res.status(400).json({ success: false, error: 'O montante não corresponde ao plano selecionado.' });
     }
 
     const { data: existingPayment } = await supabase
@@ -703,7 +703,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       .eq('status', 'pending_verification')
       .maybeSingle();
     if (existingPayment) {
-      return res.status(409).json({ error: 'Já existe um comprovativo pendente para este pedido.' });
+      return res.status(409).json({ success: false, error: 'Já existe um comprovativo pendente para este pedido.' });
     }
 
     let proofPath: string | null = null;
@@ -711,7 +711,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       const resolvedMime = proofMimeType || 'image/jpeg';
       const ALLOWED_PROOF_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
       if (!ALLOWED_PROOF_MIMES.includes(resolvedMime)) {
-        return res.status(400).json({ error: 'Formato de comprovativo inválido. Apenas JPG, PNG, WebP ou PDF.' });
+        return res.status(400).json({ success: false, error: 'Formato de comprovativo inválido. Apenas JPG, PNG, WebP ou PDF.' });
       }
       const proofBuffer = decodeBase64Payload(proofBase64);
       if (proofBuffer.length > 10 * 1024 * 1024) throw new Error('Comprovativo demasiado grande. Máx. 10MB.');
@@ -729,7 +729,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       const resolvedVoiceMime = voiceSampleMimeType || 'audio/wav';
       const ALLOWED_VOICE_MIMES = ['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/x-wav'];
       if (!ALLOWED_VOICE_MIMES.includes(resolvedVoiceMime)) {
-        return res.status(400).json({ error: 'Formato de áudio inválido. Apenas WAV, MP3, MP4 ou OGG.' });
+        return res.status(400).json({ success: false, error: 'Formato de áudio inválido. Apenas WAV, MP3, MP4 ou OGG.' });
       }
       const voiceBuffer = decodeBase64Payload(voiceSampleBase64);
       if (voiceBuffer.length > 5 * 1024 * 1024) throw new Error('Amostra de voz demasiado grande. Máx. 5MB.');
@@ -744,7 +744,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       voiceSampleUrl = data.path;
     }
 
-    const updateData: Record<string, any> = { status: 'payment_submitted' };
+    const updateData: Record<string, unknown> = { status: 'payment_submitted' };
     if (voiceSampleUrl) updateData.voice_sample_url = voiceSampleUrl;
     const { error: requestUpdateError } = await supabase
       .from('song_requests')
@@ -780,23 +780,23 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
     );
 
     res.json({ success: true, paymentId: paymentRecord?.id });
-  } catch (err: any) {
-    res.status(500).json({ error: safeMessage(err) });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 
 router.get('/payment-status', paymentStatusLimiter, async (req, res) => {
   try {
     const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ error: 'Banco de dados indisponivel.' });
+    if (!supabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
 
     const { email, requestId } = req.query;
     if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: 'Email inválido.' });
+      return res.status(400).json({ success: false, error: 'Email inválido.' });
     }
 
     if (requestId && typeof requestId === 'string' && !UUID_REGEX.test(requestId)) {
-      return res.status(400).json({ error: 'ID inválido.' });
+      return res.status(400).json({ success: false, error: 'ID inválido.' });
     }
 
     let query;
@@ -821,8 +821,8 @@ router.get('/payment-status', paymentStatusLimiter, async (req, res) => {
     const { data, error } = await query;
     if (error) throw error;
     res.json(data ? { status: data.status, notes: data.notes || null } : { status: 'not_found' });
-  } catch (err: any) {
-    res.status(500).json({ error: safeMessage(err) });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 

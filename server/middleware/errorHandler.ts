@@ -1,15 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import { logWarn } from '../utils/logger';
 
-/**
- * Middleware para tratar erros de forma consistente
- */
 const KNOWN_ERRORS: Record<number, string> = {
   413: 'O ficheiro enviado é demasiado grande. Máximo 10MB.',
 };
 
 export function errorHandler(
-  error: any,
+  error: Error & { status?: number; statusCode?: number },
   req: Request,
   res: Response,
   next: NextFunction

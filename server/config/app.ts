@@ -42,8 +42,8 @@ export async function createApp(): Promise<express.Application> {
       } else {
         checks.supabase = 'não configurado';
       }
-    } catch (e: any) {
-      checks.supabase = `erro: ${e?.message || 'desconhecido'}`;
+    } catch (e: unknown) {
+      checks.supabase = `erro: ${e instanceof Error ? e.message : 'desconhecido'}`;
     }
 
     const mem = process.memoryUsage();

@@ -49,20 +49,20 @@ function isVoiceExpired(ts: number): boolean {
   return Date.now() - ts > VOICE_MAX_AGE_MS;
 }
 
-function adminErrorDetails(stage: string, err: any) {
+function adminErrorDetails(stage: string, err: unknown) {
   return {
     stage,
-    message: err?.message || String(err),
-    name: err?.name || 'Error',
+    message: err instanceof Error ? err.message : String(err ?? ''),
+    name: err instanceof Error ? err.name : typeof err,
     at: new Date().toISOString()
   };
 }
 
-export async function updateRequestStatus(requestId: string, status: string, err?: any) {
+export async function updateRequestStatus(requestId: string, status: string, err?: unknown) {
   const supabase = getAdminSupabase();
   if (!supabase) throw new Error('Supabase client nao inicializado.');
 
-  const payload: Record<string, any> = { status };
+  const payload: Record<string, unknown> = { status };
   if (err) payload.error_details = adminErrorDetails(status, err);
 
   const { error } = await supabase.from('song_requests').update(payload).eq('id', requestId);
@@ -151,8 +151,8 @@ async function completeSunoWorkflowFromAudio(
     .eq('status', 'approved')
     .maybeSingle();
 
-  const isStandard = approvedPayment && (approvedPayment as any).plan === 'standard';
-  const paymentCreatedAt = (approvedPayment as any)?.created_at || new Date().toISOString();
+  const isStandard = approvedPayment && approvedPayment.plan === 'standard';
+  const paymentCreatedAt = approvedPayment?.created_at || new Date().toISOString();
   const deliverAt = isStandard ? new Date(new Date(paymentCreatedAt).getTime() + 24 * 60 * 60 * 1000).toISOString() : null;
 
   await supabase
@@ -196,19 +196,19 @@ export async function resumeSunoTaskWorkflow(requestId: string, songId: string, 
             .eq('id', requestId)
             .single();
           if (sr) {
-            const song = (sr as any).songs?.[0];
-            const userEmail = (sr as any).email || (sr as any).users?.email;
-            const songReqStatus = (sr as any).status;
+            const song = sr.songs?.[0];
+            const userEmail = sr.email || sr.users?.[0]?.email;
+            const songReqStatus = sr.status;
             if (userEmail && (songReqStatus === 'approved' || songReqStatus === 'delivered')) {
-              const slug = ((sr as any).recipient_name || 'especial')
+              const slug = (sr.recipient_name || 'especial')
                 .toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
                 .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
               const url = `${getAppUrl()}/song/${slug}?id=${song?.id || songId}`;
               if (songReqStatus === 'approved') {
-                sendConfirmationEmail(userEmail, (sr as any).recipient_name, requestId, 'standard_approved')
+                sendConfirmationEmail(userEmail, sr.recipient_name, requestId, 'standard_approved')
                   .catch(err => logError('[Resume] Confirmation email failed', err, { requestId }));
               } else {
-                sendPersonalizedEmail(userEmail, (sr as any).recipient_name, url, song?.letter_text || 'Dedicatória.')
+                sendPersonalizedEmail(userEmail, sr.recipient_name, url, song?.letter_text || 'Dedicatória.')
                   .catch(err => logError('[Resume] Delivery email failed', err, { requestId }));
               }
             }
@@ -232,10 +232,10 @@ export async function resumeSunoTaskWorkflow(requestId: string, songId: string, 
       progress: 85,
       message: 'Suno ainda está a processar. Tente novamente daqui a pouco para continuar a verificação.'
     });
-  } catch (err: any) {
-    logError('[Background Suno] Error while resuming task', err, { requestId, songId, taskId });
-    setProgress(requestId, { status: 'failed', progress: 100, message: 'Erro na consulta Suno', error: err.message || String(err) });
-    await updateRequestStatus(requestId, 'failed', err);
+  } catch (err: unknown) {
+    logError('[Background Suno] Error while resuming task', err instanceof Error ? err : new Error(String(err)), { requestId, songId, taskId });
+    setProgress(requestId, { status: 'failed', progress: 100, message: 'Erro na consulta Suno', error: err instanceof Error ? err.message : String(err) });
+    await updateRequestStatus(requestId, 'failed', err instanceof Error ? err : new Error(String(err)));
     await supabase.from('songs').update({ mureka_status: 'failed' }).eq('id', songId);
 
     await rollbackSunoWorkflow(supabase, requestId, songId, err);
@@ -300,14 +300,14 @@ export async function runBackgroundSunoWorkflow(
           personaId = voiceId;
           logInfo(`[Background Suno] Suno Voice ID obtained`, { voiceId });
         }
-      } catch (voiceErr: any) {
-        logError(`[Background Suno] Suno Voice failed, generating without voice`, voiceErr, { requestId });
+      } catch (voiceErr: unknown) {
+        logError(`[Background Suno] Suno Voice failed, generating without voice`, voiceErr instanceof Error ? voiceErr : new Error(String(voiceErr)), { requestId });
         await supabase
           .from('song_requests')
           .update({
             error_details: {
               stage: 'voice_cloning',
-              message: voiceErr?.message || String(voiceErr),
+              message: voiceErr instanceof Error ? voiceErr.message : String(voiceErr ?? ''),
               at: new Date().toISOString()
             }
           })
@@ -366,13 +366,13 @@ export async function runBackgroundSunoWorkflow(
       .eq('status', 'approved')
       .maybeSingle();
 
-    const isStandard = approvedPayment && (approvedPayment as any).plan === 'standard';
+    const isStandard = approvedPayment && approvedPayment.plan === 'standard';
     const nextStatus = approvedPayment ? (isStandard ? 'approved' : 'delivered') : 'music_ready';
     logInfo(`[Background Suno] Updating request after generation`, { requestId, nextStatus, paid: !!approvedPayment, isStandard });
     const userEmail = requestData.email || requestData.users?.email;
     const letterText = requestData.songs?.[0]?.letter_text || 'Dedicatória.';
 
-    const paymentCreatedAt = (approvedPayment as any)?.created_at || new Date().toISOString();
+    const paymentCreatedAt = approvedPayment?.created_at || new Date().toISOString();
     const deliverAt = isStandard ? new Date(new Date(paymentCreatedAt).getTime() + 24 * 60 * 60 * 1000).toISOString() : null;
 
     await supabase
@@ -418,10 +418,10 @@ export async function runBackgroundSunoWorkflow(
       }
     }
     logInfo(`[Background Suno] Workflow completed`, { requestId, nextStatus });
-  } catch (err: any) {
-    logError('[Background Suno] Error in background workflow', err, { requestId, songId });
-    setProgress(requestId, { status: 'failed', progress: 100, message: 'Erro na geração Suno', error: err.message || String(err) });
-    await updateRequestStatus(requestId, 'failed', err);
+  } catch (err: unknown) {
+    logError('[Background Suno] Error in background workflow', err instanceof Error ? err : new Error(String(err)), { requestId, songId });
+    setProgress(requestId, { status: 'failed', progress: 100, message: 'Erro na geração Suno', error: err instanceof Error ? err.message : String(err) });
+    await updateRequestStatus(requestId, 'failed', err instanceof Error ? err : new Error(String(err)));
     await supabase
       .from('songs')
       .update({ mureka_status: 'failed' })
@@ -475,7 +475,7 @@ async function rollbackSunoWorkflow(
   supabase: NonNullable<ReturnType<typeof getAdminSupabase>>,
   requestId: string,
   songId: string,
-  err: any
+  err: unknown
 ) {
   // Reverter pagamentos aprovados para 'failed' + limpar approved_at
   try {
@@ -515,7 +515,7 @@ async function rollbackSunoWorkflow(
   try {
     await sendAdminNotification(
       'Falha na geração Suno — Pedido ' + requestId.slice(0, 8),
-      'Ocorreu um erro ao gerar a música no Suno.\n\nPedido: ' + requestId + '\nErro: ' + (err?.message || String(err))
+      'Ocorreu um erro ao gerar a música no Suno.\n\nPedido: ' + requestId + '\nErro: ' + (err instanceof Error ? err.message : String(err ?? ''))
     );
   } catch (emailErr) {
     logError('[Rollback] Admin notification failed', emailErr, { requestId });
@@ -528,7 +528,7 @@ async function rollbackSunoWorkflow(
       .select('email, recipient_name, users(email)')
       .eq('id', requestId)
       .single();
-    const userEmail = failedRequest?.email || (failedRequest?.users as any)?.email;
+    const userEmail = failedRequest?.email || failedRequest?.users?.[0]?.email;
     if (userEmail) {
       await sendWorkflowFailedEmail(userEmail, failedRequest?.recipient_name || 'Cliente');
     }
@@ -645,8 +645,8 @@ export async function processSunoVoice(
     setProgress(requestId, { status: 'music_processing', progress: 80, message: 'Voz clonada com sucesso! A gerar música...' });
 
     return recordResult.voiceId;
-  } catch (err: any) {
-    logError('[Suno Voice] Error', err, { requestId });
+  } catch (err: unknown) {
+    logError('[Suno Voice] Error', err instanceof Error ? err : new Error(String(err)), { requestId });
     setProgress(requestId, { status: 'music_processing', progress: 30, message: 'Voz não disponível, a gerar música sem voz personalizada.' });
     const supabase2 = getAdminSupabase();
     if (supabase2) {
@@ -654,7 +654,7 @@ export async function processSunoVoice(
         elevenlabs_voice_id: '{"failed":true}',
         error_details: {
           stage: 'voice_cloning',
-          message: err?.message || String(err),
+          message: err instanceof Error ? err.message : String(err ?? ''),
           at: new Date().toISOString()
         }
       }).eq('id', requestId).maybeSingle();

@@ -8,6 +8,13 @@ const MAX_RETRIES = 3;
 const RETRY_DELAYS = [60_000, 300_000, 900_000];
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
 
+interface PendingRequest {
+  id: string;
+  email?: string | null;
+  recipient_name?: string | null;
+  songs?: Array<{ id?: string | null; letter_text?: string | null; title?: string | null }> | null;
+}
+
 function makeSlug(name: string): string {
   return name
     .toLowerCase()
@@ -17,7 +24,7 @@ function makeSlug(name: string): string {
     .replace(/(^-|-$)+/g, '');
 }
 
-async function deliverWithRetry(req: any, now: string, attempt = 0): Promise<void> {
+async function deliverWithRetry(req: PendingRequest, now: string, attempt = 0): Promise<void> {
   const supabase = getAdminSupabase();
   if (!supabase) return;
 

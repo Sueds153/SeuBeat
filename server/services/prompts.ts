@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { logWarn } from '../utils/logger';
+import { WizardFormData } from './types';
 
 function repairMojibake(text: string): string {
   if (!/[ÃÂâ]/.test(text)) return text;
@@ -17,10 +18,10 @@ function getPromptFromFile(filename: string, fallback: string): string {
     if (fs.existsSync(filePath)) {
       return repairMojibake(fs.readFileSync(filePath, 'utf-8').trim());
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     logWarn('[Prompt Loader] Falha ao ler prompt; usando fallback.', {
       filename,
-      error: err?.message || String(err)
+      error: err instanceof Error ? err.message : String(err)
     });
   }
   return fallback;
@@ -71,7 +72,7 @@ const EMOTION_PROMPTS: Record<string, string> = {
   inspiração: 'INSTRUÇÃO DE EMOÇÃO: "Inspiração" — Tom motivacional e edificante. Força interior, superação, resiliência. O refrão deve soar como um hino pessoal de vitória. Use linguagem de empoderamento.',
 };
 
-function emotionInstruction(desiredEmotion: string): string {
+function emotionInstruction(desiredEmotion?: string): string {
   if (!desiredEmotion) return '';
   const key = desiredEmotion.trim().toLowerCase();
   const instruction = EMOTION_PROMPTS[key];
@@ -98,7 +99,7 @@ const STYLE_LYRICAL_INSTRUCTIONS: Record<string, string> = {
   hino: 'Use tom épico e solene, linguagem corporativa e inspiradora, coro majestoso com estrutura de hino institucional.',
 };
 
-function styleLyricalInstruction(musicStyle: string): string {
+function styleLyricalInstruction(musicStyle?: string): string {
   if (!musicStyle) return '';
   const key = musicStyle.trim().toLowerCase();
   const instruction = STYLE_LYRICAL_INSTRUCTIONS[key];
@@ -106,14 +107,14 @@ function styleLyricalInstruction(musicStyle: string): string {
   return '';
 }
 
-function referenceArtistInstruction(artistName: string): string {
+function referenceArtistInstruction(artistName?: string): string {
   if (!artistName || artistName === 'Outro') return '';
   const instruction = ARTIST_LYRICAL_STYLES[artistName];
   if (instruction) return `- ${instruction}.`;
   return '';
 }
 
-function languageInstruction(lang: string): string {
+function languageInstruction(lang?: string): string {
   const instructions: Record<string, string> = {
     'português': 'Escreva a letra COMPLETAMENTE em português de Angola, com expressões naturais e autênticas.',
     'kimbundu': 'Escreva a letra MESCLANDO português com palavras e expressões em Kimbundu (língua nacional angolana). Incorpore termos como "muene", "kota", "kibai", "ngana", "kizua" naturalmente na letra.',
@@ -122,11 +123,11 @@ function languageInstruction(lang: string): string {
     'lingala': 'Escreva a letra MESCLANDO português com palavras e expressões em Lingala. Incorpore termos como "bolingo", "moto", "kolela", "zala" naturalmente na letra.',
     'inglês': 'Escreva a letra COMPLETAMENTE em INGLÊS. Use inglês natural, poético e autêntico.',
   };
-  return instructions[lang] || 'Escreva a letra em português de Angola.';
+  return instructions[lang ?? 'português'] || 'Escreva a letra em português de Angola.';
 }
 
-function buildFormContext(formData: any) {
-  const c = (val: any) => clean(val, 'Não informado');
+function buildFormContext(formData: WizardFormData) {
+  const c = (val: unknown) => clean(val, 'Não informado');
   const sections = [
     { title: 'DADOS BIOGRÁFICOS', items: [
       ['Nome do Destinatário', c(formData.recipientName)],
@@ -160,7 +161,7 @@ function buildFormContext(formData: any) {
   ).join('\n\n');
 }
 
-export function selectPrompt(formData: any) {
+export function selectPrompt(formData: WizardFormData) {
   const relacao = normalizeLower(formData.recipientRelation);
   const ocasiao = normalizeLower(formData.occasion);
 

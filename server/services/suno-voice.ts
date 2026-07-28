@@ -16,12 +16,12 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
         continue;
       }
       return res;
-    } catch (err: any) {
-      if (err?.name === 'AbortError') {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
         throw new Error(`Suno Voice request timeout after ${timeoutMs}ms`);
       }
       if (attempt < retries) {
-        logWarn(`[Suno Voice] Attempt ${attempt}/${retries} failed: ${err.message}, retrying...`);
+        logWarn(`[Suno Voice] Attempt ${attempt}/${retries} failed: ${err instanceof Error ? err.message : String(err)}, retrying...`);
         await new Promise(r => setTimeout(r, 1000 * attempt));
         continue;
       }

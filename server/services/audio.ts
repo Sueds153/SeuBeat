@@ -12,8 +12,8 @@ if (ffmpegInstaller) {
     ffmpeg.setFfmpegPath(ffmpegInstaller);
     execFileSync(ffmpegInstaller, ['-version'], { stdio: 'pipe', timeout: 10000 });
     console.log('✅ FFmpeg disponível e funcional');
-  } catch (err: any) {
-    console.warn(`⚠️ FFmpeg não disponível, preview de 30s ficará indisponível: ${err?.message || err}`);
+  } catch (err: unknown) {
+    console.warn(`⚠️ FFmpeg não disponível, preview de 30s ficará indisponível: ${err instanceof Error ? err.message : String(err)}`);
     FFMPEG_AVAILABLE = false;
   }
 } else {
@@ -32,8 +32,8 @@ export async function downloadFile(url: string, destPath: string): Promise<void>
     if (!res.ok) throw new Error(`Falha ao descarregar arquivo: ${res.statusText}`);
     if (!res.body) throw new Error('Resposta de download sem corpo.');
     await pipeline(Readable.fromWeb(res.body as any), fs.createWriteStream(destPath));
-  } catch (err: any) {
-    if (err?.name === 'AbortError') {
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') {
       throw new Error(`Download timeout after ${DOWNLOAD_TIMEOUT_MS}ms`);
     }
     throw err;

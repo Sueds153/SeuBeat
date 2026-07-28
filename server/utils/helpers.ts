@@ -1,5 +1,7 @@
-export function publicErrorMessage(err: any, fallback = 'Não foi possível concluir esta etapa. Tente novamente em instantes.') {
-  const message = err?.message || String(err || '');
+import { Request } from 'express';
+
+export function publicErrorMessage(err: unknown, fallback = 'Não foi possível concluir esta etapa. Tente novamente em instantes.') {
+  const message = err instanceof Error ? err.message : String(err ?? '');
 
   if (/ANTHROPIC_API_KEY/i.test(message)) {
     return 'A geração de letras está temporariamente indisponível (Erro de Configuração do Claude).';
@@ -68,7 +70,7 @@ export function getAudioFileInfo(audioUrl: string) {
   return { ext: 'flac', mimeType: 'audio/flac' };
 }
 
-export function getAppUrl(req?: any): string {
+export function getAppUrl(req?: Request): string {
   if (req) {
     const protocol = req.headers['x-forwarded-proto'] || req.protocol;
     const host = req.get('host');

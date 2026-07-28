@@ -51,14 +51,14 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
         throw new SunoQuotaError(`Suno quota excedida: ${res.status}. Verifica o teu plano em sunoapi.org.`);
       }
       return res;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof SunoQuotaError) throw err;
-      if (err?.name === 'AbortError') {
+      if (err instanceof Error && err.name === 'AbortError') {
         throw new Error(`Suno request timeout after ${timeoutMs}ms`);
       }
       if (attempt < retries) {
         const delay = getRetryDelay(attempt);
-        logWarn(`[Suno] Attempt failed, retrying`, { attempt, retries, error: err.message, delay });
+        logWarn(`[Suno] Attempt failed, retrying`, { attempt, retries, error: err instanceof Error ? err.message : String(err), delay });
         await new Promise(r => setTimeout(r, delay));
         continue;
       }
@@ -147,36 +147,47 @@ const STYLE_MAP: Record<string, string> = {
   hino: 'hino, orchestral, epic cinematic, choir, brass section, majestic, corporate anthem, inspirational, 80bpm',
 };
 
-function extractTaskId(payload: any): string | null {
+function extractTaskId(payload: unknown): string | null {
+  const p = payload as Record<string, unknown>;
   return firstString(
-    payload?.taskId,
-    payload?.task_id,
-    payload?.data?.taskId,
-    payload?.data?.task_id,
-    payload?.id,
-    payload?.data?.id
+    p['taskId'] as string | undefined,
+    p['task_id'] as string | undefined,
+    (p['data'] as Record<string, unknown> | undefined)?.['taskId'] as string | undefined,
+    (p['data'] as Record<string, unknown> | undefined)?.['task_id'] as string | undefined,
+    p['id'] as string | undefined,
+    (p['data'] as Record<string, unknown> | undefined)?.['id'] as string | undefined
   );
 }
 
-function extractStatus(payload: any): string {
+function extractStatus(payload: unknown): string {
+  const p = payload as Record<string, unknown>;
   const rawStatus = firstString(
-    payload?.status,
-    payload?.state,
-    payload?.data?.status,
-    payload?.data?.state,
-    payload?.task_status,
-    payload?.data?.task_status
+    p['status'] as string | undefined,
+    p['state'] as string | undefined,
+    (p['data'] as Record<string, unknown> | undefined)?.['status'] as string | undefined,
+    (p['data'] as Record<string, unknown> | undefined)?.['state'] as string | undefined,
+    p['task_status'] as string | undefined,
+    (p['data'] as Record<string, unknown> | undefined)?.['task_status'] as string | undefined
   );
 
   return (rawStatus || 'processing').toLowerCase();
 }
 
-export function extractAudioUrl(payload: any): string | null {
-  // Tentar encontrar urls explicitamente no payload do Suno
-  const sunoData = payload?.data?.response?.sunoData || payload?.response?.sunoData;
+export function extractAudioUrl(payload: unknown): string | null {
+  const p = payload as Record<string, unknown>;
+  const data = p['data'] as Record<string, unknown> | undefined;
+  const response = p['response'] as Record<string, unknown> | undefined;
+  const sunoData = (data?.['response'] as Record<string, unknown> | undefined)?.['sunoData'] || response?.['sunoData'];
   if (Array.isArray(sunoData) && sunoData.length > 0) {
     for (const item of sunoData) {
-      const url = firstString(item?.sourceAudioUrl, item?.source_audio_url, item?.audioUrl, item?.audio_url, item?.streamAudioUrl, item?.sourceStreamAudioUrl);
+      const url = firstString(
+        (item as Record<string, unknown>)?.['sourceAudioUrl'] as string | undefined,
+        (item as Record<string, unknown>)?.['source_audio_url'] as string | undefined,
+        (item as Record<string, unknown>)?.['audioUrl'] as string | undefined,
+        (item as Record<string, unknown>)?.['audio_url'] as string | undefined,
+        (item as Record<string, unknown>)?.['streamAudioUrl'] as string | undefined,
+        (item as Record<string, unknown>)?.['sourceStreamAudioUrl'] as string | undefined
+      );
       if (url && isLikelyAudioUrl('audio', url)) return url;
     }
   }
@@ -221,7 +232,7 @@ function getSunoCallbackUrl() {
   return `${publicAppUrl.replace(/\/+$/, '')}/api/suno-callback`;
 }
 
-function assertSuccessfulSunoPayload(payload: any, label: string) {
+function assertSuccessfulSunoPayload(payload: Record<string, unknown>, label: string) {
   if (typeof payload?.code === 'number' && payload.code !== 200) {
     throw new Error(`${label} API error: ${payload.code} - ${payload.msg || 'Erro desconhecido'}`);
   }
@@ -315,7 +326,7 @@ async function startSunoMusic(lyrics: string[], musicStyle: string, songTitle: s
     referenceArtist: extraParams?.referenceArtist,
   });
 
-  const payload: Record<string, any> = {
+  const payload: Record<string, unknown> = {
     prompt: lyricsText,
     style: stylePrompt,
     title: songTitle,
@@ -388,8 +399,8 @@ async function pollSunoTask(taskId: string, immediateAudioUrl: string | null, la
       if (SUCCESS_STATUSES.has(status)) {
         throw new Error(`${label} task completed but no audio URL was found.`);
       }
-    } catch (err: any) {
-      logWarn(`[${label} Polling] Attempt failed`, { attempt: attempt + 1, error: err.message, taskId });
+    } catch (err: unknown) {
+      logWarn(`[${label} Polling] Attempt failed`, { attempt: attempt + 1, error: err instanceof Error ? err.message : String(err), taskId });
       if (attempt === maxAttempts - 1) throw err;
     }
   }
@@ -404,7 +415,7 @@ async function continueSunoMusic(taskId: string, personaId?: string): Promise<Su
 
   logInfo(`[Suno] Extending task via continue`, { taskId, hasPersonaId: !!personaId });
 
-  const payload: Record<string, any> = { task_id: taskId, callBackUrl: getSunoCallbackUrl() };
+  const payload: Record<string, unknown> = { task_id: taskId, callBackUrl: getSunoCallbackUrl() };
   if (personaId) {
     payload.personaId = personaId;
     payload.personaModel = 'voice_persona';
@@ -449,11 +460,11 @@ export async function generateFullSong(lyrics: string[], musicStyle: string, son
         logInfo(`[Suno] Extended song ready`);
         return secondResult;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof SunoQuotaError) {
         logWarn(`[Suno] Continue sem créditos, a devolver primeiro clip.`);
       } else {
-        logWarn(`[Suno] Continue falhou, a devolver primeiro clip`, { error: err.message });
+        logWarn(`[Suno] Continue falhou, a devolver primeiro clip`, { error: err instanceof Error ? err.message : String(err) });
       }
     }
 

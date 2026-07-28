@@ -29,7 +29,7 @@ function warnIfMissing(cfg: { apiKey: string }): boolean {
   return false;
 }
 
-async function sendViaBrevo(to: string, subject: string, htmlContent: string): Promise<any> {
+async function sendViaBrevo(to: string, subject: string, htmlContent: string): Promise<Record<string, unknown>> {
   const cfg = getConfig();
   if (warnIfMissing(cfg)) return { mocked: true, to };
 
@@ -57,13 +57,15 @@ async function sendViaBrevo(to: string, subject: string, htmlContent: string): P
   return res.json();
 }
 
-async function sendWithRetry(to: string, subject: string, htmlContent: string): Promise<any> {
+async function sendWithRetry(to: string, subject: string, htmlContent: string): Promise<Record<string, unknown>> {
   try {
     return await sendViaBrevo(to, subject, htmlContent);
-  } catch (err: any) {
-    const isTimeout = err?.code === 'ETIMEDOUT' || err?.code === 'UND_ERR_CONNECT_TIMEOUT' || err?.message?.includes('timed out');
+  } catch (err: unknown) {
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const errCode = err instanceof Error && 'code' in err ? (err as NodeJS.ErrnoException).code : undefined;
+    const isTimeout = errCode === 'ETIMEDOUT' || errCode === 'UND_ERR_CONNECT_TIMEOUT' || errMsg.includes('timed out');
     if (isTimeout) {
-      logError('[Email] Timeout na 1a tentativa, a tentar novamente...', err, { to });
+      logError('[Email] Timeout na 1a tentativa, a tentar novamente...', err instanceof Error ? err : new Error(String(err)), { to });
       await new Promise(resolve => setTimeout(resolve, 2000));
       return sendViaBrevo(to, subject, htmlContent);
     }
@@ -174,7 +176,7 @@ export async function sendAdminNotification(subject: string, message: string) {
         <h2 style="color:#ef4444">⚠️ Notificação do Sistema</h2>
         <pre style="background:#1c1917;color:#d6d3d1;padding:16px;border-radius:8px;font-size:13px;white-space:pre-wrap;word-break:break-word;">${escapeHtml(message)}</pre>
       </div>
-    `).catch(err => logError('[Email] Falha ao notificar admin', err, { email }));
+    `).catch(err => logError('[Email] Falha ao notificar admin', err instanceof Error ? err : new Error(String(err)), { email }));
   }
 }
 
