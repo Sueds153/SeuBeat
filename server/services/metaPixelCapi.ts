@@ -155,6 +155,38 @@ async function sendEvent(params: {
   return false;
 }
 
+export async function sendInitiateCheckoutEvent(params: {
+  eventId: string;
+  email?: string;
+  phone?: string;
+  value?: number;
+  currency?: string;
+  contentName?: string;
+  eventSourceUrl?: string;
+  clientIp?: string;
+  clientUserAgent?: string;
+  externalId?: string;
+  ln?: string;
+}): Promise<boolean> {
+  return sendEvent({ ...params, eventName: 'InitiateCheckout', contentType: 'product' });
+}
+
+export async function sendAddPaymentInfoEvent(params: {
+  eventId: string;
+  email?: string;
+  phone?: string;
+  value?: number;
+  currency?: string;
+  contentName?: string;
+  eventSourceUrl?: string;
+  clientIp?: string;
+  clientUserAgent?: string;
+  externalId?: string;
+  ln?: string;
+}): Promise<boolean> {
+  return sendEvent({ ...params, eventName: 'AddPaymentInfo', contentType: 'product' });
+}
+
 export async function sendPurchaseEvent(params: {
   eventId: string;
   email?: string;

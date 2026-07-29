@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
 import { generateLyrics } from '../services/ai';
 import { sendPersonalizedEmail, sendConfirmationEmail } from '../services/email';
-import { sendSubmitApplicationEvent, sendLeadEvent, sendCompleteRegistrationEvent } from '../services/metaPixelCapi';
+import { sendSubmitApplicationEvent, sendLeadEvent, sendCompleteRegistrationEvent, sendInitiateCheckoutEvent, sendAddPaymentInfoEvent } from '../services/metaPixelCapi';
 import DOMPurify from 'isomorphic-dompurify';
 
 function sanitize(str: string): string {
@@ -777,6 +777,36 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       status: 'pending_verification'
     }]).select('id').single();
     if (paymentError) throw paymentError;
+
+    sendInitiateCheckoutEvent({
+      eventId: `${paymentRecord?.id || ''}_checkout`,
+      email: userEmail,
+      phone: phone || undefined,
+      value: parsedAmount,
+      currency: 'AOA',
+      contentName: plan,
+      eventSourceUrl: (req.headers.referer as string) || undefined,
+      clientIp: req.ip || req.socket.remoteAddress || undefined,
+      clientUserAgent: req.headers['user-agent'],
+      externalId: userEmail,
+    }).catch(err =>
+      logError('[API] Meta CAPI InitiateCheckout event failed', err, { paymentId: paymentRecord?.id })
+    );
+
+    sendAddPaymentInfoEvent({
+      eventId: `${paymentRecord?.id || ''}_addpayment`,
+      email: userEmail,
+      phone: phone || undefined,
+      value: parsedAmount,
+      currency: 'AOA',
+      contentName: plan,
+      eventSourceUrl: (req.headers.referer as string) || undefined,
+      clientIp: req.ip || req.socket.remoteAddress || undefined,
+      clientUserAgent: req.headers['user-agent'],
+      externalId: userEmail,
+    }).catch(err =>
+      logError('[API] Meta CAPI AddPaymentInfo event failed', err, { paymentId: paymentRecord?.id })
+    );
 
     sendSubmitApplicationEvent({
       eventId: paymentRecord?.id || '',

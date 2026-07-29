@@ -8,7 +8,7 @@ import VideoTestimonial from './VideoTestimonial';
 import FAQ from './FAQ';
 import { PRICING_PLANS } from '../constants/pricing';
 import { WHATSAPP_URL } from '../constants/whatsapp';
-import { fbInitiateCheckout, fbViewContent, parsePrice } from '../lib/metaPixel';
+import { fbViewContent, parsePrice } from '../lib/metaPixel';
 import { gaViewContent, gaInitiateCheckout } from '../lib/analytics';
 import { useTypewriter } from '../hooks/useTypewriter';
 import { useUtm } from '../hooks/useUtm';
@@ -640,7 +640,6 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                   <button
                     id={`pricing-cta-btn-${plan.id}`}
                     onClick={() => {
-                      fbInitiateCheckout(plan.id, parsePrice(plan.price), CURRENCY, crypto.randomUUID());
                       gaInitiateCheckout(plan.id, parsePrice(plan.price));
                       onStartWizard();
                     }}

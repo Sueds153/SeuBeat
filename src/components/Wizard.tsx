@@ -17,7 +17,7 @@ import {
 import { validateStep as zodValidateStep, FieldErrors } from '../lib/validation';
 import WhatsAppHelp from './WhatsAppHelp';
 import LogoIcon from './LogoIcon';
-import { fbLead, fbAddPaymentInfo, fbSubmitApplication, fbSetUserData, fbViewContent, fbCompleteRegistration, parsePrice } from '../lib/metaPixel';
+import { fbLead, fbAddPaymentInfo, fbSubmitApplication, fbSetUserData, fbViewContent, fbCompleteRegistration, fbInitiateCheckout, parsePrice } from '../lib/metaPixel';
 import { gaViewContent, gaLead, gaCompleteRegistration, gaAddPaymentInfo, gaSubmitApplication, gaWizardStep, gaPageView } from '../lib/analytics';
 import { DEMO_SONGS } from '../constants/demoSongs';
 import { useUtm } from '../hooks/useUtm';
@@ -636,6 +636,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
               setPaymentSubmitted(true);
               setPaymentSubmitError('');
               fbSetUserData(formData.email, formData.phone);
+              fbAddPaymentInfo(selectedPlanID || 'standard', parsePrice(getPrice()), CURRENCY, data.paymentId);
               fbSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()), CURRENCY, data.paymentId);
               gaSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()));
             } else if (res.status === 409) {
@@ -913,6 +914,10 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           if (!payload.unforgettableMemory) payload.unforgettableMemory = undefined;
           if (!payload.whereItHappened) payload.whereItHappened = undefined;
           if (!payload.messageFromTheHeart) payload.messageFromTheHeart = undefined;
+          const rawUtm = sessionStorage.getItem('seubeat_utm_params');
+          if (rawUtm) {
+            try { Object.assign(payload, JSON.parse(rawUtm)); } catch { /* ignore */ }
+          }
           const res = await fetch('/api/generate-lyrics', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1213,7 +1218,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
     setSelectedPlanID(pId);
     const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
-    fbAddPaymentInfo(pId, PLAN_VALUES[pId], CURRENCY, crypto.randomUUID());
+    fbInitiateCheckout(pId, PLAN_VALUES[pId], CURRENCY, crypto.randomUUID());
     gaAddPaymentInfo(pId, PLAN_VALUES[pId]);
     if (pId === 'premium') {
       setVoiceUpsellApplied(true);
