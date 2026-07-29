@@ -336,7 +336,7 @@ export function Step5Traits({
     <div className="space-y-4 pt-2">
       <div className="space-y-2">
         <label className="text-xs font-mono text-stone-400 block font-semibold">
-          O que mais amas nessa pessoa? <span className="text-rose-500 font-black">*Obrigatório</span>
+          O que mais amas nessa pessoa? <span className="text-stone-600 font-normal">(Opcional)</span>
         </label>
         <textarea
           id="makes-special-textarea"

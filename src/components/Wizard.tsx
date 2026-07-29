@@ -908,6 +908,11 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           if (!payload.recipientNick) payload.recipientNick = undefined;
           if (!payload.referenceArtist) payload.referenceArtist = undefined;
           if (!payload.whyCreatedToday) payload.whyCreatedToday = undefined;
+          if (!payload.whatMakesSpecial) payload.whatMakesSpecial = undefined;
+          if (!payload.onlySheDoes) payload.onlySheDoes = undefined;
+          if (!payload.unforgettableMemory) payload.unforgettableMemory = undefined;
+          if (!payload.whereItHappened) payload.whereItHappened = undefined;
+          if (!payload.messageFromTheHeart) payload.messageFromTheHeart = undefined;
           const res = await fetch('/api/generate-lyrics', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1126,13 +1131,13 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       case 4:
         return formData.voiceType !== '';
       case 5:
-        return formData.whatMakesSpecial.trim().length >= 5 && formData.onlySheDoes.trim().length >= 5;
+        return true;
       case 6:
-        return formData.unforgettableMemory.trim().length >= 5 && formData.whereItHappened.trim() !== '';
+        return true;
       case 7:
-        return formData.messageFromTheHeart.trim().length >= 5 && formData.desiredEmotion !== '';
+        return formData.desiredEmotion !== '';
       case 8:
-        return formData.photoUrl !== '' || formData.photoFile !== null;
+        return true;
       case 9:
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) && formData.phone.trim().length >= 7;
       default:

@@ -23,17 +23,17 @@ const Step4Schema = z.object({
 });
 
 const Step5Schema = z.object({
-  whatMakesSpecial: z.string().min(5, 'Mínimo 5 caracteres'),
-  onlySheDoes: z.string().min(5, 'Mínimo 5 caracteres'),
+  whatMakesSpecial: z.string().optional(),
+  onlySheDoes: z.string().optional(),
 });
 
 const Step6Schema = z.object({
-  unforgettableMemory: z.string().min(5, 'Mínimo 5 caracteres'),
-  whereItHappened: z.string().min(1, 'Indique o local'),
+  unforgettableMemory: z.string().optional(),
+  whereItHappened: z.string().optional(),
 });
 
 const Step7Schema = z.object({
-  messageFromTheHeart: z.string().min(5, 'Mínimo 5 caracteres'),
+  messageFromTheHeart: z.string().optional(),
   desiredEmotion: z.string().min(1, 'Selecione a emoção'),
   hookPhrase: z.string().max(200, 'Máximo 200 caracteres').optional(),
 });
