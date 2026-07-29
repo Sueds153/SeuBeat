@@ -108,9 +108,13 @@ export function fbViewContent(plan?: string, value?: number, currency: string = 
   window.fbq('track', 'ViewContent', { content_name: plan, value, currency, content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
 }
 
-export function fbCompleteRegistration(eventID?: string): void {
+export function fbCompleteRegistration(eventID?: string, fn?: string, ln?: string, gen?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
-  window.fbq('track', 'CompleteRegistration', { content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
+  const ud: Record<string, string> = {};
+  if (fn) ud.fn = fn;
+  if (ln) ud.ln = ln;
+  if (gen) ud.gen = gen;
+  window.fbq('track', 'CompleteRegistration', { content_type: 'product', ...(Object.keys(ud).length ? { ud } : {}), event_source_url: getEventSourceUrl() }, { eventID });
 }
 
 export { parsePrice };

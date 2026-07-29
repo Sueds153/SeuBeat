@@ -958,7 +958,11 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           setDbSongRequestId(data.dbSongRequestId);
           fbSetUserData(formData.email, formData.phone);
           fbLead('lyrics_generated', data.dbSongRequestId);
-          fbCompleteRegistration(data.dbSongRequestId);
+          const userNickParts = (formData.userNick || '').split(' ').filter(Boolean);
+          const fn_client = userNickParts[0] || undefined;
+          const ln_client = userNickParts.slice(-1)[0] || undefined;
+          const gen_client = formData.recipientGender ? (formData.recipientGender === 'masculino' ? 'm' : 'f') : undefined;
+          fbCompleteRegistration(data.dbSongRequestId, fn_client, ln_client, gen_client);
           gaLead(data.dbSongRequestId);
           gaCompleteRegistration();
 

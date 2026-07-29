@@ -355,7 +355,11 @@ router.post('/generate-lyrics', generateLyricsLimiter, emailLimiter, async (req,
     });
 
     const userFullNameLyrics = userNick || '';
-    const lastNameLyrics = userFullNameLyrics.split(' ').filter(Boolean).slice(-1)[0] || undefined;
+    const namePartsLyrics = userFullNameLyrics.split(' ').filter(Boolean);
+    const firstNameLyrics = namePartsLyrics[0] || undefined;
+    const lastNameLyrics = namePartsLyrics.slice(-1)[0] || undefined;
+    const genderMap: Record<string, string> = { masculino: 'm', feminino: 'f' };
+    const genLyrics = recipientGender ? genderMap[recipientGender.toLowerCase()] : undefined;
     const eventIp = req.ip || req.socket.remoteAddress || undefined;
     const eventUa = req.headers['user-agent'];
 
@@ -376,6 +380,10 @@ router.post('/generate-lyrics', generateLyricsLimiter, emailLimiter, async (req,
       eventId: requestData.id,
       email: email || '',
       phone: phone || undefined,
+      fn: firstNameLyrics,
+      ln: lastNameLyrics,
+      gen: genLyrics,
+      country: 'AO',
       eventSourceUrl: (req.headers.referer as string) || undefined,
       clientIp: eventIp,
       clientUserAgent: eventUa,

@@ -47,11 +47,14 @@ function buildPayload(params: {
   externalId?: string;
   zip?: string;
   dob?: string;
+  fn?: string;
   ln?: string;
+  gen?: string;
+  country?: string;
   ct?: string;
   st?: string;
 }) {
-  const { eventName, eventId, email, phone, value, currency, contentName, contentType, eventSourceUrl, clientIp, clientUserAgent, externalId, zip, dob, ln, ct, st } = params;
+  const { eventName, eventId, email, phone, value, currency, contentName, contentType, eventSourceUrl, clientIp, clientUserAgent, externalId, zip, dob, fn, ln, gen, country, ct, st } = params;
 
   const userData: Record<string, unknown> = {};
   if (email) userData.em = [hashEmail(email)];
@@ -61,7 +64,10 @@ function buildPayload(params: {
   if (externalId) userData.external_id = hashEmail(externalId);
   if (zip) userData.zp = [hashGeneric(zip)];
   if (dob) userData.db = [hashGeneric(dob)];
+  if (fn) userData.fn = [hashGeneric(fn)];
   if (ln) userData.ln = [hashGeneric(ln)];
+  if (gen) userData.gen = [hashGeneric(gen)];
+  if (country) userData.country = [hashGeneric(country)];
   if (ct) userData.ct = [hashGeneric(ct)];
   if (st) userData.st = [hashGeneric(st)];
 
@@ -133,7 +139,10 @@ async function sendEvent(params: {
   externalId?: string;
   zip?: string;
   dob?: string;
+  fn?: string;
   ln?: string;
+  gen?: string;
+  country?: string;
   ct?: string;
   st?: string;
 }): Promise<boolean> {
@@ -236,6 +245,10 @@ export async function sendCompleteRegistrationEvent(params: {
   eventId: string;
   email?: string;
   phone?: string;
+  fn?: string;
+  ln?: string;
+  gen?: string;
+  country?: string;
   eventSourceUrl?: string;
   clientIp?: string;
   clientUserAgent?: string;
