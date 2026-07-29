@@ -1554,7 +1554,7 @@ router.get('/utm-stats', adminAuth, async (req, res) => {
     if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
     const { data, error } = await supabase
       .from('song_requests')
-      .select('utm_campaign, utm_source, utm_medium, utm_term, utm_content, plan, status, payments(amount)')
+      .select('utm_campaign, utm_source, utm_medium, utm_term, utm_content, status, payments(amount)')
       .not('utm_campaign', 'is', null)
       .neq('utm_campaign', '');
 
