@@ -904,6 +904,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           const { photoFile: _pf, photoUrl: _pu, ...formBody } = formData;
           const payload: Record<string, unknown> = { ...formBody };
           if (!payload.email) delete payload.email;
+          if (!payload.userNick) payload.userNick = undefined;
           if (!payload.recipientNick) payload.recipientNick = undefined;
           if (!payload.referenceArtist) payload.referenceArtist = undefined;
           if (!payload.whyCreatedToday) payload.whyCreatedToday = undefined;

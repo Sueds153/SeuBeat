@@ -44,10 +44,10 @@ describe('GenerateLyricsSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('fails without userNick', () => {
+  it('passes without userNick (optional)', () => {
     const { userNick, ...rest } = validData;
     const result = GenerateLyricsSchema.safeParse(rest);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it('fails without recipientName', () => {

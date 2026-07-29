@@ -41,7 +41,7 @@ const LANGUAGES = [
 ] as const;
 
 export const GenerateLyricsSchema = z.object({
-  userNick: z.string().min(1, 'Nome requerido').max(50, 'Nome muito longo').trim(),
+  userNick: z.string().max(50, 'Nome muito longo').trim().optional(),
   email: z.preprocess(
     v => v === '' ? undefined : v,
     z.string().email('Email inválido').toLowerCase().optional()
