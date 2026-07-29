@@ -429,7 +429,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
 
     const { data: songData, error } = await publicSupabase
       .from('songs')
-      .select('*, song_requests!inner(id, recipient_name, status, email, photo_url, final_mixed_audio_url, elevenlabs_voice_id, music_style, memory, deliver_at, occasion, relationship, desired_emotion, voice_type, recipient_gender, users!inner(name))')
+      .select('*, song_requests!inner(id, recipient_name, status, email, photo_url, final_mixed_audio_url, elevenlabs_voice_id, music_style, memory, deliver_at, occasion, relationship, desired_emotion, voice_type, recipient_gender, users(name))')
       .eq('id', req.params.id)
       .single();
 

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "meta-ads": {
+      "command": "npx",
+      "args": ["-y", "meta-ads-mcp"],
+      "env": {
+        "META_ACCESS_TOKEN": "EAANkvbCVOhUBSOgCiZA9RY0GRjAHEsf4vXRIDjmnJnF19pctoIGF69F8knP72cWw7FbZAdFjLLfnBPF18IOdex6ZCo2HWG95B9pT5HDbCA2k8h0JhciWSF10ZADz6CJlLHH25czXQD9mniytzFAnPz8tZA2kaWsjhp5w7bwZC0ZC66ZBK0mUpNvhKzrHUCgWAwZDZD"
+      }
+    }
+  }
+}

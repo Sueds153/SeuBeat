@@ -304,14 +304,11 @@ CREATE POLICY "Acesso total para service_role" ON storage.objects
 
 -- 5. Políticas para client anon (página pública de dedicatória)
 -- A anon key é usada no GET /api/song/:id para reduzir o blast radius (vs service_role)
+-- NOTA: users usa LEFT JOIN (users(name) sem !inner) para não bloquear a query com RLS
 DROP POLICY IF EXISTS "Anon pode ler song_requests para dedicatória" ON public.song_requests;
 DROP POLICY IF EXISTS "Anon pode ler nome do utilizador" ON public.users;
 
 CREATE POLICY "Anon pode ler song_requests para dedicatória" ON public.song_requests
-  FOR SELECT TO anon
-  USING (true);
-
-CREATE POLICY "Anon pode ler nome do utilizador" ON public.users
   FOR SELECT TO anon
   USING (true);
 
