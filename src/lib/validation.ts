@@ -40,9 +40,6 @@ const Step7Schema = z.object({
 
 const Step8Schema = z.object({
   photoUrl: z.string().optional(),
-}).refine(data => data.photoUrl && data.photoUrl.length > 0, {
-  message: 'Adicione uma foto',
-  path: ['photoUrl'],
 });
 export const Step9Schema = z.object({
   email: z.string().email('Email inválido'),
