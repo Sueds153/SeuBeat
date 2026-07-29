@@ -309,7 +309,7 @@ DROP POLICY IF EXISTS "Anon pode ler nome do utilizador" ON public.users;
 
 CREATE POLICY "Anon pode ler song_requests para dedicatória" ON public.song_requests
   FOR SELECT TO anon
-  USING (status = 'delivered');
+  USING (true);
 
 CREATE POLICY "Anon pode ler nome do utilizador" ON public.users
   FOR SELECT TO anon
