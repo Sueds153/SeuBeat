@@ -1316,10 +1316,10 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
   const activeMeta = STEP_META[step - 1];
 const ROTATING_MESSAGES = [
-    '❤️ Uma nova música foi criada para uma mãe',
-    '💕 Uma nova declaração de amor foi criada',
-    '🎂 Uma música de aniversário acabou de ficar pronta',
-    '💍 Um pedido de casamento está a transformar-se em música'
+    '❤️ Música criada para uma mãe',
+    '💕 Declaração de amor criada',
+    '🎂 Música de aniversário pronta',
+    '💍 Pedido de casamento a transformar-se em música'
   ];
 
   const getDemoByStyle = (style: string) => {
@@ -1540,10 +1540,9 @@ const ROTATING_MESSAGES = [
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-xs text-amber-500 font-mono bg-amber-500/10 border border-amber-500/20 px-4 py-2 rounded-lg"
+                className="text-[11px] leading-relaxed text-amber-500 font-mono bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg"
               >
-                A geracao esta a demorar mais que o normal. Se continuar, 
-                tente novamente ou fale connosco no WhatsApp.
+                A sua letra esta a ser preparada com carinho. Obrigado por esperar — vai compensar.
               </motion.p>
             )}
           </motion.div>
