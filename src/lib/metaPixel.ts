@@ -23,6 +23,15 @@ function getEventSourceUrl(): string | undefined {
   }
 }
 
+// Tracking nunca deve quebrar o fluxo do utilizador — exceções são engolidas.
+function safeFbq(...args: any[]): void {
+  try {
+    window.fbq(...args);
+  } catch {
+    // ignora — o tracking não pode bloquear a criação da letra
+  }
+}
+
 export function initMetaPixel(): void {
   if (!IS_ENABLED || initialized) return;
   initialized = true;
@@ -51,8 +60,8 @@ export function initMetaPixel(): void {
     document.head.appendChild(script);
   }
 
-  window.fbq('init', PIXEL_ID);
-  window.fbq('track', 'PageView');
+  safeFbq('init', PIXEL_ID);
+  safeFbq('track', 'PageView');
 
   const img = document.createElement('img');
   img.height = 1;
@@ -65,32 +74,32 @@ export function initMetaPixel(): void {
 
 export function fbPageView(): void {
   if (!IS_ENABLED || !window.fbq) return;
-  window.fbq('track', 'PageView');
+  safeFbq('track', 'PageView');
 }
 
 export function fbInitiateCheckout(plan?: string, value?: number, currency: string = CURRENCY, eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
-  window.fbq('track', 'InitiateCheckout', { content_name: plan, value, currency, event_source_url: getEventSourceUrl() }, { eventID });
+  safeFbq('track', 'InitiateCheckout', { content_name: plan, value, currency, event_source_url: getEventSourceUrl() }, { eventID });
 }
 
 export function fbAddPaymentInfo(plan?: string, value?: number, currency: string = CURRENCY, eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
-  window.fbq('track', 'AddPaymentInfo', { content_name: plan, value, currency, event_source_url: getEventSourceUrl() }, { eventID });
+  safeFbq('track', 'AddPaymentInfo', { content_name: plan, value, currency, event_source_url: getEventSourceUrl() }, { eventID });
 }
 
 export function fbLead(contentName?: string, eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
-  window.fbq('track', 'Lead', { content_name: contentName, event_source_url: getEventSourceUrl() }, { eventID });
+  safeFbq('track', 'Lead', { content_name: contentName, event_source_url: getEventSourceUrl() }, { eventID });
 }
 
 export function fbPurchase(plan?: string, value?: number, currency: string = CURRENCY, eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
-  window.fbq('track', 'Purchase', { content_name: plan, value, currency, content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
+  safeFbq('track', 'Purchase', { content_name: plan, value, currency, content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
 }
 
 export function fbSubmitApplication(plan?: string, value?: number, currency: string = CURRENCY, eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
-  window.fbq('track', 'SubmitApplication', { content_name: plan, value, currency, content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
+  safeFbq('track', 'SubmitApplication', { content_name: plan, value, currency, content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
 }
 
 export function fbSetUserData(email: string, phone?: string): void {
@@ -99,13 +108,13 @@ export function fbSetUserData(email: string, phone?: string): void {
   if (email) userData.em = email;
   if (phone) userData.ph = phone;
   if (Object.keys(userData).length > 0) {
-    window.fbq('set', 'userData', userData);
+    safeFbq('set', 'userData', userData);
   }
 }
 
 export function fbViewContent(plan?: string, value?: number, currency: string = CURRENCY, eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
-  window.fbq('track', 'ViewContent', { content_name: plan, value, currency, content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
+  safeFbq('track', 'ViewContent', { content_name: plan, value, currency, content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
 }
 
 export function fbCompleteRegistration(eventID?: string, fn?: string, ln?: string, gen?: string): void {
@@ -114,7 +123,7 @@ export function fbCompleteRegistration(eventID?: string, fn?: string, ln?: strin
   if (fn) ud.fn = fn;
   if (ln) ud.ln = ln;
   if (gen) ud.gen = gen;
-  window.fbq('track', 'CompleteRegistration', { content_type: 'product', ...(Object.keys(ud).length ? { ud } : {}), event_source_url: getEventSourceUrl() }, { eventID });
+  safeFbq('track', 'CompleteRegistration', { content_type: 'product', ...(Object.keys(ud).length ? { ud } : {}), event_source_url: getEventSourceUrl() }, { eventID });
 }
 
 export { parsePrice };

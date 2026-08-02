@@ -174,9 +174,10 @@ export async function startServer(app: express.Application): Promise<import('htt
   return new Promise((resolve) => {
     const server = app.listen(ENV.PORT, '0.0.0.0', () => {
       logInfo(`Servidor iniciado na porta ${ENV.PORT}`);
-      // Aumentar timeout do servidor HTTP para 150s (AI pode demorar até 120s)
-      server.setTimeout(150000);
-      server.keepAliveTimeout = 150000;
+      // Timeout do servidor deve ser SEMPRE superior ao timeout do cliente (180s no Wizard)
+      // para nunca matar a resposta que o cliente ainda está a aguardar.
+      server.setTimeout(300000);
+      server.keepAliveTimeout = 300000;
       resolve(server);
     });
   });

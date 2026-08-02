@@ -6,6 +6,20 @@ import { logInfo, logWarn, logError } from '../utils/logger';
 
 const AI_PROVIDER_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 120000);
 
+const DEFAULT_PROVIDER_ORDER: AIProvider[] = ['openai', 'gemini', 'claude'];
+
+// Ordem dos providers controlável por AI_PROVIDER_ORDER (ex: "gemini,openai,claude").
+// Útil para despriorizar/ignorar um provider sem chave de créditos (ex: OpenAI 429).
+function providerOrder(): AIProvider[] {
+  const raw = process.env.AI_PROVIDER_ORDER;
+  if (!raw) return DEFAULT_PROVIDER_ORDER;
+  const order = raw
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter((s): s is AIProvider => s === 'openai' || s === 'gemini' || s === 'claude');
+  return order.length ? order : DEFAULT_PROVIDER_ORDER;
+}
+
 async function withTimeout<T>(promise: Promise<T>, ms: number, name: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
@@ -30,6 +44,9 @@ export async function generateLyrics(formData: WizardFormData): Promise<{ result
   if (available.length === 0) {
     throw new Error('Nenhuma chave de API de IA configurada (ANTHROPIC_API_KEY, OPENAI_API_KEY ou GEMINI_API_KEY).');
   }
+
+  const order = providerOrder();
+  available.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 
   let lastError: unknown;
 

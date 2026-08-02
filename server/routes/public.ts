@@ -65,6 +65,96 @@ function publicUrlForStoragePath(supabase: NonNullable<ReturnType<typeof getAdmi
   return publicUrl;
 }
 
+// Janela de reutilização: se o mesmo email já tiver uma letra lyrics_ready criada
+// nos últimos 10 min com os mesmos dados, devolvemos a letra existente em vez de
+// gerar duplicatas (retries do cliente após falha de rede/timeout).
+const DEDUPE_WINDOW_MS = 10 * 60 * 1000;
+
+function lyricsRequestFingerprint(values: {
+  recipientName?: string;
+  recipientGender?: string;
+  recipientNick?: string;
+  recipientRelation?: string;
+  hookPhrase?: string;
+  occasion?: string;
+  musicStyle?: string;
+  voiceType?: string;
+  whatMakesSpecial?: string;
+  unforgettableMemory?: string;
+  messageFromTheHeart?: string;
+  desiredEmotion?: string;
+  language?: string;
+}): string {
+  const normalized: Array<string | null> = [
+    values.recipientName || 'Destinatario',
+    values.recipientGender || null,
+    values.recipientNick || null,
+    values.recipientRelation || 'Parceiro',
+    values.hookPhrase || null,
+    values.occasion || 'Homenagem',
+    values.musicStyle || 'Kizomba',
+    values.voiceType || 'masculina',
+    sanitize(values.whatMakesSpecial || ''),
+    sanitize(values.unforgettableMemory || ''),
+    sanitize(values.messageFromTheHeart || ''),
+    values.desiredEmotion || 'Amor',
+    values.language || 'português',
+  ];
+  return JSON.stringify(normalized);
+}
+
+async function findExistingLyricsRequest(
+  supabase: NonNullable<ReturnType<typeof getAdminSupabase>>,
+  email: string,
+  fingerprint: string
+) {
+  const { data: existingRequests, error: existingError } = await supabase
+    .from('song_requests')
+    .select('*')
+    .eq('email', email)
+    .eq('status', 'lyrics_ready')
+    .gte('created_at', new Date(Date.now() - DEDUPE_WINDOW_MS).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+  if (existingError) {
+    logError('[API] Falha ao procurar pedido existente para dedupe', existingError, { email });
+    return null;
+  }
+
+  for (const req of existingRequests || []) {
+    const storedFingerprint = lyricsRequestFingerprint({
+      recipientName: req.recipient_name || undefined,
+      recipientGender: req.recipient_gender || undefined,
+      recipientNick: req.recipient_nick || undefined,
+      recipientRelation: req.relationship || undefined,
+      hookPhrase: req.hook_phrase || undefined,
+      occasion: req.occasion || undefined,
+      musicStyle: req.music_style || undefined,
+      voiceType: req.voice_type || undefined,
+      whatMakesSpecial: req.special_traits || undefined,
+      unforgettableMemory: req.memory || undefined,
+      messageFromTheHeart: req.heart_message || undefined,
+      desiredEmotion: req.desired_emotion || undefined,
+      language: req.language || undefined,
+    });
+
+    if (storedFingerprint !== fingerprint) continue;
+
+    const { data: existingSong } = await supabase
+      .from('songs')
+      .select('id, title, lyrics, lyrics_snippet, letter_text')
+      .eq('request_id', req.id)
+      .maybeSingle();
+
+    if (existingSong?.id) {
+      return { request: req, song: existingSong };
+    }
+  }
+
+  return null;
+}
+
 export async function ensureUserProfile(
   supabase: NonNullable<ReturnType<typeof getAdminSupabase>>,
   params: { email: string; name: string; phone?: string | null }
@@ -201,6 +291,50 @@ router.post('/generate-lyrics', generateLyricsLimiter, emailLimiter, async (req,
 
     if (!supabase) {
       return res.status(500).json({ success: false, error: 'Banco de dados indisponivel no momento.' });
+    }
+
+    // Idempotência: se o mesmo email já tem uma letra lyrics_ready com os MESMOS dados
+    // criada nos últimos 10 min, devolver essa letra em vez de criar duplicata
+    // (protege retries do cliente após falha de rede/timeout).
+    if (email) {
+      const fingerprint = lyricsRequestFingerprint({
+        recipientName,
+        recipientGender,
+        recipientNick,
+        recipientRelation,
+        hookPhrase,
+        occasion,
+        musicStyle,
+        voiceType,
+        whatMakesSpecial,
+        unforgettableMemory,
+        messageFromTheHeart,
+        desiredEmotion,
+        language,
+      });
+      const existing = await findExistingLyricsRequest(supabase, email, fingerprint);
+      if (existing) {
+        dbSongRequestId = existing.request.id;
+        dbSongId = existing.song.id;
+        setProgress(existing.request.id, { status: 'lyrics_ready', progress: 35, message: 'Letra criada com sucesso!' });
+        logInfo('Lyrics reutilizada (dedupe de retry)', {
+          requestId: existing.request.id,
+          songId: existing.song.id,
+          email
+        });
+        return res.json({
+          success: true,
+          dbSongId: existing.song.id,
+          dbSongRequestId: existing.request.id,
+          songTitle: existing.song.title,
+          lyrics: existing.song.lyrics,
+          lyricsSnippet: existing.song.lyrics_snippet,
+          letterText: existing.song.letter_text,
+          photoUrl: existing.request.photo_url,
+          status: 'lyrics_ready',
+          message: 'Letra criada com sucesso!'
+        });
+      }
     }
 
     let photoUrl: string | null = null;
@@ -873,6 +1007,62 @@ router.get('/payment-status', paymentStatusLimiter, async (req, res) => {
     const { data, error } = await query;
     if (error) throw error;
     res.json(data ? { status: data.status, notes: data.notes || null } : { status: 'not_found' });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+// Recuperação de letra: devolve o pedido lyrics_ready mais recente do email
+// (usado pelo Wizard quando a geração "falhou" no cliente mas a letra já existe).
+router.get('/latest-song', getSongLimiter, async (req, res) => {
+  try {
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
+
+    const { email } = req.query;
+    if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, error: 'Email inválido.' });
+    }
+
+    const { data: requestData, error: requestError } = await supabase
+      .from('song_requests')
+      .select('*')
+      .eq('email', email)
+      .eq('status', 'lyrics_ready')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (requestError) throw requestError;
+
+    if (!requestData?.id) {
+      return res.json({ success: true, found: false });
+    }
+
+    const { data: songData, error: songError } = await supabase
+      .from('songs')
+      .select('id, title, lyrics, lyrics_snippet, letter_text')
+      .eq('request_id', requestData.id)
+      .maybeSingle();
+
+    if (songError) throw songError;
+
+    if (!songData?.id) {
+      return res.json({ success: true, found: false });
+    }
+
+    res.json({
+      success: true,
+      found: true,
+      dbSongId: songData.id,
+      dbSongRequestId: requestData.id,
+      songTitle: songData.title,
+      lyrics: songData.lyrics,
+      lyricsSnippet: songData.lyrics_snippet,
+      letterText: songData.letter_text,
+      photoUrl: requestData.photo_url,
+      status: 'lyrics_ready'
+    });
   } catch (err: unknown) {
     res.status(500).json({ success: false, error: safeMessage(err) });
   }

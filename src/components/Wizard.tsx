@@ -835,6 +835,40 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     return () => { pollCancelledRef.current = true; };
   }, []);
 
+  // Recupera uma letra já criada no servidor quando a geração "falhou" no cliente
+  // (falha de rede/timeout após o servidor ter concluído). Evita duplicatas.
+  const tryRecoverExistingLyrics = async () => {
+    if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) return false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch(`/api/latest-song?email=${encodeURIComponent(formData.email)}`, { signal: controller.signal });
+        clearTimeout(timeout);
+        if (!res.ok) return false;
+        const data = await res.json();
+        if (data?.success && data?.found && data.dbSongId && data.dbSongRequestId) {
+          setAiSongTitle(data.songTitle);
+          setAiLyrics(data.lyrics);
+          setAiLyricsSnippet(data.lyricsSnippet);
+          setAiLetterText(data.letterText);
+          setDbSongId(data.dbSongId);
+          setDbSongRequestId(data.dbSongRequestId);
+          setGenerationStatus('lyrics_ready');
+          setProcessingStage(3);
+          showToast('A sua letra já tinha sido criada. Aqui está!', 'success');
+          return true;
+        }
+      } catch {
+        // ligação falhou de novo — tenta outra vez
+      }
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+    }
+    return false;
+  };
+
   // Call Claude Lyric Generator API on submission
   useEffect(() => {
     if (isSubmitting) {
@@ -976,10 +1010,13 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           submissionStartedRef.current = false;
         } catch (err: any) {
           console.error('Error generating AI lyrics:', err);
-          setGenerationStatus('error');
-          const errorMsg = err.message || 'Erro ao gerar. Tente novamente.';
-          setGenerationError(errorMsg);
-          showToast(errorMsg, 'error');
+          const recovered = await tryRecoverExistingLyrics();
+          if (!recovered) {
+            setGenerationStatus('error');
+            const errorMsg = err.message || 'Erro ao gerar. Tente novamente.';
+            setGenerationError(errorMsg);
+            showToast(errorMsg, 'error');
+          }
           setIsSubmitting(false);
           submissionStartedRef.current = false;
         }
@@ -1176,8 +1213,13 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     }
   };
 
-  const retryGeneration = () => {
+  const retryGeneration = async () => {
     submissionStartedRef.current = false;
+    const recovered = await tryRecoverExistingLyrics();
+    if (recovered) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     setDbSongId('');
     setDbSongRequestId('');
     setGenerationStatus('idle');
