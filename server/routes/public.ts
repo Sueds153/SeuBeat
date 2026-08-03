@@ -795,6 +795,12 @@ router.post('/song/:id/regenerate-lyrics', generateLyricsLimiter, async (req, re
     const userData = await supabase.from('users').select('name').eq('id', sr.user_id).single();
     const userName = userData.data?.name || 'Autor';
 
+    const bodyHint = (typeof req.body === 'object' && req.body !== null ? req.body : {}) as Record<string, unknown>;
+    const preferBody = (key: string, fallback: string): string => {
+      const val = bodyHint[key];
+      return typeof val === 'string' && val.trim() ? val : fallback;
+    };
+
     const { result: parsedData } = await generateLyrics({
       userNick: userName,
       recipientName: sr.recipient_name || 'Destinatario',
@@ -802,14 +808,14 @@ router.post('/song/:id/regenerate-lyrics', generateLyricsLimiter, async (req, re
       recipientRelation: sr.relationship || 'Parceiro',
       recipientNick: sr.recipient_nick || '',
       occasion: sr.occasion || 'Homenagem',
-      whyCreatedToday: sr.why_created_today || '',
+      whyCreatedToday: preferBody('whyCreatedToday', sr.why_created_today || ''),
       musicStyle: sr.music_style || 'Kizomba',
-      referenceArtist: sr.reference_artist || '',
+      referenceArtist: preferBody('referenceArtist', sr.reference_artist || ''),
       voiceType: sr.voice_type || 'Masculina',
       unforgettableMemory: sr.memory || '',
       whatMakesSpecial: sr.special_traits || '',
-      onlySheDoes: sr.only_she_does || '',
-      whereItHappened: sr.where_it_happened || '',
+      onlySheDoes: preferBody('onlySheDoes', sr.only_she_does || ''),
+      whereItHappened: preferBody('whereItHappened', sr.where_it_happened || ''),
       messageFromTheHeart: sr.heart_message || '',
       hookPhrase: sr.hook_phrase || '',
       desiredEmotion: sr.desired_emotion || 'Emocionante',
