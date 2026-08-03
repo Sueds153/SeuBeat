@@ -16,6 +16,7 @@ import {
   UpdateLyricsSchema,
   validateInput 
 } from '../middleware/validation';
+import type { GenerateLyricsInput } from '../middleware/validation';
 import { 
   globalLimiter,
   generateLyricsLimiter, 
@@ -155,6 +156,67 @@ async function findExistingLyricsRequest(
   return null;
 }
 
+// Middleware de idempotência executado ANTES dos rate limiters: se o mesmo email já
+// tem uma letra lyrics_ready com os MESMOS dados nos últimos 10 min, devolvemos essa
+// letra sem consumir o limite de 5 gerações/hora do generateLyricsLimiter.
+async function dedupeLyricsRequest(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+): Promise<void> {
+  try {
+    const supabase = getAdminSupabase();
+    if (!supabase) return next();
+
+    const validation = validateInput(GenerateLyricsSchema, req.body);
+    if (!validation.success) return next();
+
+    const data: GenerateLyricsInput = validation.data;
+    if (!data.email) return next();
+    const fingerprint = lyricsRequestFingerprint({
+      recipientName: data.recipientName || undefined,
+      recipientGender: data.recipientGender || undefined,
+      recipientNick: data.recipientNick || undefined,
+      recipientRelation: data.recipientRelation || undefined,
+      hookPhrase: data.hookPhrase || undefined,
+      occasion: data.occasion || undefined,
+      musicStyle: data.musicStyle || undefined,
+      voiceType: data.voiceType || undefined,
+      whatMakesSpecial: data.whatMakesSpecial || undefined,
+      unforgettableMemory: data.unforgettableMemory || undefined,
+      messageFromTheHeart: data.messageFromTheHeart || undefined,
+      desiredEmotion: data.desiredEmotion || undefined,
+      language: data.language || undefined,
+    });
+
+    const existing = await findExistingLyricsRequest(supabase, data.email, fingerprint);
+    if (!existing) return next();
+
+    setProgress(existing.request.id, { status: 'lyrics_ready', progress: 35, message: 'Letra criada com sucesso!' });
+    logInfo('Lyrics reutilizada (dedupe de retry)', {
+      requestId: existing.request.id,
+      songId: existing.song.id,
+      email: data.email
+    });
+    res.json({
+      success: true,
+      dbSongId: existing.song.id,
+      dbSongRequestId: existing.request.id,
+      songTitle: existing.song.title,
+      lyrics: existing.song.lyrics,
+      lyricsSnippet: existing.song.lyrics_snippet,
+      letterText: existing.song.letter_text,
+      photoUrl: existing.request.photo_url,
+      status: 'lyrics_ready',
+      message: 'Letra criada com sucesso!'
+    });
+  } catch (err: unknown) {
+    // O dedupe nunca pode bloquear o fluxo normal — em caso de erro, segue para o handler.
+    logError('[API] Falha no middleware de dedupe', err instanceof Error ? err : new Error(String(err)));
+    next();
+  }
+}
+
 export async function ensureUserProfile(
   supabase: NonNullable<ReturnType<typeof getAdminSupabase>>,
   params: { email: string; name: string; phone?: string | null }
@@ -241,7 +303,7 @@ router.post('/suno-callback', async (req, res) => {
   res.json({ success: true });
 });
 
-router.post('/generate-lyrics', generateLyricsLimiter, emailLimiter, async (req, res) => {
+router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emailLimiter, async (req, res) => {
   const supabase = getAdminSupabase();
   let dbSongRequestId: string | null = null;
   let dbSongId: string | null = null;
@@ -291,50 +353,6 @@ router.post('/generate-lyrics', generateLyricsLimiter, emailLimiter, async (req,
 
     if (!supabase) {
       return res.status(500).json({ success: false, error: 'Banco de dados indisponivel no momento.' });
-    }
-
-    // Idempotência: se o mesmo email já tem uma letra lyrics_ready com os MESMOS dados
-    // criada nos últimos 10 min, devolver essa letra em vez de criar duplicata
-    // (protege retries do cliente após falha de rede/timeout).
-    if (email) {
-      const fingerprint = lyricsRequestFingerprint({
-        recipientName,
-        recipientGender,
-        recipientNick,
-        recipientRelation,
-        hookPhrase,
-        occasion,
-        musicStyle,
-        voiceType,
-        whatMakesSpecial,
-        unforgettableMemory,
-        messageFromTheHeart,
-        desiredEmotion,
-        language,
-      });
-      const existing = await findExistingLyricsRequest(supabase, email, fingerprint);
-      if (existing) {
-        dbSongRequestId = existing.request.id;
-        dbSongId = existing.song.id;
-        setProgress(existing.request.id, { status: 'lyrics_ready', progress: 35, message: 'Letra criada com sucesso!' });
-        logInfo('Lyrics reutilizada (dedupe de retry)', {
-          requestId: existing.request.id,
-          songId: existing.song.id,
-          email
-        });
-        return res.json({
-          success: true,
-          dbSongId: existing.song.id,
-          dbSongRequestId: existing.request.id,
-          songTitle: existing.song.title,
-          lyrics: existing.song.lyrics,
-          lyricsSnippet: existing.song.lyrics_snippet,
-          letterText: existing.song.letter_text,
-          photoUrl: existing.request.photo_url,
-          status: 'lyrics_ready',
-          message: 'Letra criada com sucesso!'
-        });
-      }
     }
 
     let photoUrl: string | null = null;

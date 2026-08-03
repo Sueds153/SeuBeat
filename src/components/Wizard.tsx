@@ -837,9 +837,10 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
   // Recupera uma letra já criada no servidor quando a geração "falhou" no cliente
   // (falha de rede/timeout após o servidor ter concluído). Evita duplicatas.
+  // Janela total ≈ 60s (5 tentativas × 8s + 4 backoffs × 5s) para cobrir gerações lentas.
   const tryRecoverExistingLyrics = async () => {
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) return false;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 5; attempt++) {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 8000);
@@ -862,8 +863,8 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       } catch {
         // ligação falhou de novo — tenta outra vez
       }
-      if (attempt < 2) {
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+      if (attempt < 4) {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
       }
     }
     return false;
