@@ -2,7 +2,7 @@ import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
 import { generateLyrics } from '../services/ai';
-import { sendPersonalizedEmail, sendConfirmationEmail } from '../services/email';
+import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification } from '../services/email';
 import { sendSubmitApplicationEvent, sendLeadEvent, sendCompleteRegistrationEvent, sendInitiateCheckoutEvent, sendAddPaymentInfoEvent } from '../services/metaPixelCapi';
 import DOMPurify from 'isomorphic-dompurify';
 
@@ -1016,6 +1016,14 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       logError('[API] Meta CAPI SubmitApplication event failed', err, { paymentId: paymentRecord?.id })
     );
 
+    // Notificar admin instantaneamente sobre novo comprovativo pendente
+    sendAdminNotification(
+      'Novo comprovativo pendente 📸',
+      `Cliente: ${userEmail}\nPlano: ${plan} (${parsedAmount} Kz)\nPedido: ${songRequestId}\nPagamento: ${paymentRecord?.id}\n\nVer no painel: ${getAppUrl(req)}/admin?tab=payments`
+    ).catch(err =>
+      logError('[API] Falha ao notificar admin', err, { paymentId: paymentRecord?.id })
+    );
+
     res.json({ success: true, paymentId: paymentRecord?.id });
   } catch (err: unknown) {
     res.status(500).json({ success: false, error: safeMessage(err) });
@@ -1247,6 +1255,48 @@ router.post('/log-error', (req, res) => {
   const { message: m, stack: s, componentStack, url: u, userAgent } = req.body;
   console.error(`[ClientError] message="${m}" stack="${(s||'').slice(0,500)}" componentStack="${(componentStack||'').slice(0,500)}" url="${u}" ua="${userAgent}"`);
   res.json({ ok: true });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/song/:id/resume-link — link assinado (1h) para retomar no passo de pagamento
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/song/:id/resume-link', async (req, res) => {
+  try {
+    const supabase = getAdminSupabase();
+    if (!supabase) {
+      return res.status(503).json({ success: false, error: 'Serviço indisponível' });
+    }
+
+    const { id } = req.params;
+    const { data: request, error } = await supabase
+      .from('song_requests')
+      .select('id, email, status, recipient_name')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error || !request) {
+      return res.status(404).json({ success: false, error: 'Pedido não encontrado' });
+    }
+
+    const allowedStatuses = ['lyrics_ready', 'payment_submitted'];
+    if (!allowedStatuses.includes(request.status)) {
+      return res.status(400).json({ success: false, error: 'Este pedido não pode ser retomado no pagamento' });
+    }
+
+    const appUrl = getAppUrl(req);
+    const resumeUrl = `${appUrl}/wizard?resume=${id}&step=payment`;
+
+    res.json({
+      success: true,
+      resumeUrl,
+      expiresIn: 3600,
+      requestId: request.id,
+      recipientName: request.recipient_name,
+    });
+  } catch (err: unknown) {
+    logError('[API] Falha ao gerar resume-link', err);
+    res.status(500).json({ success: false, error: 'Erro interno' });
+  }
 });
 
 export default router;

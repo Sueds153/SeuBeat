@@ -16,12 +16,19 @@ import {
 import { validateStep as zodValidateStep, FieldErrors } from '../lib/validation';
 import WhatsAppHelp from './WhatsAppHelp';
 import LogoIcon from './LogoIcon';
-import { fbLead, fbAddPaymentInfo, fbSubmitApplication, fbSetUserData, fbViewContent, fbCompleteRegistration, fbInitiateCheckout, parsePrice } from '../lib/metaPixel';
-import { gaViewContent, gaLead, gaCompleteRegistration, gaAddPaymentInfo, gaSubmitApplication, gaWizardStep, gaPageView } from '../lib/analytics';
+import { 
+  fbLead, fbAddPaymentInfo, fbSubmitApplication, fbSetUserData, fbViewContent, 
+  fbCompleteRegistration, fbInitiateCheckout, fbStartWizard, fbWizardStep, fbLyricsGenerated, fbCheckoutView, parsePrice 
+} from '../lib/metaPixel';
+import { 
+  gaViewContent, gaLead, gaCompleteRegistration, gaAddPaymentInfo, gaSubmitApplication, gaWizardStep, gaPageView 
+} from '../lib/analytics';
 import { DEMO_SONGS } from '../constants/demoSongs';
 import { useUtm } from '../hooks/useUtm';
 import { useSocialProof, formatMinutesAgo } from '../lib/socialProof';
 import { CURRENCY } from '../constants/currency';
+import { buildTeaser, loadTeaserEdits, saveTeaserEdits, clearTeaserEdits, isTeaserEnabled } from '../lib/lyricsTeaser';
+import LyricsTeaserPreview from './LyricsTeaserPreview';
 
 interface WizardProps {
   onBackToLanding: () => void;
@@ -354,6 +361,11 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     } catch {}
     return '';
   });
+  
+  // Lyrics Teaser state (Fase 4)
+  const [teaserEnabled, setTeaserEnabled] = useState(false);
+  const [lyricsTeaser, setLyricsTeaser] = useState<ReturnType<typeof buildTeaser> | null>(null);
+  
   const [dbSongId, setDbSongId] = useState<string>(() => {
     try {
       const saved = localStorage.getItem('seubeat_wizard_progress');
@@ -424,12 +436,32 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       const plan = selectedPlanID || 'standard';
       fbViewContent(plan, PLAN_VALUES[plan], CURRENCY, crypto.randomUUID());
       gaViewContent(plan, PLAN_VALUES[plan]);
+      // Meta: letras geradas = CompleteRegistration real
+      fbLyricsGenerated(crypto.randomUUID());
     }
   }, [generationStatus]);
+
+  // Meta: trackar quando vê os planos (checkout view)
+  useEffect(() => {
+    if (conversionStep === 'plans') {
+      const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
+      const plan = selectedPlanID || 'standard';
+      fbCheckoutView(plan, PLAN_VALUES[plan], CURRENCY, crypto.randomUUID());
+    }
+  }, [conversionStep]);
 
   // GA4: registar cada passo do wizard
   useEffect(() => {
     gaWizardStep(step);
+  }, [step]);
+
+  // Meta: wizard iniciado (primeira vez que chega ao step 1)
+  const wizardStartedRef = useRef(false);
+  useEffect(() => {
+    if (step === 1 && !wizardStartedRef.current) {
+      wizardStartedRef.current = true;
+      fbStartWizard(crypto.randomUUID());
+    }
   }, [step]);
 
   const wrappedSetFormData: React.Dispatch<React.SetStateAction<WizardData>> = (action) => {
@@ -971,6 +1003,16 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           setGenerationStatus('lyrics_ready');
           setProcessingStage(3);
 
+          // Fase 4: Build lyrics teaser if feature flag enabled
+          const fullLyrics = Array.isArray(data.lyrics) ? data.lyrics.join('\n') : data.lyrics || '';
+          const teaserOn = isTeaserEnabled();
+          setTeaserEnabled(teaserOn);
+          if (teaserOn && fullLyrics) {
+            const teaser = buildTeaser(fullLyrics);
+            setLyricsTeaser(teaser);
+            clearTeaserEdits(data.dbSongRequestId); // Clear old edits for new generation
+          }
+
           await pollSongUntilPreview(data.dbSongId);
           if (generationStatus !== 'error') {
             showToast('Letra criada com sucesso! Reveja e edite se necessário.', 'success');
@@ -1165,7 +1207,9 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     if (Object.keys(errors).length > 0) return;
 
     if (step < 9) {
-      setStep(step + 1);
+      const nextStepNum = step + 1;
+      setStep(nextStepNum);
+      fbWizardStep(`step_${nextStepNum}`, nextStepNum, crypto.randomUUID());
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       fbSetUserData(formData.email, formData.phone);
@@ -1313,6 +1357,15 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         setEditedLyrics(Array.isArray(data.lyrics) ? data.lyrics.join('\n') : data.lyrics);
         setLyricsSaved(false);
         setEditingLyrics(false);
+        
+        // Rebuild teaser on regeneration
+        if (teaserEnabled) {
+          const fullLyrics = Array.isArray(data.lyrics) ? data.lyrics.join('\n') : data.lyrics || '';
+          const teaser = buildTeaser(fullLyrics);
+          setLyricsTeaser(teaser);
+          clearTeaserEdits(dbSongRequestId);
+        }
+        
         showToast(`Letra regenerada! (${data.regeneration_count}/2)`, 'success');
       } else {
         showToast(data.error || 'Erro ao regenerar letra.', 'error');
@@ -1738,36 +1791,52 @@ const ROTATING_MESSAGES = [
               </p>
             </div>
 
-            {/* Letra da música */}
-            {!editingLyrics ? (
-              <div className="bg-stone-900/40 p-4 rounded-2xl border border-stone-800 max-h-44 overflow-y-auto">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] text-stone-500 font-mono tracking-widest uppercase">Letra da música</span>
-                  <span className="text-[10px] text-amber-400/60 font-mono">🎵 {formData.musicStyle || 'Kizomba'}</span>
-                </div>
-                <div className="text-stone-300 text-sm font-serif leading-relaxed whitespace-pre-line">
-                  {Array.isArray(aiLyrics) ? aiLyrics.join('\n') : aiLyrics}
-                </div>
-              </div>
+            {/* Letra da música — Teaser ou Completa */}
+            {teaserEnabled && lyricsTeaser ? (
+              <LyricsTeaserPreview
+                teaser={lyricsTeaser}
+                requestId={dbSongRequestId}
+                onEditChange={(sectionLabel, lines) => {
+                  // Edits are saved to localStorage in the component
+                }}
+                onUnlockClick={() => {
+                  setConversionStep('plans');
+                  fbWizardStep('unlock_click', 0, crypto.randomUUID());
+                }}
+              />
             ) : (
-              <div className="bg-stone-900/40 p-4 rounded-2xl border border-amber-900/30 space-y-3">
-                <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl text-xs text-amber-300 space-y-1">
-                  <strong>⚠️ Atenção à escrita:</strong>
-                  <p>A letra que escrever será cantada pela inteligência artificial. Escreva corretamente para garantir uma pronúncia perfeita. Evite abreviações, gírias ou erros ortográficos — a IA canta exatamente o que está escrito.</p>
-                </div>
-                <textarea
-                  value={editedLyrics}
-                  onChange={(e) => setEditedLyrics(e.target.value)}
-                  className="w-full h-48 bg-stone-950 text-stone-200 text-sm font-mono p-4 rounded-xl border border-stone-800 focus:border-amber-500 focus:outline-none resize-y"
-                  placeholder="Escreva a letra aqui..."
-                />
-                <div className="flex gap-2 justify-end">
-                  <button onClick={() => setEditingLyrics(false)} className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs rounded-xl transition-all cursor-pointer">Cancelar</button>
-                  <button onClick={handleSaveLyrics} disabled={savingLyrics} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-stone-950 text-xs font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-50">
-                    {savingLyrics ? 'A guardar...' : 'Guardar'}
-                  </button>
-                </div>
-              </div>
+              <>
+                {!editingLyrics ? (
+                  <div className="bg-stone-900/40 p-4 rounded-2xl border border-stone-800 max-h-44 overflow-y-auto">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] text-stone-500 font-mono tracking-widest uppercase">Letra da música</span>
+                      <span className="text-[10px] text-amber-400/60 font-mono">🎵 {formData.musicStyle || 'Kizomba'}</span>
+                    </div>
+                    <div className="text-stone-300 text-sm font-serif leading-relaxed whitespace-pre-line">
+                      {Array.isArray(aiLyrics) ? aiLyrics.join('\n') : aiLyrics}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-stone-900/40 p-4 rounded-2xl border border-amber-900/30 space-y-3">
+                    <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl text-xs text-amber-300 space-y-1">
+                      <strong>⚠️ Atenção à escrita:</strong>
+                      <p>A letra que escrever será cantada pela inteligência artificial. Escreva corretamente para garantir uma pronúncia perfeita. Evite abreviações, gírias ou erros ortográficos — a IA canta exatamente o que está escrito.</p>
+                    </div>
+                    <textarea
+                      value={editedLyrics}
+                      onChange={(e) => setEditedLyrics(e.target.value)}
+                      className="w-full h-48 bg-stone-950 text-stone-200 text-sm font-mono p-4 rounded-xl border border-stone-800 focus:border-amber-500 focus:outline-none resize-y"
+                      placeholder="Escreva a letra aqui..."
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={() => setEditingLyrics(false)} className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs rounded-xl transition-all cursor-pointer">Cancelar</button>
+                      <button onClick={handleSaveLyrics} disabled={savingLyrics} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-stone-950 text-xs font-semibold rounded-xl transition-all cursor-pointer disabled:opacity-50">
+                        {savingLyrics ? 'A guardar...' : 'Guardar'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Editar / Regenerar links (só quando não está a editar) */}

@@ -126,4 +126,25 @@ export function fbCompleteRegistration(eventID?: string, fn?: string, ln?: strin
   safeFbq('track', 'CompleteRegistration', { content_type: 'product', ...(Object.keys(ud).length ? { ud } : {}), event_source_url: getEventSourceUrl() }, { eventID });
 }
 
+export function fbStartWizard(eventID?: string): void {
+  if (!IS_ENABLED || !window.fbq) return;
+  safeFbq('trackCustom', 'StartWizard', { event_source_url: getEventSourceUrl() }, { eventID });
+}
+
+export function fbWizardStep(stepName: string, stepNumber: number, eventID?: string): void {
+  if (!IS_ENABLED || !window.fbq) return;
+  safeFbq('trackCustom', 'WizardStep', { step_name: stepName, step_number: stepNumber, event_source_url: getEventSourceUrl() }, { eventID });
+}
+
+export function fbLyricsGenerated(eventID?: string): void {
+  if (!IS_ENABLED || !window.fbq) return;
+  safeFbq('trackCustom', 'LyricsGenerated', { event_source_url: getEventSourceUrl() }, { eventID });
+  safeFbq('track', 'CompleteRegistration', { content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
+}
+
+export function fbCheckoutView(plan?: string, value?: number, currency: string = CURRENCY, eventID?: string): void {
+  if (!IS_ENABLED || !window.fbq) return;
+  safeFbq('track', 'ViewContent', { content_name: plan, value, currency, content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
+}
+
 export { parsePrice };

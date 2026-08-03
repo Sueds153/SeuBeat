@@ -180,17 +180,17 @@ export async function sendAdminNotification(subject: string, message: string) {
   }
 }
 
-export async function sendAbandonedFirstReminder(userEmail: string, recipientName: string) {
+export async function sendAbandonedFirstReminder(userEmail: string, recipientName: string, requestId: string) {
+  const resumeUrl = `${getAppUrl()}/api/song/${requestId}/resume-link`;
   return sendWithRetry(userEmail, 'Esqueceu-se de algo? 🎵', `
     <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
       <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">⏳</span></div>
       <h2 style="color:#f59e0b;text-align:center;">A sua música está quase pronta!</h2>
       <p>Olá${safeStr(recipientName) ? ' ' + safeStr(recipientName) : ''},</p>
       <p>Recebemos o seu pedido e a letra já foi criada com todo o carinho. Falta apenas <strong>confirmar o seu plano</strong> para receber a música personalizada.</p>
-      <p style="color:#78716c;font-size:13px;">⏰ Lembre-se: o desconto de <strong>30% OFF</strong> é por tempo limitado.</p>
       <div style="text-align:center;margin:24px 0;">
-        <a href="${getAppUrl()}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#d97706,#db2777);color:#fff;font-weight:bold;font-size:14px;text-decoration:none;padding:14px 32px;border-radius:12px;">
-          Voltar e Confirmar Pedido
+        <a href="${resumeUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#d97706,#db2777);color:#fff;font-weight:bold;font-size:14px;text-decoration:none;padding:14px 32px;border-radius:12px;">
+          Continuar Pagamento
         </a>
       </div>
       <p style="color:#78716c;font-size:12px;text-align:center;">SeuBeat Estúdio Angola — Eternizando momentos com melodias inesquecíveis.</p>
@@ -198,21 +198,58 @@ export async function sendAbandonedFirstReminder(userEmail: string, recipientNam
   `);
 }
 
-export async function sendAbandonedSecondReminder(userEmail: string, recipientName: string) {
-  return sendWithRetry(userEmail, 'Ainda vai a tempo — últimos dias com 30% OFF 🎶', `
+export async function sendAbandonedSecondReminder(userEmail: string, recipientName: string, requestId: string) {
+  const resumeUrl = `${getAppUrl()}/api/song/${requestId}/resume-link`;
+  return sendWithRetry(userEmail, 'Ainda vai a tempo 🎶', `
     <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
       <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">🎶</span></div>
       <h2 style="color:#f59e0b;text-align:center;">Não deixe para depois o que pode emocionar hoje</h2>
       <p>Olá${safeStr(recipientName) ? ' ' + safeStr(recipientName) : ''},</p>
       <p>Há uns dias começou a criar uma música personalizada para alguém especial. A letra já está pronta e à sua espera!</p>
-      <p><strong>Aproveite os últimos dias com 30% de desconto</strong> — esta oportunidade é única.</p>
       <div style="text-align:center;margin:24px 0;">
-        <a href="${getAppUrl()}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#d97706,#db2777);color:#fff;font-weight:bold;font-size:14px;text-decoration:none;padding:14px 32px;border-radius:12px;">
+        <a href="${resumeUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#d97706,#db2777);color:#fff;font-weight:bold;font-size:14px;text-decoration:none;padding:14px 32px;border-radius:12px;">
           Finalizar Agora
         </a>
       </div>
-      <p style="color:#78716c;font-size:12px;text-align:center;">Milhares de angolanos já eternizaram o amor deles numa canção. A sua vez chegou.</p>
-      <p style="color:#78716c;font-size:12px;text-align:center;margin-top:16px;">SeuBeat Estúdio Angola</p>
+      <p style="color:#78716c;font-size:12px;text-align:center;">SeuBeat Estúdio Angola</p>
+    </div>
+  `);
+}
+
+export async function sendAbandonedThirdReminder(userEmail: string, recipientName: string, requestId: string) {
+  const resumeUrl = `${getAppUrl()}/api/song/${requestId}/resume-link`;
+  return sendWithRetry(userEmail, 'A sua letra expira em 48h ⏳', `
+    <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">⏰</span></div>
+      <h2 style="color:#ef4444;text-align:center;">Último aviso — a sua música está prestes a expirar</h2>
+      <p>Olá${safeStr(recipientName) ? ' ' + safeStr(recipientName) : ''},</p>
+      <p>A sua música personalizada está pronta há mais de 48 horas. <strong>O sistema vai remover a letra gerada em breve.</strong></p>
+      <p>Confirme o seu plano agora para não perder o trabalho feito.</p>
+      <div style="text-align:center;margin:24px 0;">
+        <a href="${resumeUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-weight:bold;font-size:14px;text-decoration:none;padding:14px 32px;border-radius:12px;">
+          Salvar a Minha Música Agora
+        </a>
+      </div>
+      <p style="color:#78716c;font-size:12px;text-align:center;">SeuBeat Estúdio Angola</p>
+    </div>
+  `);
+}
+
+export async function sendAbandonedFourthReminder(userEmail: string, recipientName: string, requestId: string) {
+  const resumeUrl = `${getAppUrl()}/api/song/${requestId}/resume-link`;
+  return sendWithRetry(userEmail, 'Última chance: a sua música será removida 🗑️', `
+    <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">🗑️</span></div>
+      <h2 style="color:#ef4444;text-align:center;">Esta é a última notificação</h2>
+      <p>Olá${safeStr(recipientName) ? ' ' + safeStr(recipientName) : ''},</p>
+      <p>Já passaram 72 horas desde que a sua letra foi gerada. <strong>Se não confirmar o plano nas próximas horas, a música será eliminada do sistema.</strong></p>
+      <p>Não perca a oportunidade de eternizar este momento.</p>
+      <div style="text-align:center;margin:24px 0;">
+        <a href="${resumeUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-weight:bold;font-size:14px;text-decoration:none;padding:14px 32px;border-radius:12px;">
+          Confirmar Agora — Última Chance
+        </a>
+      </div>
+      <p style="color:#78716c;font-size:12px;text-align:center;">SeuBeat Estúdio Angola</p>
     </div>
   `);
 }
