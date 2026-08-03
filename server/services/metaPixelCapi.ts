@@ -11,6 +11,18 @@ const BASE_URL = `https://graph.facebook.com/${API_VERSION}/${PIXEL_ID}/events`;
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 
+// Deterministic eventId generator (must match client's generateEventId exactly)
+export function generateServerEventId(requestId: string, eventName: string): string {
+  let hash = 0;
+  const str = `${eventName}:${requestId}`;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(16).padStart(16, '0');
+}
+
 function hashEmail(email: string): string {
   return crypto.createHash('sha256').update(email.toLowerCase().trim()).digest('hex');
 }

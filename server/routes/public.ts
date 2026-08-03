@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
 import { generateLyrics } from '../services/ai';
 import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification } from '../services/email';
+import { generateServerEventId } from '../services/metaPixelCapi';
 import { sendSubmitApplicationEvent, sendLeadEvent, sendCompleteRegistrationEvent, sendInitiateCheckoutEvent, sendAddPaymentInfoEvent } from '../services/metaPixelCapi';
 import DOMPurify from 'isomorphic-dompurify';
 
@@ -541,7 +542,7 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
     const eventUa = req.headers['user-agent'];
 
     sendLeadEvent({
-      eventId: requestData.id,
+      eventId: generateServerEventId(requestData.id, 'Lead'),
       email: email || '',
       phone: phone || undefined,
       contentName: 'lyrics_generated',
@@ -554,7 +555,7 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
     );
 
     sendCompleteRegistrationEvent({
-      eventId: requestData.id,
+      eventId: generateServerEventId(requestData.id, 'CompleteRegistration'),
       email: email || '',
       phone: phone || undefined,
       fn: firstNameLyrics,
@@ -885,7 +886,12 @@ router.get('/stats/today-count', async (_req, res) => {
 
 router.post('/submit-payment', paymentLimiter, async (req, res) => {
   try {
-    const { songRequestId, userEmail, phone, plan, amount, proofBase64, proofFilename, proofMimeType, voiceSampleBase64, voiceSampleFilename, voiceSampleMimeType } = req.body;
+    const { 
+      songRequestId, userEmail, phone, plan, amount, 
+      proofBase64, proofFilename, proofMimeType, 
+      voiceSampleBase64, voiceSampleFilename, voiceSampleMimeType,
+      eventIds 
+    } = req.body;
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
     if (!songRequestId) return res.status(400).json({ success: false, error: 'ID do pedido em falta.' });
@@ -972,7 +978,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
     if (paymentError) throw paymentError;
 
     sendInitiateCheckoutEvent({
-      eventId: `${paymentRecord?.id || ''}_checkout`,
+      eventId: eventIds?.initiateCheckout || generateServerEventId(songRequestId, 'InitiateCheckout'),
       email: userEmail,
       phone: phone || undefined,
       value: parsedAmount,
@@ -987,7 +993,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
     );
 
     sendAddPaymentInfoEvent({
-      eventId: `${paymentRecord?.id || ''}_addpayment`,
+      eventId: eventIds?.addPaymentInfo || generateServerEventId(songRequestId, 'AddPaymentInfo'),
       email: userEmail,
       phone: phone || undefined,
       value: parsedAmount,
@@ -1002,7 +1008,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
     );
 
     sendSubmitApplicationEvent({
-      eventId: paymentRecord?.id || '',
+      eventId: eventIds?.submitApplication || generateServerEventId(songRequestId, 'SubmitApplication'),
       email: userEmail,
       phone: phone || undefined,
       value: parsedAmount,

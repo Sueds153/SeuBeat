@@ -14,7 +14,7 @@ import { GoogleGenAI } from '@google/genai';
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { publicErrorMessage, getAppUrl } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
-import { sendPurchaseEvent } from '../services/metaPixelCapi';
+import { sendPurchaseEvent, generateServerEventId } from '../services/metaPixelCapi';
 import { adminLimiter } from '../middleware/rateLimiter';
 
 const router = express.Router();
@@ -204,7 +204,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
         return;
       }
       sendPurchaseEvent({
-        eventId: id,
+        eventId: generateServerEventId(id, 'Purchase'),
         email: payment.user_email || userEmail || '',
         phone: userPhone || undefined,
         value: numericAmount,

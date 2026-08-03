@@ -17,8 +17,7 @@ import { validateStep as zodValidateStep, FieldErrors } from '../lib/validation'
 import WhatsAppHelp from './WhatsAppHelp';
 import LogoIcon from './LogoIcon';
 import { 
-  fbLead, fbAddPaymentInfo, fbSubmitApplication, fbSetUserData, fbViewContent, 
-  fbCompleteRegistration, fbInitiateCheckout, fbStartWizard, fbWizardStep, fbLyricsGenerated, fbCheckoutView, parsePrice 
+  fbLead, fbSetUserData, fbStartWizard, fbWizardStep, fbLyricsGenerated, fbCheckoutView, parsePrice, generateEventId 
 } from '../lib/metaPixel';
 import { 
   gaViewContent, gaLead, gaCompleteRegistration, gaAddPaymentInfo, gaSubmitApplication, gaWizardStep, gaPageView 
@@ -443,7 +442,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       setConversionStep('preview');
       const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
       const plan = selectedPlanID || 'standard';
-      fbViewContent(plan, PLAN_VALUES[plan], CURRENCY, crypto.randomUUID());
       gaViewContent(plan, PLAN_VALUES[plan]);
       // Meta: letras geradas = CompleteRegistration real
       fbLyricsGenerated(crypto.randomUUID());
@@ -626,6 +624,11 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
         const postPaymentData = async (proofStr: string, voiceStr: string | null, voiceName: string | null, voiceType: string | null) => {
           try {
+            // Generate deterministic eventIds for cross-device deduplication
+            const checkoutEventId = generateEventId(dbSongRequestId, 'InitiateCheckout');
+            const addPaymentEventId = generateEventId(dbSongRequestId, 'AddPaymentInfo');
+            const submitAppEventId = generateEventId(dbSongRequestId, 'SubmitApplication');
+            
             const res = await fetch('/api/submit-payment', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -640,7 +643,12 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
                 proofMimeType: proofFile.type,
                 voiceSampleBase64: voiceStr,
                 voiceSampleFilename: voiceName,
-                voiceSampleMimeType: voiceType
+                voiceSampleMimeType: voiceType,
+                eventIds: {
+                  initiateCheckout: checkoutEventId,
+                  addPaymentInfo: addPaymentEventId,
+                  submitApplication: submitAppEventId
+                }
               })
             });
 
@@ -649,8 +657,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
               setPaymentSubmitted(true);
               setPaymentSubmitError('');
               fbSetUserData(formData.email, formData.phone);
-              fbAddPaymentInfo(selectedPlanID || 'standard', parsePrice(getPrice()), CURRENCY, data.paymentId);
-              fbSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()), CURRENCY, data.paymentId);
               gaSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()));
             } else if (res.status === 409) {
               setPaymentSubmitted(true);
@@ -1001,13 +1007,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           setDbSongRequestId(data.dbSongRequestId);
           fbSetUserData(formData.email, formData.phone);
           fbLead('lyrics_generated', data.dbSongRequestId);
-          const userNickParts = (formData.userNick || '').split(' ').filter(Boolean);
-          const fn_client = userNickParts[0] || undefined;
-          const ln_client = userNickParts.slice(-1)[0] || undefined;
-          const gen_client = formData.recipientGender ? (formData.recipientGender === 'Masculino' ? 'm' : 'f') : undefined;
-          fbCompleteRegistration(data.dbSongRequestId, fn_client, ln_client, gen_client);
           gaLead(data.dbSongRequestId);
-          gaCompleteRegistration();
 
           setGenerationStatus('lyrics_ready');
           setProcessingStage(3);
@@ -1285,7 +1285,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
     setSelectedPlanID(pId);
     const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
-    fbInitiateCheckout(pId, PLAN_VALUES[pId], CURRENCY, crypto.randomUUID());
     gaAddPaymentInfo(pId, PLAN_VALUES[pId]);
     if (pId === 'premium') {
       setVoiceUpsellApplied(true);

@@ -15,6 +15,22 @@ function parsePrice(priceStr: string): number {
   return parseFloat(priceStr.replace(/\./g, '').replace(/[^0-9]/g, ''));
 }
 
+// Deterministic eventId generator for cross-device deduplication
+// Both client and server can generate the same eventId from requestId + eventName
+export function generateEventId(requestId: string, eventName: string): string {
+  // Deterministic hash for cross-device deduplication
+  // Same algorithm on client and server ensures identical event_ids
+  let hash = 0;
+  const str = `${eventName}:${requestId}`;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  // Return 16-char hex string (8 bytes = 64 bits)
+  return Math.abs(hash).toString(16).padStart(16, '0');
+}
+
 function getEventSourceUrl(): string | undefined {
   try {
     return window.location.href;
@@ -139,7 +155,6 @@ export function fbWizardStep(stepName: string, stepNumber: number, eventID?: str
 export function fbLyricsGenerated(eventID?: string): void {
   if (!IS_ENABLED || !window.fbq) return;
   safeFbq('trackCustom', 'LyricsGenerated', { event_source_url: getEventSourceUrl() }, { eventID });
-  safeFbq('track', 'CompleteRegistration', { content_type: 'product', event_source_url: getEventSourceUrl() }, { eventID });
 }
 
 export function fbCheckoutView(plan?: string, value?: number, currency: string = CURRENCY, eventID?: string): void {
