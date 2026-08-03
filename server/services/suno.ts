@@ -413,16 +413,16 @@ async function continueSunoMusic(taskId: string, personaId?: string): Promise<Su
   if (!apiKey) throw new Error('SUNO_API_KEY nao configurada.');
   if (!taskId) throw new Error('Task Suno em falta para continuar.');
 
-  logInfo(`[Suno] Extending task via continue`, { taskId, hasPersonaId: !!personaId });
+  logInfo(`[Suno] Extending task via extend_audio`, { taskId, hasPersonaId: !!personaId });
 
   const payload: Record<string, unknown> = { task_id: taskId, callBackUrl: getSunoCallbackUrl() };
   if (personaId) {
     payload.personaId = personaId;
     payload.personaModel = 'voice_persona';
-    logInfo('[Suno] Continue payload inclui personaId', { personaIdPreview: JSON.stringify(payload.personaId).slice(0, 60) });
+    logInfo('[Suno] Extend payload inclui personaId', { personaIdPreview: JSON.stringify(payload.personaId).slice(0, 60) });
   }
 
-  const continueRes = await fetchWithTimeout('https://api.sunoapi.org/api/v1/generate/continue', {
+  const continueRes = await fetchWithTimeout('https://api.sunoapi.org/api/extend_audio', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -433,15 +433,15 @@ async function continueSunoMusic(taskId: string, personaId?: string): Promise<Su
 
   if (!continueRes.ok) {
     const errText = await safeResponseText(continueRes);
-    throw new Error(`Suno continue failed: ${continueRes.status} - ${errText}`);
+    throw new Error(`Suno extend_audio failed: ${continueRes.status} - ${errText}`);
   }
 
   const data = await continueRes.json();
-  assertSuccessfulSunoPayload(data, 'Suno continue');
+  assertSuccessfulSunoPayload(data, 'Suno extend_audio');
   const newTaskId = extractTaskId(data);
-  if (!newTaskId) throw new Error(`Suno continue did not return a task ID: ${JSON.stringify(data)}`);
+  if (!newTaskId) throw new Error(`Suno extend_audio did not return a task ID: ${JSON.stringify(data)}`);
 
-  logInfo(`[Suno] Continue task created`, { taskId: newTaskId });
+  logInfo(`[Suno] Extend task created`, { taskId: newTaskId });
   return { taskId: newTaskId, audioUrl: null, status: 'processing' };
 }
 
@@ -455,16 +455,16 @@ export async function generateFullSong(lyrics: string[], musicStyle: string, son
 
     try {
       const { taskId: continueTaskId } = await continueSunoMusic(firstResult.taskId, personaId);
-      const secondResult = await pollSunoTask(continueTaskId, null, 'Suno Gen2 (continue)');
+      const secondResult = await pollSunoTask(continueTaskId, null, 'Suno Gen2 (extend)');
       if (secondResult.audioUrl) {
         logInfo(`[Suno] Extended song ready`);
         return secondResult;
       }
     } catch (err: unknown) {
       if (err instanceof SunoQuotaError) {
-        logWarn(`[Suno] Continue sem créditos, a devolver primeiro clip.`);
+        logWarn(`[Suno] Extend sem créditos, a devolver primeiro clip.`);
       } else {
-        logWarn(`[Suno] Continue falhou, a devolver primeiro clip`, { error: err instanceof Error ? err.message : String(err) });
+        logWarn(`[Suno] Extend falhou, a devolver primeiro clip`, { error: err instanceof Error ? err.message : String(err) });
       }
     }
 
