@@ -1,3 +1,5 @@
+import { getStoredUtm } from '../lib/utm';
+
 export interface GenerateLyricsResponse {
   success: boolean;
   dbSongId?: string;
@@ -25,13 +27,7 @@ function buildGeneratePayload(formData: Record<string, unknown>, photoBase64?: s
   if (!payload.referenceArtist) payload.referenceArtist = undefined;
   if (!payload.whyCreatedToday) payload.whyCreatedToday = undefined;
 
-  const raw = sessionStorage.getItem('seubeat_utm_params');
-  if (raw) {
-    try {
-      const utm = JSON.parse(raw);
-      Object.assign(payload, utm);
-    } catch {}
-  }
+  Object.assign(payload, getStoredUtm());
 
   return {
     ...payload,
@@ -77,6 +73,7 @@ export async function regenerateLyrics(songId: string, signal?: AbortSignal): Pr
   const res = await fetch(`/api/song/${songId}/regenerate-lyrics`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(getStoredUtm()),
     signal,
   });
 

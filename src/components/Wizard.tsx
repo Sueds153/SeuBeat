@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   ArrowRight, ArrowLeft, Heart, Sparkles, Check, Upload,
-  Mic, Mail, Eye, Lock, RefreshCw, Play, AlertTriangle, ShieldCheck, Copy,
-  Timer
+  Mic, Mail, Eye, Lock, RefreshCw, Play, AlertTriangle, ShieldCheck, Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import StepErrorBoundary from './StepErrorBoundary';
@@ -21,6 +20,7 @@ import { fbLead, fbAddPaymentInfo, fbSubmitApplication, fbSetUserData, fbViewCon
 import { gaViewContent, gaLead, gaCompleteRegistration, gaAddPaymentInfo, gaSubmitApplication, gaWizardStep, gaPageView } from '../lib/analytics';
 import { DEMO_SONGS } from '../constants/demoSongs';
 import { useUtm } from '../hooks/useUtm';
+import { useSocialProof, formatMinutesAgo } from '../lib/socialProof';
 import { CURRENCY } from '../constants/currency';
 
 interface WizardProps {
@@ -179,22 +179,6 @@ const EMOTION_CARDS = [
   { type: 'Inspiração', icon: '✨', label: 'Inspiração' }
 ];
 
-const LIVE_ACTIVITIES = [
-  { name: 'Rui', text: '"Ela ouviu e ligou a chorar de emoção"' },
-  { name: 'Delfina', text: '"A Mãe Maria ouve todos os dias ao acordar"' },
-  { name: 'Mateus', text: '"Ela disse SIM depois de ouvir a música"' },
-  { name: 'Sara', text: '"Nunca tinha recebido nada igual"' },
-  { name: 'João', text: '"A Clara pôs a música no despertador"' },
-  { name: 'Carmo', text: '"A minha mãe não parou de chorar"' },
-];
-
-const PAYMENT_SOCIAL_PROOFS = [
-  '👥 +247 já pagaram hoje',
-  '👤 A Maria pagou há 2 minutos',
-  '👤 O João acabou de enviar comprovativo',
-  '👥 9 em cada 10 recomendam o SeuBeat',
-];
-
 export default function Wizard({ onBackToLanding }: WizardProps) {
   const [step, setStep] = useState<number>(() => {
     try {
@@ -228,6 +212,26 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
 const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' | 'info'; id: number } | null>(null);
 
   useUtm();
+
+  const socialProof = useSocialProof();
+  const todayCount = socialProof.createdToday;
+  const paymentProofs = [
+    socialProof.lastPayment
+      ? `👤 ${socialProof.lastPayment.firstName || 'Um cliente'} ${socialProof.lastPayment.minutesAgo <= 1 ? 'pagou agora' : `pagou há ${socialProof.lastPayment.minutesAgo} min`}`
+      : null,
+    socialProof.paidToday > 0
+      ? `👥 +${socialProof.paidToday} ${socialProof.paidToday === 1 ? 'pagamento aprovado' : 'pagamentos aprovados'} hoje`
+      : null,
+    socialProof.paidTotal > 0 ? `✅ ${socialProof.paidTotal} compras concluídas` : null,
+    socialProof.deliveredTotal > 0 ? `🎧 ${socialProof.deliveredTotal} músicas já entregues` : null,
+  ].filter((x): x is string => Boolean(x));
+  const activeProof = paymentProofs.length > 0 ? paymentProofs[paymentSocialIdx % paymentProofs.length] : '⏳ Pagamento por referência Multicaixa';
+  const liveActivity = socialProof.lastActivity
+    ? {
+        text: `"A última música foi criada para ${socialProof.lastActivity.firstName || 'alguém especial'}"`,
+        time: formatMinutesAgo(socialProof.lastActivity.minutesAgo),
+      }
+    : { text: '"A tua música pode ser a próxima história 🎵"', time: 'agora' };
 
   // Demo preview player (Ecrã 1)
   const [demoPlaying, setDemoPlaying] = useState(false);
@@ -391,23 +395,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   const [regenerationsRemaining, setRegenerationsRemaining] = useState(2);
   const [savingLyrics, setSavingLyrics] = useState(false);
   const [lyricsSaved, setLyricsSaved] = useState(false);
-  const [todayCount, setTodayCount] = useState(847);
-  const getPersistentRemaining = () => {
-    try {
-      const stored = localStorage.getItem('seubeat_promo_started_at');
-      if (stored) {
-        const elapsed = Math.floor((Date.now() - parseInt(stored, 10)) / 1000);
-        return Math.max(0, 30 * 60 - elapsed);
-      }
-      localStorage.setItem('seubeat_promo_started_at', String(Date.now()));
-    } catch {}
-    return 30 * 60;
-  };
-  const [persistentRemaining, setPersistentRemaining] = useState(getPersistentRemaining);
-  const persistentMin = Math.floor(persistentRemaining / 60);
-  const persistentSec = persistentRemaining % 60;
   const [conversionStep, setConversionStep] = useState<'preview' | 'plans'>('preview');
-  const [liveActivityIdx, setLiveActivityIdx] = useState(0);
 
   // Limpar localStorage se a build do wizard mudou (evita cache velho)
   useEffect(() => {
@@ -428,14 +416,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     }
   }, []);
 
-  // Buscar contador ao vivo de músicas criadas hoje
-  useEffect(() => {
-    fetch('/api/stats/today-count')
-      .then(r => r.json())
-      .then(d => { if (d.count) setTodayCount(d.count); })
-      .catch(() => {});
-  }, []);
-
   // Definir ecrã de preview quando a letra fica pronta
   useEffect(() => {
     if (generationStatus === 'lyrics_ready') {
@@ -446,14 +426,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       gaViewContent(plan, PLAN_VALUES[plan]);
     }
   }, [generationStatus]);
-
-  // Countdown persistente — lê o mesmo timer da landing page
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setPersistentRemaining(prev => Math.max(0, prev - 1));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // GA4: registar cada passo do wizard
   useEffect(() => {
@@ -755,22 +727,14 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     }
   }, [isSubmitting]);
 
-  // Live activity rotator
+  // Payment social proof rotator (dados reais da BD)
   useEffect(() => {
+    if (!isDone || paymentProofs.length < 2) return;
     const interval = setInterval(() => {
-      setLiveActivityIdx(i => (i + 1) % LIVE_ACTIVITIES.length);
+      setPaymentSocialIdx(i => (i + 1) % paymentProofs.length);
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
-
-  // Payment social proof rotator
-  useEffect(() => {
-    if (!isDone) return;
-    const interval = setInterval(() => {
-      setPaymentSocialIdx(i => (i + 1) % PAYMENT_SOCIAL_PROOFS.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [isDone]);
+  }, [isDone, paymentProofs.length]);
 
   const pollCancelledRef = useRef(false);
 
@@ -1490,10 +1454,6 @@ const ROTATING_MESSAGES = [
             </button>
 
             <div className="flex items-center gap-2 sm:gap-4 text-right">
-              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-stone-400 font-mono">
-                <Timer className="w-3 h-3 text-amber-500" />
-                <span className={`${persistentMin <= 10 ? 'text-red-400' : 'text-amber-400'} font-bold`}>{String(persistentMin).padStart(2, '0')}:{String(persistentSec).padStart(2, '0')}</span>
-              </span>
               <span className="hidden sm:inline text-xs text-stone-400 font-mono">
                 🎵 <span className="text-amber-400 font-bold">+{todayCount}</span> hoje · PASSO <span className="text-amber-400 font-bold">{step}</span> · {Math.round((step / 9) * 100)}%
               </span>
@@ -1886,11 +1846,11 @@ const ROTATING_MESSAGES = [
               💾 A letra que criaste para <strong className="text-stone-300">{formData.recipientName}</strong> está guardada. Falta só escolher como entregar.
             </p>
             <p className="text-[10px] font-mono text-stone-500 text-center leading-relaxed -mt-4">
-              💬 {LIVE_ACTIVITIES[liveActivityIdx].text}<br />
-              <span className="text-amber-400/80">— {LIVE_ACTIVITIES[liveActivityIdx].name}</span><span className="text-stone-600"> · agora</span>
+              💬 {liveActivity.text}<br />
+              <span className="text-amber-400/80">· {liveActivity.time}</span>
             </p>
             <p className="text-center text-[10px] font-mono text-amber-400/90">
-              🔥 <strong className="text-amber-300">+{todayCount}</strong> músicas · Oferta expira em <span className="text-rose-400">{String(persistentMin).padStart(2, '0')}:{String(persistentSec).padStart(2, '0')}</span>
+              🔥 <strong className="text-amber-300">+{todayCount}</strong> músicas criadas hoje
             </p>
 
             {/* EXPRESS — hero */}
@@ -2359,7 +2319,7 @@ const ROTATING_MESSAGES = [
               <span className="text-stone-700 hidden xs:inline">·</span>
               <span className="flex items-center gap-1"><Check className="w-3 h-3 text-emerald-400 shrink-0" />Plano escolhido</span>
               <span className="text-stone-700">·</span>
-              <span className="flex items-center gap-1 text-amber-400 font-semibold"><span className="text-[11px]">⏳</span>Falta pagar (2 min)</span>
+              <span className="flex items-center gap-1 text-amber-400 font-semibold"><span className="text-[11px]">⏳</span>Confirmação manual até 24h</span>
             </div>
 
             {/* Price confirmation box */}
@@ -2394,7 +2354,7 @@ const ROTATING_MESSAGES = [
                     exit={{ opacity: 0, y: -6 }}
                     className="text-[10px] text-stone-500 font-mono"
                   >
-                    {PAYMENT_SOCIAL_PROOFS[paymentSocialIdx]}
+                    {activeProof}
                   </motion.p>
                 </AnimatePresence>
               </div>

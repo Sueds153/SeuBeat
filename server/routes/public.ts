@@ -1119,6 +1119,121 @@ router.get('/latest-song', getSongLimiter, async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/social-proof — prova social real (pagamentos aprovados, última compra,
+// última atividade). Dados verdadeiros da BD, nunca números inventados.
+// ─────────────────────────────────────────────────────────────────────────────
+let socialProofCache: unknown = null;
+let socialProofCacheAt = 0;
+const SOCIAL_PROOF_TTL_MS = 30_000;
+
+function formatFirstName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  const first = name.split(' ').filter(Boolean)[0];
+  return first || null;
+}
+
+async function lookupFirstNameByEmail(
+  supabase: NonNullable<ReturnType<typeof getAdminSupabase>>,
+  email: string | null | undefined
+): Promise<string | null> {
+  if (!email) return null;
+  const { data } = await supabase
+    .from('users')
+    .select('name')
+    .eq('email', email)
+    .maybeSingle();
+  return formatFirstName(data?.name);
+}
+
+function minutesAgo(iso: string | null | undefined): number {
+  if (!iso) return 0;
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return 0;
+  return Math.max(0, Math.round((Date.now() - t) / 60000));
+}
+
+const EMPTY_SOCIAL_PROOF = {
+  createdToday: 0,
+  paidToday: 0,
+  paidTotal: 0,
+  deliveredTotal: 0,
+  lastPayment: null,
+  lastActivity: null,
+};
+
+router.get('/social-proof', async (_req, res) => {
+  const now = Date.now();
+  if (socialProofCache && now - socialProofCacheAt < SOCIAL_PROOF_TTL_MS) {
+    return res.json(socialProofCache);
+  }
+
+  try {
+    const supabase = getAdminSupabase();
+    if (!supabase) {
+      return res.json(EMPTY_SOCIAL_PROOF);
+    }
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const startOfDayISO = startOfDay.toISOString();
+
+    const [{ count: createdToday }, { count: paidToday }, { count: paidTotal }, { count: deliveredTotal }] = await Promise.all([
+      supabase.from('songs').select('*', { count: 'exact', head: true }).gte('created_at', startOfDayISO),
+      supabase.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'approved').gte('approved_at', startOfDayISO),
+      supabase.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
+      supabase.from('song_requests').select('*', { count: 'exact', head: true }).eq('status', 'delivered'),
+    ]);
+
+    const { data: lastPaymentRow } = await supabase
+      .from('payments')
+      .select('user_email, approved_at')
+      .eq('status', 'approved')
+      .order('approved_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let lastPayment: { firstName: string | null; minutesAgo: number } | null = null;
+    if (lastPaymentRow?.approved_at) {
+      lastPayment = {
+        firstName: await lookupFirstNameByEmail(supabase, lastPaymentRow.user_email),
+        minutesAgo: minutesAgo(lastPaymentRow.approved_at),
+      };
+    }
+
+    const { data: lastActivityRow } = await supabase
+      .from('song_requests')
+      .select('created_at, users(name)')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let lastActivity: { firstName: string | null; minutesAgo: number } | null = null;
+    if (lastActivityRow?.created_at) {
+      lastActivity = {
+        firstName: formatFirstName((lastActivityRow as { users?: { name?: string | null } | null }).users?.name),
+        minutesAgo: minutesAgo(lastActivityRow.created_at as string),
+      };
+    }
+
+    const data = {
+      createdToday: createdToday || 0,
+      paidToday: paidToday || 0,
+      paidTotal: paidTotal || 0,
+      deliveredTotal: deliveredTotal || 0,
+      lastPayment,
+      lastActivity,
+    };
+
+    socialProofCache = data;
+    socialProofCacheAt = now;
+    res.json(data);
+  } catch (err: unknown) {
+    logWarn('[API] Falha ao gerar social proof', err);
+    res.json(EMPTY_SOCIAL_PROOF);
+  }
+});
+
 // Payment details endpoint (dados Multicaixa)
 router.get('/payment-details', (_req, res) => {
   res.json({

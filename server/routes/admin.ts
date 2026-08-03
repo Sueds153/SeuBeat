@@ -199,6 +199,10 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
     const userFullName = songRequest?.users?.name || '';
     const lastName = userFullName.split(' ').filter(Boolean).slice(-1)[0] || undefined;
     const firePurchaseEvent = () => {
+      if ((payment as { meta_purchase_sent_at?: string | null }).meta_purchase_sent_at) {
+        logInfo('[Admin] Meta CAPI Purchase já enviado para este pagamento, a ignorar', { paymentId: id });
+        return;
+      }
       sendPurchaseEvent({
         eventId: id,
         email: payment.user_email || userEmail || '',
@@ -211,9 +215,20 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
         clientUserAgent: req.headers['user-agent'],
         externalId: payment.user_email || userEmail || undefined,
         ln: lastName,
-      }).catch(err =>
-        logError('[Admin] Meta CAPI Purchase event failed after retries', err, { paymentId: id })
-      );
+      })
+        .then(ok => {
+          if (ok) {
+            return supabase
+              .from('payments')
+              .update({ meta_purchase_sent_at: new Date().toISOString() })
+              .eq('id', id)
+              .eq('status', 'approved');
+          }
+          return undefined;
+        })
+        .catch(err =>
+          logError('[Admin] Meta CAPI Purchase event failed after retries', err, { paymentId: id })
+        );
     };
 
     const hasGeneratedAudio = !!(songData.full_song_url || songData.audio_url);

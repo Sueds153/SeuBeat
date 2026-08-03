@@ -1,19 +1,33 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles } from 'lucide-react';
-
-const NOTIFICATIONS = [
-  { id: 1, text: '❤️ Mais uma canção foi criada para uma mãe', type: 'love' },
-  { id: 2, text: '💕 Uma declaração de amor acabou de ser criada', type: 'romance' },
-  { id: 3, text: '🎂 Uma música de aniversário foi criada há instantes', type: 'birthday' },
-  { id: 4, text: '💍 Um pedido de casamento está a ser transformado em música', type: 'proposal' }
-];
+import { useSocialProof, formatMinutesAgo } from '../lib/socialProof';
 
 export default function SocialProof() {
+  const proof = useSocialProof();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
 
+  const messages: string[] = [];
+  if (proof.lastActivity) {
+    messages.push(
+      `🎵 Uma música foi criada para ${proof.lastActivity.firstName || 'alguém especial'} ${formatMinutesAgo(proof.lastActivity.minutesAgo)}`
+    );
+  }
+  if (proof.paidToday > 0) {
+    messages.push(`❤️ +${proof.paidToday} ${proof.paidToday === 1 ? 'compra concluída' : 'compras concluídas'} hoje`);
+  }
+  if (proof.createdToday > 0) {
+    messages.push(`✨ +${proof.createdToday} ${proof.createdToday === 1 ? 'música criada' : 'músicas criadas'} hoje`);
+  }
+  if (proof.deliveredTotal > 0) {
+    messages.push(`🎧 ${proof.deliveredTotal} músicas já entregues`);
+  }
+
+  const hasMessages = messages.length > 0;
+
   useEffect(() => {
+    if (!hasMessages) return;
     let alive = true;
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -25,7 +39,7 @@ export default function SocialProof() {
         setIsVisible(false);
         setTimeout(() => {
           if (!alive) return;
-          setCurrentIndex((prev) => (prev + 1) % NOTIFICATIONS.length);
+          setCurrentIndex((prev) => (prev + 1) % messages.length);
         }, 500);
       }, 5000);
     };
@@ -40,9 +54,11 @@ export default function SocialProof() {
       clearTimeout(initial);
       if (intervalId !== null) clearInterval(intervalId);
     };
-  }, []);
+  }, [hasMessages, messages.length]);
 
-  const current = NOTIFICATIONS[currentIndex];
+  if (!hasMessages) return null;
+
+  const current = messages[currentIndex % messages.length];
 
   return (
     <div className="fixed bottom-4 left-4 z-50 pointer-events-none max-w-sm w-[calc(100vw-2rem)] sm:w-auto">
@@ -61,7 +77,7 @@ export default function SocialProof() {
             </div>
             <div>
               <p className="text-xs sm:text-xs font-sans font-medium text-stone-200 leading-snug">
-                {current.text}
+                {current}
               </p>
               <div className="flex items-center gap-1 mt-1">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-ping" />

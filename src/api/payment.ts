@@ -1,3 +1,5 @@
+import { getStoredUtm } from '../lib/utm';
+
 export interface SubmitPaymentRequest {
   songRequestId: string | null;
   userEmail: string;
@@ -34,10 +36,11 @@ export async function submitPayment(
   data: SubmitPaymentRequest,
   signal?: AbortSignal,
 ): Promise<SubmitPaymentResponse> {
+  const payload = { ...data, ...getStoredUtm() };
   const res = await fetch('/api/submit-payment', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    body: JSON.stringify(payload),
     signal,
   });
 

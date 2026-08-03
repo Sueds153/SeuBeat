@@ -11,12 +11,18 @@ import PrivacyPage from './components/PrivacyPage';
 import Wizard from './components/Wizard';
 import { useMetaPixel } from './hooks/useMetaPixel';
 import { fbPageView } from './lib/metaPixel';
+import { captureUtm } from './lib/utm';
 
 const PersonalizedSongPage = lazy(() => import('./components/PersonalizedSongPage'));
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 
 export default function App() {
   useMetaPixel();
+
+  // Captura UTM no início do funil, seja qual for a rota de entrada
+  useEffect(() => {
+    captureUtm();
+  }, []);
 
   const [currentView, setCurrentView] = useState<'landing' | 'wizard' | 'song' | 'admin' | 'terms' | 'privacy'>(() => {
     if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
