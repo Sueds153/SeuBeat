@@ -996,7 +996,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           const userNickParts = (formData.userNick || '').split(' ').filter(Boolean);
           const fn_client = userNickParts[0] || undefined;
           const ln_client = userNickParts.slice(-1)[0] || undefined;
-          const gen_client = formData.recipientGender ? (formData.recipientGender === 'masculino' ? 'm' : 'f') : undefined;
+          const gen_client = formData.recipientGender ? (formData.recipientGender === 'Masculino' ? 'm' : 'f') : undefined;
           fbCompleteRegistration(data.dbSongRequestId, fn_client, ln_client, gen_client);
           gaLead(data.dbSongRequestId);
           gaCompleteRegistration();
@@ -2004,7 +2004,6 @@ const ROTATING_MESSAGES = [
                   setPaymentSubmitted(false);
                   setPaymentStatus('pending');
                   setProofFile(null);
-                  setProofPreviewUrl('');
                   setConversionStep('preview');
                 }}
                 className="text-[10px] text-stone-500 hover:text-amber-400 transition-colors cursor-pointer underline underline-offset-2"
@@ -2546,7 +2545,6 @@ const ROTATING_MESSAGES = [
                           setPaymentNotes('');
                           setPaymentSubmitError('');
                           setProofFile(null);
-                          setProofPreviewUrl('');
                         }}
                         className="py-3 px-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-95 text-stone-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 tracking-wide uppercase cursor-pointer text-center w-full shadow-lg"
                       >
@@ -2784,7 +2782,6 @@ const ROTATING_MESSAGES = [
                     setPaymentSubmitted(false);
                     setPaymentStatus('pending');
                     setProofFile(null);
-                    setProofPreviewUrl('');
                   }}
                 className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 rounded-xl text-xs font-bold shadow-lg shadow-amber-500/10 transition-all cursor-pointer"
               >
