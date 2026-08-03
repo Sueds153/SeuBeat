@@ -1299,4 +1299,16 @@ router.get('/song/:id/resume-link', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/config — configurações de runtime (feature flags)
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/config', (_req, res) => {
+  res.json({
+    success: true,
+    features: {
+      lyricsTeaser: process.env.VITE_ENABLE_LYRICS_TEASER === 'true',
+    },
+  });
+});
+
 export default router;

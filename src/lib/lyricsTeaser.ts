@@ -191,10 +191,24 @@ export function clearTeaserEdits(requestId: string): void {
   }
 }
 
-export function isTeaserEnabled(): boolean {
+let teaserEnabledCache: boolean | null = null;
+
+export async function isTeaserEnabled(): Promise<boolean> {
+  if (teaserEnabledCache !== null) return teaserEnabledCache;
   try {
-    return import.meta.env.VITE_ENABLE_LYRICS_TEASER === 'true';
+    const res = await fetch('/api/config');
+    if (res.ok) {
+      const data = await res.json();
+      teaserEnabledCache = data.features?.lyricsTeaser === true;
+      return teaserEnabledCache;
+    }
   } catch {
-    return false;
+    // ignore
   }
+  teaserEnabledCache = false;
+  return false;
+}
+
+export function resetTeaserEnabledCache(): void {
+  teaserEnabledCache = null;
 }

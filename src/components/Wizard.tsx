@@ -27,7 +27,7 @@ import { DEMO_SONGS } from '../constants/demoSongs';
 import { useUtm } from '../hooks/useUtm';
 import { useSocialProof, formatMinutesAgo } from '../lib/socialProof';
 import { CURRENCY } from '../constants/currency';
-import { buildTeaser, loadTeaserEdits, saveTeaserEdits, clearTeaserEdits, isTeaserEnabled } from '../lib/lyricsTeaser';
+import { buildTeaser, loadTeaserEdits, saveTeaserEdits, clearTeaserEdits, isTeaserEnabled, resetTeaserEnabledCache } from '../lib/lyricsTeaser';
 import LyricsTeaserPreview from './LyricsTeaserPreview';
 
 interface WizardProps {
@@ -426,6 +426,15 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       } catch {}
       localStorage.setItem('seubeat_wizard_version', WIZARD_BUILD);
     }
+  }, []);
+
+  // Buscar feature flags do servidor ao iniciar
+  useEffect(() => {
+    let mounted = true;
+    isTeaserEnabled().then(enabled => {
+      if (mounted) setTeaserEnabled(enabled);
+    });
+    return () => { mounted = false; };
   }, []);
 
   // Definir ecrã de preview quando a letra fica pronta
@@ -1005,7 +1014,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
           // Fase 4: Build lyrics teaser if feature flag enabled
           const fullLyrics = Array.isArray(data.lyrics) ? data.lyrics.join('\n') : data.lyrics || '';
-          const teaserOn = isTeaserEnabled();
+          const teaserOn = await isTeaserEnabled();
           setTeaserEnabled(teaserOn);
           if (teaserOn && fullLyrics) {
             const teaser = buildTeaser(fullLyrics);
