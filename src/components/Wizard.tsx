@@ -927,7 +927,10 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
                 reader.onerror = reject;
               });
               photoFilename = file.name;
-              photoMimeType = file.type;
+              const rawMime = (file.type || '').toLowerCase();
+              const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif'];
+              photoMimeType = rawMime === 'image/jpg' ? 'image/jpeg'
+                : (ALLOWED_MIMES.includes(rawMime) ? rawMime : null);
             } catch (e) {
               console.error('Error reading photo file:', e);
               showToast('Erro ao ler a foto. Tente selecionar novamente.', 'error');

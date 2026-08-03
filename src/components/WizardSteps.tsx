@@ -65,6 +65,7 @@ export function Step1Relation({
             id="recipient-name-input"
             type="text"
             placeholder="Anabela, Mamã Maria, Yuri..."
+            maxLength={100}
             value={formData.recipientName}
             onChange={(e) => setFormData(prev => ({ ...prev, recipientName: e.target.value }))}
             className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300"
@@ -109,6 +110,7 @@ export function Step1Relation({
               id="user-nick-input"
               type="text"
               placeholder="Fofinho, Amor, Campeão, Filho..."
+              maxLength={50}
               value={formData.userNick}
               onChange={(e) => setFormData(prev => ({ ...prev, userNick: e.target.value }))}
               className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300"
@@ -126,6 +128,7 @@ export function Step1Relation({
               id="recipient-nick-input"
               type="text"
               placeholder="Amor, Princesa, Meu Rei, Vida..."
+              maxLength={50}
               value={formData.recipientNick}
               onChange={(e) => setFormData(prev => ({ ...prev, recipientNick: e.target.value }))}
               className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300"
@@ -189,6 +192,7 @@ export function Step2Occasion({
         <textarea
           id="why-created-today-textarea"
           rows={4}
+          maxLength={500}
           placeholder="Ex: Ela faz anos amanhã e quero surpreendê-la..."
           value={formData.whyCreatedToday}
           onChange={(e) => setFormData(prev => ({ ...prev, whyCreatedToday: e.target.value }))}
@@ -338,14 +342,15 @@ export function Step5Traits({
         <label className="text-xs font-mono text-stone-400 block font-semibold">
           O que mais amas nessa pessoa? <span className="text-stone-600 font-normal">(Opcional)</span>
         </label>
-        <textarea
+<textarea
           id="makes-special-textarea"
           rows={4}
+          maxLength={1000}
           placeholder="Ex: É uma pessoa extremamente doce e presente, adora caminhar ao fim da tarde... Tem um sorriso contagiante..."
           value={formData.whatMakesSpecial}
           onChange={(e) => setFormData(prev => ({ ...prev, whatMakesSpecial: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
-        />
+        />{/* max 1000 */}
         <div className="flex flex-wrap gap-1.5 pt-1">
           {[
             { label: 'Doce e Carinhosa', append: 'É uma pessoa extremamente doce e carinhosa, com um coração gigante que acolhe todos à sua volta.' },
@@ -356,10 +361,10 @@ export function Step5Traits({
             <button
               key={i}
               type="button"
-              onClick={() => setFormData(prev => ({
-                ...prev,
-                whatMakesSpecial: prev.whatMakesSpecial ? `${prev.whatMakesSpecial} ${pill.append}` : pill.append
-              }))}
+              onClick={() => setFormData(prev => {
+                const next = prev.whatMakesSpecial ? `${prev.whatMakesSpecial} ${pill.append}` : pill.append;
+                return { ...prev, whatMakesSpecial: next.slice(0, 1000) };
+              })}
               className="px-2.5 py-1 bg-stone-950 hover:bg-stone-850 border border-stone-850 hover:border-stone-700 text-[10px] text-stone-300 rounded-full font-medium transition-colors cursor-pointer"
             >
               {pill.label}
@@ -378,6 +383,7 @@ export function Step5Traits({
         <textarea
           id="only-she-does-textarea"
           rows={4}
+          maxLength={500}
           placeholder="Ex: Fecha os olhos com força quando dá uma ruidosa gargalhada, canta desafinado no banho, encolhe os ombros quando tem frio..."
           value={formData.onlySheDoes}
           onChange={(e) => setFormData(prev => ({ ...prev, onlySheDoes: e.target.value }))}
@@ -394,10 +400,10 @@ export function Step5Traits({
             <button
               key={i}
               type="button"
-              onClick={() => setFormData(prev => ({
-                ...prev,
-                onlySheDoes: prev.onlySheDoes ? `${prev.onlySheDoes} ${pill.append}` : pill.append
-              }))}
+              onClick={() => setFormData(prev => {
+                const next = prev.onlySheDoes ? `${prev.onlySheDoes} ${pill.append}` : pill.append;
+                return { ...prev, onlySheDoes: next.slice(0, 500) };
+              })}
               className="px-2.5 py-1 bg-stone-950 hover:bg-stone-850 border border-stone-850 hover:border-stone-700 text-[10px] text-stone-300 rounded-full font-medium transition-colors cursor-pointer"
             >
               {pill.label}
@@ -431,6 +437,7 @@ export function Step6Memory({
         <textarea
           id="unforgettable-memory-textarea"
           rows={4}
+          maxLength={1000}
           placeholder="Ex: Aquele fim de semana fantástico na praia de Cabo Ledo, onde comemos churrasquinho sob o luar e rimos imenso sob as estrelas..."
           value={formData.unforgettableMemory}
           onChange={(e) => setFormData(prev => ({ ...prev, unforgettableMemory: e.target.value }))}
@@ -477,11 +484,14 @@ export function Step6Memory({
                 type="button"
                 onClick={() => {
                   const text = "Aquele luar inesquecível na praia de Cabo Ledo, sob a brisa fresca, em que partilhámos segredos embalados pelo eco das ondas e comemos mufete à beira-mar.";
-                  setFormData(prev => ({
-                    ...prev,
-                    unforgettableMemory: prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text,
-                    whereItHappened: prev.whereItHappened || "Praia de Cabo Ledo"
-                  }));
+                  setFormData(prev => {
+                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
+                    return {
+                      ...prev,
+                      unforgettableMemory: next.slice(0, 1000),
+                      whereItHappened: prev.whereItHappened || "Praia de Cabo Ledo"
+                    };
+                  });
                 }}
                 className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
               >
@@ -494,11 +504,14 @@ export function Step6Memory({
                 type="button"
                 onClick={() => {
                   const text = "O domingo maravilhoso na Ilha de Luanda, em que passeámos descalços pela areia molhada, rimos das ondas fortes e dividimos um gelado de coco delicioso.";
-                  setFormData(prev => ({
-                    ...prev,
-                    unforgettableMemory: prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text,
-                    whereItHappened: prev.whereItHappened || "Ilha de Luanda"
-                  }));
+                  setFormData(prev => {
+                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
+                    return {
+                      ...prev,
+                      unforgettableMemory: next.slice(0, 1000),
+                      whereItHappened: prev.whereItHappened || "Ilha de Luanda"
+                    };
+                  });
                 }}
                 className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
               >
@@ -516,10 +529,10 @@ export function Step6Memory({
                 type="button"
                 onClick={() => {
                   const text = "O nosso primeiro encontro em Luanda, quando os nossos olhares se cruzaram e um nervosismo fofo tomou conta de nós, sabendo naquele segundo que era amor.";
-                  setFormData(prev => ({
-                    ...prev,
-                    unforgettableMemory: prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text
-                  }));
+                  setFormData(prev => {
+                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
+                    return { ...prev, unforgettableMemory: next.slice(0, 1000) };
+                  });
                 }}
                 className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
               >
@@ -532,10 +545,10 @@ export function Step6Memory({
                 type="button"
                 onClick={() => {
                   const text = "Aquele jantar em que a chama de uma vela iluminava o teu rosto de forma mágica, seguraste-me na mão e confessámos tudo o que sentíamos.";
-                  setFormData(prev => ({
-                    ...prev,
-                    unforgettableMemory: prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text
-                  }));
+                  setFormData(prev => {
+                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
+                    return { ...prev, unforgettableMemory: next.slice(0, 1000) };
+                  });
                 }}
                 className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
               >
@@ -553,11 +566,14 @@ export function Step6Memory({
                 type="button"
                 onClick={() => {
                   const text = "Aquele dia em que fomos surpreendidos por um temporal no meio de Luanda e corremos rindo alto, ensopados até aos ossos, até encontrar um abrigo.";
-                  setFormData(prev => ({
-                    ...prev,
-                    unforgettableMemory: prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text,
-                    whereItHappened: prev.whereItHappened || "Luanda"
-                  }));
+                  setFormData(prev => {
+                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
+                    return {
+                      ...prev,
+                      unforgettableMemory: next.slice(0, 1000),
+                      whereItHappened: prev.whereItHappened || "Luanda"
+                    };
+                  });
                 }}
                 className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
               >
@@ -570,10 +586,10 @@ export function Step6Memory({
                 type="button"
                 onClick={() => {
                   const text = "A piada estúpida no carro em que começámos a rir com tanta intensidade que tivemos de parar na berma com lágrimas nos olhos de tanta cumplicidade.";
-                  setFormData(prev => ({
-                    ...prev,
-                    unforgettableMemory: prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text
-                  }));
+                  setFormData(prev => {
+                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
+                    return { ...prev, unforgettableMemory: next.slice(0, 1000) };
+                  });
                 }}
                 className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
               >
@@ -591,10 +607,10 @@ export function Step6Memory({
                 type="button"
                 onClick={() => {
                   const text = "Os domingos calmos em que entraste de mansinho no quarto com duas chávenas de café quente e ficámos apenas deitados abraçados.";
-                  setFormData(prev => ({
-                    ...prev,
-                    unforgettableMemory: prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text
-                  }));
+                  setFormData(prev => {
+                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
+                    return { ...prev, unforgettableMemory: next.slice(0, 1000) };
+                  });
                 }}
                 className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
               >
@@ -607,10 +623,10 @@ export function Step6Memory({
                 type="button"
                 onClick={() => {
                   const text = "A primeira vez que decidimos cozinhar juntos e o prato principal acabou completamente queimado. Acabámos a comer pão com boa disposição no chão.";
-                  setFormData(prev => ({
-                    ...prev,
-                    unforgettableMemory: prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text
-                  }));
+                  setFormData(prev => {
+                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
+                    return { ...prev, unforgettableMemory: next.slice(0, 1000) };
+                  });
                 }}
                 className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
               >
@@ -659,6 +675,7 @@ export function Step6Memory({
           <input
             id="where-it-happened-input"
             type="text"
+            maxLength={500}
             placeholder="Escreva a cidade, província ou local (Ex: Luanda, Benguela, Cabo Ledo...)"
             value={formData.whereItHappened}
             onChange={(e) => setFormData(prev => ({ ...prev, whereItHappened: e.target.value }))}
@@ -691,6 +708,7 @@ export function Step7Message({
         <textarea
           id="deep-message-textarea"
           rows={4}
+          maxLength={1000}
           placeholder="Ex: Que sempre estarei ao seu lado, custe o que custar, e que essa pessoa mudou completamente as cores da minha vida..."
           value={formData.messageFromTheHeart}
           onChange={(e) => setFormData(prev => ({ ...prev, messageFromTheHeart: e.target.value }))}
@@ -711,6 +729,7 @@ export function Step7Message({
         <input
           id="hook-phrase-input"
           type="text"
+          maxLength={200}
           placeholder='Ex: "és o meu sol", "nunca estás sozinha", "amo-te mais que ontem"...'
           value={formData.hookPhrase}
           onChange={(e) => setFormData(prev => ({ ...prev, hookPhrase: e.target.value }))}

@@ -30,11 +30,11 @@ export const globalLimiter = rateLimit({
 
 /**
  * Limiter para geração de letras
- * 5 requests por hora por IP (operação cara - Claude API)
+ * 10 requests por hora por email (operação cara - IA)
  */
 export const generateLyricsLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora
-  max: 5,
+  max: 10,
   validate: false,
   keyGenerator: (req) => {
     // Usar email do body se disponível, senão IP
@@ -43,7 +43,7 @@ export const generateLyricsLimiter = rateLimit({
   },
   message: {
     success: false,
-    error: 'Limite de geração atingido. Máximo 5 gerações por hora.'
+    error: 'Limite de geração atingido. Máximo 10 gerações por hora.'
   },
   skip: (req) => process.env.NODE_ENV !== 'production',
   handler: (req, res) => {
@@ -51,9 +51,19 @@ export const generateLyricsLimiter = rateLimit({
       ip: req.ip,
       email: req.body?.email || 'unknown'
     });
+    let waitMsg = 'Tenta novamente dentro de 1 hora.';
+    const resetHeader = res.getHeader('RateLimit-Reset');
+    const resetSeconds = typeof resetHeader === 'string' ? Number(resetHeader) : NaN;
+    if (Number.isFinite(resetSeconds) && resetSeconds > 0) {
+      const ms = resetSeconds * 1000 - Date.now();
+      if (ms > 0) {
+        const minutes = Math.ceil(ms / 60000);
+        waitMsg = minutes <= 1 ? 'Tenta novamente em menos de 1 minuto.' : `Tenta novamente em ${minutes} min.`;
+      }
+    }
     res.status(429).json({
       success: false,
-      error: 'Limite de geração de músicas atingido. Máximo 5 por hora. Tente novamente depois.'
+      error: `Limite de geração de músicas atingido (máximo 10 por hora). ${waitMsg}`
     });
   }
 });

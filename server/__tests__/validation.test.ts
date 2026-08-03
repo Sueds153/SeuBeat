@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { GenerateLyricsSchema, validateInput } from '../middleware/validation';
+import { GenerateLyricsSchema, validateInput, validationErrorsArray } from '../middleware/validation';
 
 describe('GenerateLyricsSchema', () => {
   const validData = {
@@ -104,8 +104,9 @@ describe('GenerateLyricsSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects invalid photo mime type', () => {
-    const result = GenerateLyricsSchema.safeParse({ ...validData, photoMimeType: 'image/svg+xml' });
+  it('rejects photo mime type longer than 50 chars', () => {
+    const longMime = 'x'.repeat(60);
+    const result = GenerateLyricsSchema.safeParse({ ...validData, photoMimeType: longMime });
     expect(result.success).toBe(false);
   });
 
@@ -159,5 +160,31 @@ describe('validateInput', () => {
   it('handles ZodError gracefully', () => {
     const result = validateInput(GenerateLyricsSchema, null);
     expect(result.success).toBe(false);
+  });
+});
+
+describe('validationErrorsArray', () => {
+  it('returns an array of { field, message } from errors', () => {
+    const result = validateInput(GenerateLyricsSchema, { userNick: 'x'.repeat(51), recipientName: '' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const list = validationErrorsArray(result.errors);
+      expect(Array.isArray(list)).toBe(true);
+      expect(list.length).toBeGreaterThan(0);
+      for (const entry of list) {
+        expect(typeof entry.field).toBe('string');
+        expect(typeof entry.message).toBe('string');
+        expect(entry.field.length).toBeGreaterThan(0);
+        expect(entry.message.length).toBeGreaterThan(0);
+      }
+      const fields = list.map((e) => e.field);
+      expect(fields).toContain('userNick');
+      expect(fields).toContain('recipientName');
+    }
+  });
+
+  it('returns empty array when errors is empty', () => {
+    const list = validationErrorsArray({});
+    expect(list).toEqual([]);
   });
 });

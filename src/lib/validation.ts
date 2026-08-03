@@ -2,20 +2,20 @@ import { z } from 'zod';
 
 export const Step1Schema = z.object({
   recipientRelation: z.string().min(1, 'Selecione a relação'),
-  recipientName: z.string().min(2, 'Mínimo 2 caracteres'),
+  recipientName: z.string().min(2, 'Mínimo 2 caracteres').max(100, 'Máximo 100 caracteres'),
   recipientGender: z.string().min(1, 'Selecione o género'),
-  userNick: z.string().optional(),
-  recipientNick: z.string().optional(),
+  userNick: z.string().max(50, 'Máximo 50 caracteres').optional(),
+  recipientNick: z.string().max(50, 'Máximo 50 caracteres').optional(),
 });
 
 const Step2Schema = z.object({
   occasion: z.string().min(1, 'Selecione a ocasião'),
-  whyCreatedToday: z.string().min(5, 'Mínimo 5 caracteres'),
+  whyCreatedToday: z.string().min(5, 'Mínimo 5 caracteres').max(500, 'Máximo 500 caracteres'),
 });
 
 const Step3Schema = z.object({
   musicStyle: z.string().min(1, 'Selecione o estilo'),
-  referenceArtist: z.string().optional(),
+  referenceArtist: z.string().max(100, 'Máximo 100 caracteres').optional(),
 });
 
 const Step4Schema = z.object({
@@ -23,17 +23,17 @@ const Step4Schema = z.object({
 });
 
 const Step5Schema = z.object({
-  whatMakesSpecial: z.string().optional(),
-  onlySheDoes: z.string().optional(),
+  whatMakesSpecial: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
+  onlySheDoes: z.string().max(500, 'Máximo 500 caracteres').optional(),
 });
 
 const Step6Schema = z.object({
-  unforgettableMemory: z.string().optional(),
-  whereItHappened: z.string().optional(),
+  unforgettableMemory: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
+  whereItHappened: z.string().max(500, 'Máximo 500 caracteres').optional(),
 });
 
 const Step7Schema = z.object({
-  messageFromTheHeart: z.string().optional(),
+  messageFromTheHeart: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
   desiredEmotion: z.string().min(1, 'Selecione a emoção'),
   hookPhrase: z.string().max(200, 'Máximo 200 caracteres').optional(),
 });

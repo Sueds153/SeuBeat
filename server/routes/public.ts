@@ -14,7 +14,8 @@ import { publicErrorMessage, getAppUrl } from '../utils/helpers';
 import { 
   GenerateLyricsSchema, 
   UpdateLyricsSchema,
-  validateInput 
+  validateInput,
+  validationErrorsArray
 } from '../middleware/validation';
 import type { GenerateLyricsInput } from '../middleware/validation';
 import { 
@@ -85,6 +86,10 @@ function lyricsRequestFingerprint(values: {
   messageFromTheHeart?: string;
   desiredEmotion?: string;
   language?: string;
+  referenceArtist?: string;
+  whyCreatedToday?: string;
+  onlySheDoes?: string;
+  whereItHappened?: string;
 }): string {
   const normalized: Array<string | null> = [
     values.recipientName || 'Destinatario',
@@ -100,6 +105,10 @@ function lyricsRequestFingerprint(values: {
     sanitize(values.messageFromTheHeart || ''),
     values.desiredEmotion || 'Amor',
     values.language || 'português',
+    values.referenceArtist || null,
+    sanitize(values.whyCreatedToday || ''),
+    sanitize(values.onlySheDoes || ''),
+    sanitize(values.whereItHappened || ''),
   ];
   return JSON.stringify(normalized);
 }
@@ -138,6 +147,10 @@ async function findExistingLyricsRequest(
       messageFromTheHeart: req.heart_message || undefined,
       desiredEmotion: req.desired_emotion || undefined,
       language: req.language || undefined,
+      referenceArtist: req.reference_artist || undefined,
+      whyCreatedToday: req.why_created_today || undefined,
+      onlySheDoes: req.only_she_does || undefined,
+      whereItHappened: req.where_it_happened || undefined,
     });
 
     if (storedFingerprint !== fingerprint) continue;
@@ -187,6 +200,10 @@ async function dedupeLyricsRequest(
       messageFromTheHeart: data.messageFromTheHeart || undefined,
       desiredEmotion: data.desiredEmotion || undefined,
       language: data.language || undefined,
+      referenceArtist: data.referenceArtist || undefined,
+      whyCreatedToday: data.whyCreatedToday || undefined,
+      onlySheDoes: data.onlySheDoes || undefined,
+      whereItHappened: data.whereItHappened || undefined,
     });
 
     const existing = await findExistingLyricsRequest(supabase, data.email, fingerprint);
@@ -313,10 +330,14 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
     // Validar input
     const validation = validateInput(GenerateLyricsSchema, req.body);
     if ('errors' in validation) {
+      logWarn('[API] /generate-lyrics dados inválidos', {
+        email: typeof req.body?.email === 'string' ? req.body.email.toLowerCase() : 'unknown',
+        errors: validation.errors
+      });
       return res.status(400).json({
         success: false,
         error: 'Dados inválidos',
-        validation_errors: validation.errors
+        validation_errors: validationErrorsArray(validation.errors)
       });
     }
 
@@ -406,6 +427,10 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
       recipient_nick: recipientNick || null,
       relationship: recipientRelation || 'Parceiro',
       hook_phrase: hookPhrase || null,
+      reference_artist: referenceArtist || null,
+      why_created_today: sanitize(whyCreatedToday || ''),
+      only_she_does: sanitize(onlySheDoes || ''),
+      where_it_happened: sanitize(whereItHappened || ''),
       occasion: occasion || 'Homenagem',
       music_style: musicStyle || 'Kizomba',
       voice_type: voiceType || 'masculina',
@@ -703,7 +728,11 @@ router.put('/song/:id/lyrics', globalLimiter, async (req, res) => {
 
     const validation = validateInput(UpdateLyricsSchema, req.body);
     if ('errors' in validation) {
-      return res.status(400).json({ success: false, error: 'Dados inválidos', validation_errors: validation.errors });
+      logWarn('[API] PUT /song/:id/lyrics dados inválidos', {
+        songId: id,
+        errors: validation.errors
+      });
+      return res.status(400).json({ success: false, error: 'Dados inválidos', validation_errors: validationErrorsArray(validation.errors) });
     }
 
     const supabase = getAdminSupabase();
@@ -766,8 +795,6 @@ router.post('/song/:id/regenerate-lyrics', generateLyricsLimiter, async (req, re
     const userData = await supabase.from('users').select('name').eq('id', sr.user_id).single();
     const userName = userData.data?.name || 'Autor';
 
-    const { onlySheDoes, whereItHappened, whyCreatedToday, referenceArtist } = req.body;
-
     const { result: parsedData } = await generateLyrics({
       userNick: userName,
       recipientName: sr.recipient_name || 'Destinatario',
@@ -775,14 +802,14 @@ router.post('/song/:id/regenerate-lyrics', generateLyricsLimiter, async (req, re
       recipientRelation: sr.relationship || 'Parceiro',
       recipientNick: sr.recipient_nick || '',
       occasion: sr.occasion || 'Homenagem',
-      whyCreatedToday: whyCreatedToday || '',
+      whyCreatedToday: sr.why_created_today || '',
       musicStyle: sr.music_style || 'Kizomba',
-      referenceArtist: referenceArtist || '',
+      referenceArtist: sr.reference_artist || '',
       voiceType: sr.voice_type || 'Masculina',
       unforgettableMemory: sr.memory || '',
       whatMakesSpecial: sr.special_traits || '',
-      onlySheDoes: onlySheDoes || '',
-      whereItHappened: whereItHappened || '',
+      onlySheDoes: sr.only_she_does || '',
+      whereItHappened: sr.where_it_happened || '',
       messageFromTheHeart: sr.heart_message || '',
       hookPhrase: sr.hook_phrase || '',
       desiredEmotion: sr.desired_emotion || 'Emocionante',

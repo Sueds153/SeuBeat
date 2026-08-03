@@ -6,7 +6,7 @@ import { logInfo, logWarn, logError } from '../utils/logger';
 
 const AI_PROVIDER_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 120000);
 
-const DEFAULT_PROVIDER_ORDER: AIProvider[] = ['openai', 'gemini', 'claude'];
+const DEFAULT_PROVIDER_ORDER: AIProvider[] = ['gemini', 'openai', 'claude'];
 
 // Ordem dos providers controlável por AI_PROVIDER_ORDER (ex: "gemini,openai,claude").
 // Útil para despriorizar/ignorar um provider sem chave de créditos (ex: OpenAI 429).

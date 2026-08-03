@@ -8,10 +8,10 @@ import LandingPage from './components/LandingPage';
 import SocialProof from './components/SocialProof';
 import TermsPage from './components/TermsPage';
 import PrivacyPage from './components/PrivacyPage';
+import Wizard from './components/Wizard';
 import { useMetaPixel } from './hooks/useMetaPixel';
 import { fbPageView } from './lib/metaPixel';
 
-const Wizard = lazy(() => import('./components/Wizard'));
 const PersonalizedSongPage = lazy(() => import('./components/PersonalizedSongPage'));
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 
@@ -108,7 +108,7 @@ export default function App() {
           {currentView === 'landing' ? (
             <LandingPage onStartWizard={startWizard} />
           ) : (
-            <Suspense fallback={loading}><Wizard onBackToLanding={backToLanding} /></Suspense>
+            <Wizard onBackToLanding={backToLanding} />
           )}
           <SocialProof />
         </>

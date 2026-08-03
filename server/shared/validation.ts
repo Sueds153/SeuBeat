@@ -70,7 +70,7 @@ export const GenerateLyricsSchema = z.object({
 
   photoBase64: z.string().max(10 * 1024 * 1024, 'Foto muito grande (max 10MB)').optional().nullable(),
   photoFilename: z.string().max(255).trim().optional().nullable(),
-  photoMimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/gif'] as const).optional().nullable(),
+  photoMimeType: z.string().max(50).trim().optional().nullable(),
 
   utm_source: z.string().max(500).trim().optional().nullable(),
   utm_medium: z.string().max(500).trim().optional().nullable(),
@@ -92,6 +92,19 @@ export const UpdateLyricsSchema = z.object({
 });
 
 export type UpdateLyricsInput = z.infer<typeof UpdateLyricsSchema>;
+
+export interface ValidationFieldError {
+  field: string;
+  message: string;
+}
+
+/**
+ * Serializa os erros (Record<path, mensagem>) para um array [{field, message}],
+ * que é o formato esperado pelo frontend (src/api/lyrics.ts).
+ */
+export function validationErrorsArray(errors: Record<string, string>): ValidationFieldError[] {
+  return Object.entries(errors).map(([field, message]) => ({ field, message }));
+}
 
 export function validateInput<T>(schema: z.ZodSchema<T>, data: unknown): { success: true; data: T } | { success: false; errors: Record<string, string> } {
   try {

@@ -54,10 +54,17 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Item 3 (`any` → tipos concretos)**: `WizardFormData` interface; `extractJSON` → `unknown`; `Record<string, any>` → `Record<string, unknown>`; `errorHandler(err: any)` → `Error & { status? }`; `getAppUrl(req?: any)` → `req?: Request`; `deliverWithRetry(req: any)` → `req: PendingRequest`; `as any` casts removidos em workflow.ts (6) e public.ts (8).
 - **Item 4 (error responses consistentes)**: Todos os 25 `{ error: ... }` em public.ts mudados para `{ success: false, error: ... }`.
 - **Item 5 (retry logic unificada)**: `aiShared.ts` criado com `extractJSON`, `clean`, `validateComposition`, `withAIServiceRetry`. `openai.ts`, `claude.ts`, `gemini.ts` refatorados para usar shared utils, eliminando código duplicado de retry/validação.
+- **Item 6 (bug "não foi possível gerar a música / dados inválidos" — validação de letras)**: `validationErrorsArray` devolve `[{field,message}]` (server devolvia objeto, frontend esperava array → campo que falhava nunca aparecia). `/generate-lyrics` 400 passa a devolver `validation_errors` array + `logWarn` com email/errors; igual no PUT `/song/:id/lyrics`.
+- **Item 7 (photoMimeType)**: schema servidor passou de `z.enum` estrito para `z.string().max(50).trim().optional().nullable()` (Android/WhatsApp enviam `image/jpg`/`image/avif`/`""`). Frontend normaliza `image/jpg→image/jpeg` e `null` para mimes fora da whitelist; o check real de mime mantém-se no upload (public.ts:371).
+- **Item 8 (maxLength)**: `.max()` nos schemas frontend (`src/lib/validation.ts`) + `maxLength` nos inputs/textarea de `WizardSteps.tsx` (recipientName 100, nicks 50, whyCreatedToday 500, referenceArtist 100, whatMakesSpecial 1000, onlySheDoes 500, unforgettableMemory 1000, whereItHappened 500, messageFromTheHeart 1000, hookPhrase 200). Pills de sugestão truncam via `.slice(0, max)`.
+- **Item 9 (Wizard eager load)**: `React.lazy` removido do Wizard em `src/App.tsx` (import direto); `Suspense` mantido só para PersonalizedSongPage/AdminPanel. Evita race de chunk em conexões lentas.
+- **Item 10 (AI provider order)**: `DEFAULT_PROVIDER_ORDER` em `ai.ts` → `['gemini','openai','claude']` + `AI_PROVIDER_ORDER=gemini,openai,claude` documentado no `.env.example`.
+- **Item 11 (rate limiter /generate-lyrics)**: `max 5→10`; mensagem 429 com tempo de reset via header `RateLimit-Reset` (v8 não tipa `req.rateLimit`).
+- **Persistência dos campos opcionais do wizard**: `reference_artist`, `why_created_today`, `only_she_does`, `where_it_happened` adicionados a `song_requests` (nullable) via `supabase_migration_wizard_optional_fields.sql` + aplicado em produção. Agora ficam guardados para regenerações fiéis (public + admin leem da BD em `regenerate-lyrics`); também incluídos no fingerprint de dedupe (`lyricsRequestFingerprint`).
 
 ## AI Providers (Ordem de fallback)
-1. **OpenAI** (`gpt-4o-mini`) — tentado primeiro
-2. **Gemini** (`gemini-2.5-flash`) — tentado segundo
+1. **Gemini** (`gemini-2.5-flash`) — tentado primeiro
+2. **OpenAI** (`gpt-4o-mini`) — tentado segundo
 3. **Claude** (`claude-3-5-sonnet-20241022`) — tentado último
 
 Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos), a próxima é tentada automaticamente. Se todas falharem, o utilizador vê: *"O saldo de créditos da API de geração de letras está esgotado."*
@@ -115,6 +122,7 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - `server/utils/helpers.ts`: `publicErrorMessage`, `getAppUrl`.
 - `supabase_setup.sql`: Setup SQL original **desatualizado** face ao schema real.
 - `supabase_migration_scheduler.sql`: Migration com `deliver_at`, `delivered_at`, `deleted_at`, índice.
+- `supabase_migration_wizard_optional_fields.sql`: Migration com `reference_artist`, `why_created_today`, `only_she_does`, `where_it_happened`.
 - `.github/workflows/ci.yml`: CI pipeline (lint + test + e2e).
 - `vitest.config.ts`: config jsdom + React plugin.
 - `src/lib/validation.ts`: Zod schemas partilhados (frontend).
