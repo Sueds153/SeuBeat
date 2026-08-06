@@ -4,7 +4,7 @@
 Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + Suno API).
 
 ## Constraints & Preferences
-- Não quebrar nada existente — cada mudança validada com lint + testes (138 tests).
+- Não quebrar nada existente — cada mudança validada com lint + testes (140 tests).
 - Wizard.tsx e AdminPanel.tsx mantidos como estão (2982 e 3036 linhas) — risco de extração elevado, acordado manter.
 
 ## Progress
@@ -61,6 +61,10 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Item 10 (AI provider order)**: `DEFAULT_PROVIDER_ORDER` em `ai.ts` → `['gemini','openai','claude']` + `AI_PROVIDER_ORDER=gemini,openai,claude` documentado no `.env.example`.
 - **Item 11 (rate limiter /generate-lyrics)**: `max 5→10`; mensagem 429 com tempo de reset via header `RateLimit-Reset` (v8 não tipa `req.rateLimit`).
 - **Persistência dos campos opcionais do wizard**: `reference_artist`, `why_created_today`, `only_she_does`, `where_it_happened` adicionados a `song_requests` (nullable) via `supabase_migration_wizard_optional_fields.sql` + aplicado em produção. Agora ficam guardados para regenerações fiéis (public + admin leem da BD em `regenerate-lyrics`); também incluídos no fingerprint de dedupe (`lyricsRequestFingerprint`).
+- **Bugfix: músicas de ~8s entregues como completas** (`halectorr`): (1) `pollSunoTask` aceitava `audioUrl` em `text_success` em vez de esperar `SUCCESS` — `querySunoTask` agora só expõe `audioUrl` com status final (SUCCESS) e `pollSunoTask` ignora `immediateAudioUrl`; (2) `continueSunoMusic` chamava `/api/extend_audio` (404; correto seria `upload-extend`) — removida junto com o fallback do 1º clip; (3) `persistGeneratedSunoAudio` sem duração mínima — agora mede duração, rejeita <30s (`MIN_SONG_DURATION_SEC = 30` → rollback) e grava `songs.duration`. `FAILED_STATUSES` + `create_task_failed`/`generate_audio_failed`/`sensitive_word_error`/`callback_exception` tratados como erro (commit `fcd7610`).
+- **Bugfix: fades mutavam músicas longas em prod**: quando ffprobe está indisponível, `getAudioDuration` devolvia 0 e `applyFades` usava fallback `afade=t=out:st=30:d=4` (música muda após ~34s). Removido — com duração ≤0 aplica-se só fade-in. Novo `getAudioDurationFfmpeg` lê `Duration:` do stderr do ffmpeg (ffmpeg-static só traz `ffmpeg.exe`, não ffprobe).
+- **Bugfix: `require('child_process')` quebrava em produção**: esbuild empacota `server.ts` como **ESM** e `require()` dentro de funções lança `Dynamic require of "child_process" is not supported` (rebentou `getAudioDurationFfmpeg` no deploy). Fix: `import { spawn }` no topo de `audio.ts` e renomeada a variável do processo para `ffmpegProc` (evita shadowing do fluent-ffmpeg) (commit `fc6df38`). **Regra: nunca usar `require()` no server — sempre `import` no topo**.
+- **Fluxo de recuperação (resume) de música**: retry admin (`POST /request/:id/retry`) com `mureka_task_id` presente e `audio_url` null faz `resumeSunoTaskWorkflow` — consulta a task Suno já-completa e só persiste (sem gastar créditos novos). Usado para recuperar a entrega halectorr sem nova geração.
 
 ## AI Providers (Ordem de fallback)
 1. **Gemini** (`gemini-2.5-flash`) — tentado primeiro
@@ -89,17 +93,17 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - **CI corre em ubuntu-latest com Node 22**, npm ci, lint, test.
 
 ## Testes
-- **138 testes**, 11 ficheiros — todos passam (vitest + jsdom).
+- **140 testes**, 11 ficheiros — todos passam (vitest + jsdom).
 - Distribuição: validation (18), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (11), SongPlayer (8), metaPixel (12), song-api (4), useAudioPlayer (4), smoke (1), metaPixelCapi (2).
 - **Playwright E2E**: 13 testes (landing, wizard, dedication, admin).
 
 ## Next Steps
-1. **Rollback automático no Suno** — se workflow falhar após pagamento aprovado, reverter `payments.status` + notificar admin.
-2. **Custom domain** apontar `seubeat.ao` para Render.
-3. **E2E tests completos** com API reais (Wizard → pagamento → dedicatória).
+1. **Custom domain** apontar `seubeat.ao` para Render.
+2. **E2E tests completos** com API reais (Wizard → pagamento → dedicatória).
+3. **Rollback automático no Suno** — reverte `payments.status` + notifica admin (rollback já existe em `rollbackSunoWorkflow`; falta testar/fluxo de notificação completo).
 
 ## Critical Context
-- **138 testes passam sempre** após cada mudança (vitest).
+- **140 testes passam sempre** após cada mudança (vitest).
 - **Supabase**: `service_role` key usada apenas onde necessário (admin routes, auth.admin.*, workflows, signed URLs). Anon key usada no endpoint público de dedicatória.
 - **AI providers**: OpenAI + Gemini + Claude configurados. Fallback automático se um falhar.
 - **Suno**: API key configurada, 500+ créditos. `deliveryScheduler.ts` para entregas Standard.
@@ -110,7 +114,9 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 ## Relevant Files
 - `server/services/supabase.ts`: `getAdminSupabase()`, `getPublicSupabase()`, `uploadToSupabase()`.
 - `server/services/deliveryScheduler.ts`: scheduler de entrega 24h (10min interval).
-- `server/services/workflow.ts`: orquestração Suno + transições de status.
+- `server/services/workflow.ts`: orquestração Suno + transições de status (`resumeSunoTaskWorkflow`, `persistGeneratedSunoAudio`, `MIN_SONG_DURATION_SEC`).
+- `server/services/suno.ts`: `querySunoTask`, `pollSunoTask`, `FAILED_STATUSES`, `extractAudioUrl`.
+- `server/services/audio.ts`: `getAudioDuration`, `getAudioDurationFfmpeg` (stderr do ffmpeg), `applyFades`.
 - `server/services/email.ts`: `sendPersonalizedEmail`, `sendConfirmationEmail`, `sendPaymentRejectionEmail`.
 - `server/services/ai.ts`: orquestrador de providers (OpenAI → Gemini → Claude).
 - `server/services/aiShared.ts`: shared utils de retry, extractJSON, validateComposition.
