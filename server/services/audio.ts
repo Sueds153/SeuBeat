@@ -1,7 +1,7 @@
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from 'ffmpeg-static';
 import fs from 'fs';
-import { execFileSync } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
 
@@ -46,15 +46,14 @@ export function getAudioDurationFfmpeg(inputPath: string): Promise<number> {
       return;
     }
 
-    const { spawn } = require('child_process');
-    const ffmpeg = spawn(ffmpegInstaller, ['-i', inputPath], {
+    const ffmpegProc = spawn(ffmpegInstaller, ['-i', inputPath], {
       stdio: ['ignore', 'ignore', 'pipe'],
     });
 
     let stderr = '';
-    ffmpeg.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+    ffmpegProc.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
 
-    ffmpeg.on('close', () => {
+    ffmpegProc.on('close', () => {
       const match = stderr.match(/Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/);
       if (match) {
         const hours = parseInt(match[1], 10);
@@ -66,11 +65,11 @@ export function getAudioDurationFfmpeg(inputPath: string): Promise<number> {
       }
     });
 
-    ffmpeg.on('error', () => resolve(0));
+    ffmpegProc.on('error', () => resolve(0));
 
     // Timeout de segurança
     setTimeout(() => {
-      try { ffmpeg.kill(); } catch {}
+      try { ffmpegProc.kill(); } catch {}
       resolve(0);
     }, 15000);
   });
@@ -85,7 +84,6 @@ export async function getAudioDuration(inputPath: string): Promise<number> {
   const ffprobePath = (ffmpegInstaller || '').replace('ffmpeg', 'ffprobe');
   
   return new Promise((resolve) => {
-    const { spawn } = require('child_process');
     const ffprobe = spawn(ffprobePath, [
       '-v', 'error',
       '-show_entries', 'format=duration',
