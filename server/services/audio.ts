@@ -38,10 +38,48 @@ if (ffmpegInstaller) {
 
 const DOWNLOAD_TIMEOUT_MS = Number(process.env.DOWNLOAD_TIMEOUT_MS || 300000);
 
-// Obter duração do áudio em segundos usando ffprobe
+// Obter duração do áudio em segundos usando apenas o stderr do FFmpeg (não depende de ffprobe)
+export function getAudioDurationFfmpeg(inputPath: string): Promise<number> {
+  return new Promise((resolve) => {
+    if (!FFMPEG_AVAILABLE || !ffmpegInstaller) {
+      resolve(0);
+      return;
+    }
+
+    const { spawn } = require('child_process');
+    const ffmpeg = spawn(ffmpegInstaller, ['-i', inputPath], {
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+
+    let stderr = '';
+    ffmpeg.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
+
+    ffmpeg.on('close', () => {
+      const match = stderr.match(/Duration:\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)/);
+      if (match) {
+        const hours = parseInt(match[1], 10);
+        const minutes = parseInt(match[2], 10);
+        const seconds = parseFloat(match[3]);
+        resolve(hours * 3600 + minutes * 60 + seconds);
+      } else {
+        resolve(0);
+      }
+    });
+
+    ffmpeg.on('error', () => resolve(0));
+
+    // Timeout de segurança
+    setTimeout(() => {
+      try { ffmpeg.kill(); } catch {}
+      resolve(0);
+    }, 15000);
+  });
+}
+
+// Obter duração do áudio em segundos (ffprobe se disponível, senão FFmpeg)
 export async function getAudioDuration(inputPath: string): Promise<number> {
   if (!FFPROBE_AVAILABLE) {
-    return 0;
+    return getAudioDurationFfmpeg(inputPath);
   }
 
   const ffprobePath = (ffmpegInstaller || '').replace('ffmpeg', 'ffprobe');
@@ -158,15 +196,15 @@ export async function applyFades(inputPath: string, outputPath: string): Promise
     return applyFadeInOnly(inputPath, outputPath);
   }
 
+  // Se duração desconhecida, aplicar apenas fade-in (evita silenciar músicas longas)
+  if (duration <= 0) {
+    return applyFadeInOnly(inputPath, outputPath);
+  }
+
   // Calcular timestamp positivo para fade-out (4s antes do fim)
-  const fadeOutStart = duration > 0 ? Math.max(0, duration - 4) : 0;
-  
-  // Se não conseguimos detectar duração, aplicar fade-in + fade-out fixo no final estimado
-  // Usar filtro com timestamps positivos apenas
-  const fadeOutFilter = duration > 0 && duration >= 8 
-    ? `afade=t=out:st=${fadeOutStart.toFixed(3)}:d=4`
-    : 'afade=t=out:st=30:d=4'; // fallback para ~34s se duração desconhecida
-  
+  const fadeOutStart = Math.max(0, duration - 4);
+  const fadeOutFilter = `afade=t=out:st=${fadeOutStart.toFixed(3)}:d=4`;
+
   const filter = `afade=t=in:ss=0:d=3,${fadeOutFilter}`;
 
   return new Promise((resolve, reject) => {

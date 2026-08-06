@@ -11,7 +11,17 @@ const sunoBreaker = createCircuitBreaker('suno-api', {
 const SUNO_TIMEOUT_MS = Number(process.env.SUNO_TIMEOUT_MS || 45000);
 const MAX_RETRIES = Number(process.env.SUNO_MAX_RETRIES || 3);
 const SUCCESS_STATUSES = new Set(['success', 'completed', 'done', 'finished', 'succeeded']);
-const FAILED_STATUSES = new Set(['failed', 'failure', 'error', 'cancelled', 'canceled']);
+const FAILED_STATUSES = new Set([
+  'failed',
+  'failure',
+  'error',
+  'cancelled',
+  'canceled',
+  'create_task_failed',
+  'generate_audio_failed',
+  'sensitive_word_error',
+  'callback_exception',
+]);
 const DEFAULT_PUBLIC_APP_URL = 'https://seubeat.onrender.com';
 
 function isQuotaError(status: number, body: string): boolean {
@@ -258,7 +268,9 @@ export async function querySunoTask(taskId: string): Promise<SunoResult> {
 
   const statusData = await statusRes.json();
   const status = extractStatus(statusData);
-  const audioUrl = extractAudioUrl(statusData);
+  // Só expor audioUrl quando o estado é final de sucesso. Estados intermédios
+  // (TEXT_SUCCESS/FIRST_SUCCESS) devolvem clips parciais que não devem ser entregues.
+  const audioUrl = SUCCESS_STATUSES.has(status) ? extractAudioUrl(statusData) : null;
 
   if (FAILED_STATUSES.has(status)) {
     const safe = JSON.stringify(statusData).slice(0, 200);
@@ -365,26 +377,23 @@ async function startSunoMusic(lyrics: string[], musicStyle: string, songTitle: s
   const generateData = await generateRes.json();
   assertSuccessfulSunoPayload(generateData, 'Suno generation');
   const taskId = extractTaskId(generateData);
-  const immediateAudioUrl = extractAudioUrl(generateData);
 
   if (!taskId) {
-    if (immediateAudioUrl) return { taskId: `instant_${Date.now()}`, audioUrl: immediateAudioUrl };
-    throw new Error(`Suno did not return a task ID: ${JSON.stringify(generateData)}`);
+    // Nunca devolver um clip parcial como música final
+    throw new Error(`Suno did not return a task ID: ${JSON.stringify(generateData).slice(0, 200)}`);
   }
 
   if (personaId) {
-    logInfo('[Suno] Response for personaId task', { taskId, hasImmediateAudio: !!immediateAudioUrl });
+    logInfo('[Suno] Response for personaId task', { taskId });
   }
 
   logInfo(`[Suno] Task created`, { taskId });
-  return { taskId, audioUrl: immediateAudioUrl, status: extractStatus(generateData) };
+  return { taskId, audioUrl: null, status: extractStatus(generateData) };
 }
 
-async function pollSunoTask(taskId: string, immediateAudioUrl: string | null, label = 'Suno', maxAttempts = 30): Promise<SunoResult> {
-  if (immediateAudioUrl) {
-    return { taskId, audioUrl: immediateAudioUrl };
-  }
-
+async function pollSunoTask(taskId: string, _immediateAudioUrl: string | null, label = 'Suno', maxAttempts = 30): Promise<SunoResult> {
+  // Não aceitar o áudio imediato: pode ser um clip parcial (ex: 8s) devolvido em
+  // TEXT_SUCCESS/FIRST_SUCCESS. Esperar sempre pelo estado final SUCCESS.
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 10000));
     try {
@@ -400,6 +409,9 @@ async function pollSunoTask(taskId: string, immediateAudioUrl: string | null, la
         throw new Error(`${label} task completed but no audio URL was found.`);
       }
     } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes('task failed')) {
+        throw err;
+      }
       logWarn(`[${label} Polling] Attempt failed`, { attempt: attempt + 1, error: err instanceof Error ? err.message : String(err), taskId });
       if (attempt === maxAttempts - 1) throw err;
     }
@@ -408,66 +420,16 @@ async function pollSunoTask(taskId: string, immediateAudioUrl: string | null, la
   throw new Error(`${label} generation timed out after ${(maxAttempts * 10) / 60} minutes.`);
 }
 
-async function continueSunoMusic(taskId: string, personaId?: string): Promise<SunoResult> {
-  const apiKey = process.env.SUNO_API_KEY;
-  if (!apiKey) throw new Error('SUNO_API_KEY nao configurada.');
-  if (!taskId) throw new Error('Task Suno em falta para continuar.');
-
-  logInfo(`[Suno] Extending task via extend_audio`, { taskId, hasPersonaId: !!personaId });
-
-  const payload: Record<string, unknown> = { task_id: taskId, callBackUrl: getSunoCallbackUrl() };
-  if (personaId) {
-    payload.personaId = personaId;
-    payload.personaModel = 'voice_persona';
-    logInfo('[Suno] Extend payload inclui personaId', { personaIdPreview: JSON.stringify(payload.personaId).slice(0, 60) });
-  }
-
-  const continueRes = await fetchWithTimeout('https://api.sunoapi.org/api/extend_audio', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!continueRes.ok) {
-    const errText = await safeResponseText(continueRes);
-    throw new Error(`Suno extend_audio failed: ${continueRes.status} - ${errText}`);
-  }
-
-  const data = await continueRes.json();
-  assertSuccessfulSunoPayload(data, 'Suno extend_audio');
-  const newTaskId = extractTaskId(data);
-  if (!newTaskId) throw new Error(`Suno extend_audio did not return a task ID: ${JSON.stringify(data)}`);
-
-  logInfo(`[Suno] Extend task created`, { taskId: newTaskId });
-  return { taskId: newTaskId, audioUrl: null, status: 'processing' };
-}
-
 export async function generateFullSong(lyrics: string[], musicStyle: string, songTitle: string, personaId?: string, extraParams?: { voiceType?: string; desiredEmotion?: string; referenceArtist?: string }): Promise<SunoResult> {
   return sunoBreaker.exec(async () => {
-    const { taskId, audioUrl: immediateAudioUrl } = await startSunoMusic(lyrics, musicStyle, songTitle, personaId, extraParams);
-    const firstResult = await pollSunoTask(taskId, immediateAudioUrl, 'Suno Gen1');
-    if (!firstResult.audioUrl) throw new Error('Primeira geracao Suno falhou - sem URL de audio.');
+    // O endpoint /api/v1/generate já devolve a música completa (2 pistas, ~2-3 min).
+    // O fluxo anterior de "extend" (continueSunoMusic) usava um endpoint que já não
+    // existe (404) e entregava um clip parcial (~8s) como música final.
+    const { taskId } = await startSunoMusic(lyrics, musicStyle, songTitle, personaId, extraParams);
+    const result = await pollSunoTask(taskId, null, 'Suno');
+    if (!result.audioUrl) throw new Error('Geracao Suno falhou - sem URL de audio.');
 
-    logInfo(`[Suno] First clip ready`);
-
-    try {
-      const { taskId: continueTaskId } = await continueSunoMusic(firstResult.taskId, personaId);
-      const secondResult = await pollSunoTask(continueTaskId, null, 'Suno Gen2 (extend)');
-      if (secondResult.audioUrl) {
-        logInfo(`[Suno] Extended song ready`);
-        return secondResult;
-      }
-    } catch (err: unknown) {
-      if (err instanceof SunoQuotaError) {
-        logWarn(`[Suno] Extend sem créditos, a devolver primeiro clip.`);
-      } else {
-        logWarn(`[Suno] Extend falhou, a devolver primeiro clip`, { error: err instanceof Error ? err.message : String(err) });
-      }
-    }
-
-    return firstResult;
+    logInfo(`[Suno] Full song ready`, { taskId });
+    return result;
   });
 }

@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { getAdminSupabase, uploadToSupabase } from './supabase';
-import { downloadFile, createPreviewAudio, applyFades, convertToWav } from './audio';
+import { downloadFile, createPreviewAudio, applyFades, convertToWav, getAudioDuration } from './audio';
 import { querySunoTask, generateFullSong } from './suno';
 import { generateValidationPhrase, waitForValidationPhrase, createCustomVoice, waitForVoiceId, checkVoiceAvailability } from './suno-voice';
 import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification, sendWorkflowFailedEmail } from './email';
@@ -11,6 +11,11 @@ import { logInfo, logWarn, logError } from '../utils/logger';
 import { RequestProgress } from './types';
 
 const PROGRESS_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+// Duração mínima (em segundos) para aceitar uma música como válida.
+// O Suno devolve clips parciais (~8s) em TEXT_SUCCESS/FIRST_SUCCESS;
+// estas devem ser rejeitadas para não entregar músicas incompletas.
+const MIN_SONG_DURATION_SEC = 30;
 
 export const requestProgressMap: Record<string, RequestProgress> = {};
 
@@ -86,6 +91,16 @@ async function persistGeneratedSunoAudio(songId: string, taskId: string, audioUr
   try {
     await downloadFile(audioUrl, tempSunoPath);
 
+    // Guarda de duração: rejeitar clips parciais do Suno (~8s)
+    const durationSec = await getAudioDuration(tempSunoPath);
+    logInfo('[Workflow] Audio duration check', { songId, taskId, durationSec });
+    if (durationSec > 0 && durationSec < MIN_SONG_DURATION_SEC) {
+      throw new Error(
+        `Áudio gerado demasiado curto (${durationSec.toFixed(1)}s < ${MIN_SONG_DURATION_SEC}s). O Suno devolveu apenas um clip parcial.`
+      );
+    }
+    const durationInt = durationSec > 0 ? Math.round(durationSec) : null;
+
     try {
       await applyFades(tempSunoPath, tempFadedPath);
     } catch (fadeErr) {
@@ -108,7 +123,7 @@ async function persistGeneratedSunoAudio(songId: string, taskId: string, audioUr
       logWarn('[Workflow] Preview de 30s falhou; áudio completo não será usado como preview', err instanceof Error ? err : undefined);
     }
 
-    return { taskId, fullAudioUrl, publicPreviewUrl };
+    return { taskId, fullAudioUrl, publicPreviewUrl, duration: durationInt };
   } finally {
     try { fs.unlinkSync(tempSunoPath); } catch {}
     try { fs.unlinkSync(tempFadedPath); } catch {}
@@ -128,7 +143,7 @@ async function completeSunoWorkflowFromAudio(
   setProgress(requestId, { status: 'generating', progress: 60, message: 'Geração concluída no Suno. A descarregar ficheiro...' });
   setProgress(requestId, { status: 'generating', progress: 75, message: 'A guardar áudio original no Supabase Storage...' });
 
-  const { fullAudioUrl, publicPreviewUrl } = await persistGeneratedSunoAudio(songId, taskId, audioUrl);
+  const { fullAudioUrl, publicPreviewUrl, duration } = await persistGeneratedSunoAudio(songId, taskId, audioUrl);
   logInfo(`[Background Suno] Saved original to full-audio`, { songId, taskId });
 
   // Reusamos as colunas mureka_task_id e mureka_status no banco de dados para evitar migrations complexas
@@ -138,6 +153,7 @@ async function completeSunoWorkflowFromAudio(
       audio_url: fullAudioUrl,
       full_song_url: fullAudioUrl,
       preview_url: publicPreviewUrl,
+      duration,
       mureka_task_id: taskId,
       mureka_status: 'completed'
     })
@@ -344,7 +360,7 @@ export async function runBackgroundSunoWorkflow(
     setProgress(requestId, { status: 'generating', progress: 60, message: 'Geração concluída no Suno. A descarregar ficheiro...' });
     setProgress(requestId, { status: 'generating', progress: 75, message: 'A guardar áudio original no Supabase Storage...' });
 
-    const { fullAudioUrl, publicPreviewUrl } = await persistGeneratedSunoAudio(songId, taskId, finalAudioUrl);
+    const { fullAudioUrl, publicPreviewUrl, duration } = await persistGeneratedSunoAudio(songId, taskId, finalAudioUrl);
     logInfo(`[Background Suno] Audio saved to storage`, { songId, taskId });
 
     const { error: completedSongUpdateError } = await supabase
@@ -353,6 +369,7 @@ export async function runBackgroundSunoWorkflow(
         audio_url: fullAudioUrl,
         full_song_url: fullAudioUrl,
         preview_url: publicPreviewUrl,
+        duration,
         mureka_task_id: taskId,
         mureka_status: 'completed'
       })
