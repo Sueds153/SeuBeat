@@ -484,7 +484,7 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
       messageFromTheHeart: messageFromTheHeart || '',
       desiredEmotion: desiredEmotion || 'Emocionante',
       language: language || 'português'
-    });
+    }, { requestId: dbSongRequestId!, email: userEmail });
 
     const { data: songData, error: songError } = await supabase.from('songs').insert([{
       request_id: requestData.id,
@@ -793,8 +793,9 @@ router.post('/song/:id/regenerate-lyrics', generateLyricsLimiter, async (req, re
       return res.status(429).json({ success: false, error: 'Limite de regenerações atingido (máx. 2). Edite manualmente a letra.' });
     }
 
-    const userData = await supabase.from('users').select('name').eq('id', sr.user_id).single();
+    const userData = await supabase.from('users').select('name, email').eq('id', sr.user_id).single();
     const userName = userData.data?.name || 'Autor';
+    const userEmail = userData.data?.email || undefined;
 
     const bodyHint = (typeof req.body === 'object' && req.body !== null ? req.body : {}) as Record<string, unknown>;
     const preferBody = (key: string, fallback: string): string => {
@@ -821,7 +822,7 @@ router.post('/song/:id/regenerate-lyrics', generateLyricsLimiter, async (req, re
       hookPhrase: sr.hook_phrase || '',
       desiredEmotion: sr.desired_emotion || 'Emocionante',
       language: sr.language || 'português'
-    });
+    }, { requestId: id, email: userEmail });
 
     const newCount = currentCount + 1;
 

@@ -1,7 +1,36 @@
-import { LyricsComposition } from './types';
+import { LyricsComposition, AIProvider } from './types';
 import { logError, logInfo } from '../utils/logger';
 
 const MAX_ATTEMPTS = Number(process.env.AI_MAX_ATTEMPTS || 2);
+const TRANSIENT_MAX_ATTEMPTS = Number(process.env.AI_TRANSIENT_MAX_ATTEMPTS || 4);
+const RETRY_BASE_DELAY_MS = Number(process.env.AI_RETRY_BASE_DELAY_MS || 1000);
+const RETRY_MAX_BACKOFF_MS = Number(process.env.AI_RETRY_MAX_BACKOFF_MS || 8000);
+
+export type AIFailureKind = 'transient' | 'credits' | 'config' | 'auth' | 'other';
+
+export interface AIProviderFailure {
+  provider: AIProvider;
+  kind: AIFailureKind;
+  message: string;
+}
+
+const FATAL_DEFAULT = /429|quota|balance|credit|401|403|unauthorized/i;
+const RETRYABLE_DEFAULT = /timeout|excedeu|JSON|malformada|500|502|503|504|ETIMEDOUT|AbortError|429|too many requests|high demand|traffic|overloaded|RESOURCE_EXHAUSTED|temporarily/i;
+const TRANSIENT = /500|502|503|504|429|high demand|traffic|overloaded|RESOURCE_EXHAUSTED|temporarily|too many requests/i;
+
+export function classifyAIError(message: string): AIFailureKind {
+  if (/no credits|credit balance|credits remaining|quota|balance|insufficient|too low/i.test(message)) return 'credits';
+  if (/500|502|503|504|high demand|traffic|overloaded|RESOURCE_EXHAUSTED|temporarily|too many requests|timeout|timed out|excedeu|ETIMEDOUT|AbortError/i.test(message)) return 'transient';
+  if (/401|403|unauthorized|authentication|invalid.*key/i.test(message)) return 'auth';
+  if (/não configurada|nao configurada|missing.*key|no.*key|_MODEL|configuration|configura/i.test(message)) return 'config';
+  return 'other';
+}
+
+export function retryBackoffMs(attempt: number, baseDelayMs = RETRY_BASE_DELAY_MS, maxBackoffMs = RETRY_MAX_BACKOFF_MS): number {
+  const exponential = Math.min(baseDelayMs * Math.pow(2, Math.max(0, attempt - 1)), maxBackoffMs);
+  const jitter = 0.5 + Math.random() * 0.5;
+  return Math.round(exponential * jitter);
+}
 
 export function clean(value: unknown, fallback = 'Não informado'): string {
   if (typeof value !== 'string') return fallback;
@@ -95,15 +124,33 @@ export function validateComposition(value: unknown, label: string): LyricsCompos
   return { songTitle, lyrics, lyricsSnippet, letterText };
 }
 
+export interface AIServiceRetryOptions {
+  fatalPatterns?: RegExp;
+  transientMaxAttempts?: number;
+  baseDelayMs?: number;
+  maxBackoffMs?: number;
+}
+
 export async function withAIServiceRetry<T>(
   label: string,
   fn: (attempt: number) => Promise<T>,
-  extraFatalPatterns?: RegExp
+  extraFatalPatterns?: RegExp,
+  options?: AIServiceRetryOptions
 ): Promise<T> {
   let lastError: unknown;
   const maxAttempts = MAX_ATTEMPTS;
+  const transientMaxAttempts = options?.transientMaxAttempts ?? TRANSIENT_MAX_ATTEMPTS;
+  const baseDelayMs = options?.baseDelayMs ?? RETRY_BASE_DELAY_MS;
+  const maxBackoffMs = options?.maxBackoffMs ?? RETRY_MAX_BACKOFF_MS;
 
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  const fatal = options?.fatalPatterns
+    ? options.fatalPatterns
+    : extraFatalPatterns
+      ? new RegExp(FATAL_DEFAULT.source + '|' + extraFatalPatterns.source, FATAL_DEFAULT.flags)
+      : FATAL_DEFAULT;
+
+  let attempt = 1;
+  for (;;) {
     try {
       logInfo(`[${label}] Tentativa ${attempt} de geração de letra...`);
       return await fn(attempt);
@@ -111,15 +158,12 @@ export async function withAIServiceRetry<T>(
       lastError = err;
       logError(`[${label}] Erro na tentativa ${attempt}`, err instanceof Error ? err : new Error(String(err)));
       const message = err instanceof Error ? err.message : String(err ?? '');
-      const fatal = /429|quota|balance|credit|401|403|unauthorized/i;
-      const retryable = /timeout|excedeu|JSON|malformada|500|502|503|504|ETIMEDOUT|AbortError/i;
-      const combinedFatal = extraFatalPatterns
-        ? new RegExp(fatal.source + '|' + extraFatalPatterns.source, fatal.flags)
-        : fatal;
-      if (combinedFatal.test(message) || !retryable.test(message)) break;
-      if (attempt < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 1500 * attempt));
-      }
+      const isTransient = TRANSIENT.test(message);
+      const attemptBudget = isTransient ? transientMaxAttempts : maxAttempts;
+      if (fatal.test(message) || !RETRYABLE_DEFAULT.test(message) || attempt >= attemptBudget) break;
+      const delay = retryBackoffMs(attempt, baseDelayMs, maxBackoffMs);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      attempt++;
     }
   }
 

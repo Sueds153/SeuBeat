@@ -36,7 +36,7 @@ export async function generateLyricsWithGemini(formData: WizardFormData): Promis
   const prompt = selectPrompt(formData);
   const genAI = new GoogleGenAI({ apiKey });
 
-  const SAFETY_FATAL = /SAFETY|FINISH_REASON_SAFETY|blocked/i;
+  const GEMINI_FATAL = /SAFETY|FINISH_REASON_SAFETY|blocked|401|403|unauthorized|invalid.*key/i;
 
   return withAIServiceRetry('Gemini', async () => {
     const response = await genAI.models.generateContent({
@@ -59,5 +59,5 @@ export async function generateLyricsWithGemini(formData: WizardFormData): Promis
 
     const json = extractJSON(text);
     return validateComposition(json, 'Gemini');
-  }, SAFETY_FATAL);
+  }, undefined, { fatalPatterns: GEMINI_FATAL });
 }

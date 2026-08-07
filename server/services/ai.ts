@@ -2,9 +2,14 @@ import { LyricsComposition, AIProvider, WizardFormData } from './types';
 import { generateLyricsWithGPT } from './openai';
 import { generateLyricsWithClaude } from './claude';
 import { generateLyricsWithGemini } from './gemini';
+import { classifyAIError, AIProviderFailure } from './aiShared';
+import { sendAdminNotification } from './email';
 import { logInfo, logWarn, logError } from '../utils/logger';
 
 const AI_PROVIDER_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS || 120000);
+const ADMIN_ALERT_COOLDOWN_MS = Number(process.env.ADMIN_ALERT_COOLDOWN_MS || 15 * 60 * 1000);
+
+let lastAdminAlertAt = 0;
 
 const DEFAULT_PROVIDER_ORDER: AIProvider[] = ['gemini', 'openai', 'claude'];
 
@@ -32,7 +37,15 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, name: string): Pr
   });
 }
 
-export async function generateLyrics(formData: WizardFormData): Promise<{ result: LyricsComposition; provider: AIProvider }> {
+export interface GenerateLyricsContext {
+  requestId?: string;
+  email?: string;
+}
+
+export async function generateLyrics(
+  formData: WizardFormData,
+  context: GenerateLyricsContext = {}
+): Promise<{ result: LyricsComposition; provider: AIProvider }> {
   const providers: { name: AIProvider; key: string; fn: (data: WizardFormData) => Promise<LyricsComposition> }[] = [
     { name: 'openai', key: 'OPENAI_API_KEY', fn: generateLyricsWithGPT },
     { name: 'gemini', key: 'GEMINI_API_KEY', fn: generateLyricsWithGemini },
@@ -49,6 +62,7 @@ export async function generateLyrics(formData: WizardFormData): Promise<{ result
   available.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 
   let lastError: unknown;
+  const providerFailures: AIProviderFailure[] = [];
 
   for (const { name, fn } of available) {
     try {
@@ -58,10 +72,40 @@ export async function generateLyrics(formData: WizardFormData): Promise<{ result
       return { result, provider: name };
     } catch (err: unknown) {
       lastError = err;
-      logWarn(`[AI] Provedor ${name} falhou: ${err instanceof Error ? err.message : String(err)}`);
+      const message = err instanceof Error ? err.message : String(err);
+      providerFailures.push({ provider: name, kind: classifyAIError(message), message });
+      logWarn(`[AI] Provedor ${name} falhou: ${message}`);
     }
   }
 
   logError('[AI] Todos os provedores falharam', lastError);
-  throw lastError instanceof Error ? lastError : new Error('Nenhuma API de IA funcionou.');
+  await notifyAdminOnFailure(providerFailures, context);
+  const finalError = lastError instanceof Error ? lastError : new Error('Nenhuma API de IA funcionou.');
+  (finalError as Error & { providerFailures?: AIProviderFailure[] }).providerFailures = providerFailures;
+  throw finalError;
+}
+
+async function notifyAdminOnFailure(failures: AIProviderFailure[], context: GenerateLyricsContext): Promise<void> {
+  const now = Date.now();
+  if (now - lastAdminAlertAt < ADMIN_ALERT_COOLDOWN_MS) {
+    logInfo('[AI] Alerta admin suprimido (cooldown)');
+    return;
+  }
+  lastAdminAlertAt = now;
+
+  const detail = failures
+    .map(f => `- ${f.provider}: ${f.kind} — ${f.message.slice(0, 300)}`)
+    .join('\n');
+  const who = context.email ? `Utilizador: ${context.email}` : '';
+  const which = context.requestId ? `Request ID: ${context.requestId}` : '';
+
+  try {
+    await sendAdminNotification(
+      `[ALERTA] Falha na geração de letras (${failures.length} providers)`,
+      `Todos os provedores de IA falharam:\n\n${detail}\n\n${[who, which].filter(Boolean).join('\n')}\n\nContacte o utilizador ou verifique as chaves/quotas.`
+    );
+    logInfo('[AI] Alerta admin enviado com sucesso');
+  } catch (err) {
+    logWarn('[AI] Falha ao enviar alerta admin', err instanceof Error ? err : new Error(String(err)));
+  }
 }

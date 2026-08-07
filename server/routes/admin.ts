@@ -1084,7 +1084,10 @@ router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
     };
 
     const { generateLyrics } = await import('../services/ai');
-    const { result: parsedData } = await generateLyrics(formData);
+    const { result: parsedData } = await generateLyrics(formData, {
+      requestId: requestData.id,
+      email: requestData.users?.email || undefined
+    });
 
     const { data: updatedSong, error: songError } = await supabase
       .from('songs')

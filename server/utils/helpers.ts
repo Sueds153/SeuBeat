@@ -24,6 +24,9 @@ export function publicErrorMessage(err: unknown, fallback = 'Não foi possível 
   if (/timeout|excedeu|timed out|ETIMEDOUT|The operation was aborted|AbortError|TimeoutError/i.test(message)) {
     return 'O sistema demorou demasiado tempo a responder. Talvez a nossa IA esteja com muito tráfego. Tente novamente.';
   }
+  if (/500|502|503|504|high demand|traffic|tráfego|overloaded|RESOURCE_EXHAUSTED|temporarily|too many requests|muita procura|muito tráfego/i.test(message)) {
+    return 'Estamos com muita procura neste momento. Tente novamente em instantes.';
+  }
   if (/malformada|JSON|unexpected|malformed/i.test(message)) {
     return 'A IA gerou uma resposta incompleta. Por favor, tente novamente para obter uma letra perfeita.';
   }
