@@ -17,7 +17,7 @@ async function processAbandonedRecovery(): Promise<void> {
   const { data: abandoned, error } = await supabase
     .from('song_requests')
     .select('id, email, recipient_name, created_at, abandoned_30min_sent_at, abandoned_24h_sent_at, abandoned_48h_sent_at, abandoned_72h_sent_at')
-    .in('status', ['lyrics_ready', 'payment_submitted', 'lyrics_generating'])
+    .in('status', ['lyrics_ready', 'lyrics_generating'])
     .is('deleted_at', null)
     .not('email', 'is', null);
 

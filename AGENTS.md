@@ -4,7 +4,7 @@
 Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + Suno API).
 
 ## Constraints & Preferences
-- Não quebrar nada existente — cada mudança validada com lint + testes (140 tests).
+- Não quebrar nada existente — cada mudança validada com lint + testes (173 tests).
 - Wizard.tsx e AdminPanel.tsx mantidos como estão (2982 e 3036 linhas) — risco de extração elevado, acordado manter.
 
 ## Progress
@@ -65,6 +65,13 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Bugfix: fades mutavam músicas longas em prod**: quando ffprobe está indisponível, `getAudioDuration` devolvia 0 e `applyFades` usava fallback `afade=t=out:st=30:d=4` (música muda após ~34s). Removido — com duração ≤0 aplica-se só fade-in. Novo `getAudioDurationFfmpeg` lê `Duration:` do stderr do ffmpeg (ffmpeg-static só traz `ffmpeg.exe`, não ffprobe).
 - **Bugfix: `require('child_process')` quebrava em produção**: esbuild empacota `server.ts` como **ESM** e `require()` dentro de funções lança `Dynamic require of "child_process" is not supported` (rebentou `getAudioDurationFfmpeg` no deploy). Fix: `import { spawn }` no topo de `audio.ts` e renomeada a variável do processo para `ffmpegProc` (evita shadowing do fluent-ffmpeg) (commit `fc6df38`). **Regra: nunca usar `require()` no server — sempre `import` no topo**.
 - **Fluxo de recuperação (resume) de música**: retry admin (`POST /request/:id/retry`) com `mureka_task_id` presente e `audio_url` null faz `resumeSunoTaskWorkflow` — consulta a task Suno já-completa e só persiste (sem gastar créditos novos). Usado para recuperar a entrega halectorr sem nova geração.
+- **Funil de conversão (~7% pagam) — recuperação de abandonados** (commit `879b6f4`): plano de 5 passos implementado —
+  1. `GET /api/song/resume-data/:requestId` (novo, `resumeDataLimiter` 30 req/hora/IP) devolve `formData` completo (mapeia `special_traits→whatMakesSpecial`, `heart_message→messageFromTheHeart`, etc.), `aiSongTitle`, `aiLyrics`, `aiLyricsSnippet`, `aiLetterText`, `dbSongId`, `dbSongRequestId`, `status`; usa `getAdminSupabase()`, valida `UUID_REGEX`, só status `['lyrics_ready','payment_submitted']`.
+  2. Rota `/wizard?resume=<id>` reconhecida em `src/App.tsx` (init + popstate).
+  3. `Wizard.tsx`: efeito de resume no mount com guard `resumeAppliedRef` (one-shot, reseta no StrictMode), preenche `formData` + estados, salta para ecrã de planos, teaser se ativo; guard no efeito `lyrics_ready` evita re-disparar `fbLyricsGenerated`/`gaViewContent`.
+  4. Métrica `payment_screen` (funnel drop) + `fetchResumeData` em `src/api/song.ts` (+3 testes, 404/400→null).
+  5. Scheduler de abandono `abandonedRecoveryScheduler.ts` (10min) envia 4 lembretes (30min/24h/48h/72h) com guardas `abandoned_*_sent_at`; Brevo `delivered` confirmado nos logs do Render (webhook). **Query exclui `payment_submitted`** (quem já pagou não recebe "esqueceu-se de pagar").
+- **Rollback automático Suno testado + notificação completa**: `rollbackSunoWorkflow` exportado (`workflow.ts`) — reverte `payments.status→failed` + `approved_at:null`, limpa storage órfão, notifica admin (com email/nome do cliente, nº de pagamentos revertidos e link `/admin`) e cliente (`sendWorkflowFailedEmail`). 8 unit tests em `server/__tests__/workflow-rollback.test.ts` (reversão, sem aprovados, fallback `users.email`, storage cleanup, graceful em falhas).
 
 ## AI Providers (Ordem de fallback)
 1. **Gemini** (`gemini-2.5-flash`) — tentado primeiro
@@ -93,17 +100,17 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - **CI corre em ubuntu-latest com Node 22**, npm ci, lint, test.
 
 ## Testes
-- **140 testes**, 11 ficheiros — todos passam (vitest + jsdom).
-- Distribuição: validation (18), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (11), SongPlayer (8), metaPixel (12), song-api (4), useAudioPlayer (4), smoke (1), metaPixelCapi (2).
+- **173 testes**, 15 ficheiros — todos passam (vitest + jsdom).
+- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (7), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (3), aiShared (14), helpers (5), workflow-rollback (8).
 - **Playwright E2E**: 13 testes (landing, wizard, dedication, admin).
 
 ## Next Steps
 1. **Custom domain** apontar `seubeat.ao` para Render.
 2. **E2E tests completos** com API reais (Wizard → pagamento → dedicatória).
-3. **Rollback automático no Suno** — reverte `payments.status` + notifica admin (rollback já existe em `rollbackSunoWorkflow`; falta testar/fluxo de notificação completo).
+3. **Monitorizar métricas do funil de conversão** — recuperação de abandonados ativa em produção; acompanhar taxa de resume (`payment_screen` vs. `resume-data` hits) e conversão pós-lembrete.
 
 ## Critical Context
-- **140 testes passam sempre** após cada mudança (vitest).
+- **173 testes passam sempre** após cada mudança (vitest).
 - **Supabase**: `service_role` key usada apenas onde necessário (admin routes, auth.admin.*, workflows, signed URLs). Anon key usada no endpoint público de dedicatória.
 - **AI providers**: OpenAI + Gemini + Claude configurados. Fallback automático se um falhar.
 - **Suno**: API key configurada, 500+ créditos. `deliveryScheduler.ts` para entregas Standard.
@@ -114,18 +121,20 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 ## Relevant Files
 - `server/services/supabase.ts`: `getAdminSupabase()`, `getPublicSupabase()`, `uploadToSupabase()`.
 - `server/services/deliveryScheduler.ts`: scheduler de entrega 24h (10min interval).
-- `server/services/workflow.ts`: orquestração Suno + transições de status (`resumeSunoTaskWorkflow`, `persistGeneratedSunoAudio`, `MIN_SONG_DURATION_SEC`).
+- `server/services/abandonedRecoveryScheduler.ts`: scheduler de lembretes de abandono (30min/24h/48h/72h; exclui `payment_submitted`).
+- `server/services/workflow.ts`: orquestração Suno + transições de status (`resumeSunoTaskWorkflow`, `persistGeneratedSunoAudio`, `rollbackSunoWorkflow` exportado, `MIN_SONG_DURATION_SEC`).
 - `server/services/suno.ts`: `querySunoTask`, `pollSunoTask`, `FAILED_STATUSES`, `extractAudioUrl`.
 - `server/services/audio.ts`: `getAudioDuration`, `getAudioDurationFfmpeg` (stderr do ffmpeg), `applyFades`.
 - `server/services/email.ts`: `sendPersonalizedEmail`, `sendConfirmationEmail`, `sendPaymentRejectionEmail`.
 - `server/services/ai.ts`: orquestrador de providers (OpenAI → Gemini → Claude).
 - `server/services/aiShared.ts`: shared utils de retry, extractJSON, validateComposition.
-- `server/routes/public.ts`: rotas públicas (wizard, pagamento, dedicatória).
+- `server/routes/public.ts`: rotas públicas (wizard, pagamento, dedicatória, `GET /song/resume-data/:requestId`).
 - `server/routes/admin.ts`: painel admin + aprovação/rejeição + cron.
 - `server/middleware/security.ts`: Helmet, CORS, logger.
 - `server/middleware/adminIpRestriction.ts`: IP whitelist opcional.
 - `server/utils/audit.ts`: log de acções admin para undo.
 - `server/utils/helpers.ts`: `publicErrorMessage`, `getAppUrl`.
+- `server/__tests__/workflow-rollback.test.ts`: 8 testes do `rollbackSunoWorkflow`.
 - `supabase_setup.sql`: Setup SQL original **desatualizado** face ao schema real.
 - `supabase_migration_scheduler.sql`: Migration com `deliver_at`, `delivered_at`, `deleted_at`, índice.
 - `supabase_migration_wizard_optional_fields.sql`: Migration com `reference_artist`, `why_created_today`, `only_she_does`, `where_it_happened`.

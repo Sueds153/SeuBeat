@@ -488,13 +488,29 @@ async function rollbackStorageForSong(
   }
 }
 
-async function rollbackSunoWorkflow(
+export async function rollbackSunoWorkflow(
   supabase: NonNullable<ReturnType<typeof getAdminSupabase>>,
   requestId: string,
   songId: string,
   err: unknown
 ) {
+  // Dados do cliente (email + nome) usados nas notificações — consultados uma vez
+  let userEmail: string | null | undefined;
+  let recipientName: string | undefined;
+  try {
+    const { data: failedRequest } = await supabase
+      .from('song_requests')
+      .select('email, recipient_name, users(email)')
+      .eq('id', requestId)
+      .single();
+    userEmail = failedRequest?.email || failedRequest?.users?.[0]?.email || null;
+    recipientName = failedRequest?.recipient_name || undefined;
+  } catch (infoErr) {
+    logError('[Rollback] Não foi possível obter dados do cliente', infoErr, { requestId });
+  }
+
   // Reverter pagamentos aprovados para 'failed' + limpar approved_at
+  let revertedCount = 0;
   try {
     const { data: approvedPayments } = await supabase
       .from('payments')
@@ -503,6 +519,7 @@ async function rollbackSunoWorkflow(
       .eq('status', 'approved');
 
     if (approvedPayments && approvedPayments.length > 0) {
+      revertedCount = approvedPayments.length;
       await supabase
         .from('payments')
         .update({
@@ -512,7 +529,7 @@ async function rollbackSunoWorkflow(
         })
         .eq('request_id', requestId)
         .eq('status', 'approved');
-      logWarn(`[Rollback] ${approvedPayments.length} pagamento(s) revertido(s) para 'failed'`, { requestId });
+      logWarn(`[Rollback] ${revertedCount} pagamento(s) revertido(s) para 'failed'`, { requestId });
     }
   } catch (rollbackErr) {
     logError('[Rollback] Payment rollback failed', rollbackErr, { requestId });
@@ -528,11 +545,18 @@ async function rollbackSunoWorkflow(
     await rollbackStorageForSong(supabase, songId, requestId, sr?.voice_sample_url);
   } catch {}
 
-  // Notificar admin
+  // Notificar admin (com contexto completo para ação)
   try {
+    const adminUrl = `${getAppUrl()}/admin`;
     await sendAdminNotification(
       'Falha na geração Suno — Pedido ' + requestId.slice(0, 8),
-      'Ocorreu um erro ao gerar a música no Suno.\n\nPedido: ' + requestId + '\nErro: ' + (err instanceof Error ? err.message : String(err ?? ''))
+      'Ocorreu um erro ao gerar a música no Suno.\n\n' +
+        'Pedido: ' + requestId + '\n' +
+        'Música (songId): ' + songId + '\n' +
+        'Cliente: ' + (recipientName || '—') + (userEmail ? ` <${userEmail}>` : '') + '\n' +
+        'Pagamentos revertidos: ' + revertedCount + '\n' +
+        'Erro: ' + (err instanceof Error ? err.message : String(err ?? '')) + '\n\n' +
+        'Admin: ' + adminUrl
     );
   } catch (emailErr) {
     logError('[Rollback] Admin notification failed', emailErr, { requestId });
@@ -540,14 +564,8 @@ async function rollbackSunoWorkflow(
 
   // Notificar cliente
   try {
-    const { data: failedRequest } = await supabase
-      .from('song_requests')
-      .select('email, recipient_name, users(email)')
-      .eq('id', requestId)
-      .single();
-    const userEmail = failedRequest?.email || failedRequest?.users?.[0]?.email;
     if (userEmail) {
-      await sendWorkflowFailedEmail(userEmail, failedRequest?.recipient_name || 'Cliente');
+      await sendWorkflowFailedEmail(userEmail, recipientName || 'Cliente');
     }
   } catch (emailErr) {
     logError('[Rollback] Client notification failed', emailErr, { requestId });
