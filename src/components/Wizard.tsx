@@ -364,6 +364,9 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   // Lyrics Teaser state (Fase 4)
   const [teaserEnabled, setTeaserEnabled] = useState(false);
   const [lyricsTeaser, setLyricsTeaser] = useState<ReturnType<typeof buildTeaser> | null>(null);
+
+  // Resume via /wizard?resume=<id> — aplicado uma única vez no mount
+  const resumeAppliedRef = useRef(false);
   
   const [dbSongId, setDbSongId] = useState<string>(() => {
     try {
@@ -439,12 +442,14 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   // Definir ecrã de preview quando a letra fica pronta
   useEffect(() => {
     if (generationStatus === 'lyrics_ready') {
-      setConversionStep('preview');
-      const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
-      const plan = selectedPlanID || 'standard';
-      gaViewContent(plan, PLAN_VALUES[plan]);
-      // Meta: letras geradas = CompleteRegistration real
-      fbLyricsGenerated(crypto.randomUUID());
+      if (!resumeAppliedRef.current) {
+        setConversionStep('preview');
+        const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
+        const plan = selectedPlanID || 'standard';
+        gaViewContent(plan, PLAN_VALUES[plan]);
+        // Meta: letras geradas = CompleteRegistration real
+        fbLyricsGenerated(crypto.randomUUID());
+      }
     }
   }, [generationStatus]);
 
@@ -576,6 +581,62 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
   const proofMountedRef = useRef(true);
   useEffect(() => { proofMountedRef.current = true; return () => { proofMountedRef.current = false; }; }, []);
+
+  // Resume via /wizard?resume=<requestId> — reconstrói o wizard com a letra já gerada
+  useEffect(() => {
+    if (resumeAppliedRef.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const resumeId = params.get('resume');
+    if (!resumeId || dbSongId) return;
+
+    resumeAppliedRef.current = true;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { fetchResumeData } = await import('../api/song');
+        const data = await fetchResumeData(resumeId);
+        if (cancelled) return;
+        if (!data || !data.success || !data.data) {
+          showToast('Pedido não encontrado ou expirado. Inicie novamente.', 'error');
+          return;
+        }
+
+        const rd = data.data;
+        const fd = rd.formData || {};
+        wrappedSetFormData(prev => ({
+          ...prev,
+          ...fd
+        }));
+        if (rd.aiSongTitle) setAiSongTitle(rd.aiSongTitle);
+        if (Array.isArray(rd.aiLyrics) && rd.aiLyrics.length) {
+          setAiLyrics(rd.aiLyrics);
+          setAiLyricsSnippet(rd.aiLyricsSnippet || rd.aiLyrics.join('\n').slice(0, 200));
+        }
+        if (rd.aiLetterText) setAiLetterText(rd.aiLetterText);
+        if (rd.dbSongId) setDbSongId(rd.dbSongId);
+        if (rd.dbSongRequestId) setDbSongRequestId(rd.dbSongRequestId);
+
+        setGenerationStatus('lyrics_ready');
+        setConversionStep('plans');
+
+        const fullLyrics = Array.isArray(rd.aiLyrics) ? rd.aiLyrics.join('\n') : '';
+        const teaserOn = await isTeaserEnabled();
+        setTeaserEnabled(teaserOn);
+        if (teaserOn && fullLyrics) {
+          setLyricsTeaser(buildTeaser(fullLyrics));
+        }
+
+        showToast('Pedido retomado! Escolhe o teu plano para continuar.', 'success');
+      } catch {
+        if (!cancelled) {
+          showToast('Não foi possível retomar o pedido. Tente novamente.', 'error');
+        }
+      }
+    })();
+
+    return () => { cancelled = true; resumeAppliedRef.current = false; };
+  }, [dbSongId]);
 
   useEffect(() => {
     if (proofFile && !paymentSubmitting && !paymentSubmitted && !paymentSubmitError) {
@@ -782,6 +843,15 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     }, 5000);
     return () => clearInterval(interval);
   }, [isDone, paymentProofs.length]);
+
+  // Meta: registar quando o ecrã de pagamento é visto (uma vez por pedido)
+  const paymentScreenTrackedRef = useRef(false);
+  useEffect(() => {
+    if (isDone && !paymentScreenTrackedRef.current) {
+      paymentScreenTrackedRef.current = true;
+      fbWizardStep('payment_screen', 9, crypto.randomUUID());
+    }
+  }, [isDone]);
 
   const pollCancelledRef = useRef(false);
 

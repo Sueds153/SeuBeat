@@ -67,3 +67,50 @@ describe('fetchSongWithTimeout', () => {
     expect(result).toEqual(mockData);
   });
 });
+
+describe('fetchResumeData', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('fetches resume data for a request id', async () => {
+    const mockData = {
+      success: true,
+      data: {
+        formData: { recipientName: 'Maria', email: 'maria@ex.com' },
+        aiSongTitle: 'Para a Maria',
+        aiLyrics: ['Verso 1', 'Verso 2'],
+        dbSongRequestId: 'req-123',
+      },
+    };
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      status: 200,
+      json: () => Promise.resolve(mockData),
+    });
+
+    const { fetchResumeData } = await import('../api/song');
+    const result = await fetchResumeData('req-123');
+    expect(result).toEqual(mockData);
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/song/resume-data/req-123', { signal: undefined });
+  });
+
+  it('returns null on 404', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({ status: 404 });
+
+    const { fetchResumeData } = await import('../api/song');
+    const result = await fetchResumeData('missing');
+    expect(result).toBeNull();
+  });
+
+  it('returns null on 400 (expired status)', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({ status: 400 });
+
+    const { fetchResumeData } = await import('../api/song');
+    const result = await fetchResumeData('stale');
+    expect(result).toBeNull();
+  });
+});

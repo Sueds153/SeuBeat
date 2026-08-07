@@ -25,7 +25,8 @@ import {
   emailLimiter,
   getSongLimiter,
   paymentLimiter,
-  paymentStatusLimiter
+  paymentStatusLimiter,
+  resumeDataLimiter
 } from '../middleware/rateLimiter';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 
@@ -1302,6 +1303,81 @@ router.get('/song/:id/resume-link', async (req, res) => {
     });
   } catch (err: unknown) {
     logError('[API] Falha ao gerar resume-link', err);
+    res.status(500).json({ success: false, error: 'Erro interno' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/song/resume-data/:requestId — dados para reconstruir o Wizard a partir
+// de um resume link (letra já gerada). Service role: evita expor dados por RLS.
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/song/resume-data/:requestId', resumeDataLimiter, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    if (!UUID_REGEX.test(requestId)) {
+      return res.status(400).json({ success: false, error: 'ID inválido.' });
+    }
+
+    const supabase = getAdminSupabase();
+    if (!supabase) {
+      return res.status(503).json({ success: false, error: 'Serviço indisponível' });
+    }
+
+    const { data: requestData, error } = await supabase
+      .from('song_requests')
+      .select('*, songs(id, title, lyrics, lyrics_snippet, letter_text), users(name)')
+      .eq('id', requestId)
+      .maybeSingle();
+
+    if (error || !requestData) {
+      return res.status(404).json({ success: false, error: 'Pedido não encontrado' });
+    }
+
+    const allowedStatuses = ['lyrics_ready', 'payment_submitted'];
+    if (!allowedStatuses.includes(requestData.status)) {
+      return res.status(400).json({ success: false, error: 'Este pedido já não pode ser retomado.' });
+    }
+
+    const song = Array.isArray(requestData.songs) ? requestData.songs[0] : requestData.songs;
+    const lyrics = Array.isArray(song?.lyrics) ? song.lyrics : [];
+
+    const resumeData = {
+      formData: {
+        userNick: requestData.users?.name || '',
+        recipientName: requestData.recipient_name || '',
+        recipientGender: requestData.recipient_gender || 'Masculino',
+        recipientRelation: requestData.relationship || '',
+        recipientNick: requestData.recipient_nick || '',
+        occasion: requestData.occasion || '',
+        whyCreatedToday: requestData.why_created_today || '',
+        musicStyle: requestData.music_style || '',
+        referenceArtist: requestData.reference_artist || '',
+        voiceType: requestData.voice_type || '',
+        whatMakesSpecial: requestData.special_traits || '',
+        onlySheDoes: requestData.only_she_does || '',
+        unforgettableMemory: requestData.memory || '',
+        whereItHappened: requestData.where_it_happened || '',
+        messageFromTheHeart: requestData.heart_message || '',
+        desiredEmotion: requestData.desired_emotion || '',
+        hookPhrase: requestData.hook_phrase || '',
+        photoUrl: requestData.photo_url || '',
+        email: requestData.email || '',
+        phone: requestData.phone || '',
+        language: requestData.language || 'português'
+      },
+      aiSongTitle: song?.title || '',
+      aiLyrics: lyrics,
+      aiLyricsSnippet: song?.lyrics_snippet || '',
+      aiLetterText: song?.letter_text || '',
+      dbSongId: song?.id || '',
+      dbSongRequestId: requestData.id,
+      status: requestData.status
+    };
+
+    logInfo('[API] Resume data fetched', { requestId, status: requestData.status, hasPhoto: !!resumeData.formData.photoUrl });
+    res.json({ success: true, data: resumeData });
+  } catch (err: unknown) {
+    logError('[API] Falha ao obter resume data', err, { requestId: req.params.requestId });
     res.status(500).json({ success: false, error: 'Erro interno' });
   }
 });

@@ -153,6 +153,27 @@ export const paymentLimiter = rateLimit({
 });
 
 /**
+ * Limiter para dados de resume do wizard (expõe dados pessoais)
+ * 30 requests por hora por IP
+ */
+export const resumeDataLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 30,
+  message: {
+    success: false,
+    error: 'Demasiadas requisições.'
+  },
+  skip: (req) => process.env.NODE_ENV !== 'production',
+  handler: (req, res) => {
+    logWarn('Resume data rate limit exceeded', { ip: req.ip, path: req.path });
+    res.status(429).json({
+      success: false,
+      error: 'Demasiadas requisições. Tente novamente mais tarde.'
+    });
+  }
+});
+
+/**
  * Limiter para consulta de status de pagamento (mais permissivo)
  * 120 requests por hora por IP — para nao bloquear o polling automatico
  */

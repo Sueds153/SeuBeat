@@ -51,6 +51,27 @@ export async function fetchSongWithTimeout(id: string, signal?: AbortSignal): Pr
   }
 }
 
+export interface ResumeDataResponse {
+  success: boolean;
+  data?: {
+    formData: Record<string, string>;
+    aiSongTitle?: string;
+    aiLyrics?: string[];
+    aiLyricsSnippet?: string;
+    aiLetterText?: string;
+    dbSongId?: string;
+    dbSongRequestId?: string;
+    status?: string;
+  };
+  error?: string;
+}
+
+export async function fetchResumeData(requestId: string, signal?: AbortSignal): Promise<ResumeDataResponse | null> {
+  const res = await fetch(`/api/song/resume-data/${encodeURIComponent(requestId)}`, { signal });
+  if (res.status === 404 || res.status === 400) return null;
+  return res.json();
+}
+
 function combineAbortSignals(...signals: AbortSignal[]): AbortSignal {
   const controller = new AbortController();
   for (const sig of signals) {

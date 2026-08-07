@@ -28,6 +28,9 @@ export default function App() {
     if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
       return 'admin';
     }
+    if (window.location.pathname === '/wizard') {
+      return 'wizard';
+    }
     if (window.location.pathname.includes('/song/')) {
       return 'song';
     }
@@ -59,13 +62,15 @@ export default function App() {
       const path = window.location.pathname;
       if (path === '/admin' || path === '/admin/') {
         setCurrentView('admin');
+      } else if (path === '/wizard') {
+        setCurrentView('wizard');
       } else if (path.includes('/song/')) {
         setCurrentView('song');
       } else if (path === '/terms') {
         setCurrentView('terms');
       } else if (path === '/privacy') {
         setCurrentView('privacy');
-      } else if (currentViewRef.current === 'song' || currentViewRef.current === 'admin') {
+      } else if (currentViewRef.current === 'song' || currentViewRef.current === 'admin' || currentViewRef.current === 'wizard') {
         setCurrentView('landing');
       }
     };
