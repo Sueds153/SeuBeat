@@ -21,6 +21,15 @@ export {
   generateValidationPhrase, waitForValidationPhrase,
   createCustomVoice, waitForVoiceId, checkVoiceAvailability,
 } from './suno-voice';
+export {
+  bucketForElapsed, bucketLabel, buildAbandonedMessage,
+  normalizePhoneToE164, ABANDONED_BUCKET_ORDER,
+} from './abandonedMessages';
+export type { AbandonedBucketKey } from './abandonedMessages';
+export {
+  getLinkStatus, startLink, runSendBulk, getSendProgress,
+} from './whatsappSender';
+export type { BulkClient, BulkOptions } from './whatsappSender';
 export { extractAudioUrl, querySunoTask, generateFullSong } from './suno';
 export { getAdminSupabase, getPublicSupabase, uploadToSupabase } from './supabase';
 export {

@@ -4,7 +4,7 @@ import {
   Clock, RefreshCw, Eye, LogOut, ChevronDown, ChevronRight,
   Download, Play, AlertTriangle, Sparkles, TrendingUp, Shield,
   Activity, RotateCcw, Mic, Mail, Pencil, Upload, Search, FileText, ExternalLink, List, Zap,
-  Menu, Megaphone, X
+  Menu, Megaphone, X, Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LogoIcon from './LogoIcon';
@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { id: 'campaigns', label: 'Campanhas', icon: Megaphone },
   { id: 'credits', label: 'Créditos API', icon: Activity },
   { id: 'diagnostics', label: 'Diagnóstico', icon: Shield },
+  { id: 'abandoned', label: 'Abandonados', icon: Send },
 ];
 
 const REJECT_TEMPLATES = [
@@ -147,6 +148,38 @@ interface CampaignRow {
   revenue: number;
 }
 
+interface AbandonedClient {
+  id: string;
+  recipientName: string;
+  email: string;
+  phone: string;
+  waDigits: string | null;
+  status: string;
+  createdAt: string;
+  elapsedMs: number;
+  reminders: string[];
+  manualContactedAt: string | null;
+  message: string;
+  resumePath: string;
+}
+
+interface AbandonedBucket {
+  key: string;
+  label: string;
+  clients: AbandonedClient[];
+}
+
+interface SendProgress {
+  running: boolean;
+  total: number;
+  processed: number;
+  sent: number;
+  skippedNoWhatsApp: number;
+  failed: number;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+}
+
 interface ProgressEntry {
   status: string;
   progress: number;
@@ -154,7 +187,7 @@ interface ProgressEntry {
   error?: string;
 }
 
-type AdminView = 'dashboard' | 'payments' | 'requests' | 'songs' | 'clients' | 'credits' | 'diagnostics' | 'metrics' | 'campaigns';
+type AdminView = 'dashboard' | 'payments' | 'requests' | 'songs' | 'clients' | 'credits' | 'diagnostics' | 'metrics' | 'campaigns' | 'abandoned';
 
 const STATUS_COLORS: Record<string, string> = {
   pending_verification: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
@@ -355,6 +388,15 @@ export default function AdminPanel() {
   const [profitLoading, setProfitLoading] = useState(false);
   const [campaigns, setCampaigns] = useState<CampaignRow[] | null>(null);
   const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [abandonedBuckets, setAbandonedBuckets] = useState<AbandonedBucket[]>([]);
+  const [abandonedTotal, setAbandonedTotal] = useState(0);
+  const [abandonedNotContacted, setAbandonedNotContacted] = useState(0);
+  const [abandonedLoading, setAbandonedLoading] = useState(false);
+  const [waLinked, setWaLinked] = useState<boolean | null>(null);
+  const [waLinking, setWaLinking] = useState(false);
+  const [waQr, setWaQr] = useState<string | null>(null);
+  const [sendProgress, setSendProgress] = useState<SendProgress | null>(null);
+  const [sendButtonLoading, setSendButtonLoading] = useState(false);
   const [logsModal, setLogsModal] = useState<{ id: string; loading: boolean; logs: any[] } | null>(null);
   const [previewLyrics, setPreviewLyrics] = useState<{ title: string; lyrics: string[]; letterText?: string } | null>(null);
   const [notification, setNotification] = useState<{ message: string } | null>(null);
@@ -590,6 +632,97 @@ export default function AdminPanel() {
     setCampaignsLoading(false);
   }, [adminToken, apiFetch]);
 
+  const fetchAbandoned = useCallback(async () => {
+    if (!adminToken) return;
+    setAbandonedLoading(true);
+    const data = await apiFetch('/api/admin/abandoned');
+    if (data) {
+      setAbandonedBuckets(Array.isArray(data.buckets) ? data.buckets : []);
+      setAbandonedTotal(data.total || 0);
+      setAbandonedNotContacted(data.notContacted || 0);
+      setWaLinked(data.linked === true);
+    }
+    setAbandonedLoading(false);
+  }, [adminToken, apiFetch]);
+
+  const fetchSendProgress = useCallback(async () => {
+    if (!adminToken) return;
+    const data = await apiFetch('/api/admin/abandoned/send-status');
+    if (data?.progress) {
+      setSendProgress({
+        running: !!data.progress.running,
+        total: data.progress.total || 0,
+        processed: data.progress.processed || 0,
+        sent: data.progress.sent || 0,
+        skippedNoWhatsApp: data.progress.skippedNoWhatsApp || 0,
+        failed: data.progress.failed || 0,
+        startedAt: data.progress.startedAt || null,
+        finishedAt: data.progress.finishedAt || null,
+      });
+    }
+  }, [adminToken, apiFetch]);
+
+  const markContacted = useCallback(async (id: string) => {
+    if (!adminToken) return;
+    const data = await apiFetch(`/api/admin/abandoned/${id}/mark-contacted`, { method: 'POST' });
+    if (data?.success) {
+      showToast('Marcado como contactado manualmente.', 'success');
+      fetchAbandoned();
+    }
+  }, [adminToken, apiFetch, showToast, fetchAbandoned]);
+
+  const linkWhatsApp = useCallback(async () => {
+    if (!adminToken) return;
+    setWaLinking(true);
+    const data = await apiFetch('/api/admin/whatsapp/link', { method: 'POST' });
+    setWaLinking(false);
+    if (data?.qr) {
+      setWaQr(data.qr);
+    } else if (data?.status === 'linked' || data?.success) {
+      setWaLinked(true);
+      setWaQr(null);
+      showToast('WhatsApp ligado com sucesso.', 'success');
+    } else {
+      showToast(data?.error || 'Falha ao iniciar a ligação.', 'error');
+    }
+  }, [adminToken, apiFetch, showToast]);
+
+  const sendAbandonedBulk = useCallback(async (requestIds?: string[]) => {
+    if (!adminToken) return;
+    setSendButtonLoading(true);
+    const data = await apiFetch('/api/admin/abandoned/send-bulk', {
+      method: 'POST',
+      body: JSON.stringify(requestIds?.length ? { requestIds } : {}),
+    });
+    setSendButtonLoading(false);
+    if (data?.success) {
+      showToast(`Envio iniciado para ${data.total} clientes.`, 'success');
+      fetchSendProgress();
+      const poll = setInterval(async () => {
+        const d = await apiFetch('/api/admin/abandoned/send-status');
+        if (d?.progress) {
+          setSendProgress({
+            running: !!d.progress.running,
+            total: d.progress.total || 0,
+            processed: d.progress.processed || 0,
+            sent: d.progress.sent || 0,
+            skippedNoWhatsApp: d.progress.skippedNoWhatsApp || 0,
+            failed: d.progress.failed || 0,
+            startedAt: d.progress.startedAt || null,
+            finishedAt: d.progress.finishedAt || null,
+          });
+          if (!d.progress.running) {
+            clearInterval(poll);
+            if (d.progress.processed > 0) fetchAbandoned();
+            showToast(`Envio terminado: ${d.progress.sent} ok, ${d.progress.failed} falhas.`, d.progress.failed > 0 ? 'error' : 'success');
+          }
+        }
+      }, 4000);
+    } else {
+      showToast(data?.error || 'Falha ao iniciar o envio.', 'error');
+    }
+  }, [adminToken, apiFetch, showToast, fetchAbandoned, fetchSendProgress]);
+
   const fetchLogs = useCallback(async (requestId: string) => {
     setLogsModal({ id: requestId, loading: true, logs: [] });
     const d = await apiFetch(`/api/admin/request/${requestId}/logs`);
@@ -662,6 +795,7 @@ export default function AdminPanel() {
     else if (activeView === 'diagnostics') fetchDiagnostics();
     else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
     else if (activeView === 'campaigns') fetchCampaigns();
+    else if (activeView === 'abandoned') { fetchAbandoned(); fetchSendProgress(); }
     else if (activeView === 'clients') fetchClientsList();
   }, [authenticated, activeView]);
 
@@ -682,9 +816,10 @@ export default function AdminPanel() {
     else if (activeView === 'clients') fetchClientsList();
     else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
     else if (activeView === 'campaigns') fetchCampaigns();
+    else if (activeView === 'abandoned') { fetchAbandoned(); fetchSendProgress(); }
     else if (activeView === 'credits') fetchCredits();
     else if (activeView === 'diagnostics') fetchDiagnostics();
-  }, [activeView, fetchPayments, fetchRequests, fetchSongs, fetchClientsList, fetchMetrics, fetchProfitability, fetchCredits, fetchDiagnostics]);
+  }, [activeView, fetchPayments, fetchRequests, fetchSongs, fetchClientsList, fetchMetrics, fetchProfitability, fetchCredits, fetchDiagnostics, fetchAbandoned, fetchSendProgress]);
 
   const resetViewPoll = useCallback(() => {
     if (viewPollRef.current) clearInterval(viewPollRef.current);
@@ -703,9 +838,10 @@ export default function AdminPanel() {
     else if (activeView === 'diagnostics') fetchDiagnostics();
     else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
     else if (activeView === 'campaigns') fetchCampaigns();
+    else if (activeView === 'abandoned') { fetchAbandoned(); fetchSendProgress(); }
     else if (activeView === 'clients') fetchClientsList();
     resetViewPoll();
-  }, [activeView, fetchStats, fetchPayments, fetchRequests, fetchProgress, fetchSongs, fetchCredits, fetchDiagnostics, fetchMetrics, fetchProfitability, fetchClientsList, resetViewPoll]);
+  }, [activeView, fetchStats, fetchPayments, fetchRequests, fetchProgress, fetchSongs, fetchCredits, fetchDiagnostics, fetchMetrics, fetchProfitability, fetchClientsList, resetViewPoll, fetchAbandoned, fetchSendProgress]);
 
   // Poll current view data every 10s
   useEffect(() => {
@@ -2552,6 +2688,147 @@ export default function AdminPanel() {
                           </tbody>
                         </table>
                       </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ABANDONADOS */}
+              {activeView === 'abandoned' && (
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h1 className="font-serif text-2xl font-bold text-stone-100">Abandonados</h1>
+                      <p className="text-stone-500 text-sm mt-1">Clientes com letra pronta que ainda não pagaram — recuperação via email automático e WhatsApp manual</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={fetchAbandoned} disabled={abandonedLoading} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
+                        <RefreshCw className={`w-3.5 h-3.5 ${abandonedLoading ? 'animate-spin' : ''}`} /> {abandonedLoading ? 'A carregar...' : 'Atualizar'}
+                      </button>
+                      {waLinked ? (
+                        <span className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 rounded-xl">
+                          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" /> WhatsApp ligado
+                        </span>
+                      ) : (
+                        <button onClick={linkWhatsApp} disabled={waLinking} className="flex items-center gap-2 text-xs text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl transition-colors cursor-pointer">
+                          <Send className={`w-3.5 h-3.5 ${waLinking ? 'animate-spin' : ''}`} /> {waLinking ? 'A ligar...' : 'Ligar WhatsApp'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {abandonedLoading && (
+                    <div className="flex items-center justify-center h-40"><RefreshCw className="w-6 h-6 text-stone-600 animate-spin" /></div>
+                  )}
+
+                  {!abandonedLoading && (
+                    <div className="space-y-5">
+                      {/* Summary Stats */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <StatCard icon={Send} label="Abandonados" value={abandonedTotal} color="bg-violet-500/15 text-violet-400" onClick={() => {}} />
+                        <StatCard icon={CheckCircle} label="Por contactar" value={abandonedNotContacted} color="bg-emerald-500/15 text-emerald-400" onClick={() => {}} />
+                        <StatCard icon={Clock} label="Buckets" value={abandonedBuckets.length} color="bg-purple-500/15 text-purple-400" onClick={() => {}} />
+                        <StatCard icon={Send} label="Estado WhatsApp" value={waLinked ? 'Ligado' : 'Desligado'} color={waLinked ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'} onClick={() => {}} />
+                      </div>
+
+                      {/* Send progress */}
+                      {sendProgress && sendProgress.running && (
+                        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm text-amber-100 font-medium">A enviar mensagens WhatsApp...</span>
+                            <span className="text-xs font-mono text-amber-300">{sendProgress.processed}/{sendProgress.total} · {sendProgress.sent} ok · {sendProgress.failed} falhas</span>
+                          </div>
+                          <div className="w-full bg-stone-800 rounded-full h-2 overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full transition-all" style={{ width: `${sendProgress.total > 0 ? (sendProgress.processed / sendProgress.total) * 100 : 0}%` }} />
+                          </div>
+                          {sendProgress.finishedAt && (
+                            <p className="text-xs text-stone-500 font-mono mt-2">Terminado às {new Date(sendProgress.finishedAt).toLocaleTimeString('pt-PT')}</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Bulk actions */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => sendAbandonedBulk()}
+                          disabled={sendButtonLoading || abandonedTotal === 0}
+                          className="flex items-center gap-2 text-xs font-bold text-stone-950 bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-400 hover:to-rose-400 disabled:opacity-50 px-4 py-2 rounded-xl transition-colors cursor-pointer"
+                        >
+                          <Send className="w-3.5 h-3.5" /> {sendButtonLoading ? 'A iniciar...' : 'Enviar WhatsApp a todos por contactar'}
+                        </button>
+                        <span className="text-xs text-stone-500">Respeita o limite diário e o horário configurado (default 9h–20h, máx 30/dia)</span>
+                      </div>
+
+                      {/* QR modal */}
+                      {waQr && (
+                        <div className="rounded-2xl border border-stone-800 bg-stone-900/60 p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-sm font-bold text-stone-100">Ligar o telemóvel</h3>
+                            <button onClick={() => setWaQr(null)} className="text-stone-400 hover:text-stone-200 cursor-pointer"><X className="w-4 h-4" /></button>
+                          </div>
+                          <p className="text-xs text-stone-400 mb-4">Abre o WhatsApp no telemóvel → Definições → Dispositivos ligados → Ligar um dispositivo → e aponta a câmara para este QR code. A mensagem será enviada a partir do número 929 423 278.</p>
+                          <div className="flex justify-center">
+                            <img src={waQr} alt="QR Code WhatsApp" className="w-64 h-64 rounded-xl bg-white p-2" />
+                          </div>
+                          <button onClick={fetchAbandoned} className="mt-4 w-full flex items-center justify-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl hover:bg-amber-500/20 transition-colors cursor-pointer">
+                            Verificar ligação
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Buckets */}
+                      {abandonedBuckets.length === 0 && (
+                        <div className="text-center py-16 text-stone-600 font-mono text-sm">Sem clientes em abandono neste momento.</div>
+                      )}
+
+                      {abandonedBuckets.map((bucket) => (
+                        <div key={bucket.key} className="rounded-2xl border border-stone-800 overflow-hidden">
+                          <div className="flex items-center justify-between bg-stone-900/80 px-4 py-3">
+                            <h3 className="text-sm font-bold text-stone-100">{bucket.label}</h3>
+                            <span className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">{bucket.clients.length} clientes</span>
+                          </div>
+                          <div className="divide-y divide-stone-800/50">
+                            {bucket.clients.map((client) => (
+                              <div key={client.id} className="px-4 py-3 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 md:items-center">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-stone-200 font-medium text-sm truncate">{client.recipientName || 'Sem nome'}</span>
+                                    <span className="text-[10px] font-mono text-stone-500">{formatDate(client.createdAt)}</span>
+                                    {client.reminders.map((r) => (
+                                      <span key={r} className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">email {r}</span>
+                                    ))}
+                                    {client.manualContactedAt && (
+                                      <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">contactado manualmente</span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-stone-500 font-mono truncate mt-1">{client.email} · {client.phone || 'sem telefone'}</p>
+                                  <p className="text-xs text-stone-400 italic line-clamp-2 mt-1">{client.message}</p>
+                                </div>
+                                <div className="flex items-center gap-2 justify-end">
+                                  {client.waDigits ? (
+                                    <button
+                                      onClick={() => sendAbandonedBulk([client.id])}
+                                      disabled={sendButtonLoading}
+                                      className="flex items-center gap-1.5 text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1.5 rounded-lg hover:bg-emerald-500/20 transition-colors cursor-pointer"
+                                    >
+                                      <Send className="w-3 h-3" /> Enviar WhatsApp
+                                    </button>
+                                  ) : (
+                                    <span className="text-[10px] font-mono text-stone-600 border border-stone-800 px-2 py-1.5 rounded-lg" title="Telefone ausente ou formato inválido">Sem WhatsApp</span>
+                                  )}
+                                  <button
+                                    onClick={() => markContacted(client.id)}
+                                    disabled={!!client.manualContactedAt}
+                                    className="flex items-center gap-1.5 text-[11px] text-stone-300 bg-stone-900 border border-stone-800 px-2.5 py-1.5 rounded-lg hover:bg-stone-800 disabled:opacity-40 transition-colors cursor-pointer"
+                                  >
+                                    <CheckCircle className="w-3 h-3" /> Já contactei
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

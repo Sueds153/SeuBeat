@@ -26,7 +26,8 @@ import {
   getSongLimiter,
   paymentLimiter,
   paymentStatusLimiter,
-  resumeDataLimiter
+  resumeDataLimiter,
+  recoverByEmailLimiter
 } from '../middleware/rateLimiter';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 
@@ -1378,6 +1379,62 @@ router.get('/song/resume-data/:requestId', resumeDataLimiter, async (req, res) =
     res.json({ success: true, data: resumeData });
   } catch (err: unknown) {
     logError('[API] Falha ao obter resume data', err, { requestId: req.params.requestId });
+    res.status(500).json({ success: false, error: 'Erro interno' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/song/recover-by-email — página pública /retomar: devolve o link de
+// retoma para o pedido mais recente desse email (letra já pronta). Service role:
+// RLS anon não permite procurar por email.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/song/recover-by-email', recoverByEmailLimiter, async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+      return res.status(400).json({ success: false, error: 'Email inválido.' });
+    }
+
+    const supabase = getAdminSupabase();
+    if (!supabase) {
+      return res.status(503).json({ success: false, error: 'Serviço indisponível' });
+    }
+
+    const { data, error } = await supabase
+      .from('song_requests')
+      .select('id, email, status, recipient_name, created_at')
+      .eq('email', email)
+      .in('status', ['lyrics_ready', 'lyrics_generating'])
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) {
+      return res.status(404).json({ success: false, error: 'Não encontrámos nenhuma música para esse email.' });
+    }
+
+    if (data.status === 'lyrics_generating') {
+      return res.json({
+        success: true,
+        status: data.status,
+        message: 'A tua música ainda está a ser gerada. Volta mais tarde e tenta de novo.',
+      });
+    }
+
+    const appUrl = getAppUrl(req);
+    const resumeUrl = `${appUrl}/wizard?resume=${data.id}&step=payment`;
+
+    logInfo('[API] Recover-by-email ok', { email, status: data.status, requestId: data.id });
+    res.json({
+      success: true,
+      status: data.status,
+      resumeUrl,
+      requestId: data.id,
+      recipientName: data.recipient_name || '',
+    });
+  } catch (err: unknown) {
+    logError('[API] Falha no recover-by-email', err);
     res.status(500).json({ success: false, error: 'Erro interno' });
   }
 });

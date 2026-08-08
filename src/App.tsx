@@ -8,6 +8,7 @@ import LandingPage from './components/LandingPage';
 import SocialProof from './components/SocialProof';
 import TermsPage from './components/TermsPage';
 import PrivacyPage from './components/PrivacyPage';
+import RecoverPage from './components/RecoverPage';
 import Wizard from './components/Wizard';
 import { useMetaPixel } from './hooks/useMetaPixel';
 import { fbPageView } from './lib/metaPixel';
@@ -24,7 +25,7 @@ export default function App() {
     captureUtm();
   }, []);
 
-  const [currentView, setCurrentView] = useState<'landing' | 'wizard' | 'song' | 'admin' | 'terms' | 'privacy'>(() => {
+  const [currentView, setCurrentView] = useState<'landing' | 'wizard' | 'song' | 'admin' | 'terms' | 'privacy' | 'recover'>(() => {
     if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
       return 'admin';
     }
@@ -39,6 +40,9 @@ export default function App() {
     }
     if (window.location.pathname === '/privacy') {
       return 'privacy';
+    }
+    if (window.location.pathname === '/retomar' || window.location.pathname === '/retomar/') {
+      return 'recover';
     }
     return 'landing';
   });
@@ -70,6 +74,8 @@ export default function App() {
         setCurrentView('terms');
       } else if (path === '/privacy') {
         setCurrentView('privacy');
+      } else if (path === '/retomar' || path === '/retomar/') {
+        setCurrentView('recover');
       } else if (currentViewRef.current === 'song' || currentViewRef.current === 'admin' || currentViewRef.current === 'wizard') {
         setCurrentView('landing');
       }
@@ -103,6 +109,18 @@ export default function App() {
   }
   if (currentView === 'privacy') {
     return <PrivacyPage onBackToLanding={backToLanding} />;
+  }
+  if (currentView === 'recover') {
+    return (
+      <RecoverPage
+        onBackToLanding={backToLanding}
+        onResume={(requestId) => {
+          window.history.pushState({}, '', `/wizard?resume=${encodeURIComponent(requestId)}&step=payment`);
+          setCurrentView('wizard');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
+    );
   }
 
   // Admin route

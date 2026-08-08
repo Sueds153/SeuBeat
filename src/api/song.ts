@@ -72,6 +72,31 @@ export async function fetchResumeData(requestId: string, signal?: AbortSignal): 
   return res.json();
 }
 
+export interface RecoverByEmailResponse {
+  success: boolean;
+  status?: string;
+  message?: string;
+  resumeUrl?: string;
+  requestId?: string;
+  recipientName?: string;
+  error?: string;
+}
+
+export async function recoverByEmail(email: string, signal?: AbortSignal): Promise<RecoverByEmailResponse | null> {
+  try {
+    const res = await fetch('/api/song/recover-by-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+      signal,
+    });
+    if (res.status === 404) return { success: false, error: 'Não encontrámos nenhuma música para esse email.' };
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 function combineAbortSignals(...signals: AbortSignal[]): AbortSignal {
   const controller = new AbortController();
   for (const sig of signals) {

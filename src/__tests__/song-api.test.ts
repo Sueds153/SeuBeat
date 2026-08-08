@@ -114,3 +114,71 @@ describe('fetchResumeData', () => {
     expect(result).toBeNull();
   });
 });
+
+describe('recoverByEmail', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts email and returns resume url when found', async () => {
+    const mockData = {
+      success: true,
+      status: 'lyrics_ready',
+      resumeUrl: '/wizard?resume=req-9&step=payment',
+      requestId: 'req-9',
+      recipientName: 'Maria',
+    };
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      status: 200,
+      json: () => Promise.resolve(mockData),
+    });
+
+    const { recoverByEmail } = await import('../api/song');
+    const result = await recoverByEmail('maria@ex.com');
+    expect(result).toEqual(mockData);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/song/recover-by-email',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'maria@ex.com' }),
+      })
+    );
+  });
+
+  it('returns not-found error on 404', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({ status: 404 });
+
+    const { recoverByEmail } = await import('../api/song');
+    const result = await recoverByEmail('nao@existe.com');
+    expect(result).toEqual({ success: false, error: 'Não encontrámos nenhuma música para esse email.' });
+  });
+
+  it('propagates generating status message', async () => {
+    const mockData = {
+      success: true,
+      status: 'lyrics_generating',
+      message: 'Ainda a gerar.',
+    };
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      status: 200,
+      json: () => Promise.resolve(mockData),
+    });
+
+    const { recoverByEmail } = await import('../api/song');
+    const result = await recoverByEmail('a@b.com');
+    expect(result).toEqual(mockData);
+  });
+
+  it('returns null on network error', async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+
+    const { recoverByEmail } = await import('../api/song');
+    const result = await recoverByEmail('a@b.com');
+    expect(result).toBeNull();
+  });
+});

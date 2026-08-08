@@ -193,3 +193,45 @@ export const paymentStatusLimiter = rateLimit({
     });
   }
 });
+
+/**
+ * Limiter para recuperação de música por email (página /retomar)
+ * 20 requests por hora por IP
+ */
+export const recoverByEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 20,
+  message: {
+    success: false,
+    error: 'Demasiadas tentativas de recuperação.'
+  },
+  skip: (req) => process.env.NODE_ENV !== 'production',
+  handler: (req, res) => {
+    logWarn('Recover by email rate limit exceeded', { ip: req.ip });
+    res.status(429).json({
+      success: false,
+      error: 'Demasiadas tentativas. Tente novamente mais tarde.'
+    });
+  }
+});
+
+/**
+ * Limiter para disparar campanhas WhatsApp no admin (proteção contra abuso)
+ * 10 requests por hora por IP
+ */
+export const whatsappBulkLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: {
+    success: false,
+    error: 'Limite de campanhas WhatsApp atingido.'
+  },
+  skip: (req) => process.env.NODE_ENV !== 'production',
+  handler: (req, res) => {
+    logWarn('WhatsApp bulk rate limit exceeded', { ip: req.ip });
+    res.status(429).json({
+      success: false,
+      error: 'Limite de campanhas WhatsApp atingido. Tente novamente mais tarde.'
+    });
+  }
+});

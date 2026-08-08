@@ -72,6 +72,7 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
   4. Métrica `payment_screen` (funnel drop) + `fetchResumeData` em `src/api/song.ts` (+3 testes, 404/400→null).
   5. Scheduler de abandono `abandonedRecoveryScheduler.ts` (10min) envia 4 lembretes (30min/24h/48h/72h) com guardas `abandoned_*_sent_at`; Brevo `delivered` confirmado nos logs do Render (webhook). **Query exclui `payment_submitted`** (quem já pagou não recebe "esqueceu-se de pagar").
 - **Rollback automático Suno testado + notificação completa**: `rollbackSunoWorkflow` exportado (`workflow.ts`) — reverte `payments.status→failed` + `approved_at:null`, limpa storage órfão, notifica admin (com email/nome do cliente, nº de pagamentos revertidos e link `/admin`) e cliente (`sendWorkflowFailedEmail`). 8 unit tests em `server/__tests__/workflow-rollback.test.ts` (reversão, sem aprovados, fallback `users.email`, storage cleanup, graceful em falhas).
+- **Recuperação gratuita de abandonados via WhatsApp (Baileys) + página `/retomar`**: campanha manual no admin — bucket 30min/72h/24h/48h (prioridade), limites 30/dia + 9h–20h (env), envio `@whiskeysockets/baileys` a partir do número `244929423278`, E.164 normalizado, templates genéricos. Novos ficheiros: `supabase_migration_abandoned_whatsapp.sql` (aplicada em produção), `server/services/abandonedMessages.ts`, `server/services/whatsappSender.ts` (import lazy nas rotas — nunca no boot; `sock.end()` requer argumento), rotas em `admin.ts` (`/abandoned`, `/abandoned/send-bulk`, `/abandoned/send-status`, `/abandoned/:id/mark-contacted`, `/whatsapp/link`, `/whatsapp/link-status`), `POST /api/song/recover-by-email` (página `/retomar`), `RecoverPage.tsx`, tab "Abandonados" no `AdminPanel`. **Baileys fica fora do bundle server com `esbuild --packages=external`**; import lazy dentro dos handlers. Limiter `recoverByEmailLimiter` (20/h) + `whatsappBulkLimiter` (10/h). 192 testes (novos: `server/__tests__/abandoned-messages.test.ts` 15, `recoverByEmail` 4 em `song-api.test.ts`).
 
 ## AI Providers (Ordem de fallback)
 1. **Gemini** (`gemini-2.5-flash`) — tentado primeiro
@@ -100,8 +101,8 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - **CI corre em ubuntu-latest com Node 22**, npm ci, lint, test.
 
 ## Testes
-- **173 testes**, 15 ficheiros — todos passam (vitest + jsdom).
-- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (7), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (3), aiShared (14), helpers (5), workflow-rollback (8).
+- **192 testes**, 16 ficheiros — todos passam (vitest + jsdom).
+- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (11), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (3), aiShared (14), helpers (5), workflow-rollback (8), abandoned-messages (15).
 - **Playwright E2E**: 13 testes (landing, wizard, dedication, admin).
 
 ## Next Steps

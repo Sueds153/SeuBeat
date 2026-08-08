@@ -15,7 +15,12 @@ import { logInfo, logError, logWarn } from '../utils/logger';
 import { publicErrorMessage, getAppUrl } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
 import { sendPurchaseEvent, generateServerEventId } from '../services/metaPixelCapi';
-import { adminLimiter } from '../middleware/rateLimiter';
+import { adminLimiter, whatsappBulkLimiter } from '../middleware/rateLimiter';
+import {
+  bucketForElapsed, bucketLabel, buildAbandonedMessage,
+  normalizePhoneToE164, ABANDONED_BUCKET_ORDER,
+} from '../services/abandonedMessages';
+import type { BulkClient } from '../services/whatsappSender';
 
 const router = express.Router();
 
@@ -1621,6 +1626,195 @@ router.get('/utm-stats', adminAuth, async (req, res) => {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Erro ao carregar estatísticas UTM';
     res.status(500).json({ success: false, error: message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Painel de Abandonados + envio WhatsApp (Baileys — lazy para não afetar o boot)
+// ─────────────────────────────────────────────────────────────────────────────
+
+router.get('/abandoned', adminAuth, async (req, res) => {
+  try {
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
+
+    const { data, error } = await supabase
+      .from('song_requests')
+      .select(
+        'id, email, phone, recipient_name, created_at, status, abandoned_30min_sent_at, abandoned_24h_sent_at, abandoned_48h_sent_at, abandoned_72h_sent_at, manual_contacted_at, users(name, phone)'
+      )
+      .in('status', ['lyrics_ready', 'lyrics_generating'])
+      .is('deleted_at', null)
+      .not('email', 'is', null)
+      .order('created_at', { ascending: false });
+
+    if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
+
+    const appUrl = getAppUrl(req);
+    const now = Date.now();
+    const bucketMap: Record<string, { key: string; label: string; clients: unknown[] }> = {};
+    for (const key of ABANDONED_BUCKET_ORDER) {
+      bucketMap[key] = { key, label: bucketLabel(key), clients: [] };
+    }
+
+    for (const row of data || []) {
+      const elapsedMs = now - new Date(row.created_at).getTime();
+      const bucket = bucketForElapsed(elapsedMs);
+      if (!bucket) continue;
+
+      const phoneRaw = row.phone || row.users?.[0]?.phone;
+      const resumePath = `/wizard?resume=${row.id}&step=payment`;
+      const client = {
+        id: row.id,
+        recipientName: row.recipient_name || '',
+        email: row.email,
+        phone: phoneRaw || '',
+        waDigits: normalizePhoneToE164(phoneRaw),
+        status: row.status,
+        createdAt: row.created_at,
+        elapsedMs,
+        reminders: [
+          row.abandoned_30min_sent_at ? '30min' : null,
+          row.abandoned_24h_sent_at ? '24h' : null,
+          row.abandoned_48h_sent_at ? '48h' : null,
+          row.abandoned_72h_sent_at ? '72h' : null,
+        ].filter((r): r is string => Boolean(r)),
+        manualContactedAt: row.manual_contacted_at,
+        message: buildAbandonedMessage(bucket, row.recipient_name || '', `${appUrl}${resumePath}`),
+        resumePath,
+      };
+      bucketMap[bucket].clients.push(client);
+    }
+
+    const buckets = ABANDONED_BUCKET_ORDER
+      .map((key) => bucketMap[key])
+      .filter((b) => b.clients.length > 0);
+
+    let linked = false;
+    try {
+      const wa = await import('../services/whatsappSender');
+      linked = (await wa.getLinkStatus()).linked;
+    } catch {
+      linked = false;
+    }
+
+    res.json({
+      success: true,
+      buckets,
+      total: data?.length || 0,
+      notContacted: (data || []).filter((r) => !r.manual_contacted_at).length,
+      linked,
+    });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+router.get('/abandoned/send-status', adminAuth, async (_req, res) => {
+  try {
+    const wa = await import('../services/whatsappSender');
+    res.json({ success: true, progress: wa.getSendProgress() });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+router.post('/abandoned/:id/mark-contacted', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return res.status(400).json({ success: false, error: 'ID inválido.' });
+    }
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
+    const { error } = await supabase
+      .from('song_requests')
+      .update({ manual_contacted_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
+    res.json({ success: true });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+router.get('/whatsapp/link-status', adminAuth, async (_req, res) => {
+  try {
+    const wa = await import('../services/whatsappSender');
+    const { linked } = await wa.getLinkStatus();
+    res.json({ success: true, linked });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+router.post('/whatsapp/link', adminAuth, whatsappBulkLimiter, async (_req, res) => {
+  try {
+    const wa = await import('../services/whatsappSender');
+    const result = await wa.startLink();
+    res.json({ success: true, status: result.status, qr: result.qr || null });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+router.post('/abandoned/send-bulk', adminAuth, whatsappBulkLimiter, async (req, res) => {
+  try {
+    const { requestIds, force } = req.body || {};
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
+
+    let query = supabase
+      .from('song_requests')
+      .select('id, phone, recipient_name, created_at, email, users(phone)')
+      .in('status', ['lyrics_ready', 'lyrics_generating'])
+      .is('deleted_at', null)
+      .not('email', 'is', null)
+      .order('created_at', { ascending: false });
+
+    if (Array.isArray(requestIds) && requestIds.length > 0) {
+      const ids = (requestIds as unknown[])
+        .map((id) => String(id))
+        .filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+      if (!ids.length) return res.status(400).json({ success: false, error: 'IDs inválidos.' });
+      query = query.in('id', ids);
+    }
+
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
+
+    const appUrl = getAppUrl(req);
+    const now = Date.now();
+    const clients: BulkClient[] = [];
+    for (const row of data || []) {
+      const phone = normalizePhoneToE164(row.phone || row.users?.[0]?.phone);
+      if (!phone) continue;
+      const bucket = bucketForElapsed(now - new Date(row.created_at).getTime());
+      if (!bucket) continue;
+      clients.push({
+        requestId: row.id,
+        phone,
+        message: buildAbandonedMessage(bucket, row.recipient_name || '', `${appUrl}/wizard?resume=${row.id}&step=payment`),
+      });
+    }
+
+    if (!clients.length) {
+      return res.status(400).json({ success: false, error: 'Nenhum cliente com telefone válido para enviar.' });
+    }
+
+    const wa = await import('../services/whatsappSender');
+    if (wa.getSendProgress().running) {
+      return res.status(409).json({ success: false, error: 'Já existe um envio em curso.' });
+    }
+
+    // Corre em background — a request não bloqueia durante os atrasos da fila.
+    void wa.runSendBulk(clients, { force: !!force }).catch(() => {
+      // erro já registado no serviço
+    });
+
+    res.json({ success: true, started: true, total: clients.length });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 
