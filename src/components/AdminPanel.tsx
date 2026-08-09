@@ -398,6 +398,7 @@ export default function AdminPanel() {
   const [waQr, setWaQr] = useState<string | null>(null);
   const [waVerifying, setWaVerifying] = useState(false);
   const [waVerifiedPhone, setWaVerifiedPhone] = useState<string | null>(null);
+  const [waLoggingOut, setWaLoggingOut] = useState(false);
   const [abandonedRange, setAbandonedRange] = useState<string>('all');
   const [sendProgress, setSendProgress] = useState<SendProgress | null>(null);
   const [sendButtonLoading, setSendButtonLoading] = useState(false);
@@ -670,6 +671,29 @@ export default function AdminPanel() {
       showToast('Não foi possível verificar a ligação.', 'error');
     }
     setWaVerifying(false);
+  }, [adminToken, apiFetch, showToast]);
+
+  const logoutWhatsApp = useCallback(async () => {
+    if (!adminToken) return;
+    setWaLoggingOut(true);
+    try {
+      const data = await apiFetch('/api/admin/whatsapp/logout', { method: 'POST' });
+      if (data?.success) {
+        setWaLinked(false);
+        setWaVerifiedPhone(null);
+        setWaQr(null);
+        if (waLinkPollRef.current) {
+          clearInterval(waLinkPollRef.current);
+          waLinkPollRef.current = null;
+        }
+        showToast('Sessão WhatsApp terminada. Faz scan do QR para ligar de novo.', 'success');
+      } else {
+        showToast(data?.error || 'Falha ao terminar a sessão.', 'error');
+      }
+    } catch {
+      showToast('Não foi possível terminar a sessão.', 'error');
+    }
+    setWaLoggingOut(false);
   }, [adminToken, apiFetch, showToast]);
 
   const fetchSendProgress = useCallback(async () => {
@@ -2773,6 +2797,16 @@ export default function AdminPanel() {
                       >
                         <CheckCircle className={`w-3.5 h-3.5 ${waVerifying ? 'animate-pulse' : ''}`} /> {waVerifying ? 'A verificar...' : 'Verificar ligação'}
                       </button>
+                      {waLinked && (
+                        <button
+                          onClick={logoutWhatsApp}
+                          disabled={waLoggingOut}
+                          className="flex items-center gap-2 text-xs text-rose-400 hover:text-rose-300 bg-rose-500/10 border border-rose-500/30 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                          title="Termina a sessão e remove as credenciais (disco + Supabase)"
+                        >
+                          <XCircle className={`w-3.5 h-3.5 ${waLoggingOut ? 'animate-spin' : ''}`} /> {waLoggingOut ? 'A terminar...' : 'Terminar sessão'}
+                        </button>
+                      )}
                     </div>
                   </div>
 

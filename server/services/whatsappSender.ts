@@ -71,6 +71,11 @@ let activeSaveCreds: (() => Promise<void>) | null = null;
 // scan completar — guardamos o mais recente para o frontend poder refrescar.
 let latestQr: string | null = null;
 
+// Resultado da última verificação "ao vivo" (socket aberto de verdade). Cache
+// curto para o polling de link-status não abrir um socket a cada 5s.
+let lastLiveCheck: { at: number; linked: boolean; phone?: string } | null = null;
+const LIVE_CHECK_TTL_MS = 30_000;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -149,6 +154,8 @@ export async function persistAuthState(): Promise<void> {
 }
 
 async function clearAuthState(): Promise<void> {
+  latestQr = null;
+  lastLiveCheck = null;
   try {
     await fs.promises.rm(AUTH_DIR, { recursive: true, force: true });
   } catch {
@@ -186,14 +193,35 @@ function connectSocket() {
       return { sock, saveCreds };
     });
   });
-}async function connectAndWaitOpen(): Promise<{ sock: WASocket; saveCreds: () => Promise<void> }> {
+}
+
+// Serialização da criação do socket: com o mesmo AUTH_DIR, abrir dois sockets
+// em simultâneo faz o WhatsApp invalidar a sessão (o segundo substitui o
+// primeiro). Este promise-chain garante uma criação de cada vez.
+let socketCreatePromise: Promise<{ sock: WASocket; saveCreds: () => Promise<void> }> | null = null;
+
+function ensureSocketCreated(): Promise<{ sock: WASocket; saveCreds: () => Promise<void> }> {
+  if (!socketCreatePromise) {
+    socketCreatePromise = connectSocket().finally(() => {
+      socketCreatePromise = null;
+    });
+  }
+  return socketCreatePromise;
+}
+
+async function connectAndWaitOpen(): Promise<{ sock: WASocket; saveCreds: () => Promise<void> }> {
   await restoreAuthState();
   if (activeSocket?.user?.id) {
     return { sock: activeSocket, saveCreds: activeSaveCreds || (async () => {}) };
   }
+  // Socket em fase de pairing (QR ainda por escanear): abrir um segundo socket
+  // com as mesmas credenciais mataria o primeiro. Devolvemos erro claro.
+  if (activeSocket && !activeSocket.user?.id) {
+    throw new Error('Ligação do WhatsApp em curso (QR). Completa o scan primeiro.');
+  }
   return new Promise((resolve, reject) => {
     let settled = false;
-    connectSocket().then(({ sock, saveCreds }) => {
+    ensureSocketCreated().then(({ sock, saveCreds }) => {
       const timer = setTimeout(() => {
         if (settled) return;
         settled = true;
@@ -202,12 +230,13 @@ function connectSocket() {
       }, 45000);
 
       sock.ev.on('connection.update', async (raw) => {
-        if (settled) return;
         const update = raw as ConnectionUpdate;
         const { connection, lastDisconnect } = update;
+        if (settled && connection !== 'open' && connection !== 'close') return;
         if (connection === 'open') {
           settled = true;
           clearTimeout(timer);
+          latestQr = null;
           activeSocket = sock;
           activeSaveCreds = saveCreds;
           resolve({ sock, saveCreds });
@@ -215,14 +244,28 @@ function connectSocket() {
         }
         if (connection === 'close') {
           const code = lastDisconnect?.error?.output?.statusCode;
-          if (code === DisconnectReason.loggedOut || code === DisconnectReason.badSession) {
+          logWarn('[WhatsApp] Socket fechado', { code });
+          if (
+            code === DisconnectReason.loggedOut ||
+            code === DisconnectReason.badSession ||
+            code === DisconnectReason.connectionReplaced
+          ) {
             settled = true;
             clearTimeout(timer);
             await clearAuthState();
             activeSocket = null;
             activeSaveCreds = null;
+            latestQr = null;
             reject(new Error('Sessão WhatsApp terminada. Faz o scan do QR novamente.'));
+          } else if (code === DisconnectReason.restartRequired) {
+            settled = true;
+            clearTimeout(timer);
+            activeSocket = null;
+            activeSaveCreds = null;
+            reject(new Error('O WhatsApp pediu reinício da ligação. Tenta novamente.'));
           }
+          // connectionClosed/connectionLost/timeout: deixa o timer expirar e
+          // o handler repõe o socket.
         }
       });
 
@@ -237,14 +280,59 @@ function connectSocket() {
   });
 }
 
+/**
+ * Verificação "ao vivo": abre o socket Baileys e confirma o número autenticado.
+ * Diferente do getLinkStatus() (que só reflete a existência de uma sessão
+ * válida em disco), esta função realmente conecta. Usada pelo botão
+ * "Verificar ligação" e pelo live-check do getLinkStatus().
+ */
+async function liveCheckSocket(): Promise<{ linked: boolean; phone?: string; error?: string }> {
+  try {
+    const { sock } = await connectAndWaitOpen();
+    const jid = sock?.user?.id || activeSocket?.user?.id;
+    if (jid) {
+      const digits = String(jid).split('@')[0]?.replace(/\D/g, '') || '';
+      logInfo('[WhatsApp] liveCheckSocket: ligação confirmada', { jid });
+      return { linked: true, phone: digits };
+    }
+    logWarn('[WhatsApp] liveCheckSocket: socket aberto mas sem user.id');
+    return { linked: false, error: 'Socket aberto mas sem utilizador autenticado.' };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logWarn('[WhatsApp] liveCheckSocket: falhou', { error: message });
+    return { linked: false, error: message };
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // API pública para as rotas
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getLinkStatus(): Promise<{ linked: boolean; qr?: string }> {
+  // Socket realmente aberto e autenticado — ligação confirmada.
   if (activeSocket?.user?.id) return { linked: true };
+
+  // Cache curto da verificação viva para o polling não abrir socket a cada 5s.
+  if (lastLiveCheck && Date.now() - lastLiveCheck.at < LIVE_CHECK_TTL_MS) {
+    if (lastLiveCheck.linked) return { linked: true };
+    if (latestQr) return { linked: false, qr: await qrToDataUrl(latestQr) };
+    return { linked: false };
+  }
+
   await restoreAuthState();
-  if (await credsHasValidSession()) return { linked: true };
+
+  // Sessão em disco mas sem socket vivo: confirmar de verdade. Se o WhatsApp a
+  // rejeitar (loggedOut/badSession), limpamos a sessão morta para o painel não
+  // mostrar "ligado" e para o próximo scan começar limpo.
+  if (await credsHasValidSession()) {
+    const live = await liveCheckSocket();
+    lastLiveCheck = { at: Date.now(), linked: live.linked, phone: live.phone };
+    if (live.linked) return { linked: true };
+    logWarn('[WhatsApp] Sessão persistida inválida no servidor — a limpar para novo scan');
+    await clearAuthState();
+    lastLiveCheck = { at: Date.now(), linked: false };
+  }
+
   if (latestQr) {
     return { linked: false, qr: await qrToDataUrl(latestQr) };
   }
@@ -252,26 +340,19 @@ export async function getLinkStatus(): Promise<{ linked: boolean; qr?: string }>
 }
 
 /**
- * Verificação real da ligação: tenta abrir o socket Baileys e confirma o
- * número autenticado. Usado pelo botão "Verificar ligação" do painel — o
- * `getLinkStatus()` apenas reflete a existência de uma sessão válida.
+ * Verificação real da ligação: abre o socket Baileys e confirma o número
+ * autenticado. Usado pelo botão "Verificar ligação" do painel.
  */
 export async function verifyConnection(): Promise<{ connected: boolean; phone?: string; error?: string }> {
-  try {
-    const { sock } = await connectAndWaitOpen();
-    const jid = sock?.user?.id || activeSocket?.user?.id;
-    if (jid) {
-      const digits = String(jid).split('@')[0]?.replace(/\D/g, '') || '';
-      logInfo('[WhatsApp] verifyConnection: ligação confirmada', { jid });
-      return { connected: true, phone: digits };
-    }
-    logWarn('[WhatsApp] verifyConnection: socket aberto mas sem user.id');
-    return { connected: false, error: 'Socket aberto mas sem utilizador autenticado.' };
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    logWarn('[WhatsApp] verifyConnection: falhou', { error: message });
-    return { connected: false, error: message };
+  const live = await liveCheckSocket();
+  lastLiveCheck = { at: Date.now(), linked: live.linked, phone: live.phone };
+  if (live.linked) {
+    return { connected: true, phone: live.phone };
   }
+  // Sessão morta confirmada: limpar para o painel deixar de mostrar "ligado".
+  await clearAuthState();
+  lastLiveCheck = { at: Date.now(), linked: false };
+  return { connected: false, error: live.error || 'WhatsApp não conectado.' };
 }
 
 /**
@@ -284,11 +365,17 @@ export async function startLink(): Promise<{ status: 'qr' | 'linked'; qr?: strin
     logInfo('[WhatsApp] startLink: sessão válida existente, devolvido linked');
     return { status: 'linked' };
   }
+  // QR já em curso (socket de pairing aberto): reutiliza em vez de abrir um
+  // segundo socket com as mesmas credenciais (isso mataria o pairing).
+  if (latestQr && activeSocket && !activeSocket.user?.id) {
+    logInfo('[WhatsApp] startLink: QR em curso reutilizado');
+    return { status: 'qr', qr: latestQr };
+  }
   logInfo('[WhatsApp] startLink: sem sessão válida, a gerar QR');
 
   return new Promise((resolve, reject) => {
     let settled = false;
-    connectSocket().then(({ sock, saveCreds }) => {
+    ensureSocketCreated().then(({ sock, saveCreds }) => {
       const timer = setTimeout(() => {
         if (settled) return;
         settled = true;
@@ -324,7 +411,12 @@ export async function startLink(): Promise<{ status: 'qr' | 'linked'; qr?: strin
         }
         if (connection === 'close') {
           const code = lastDisconnect?.error?.output?.statusCode;
-          if (code === DisconnectReason.loggedOut || code === DisconnectReason.badSession) {
+          logWarn('[WhatsApp] startLink: socket fechado', { code });
+          if (
+            code === DisconnectReason.loggedOut ||
+            code === DisconnectReason.badSession ||
+            code === DisconnectReason.connectionReplaced
+          ) {
             latestQr = null;
             settled = true;
             clearTimeout(timer);
@@ -332,7 +424,15 @@ export async function startLink(): Promise<{ status: 'qr' | 'linked'; qr?: strin
             activeSocket = null;
             activeSaveCreds = null;
             reject(new Error('Sessão WhatsApp terminada. Faz o scan do QR novamente.'));
+          } else if (code === DisconnectReason.restartRequired) {
+            latestQr = null;
+            settled = true;
+            clearTimeout(timer);
+            activeSocket = null;
+            activeSaveCreds = null;
+            reject(new Error('O WhatsApp pediu reinício da ligação. Tenta novamente.'));
           }
+          // connectionClosed/connectionLost/timeout: deixa o timer expirar.
         }
       });
 
@@ -349,6 +449,26 @@ export async function startLink(): Promise<{ status: 'qr' | 'linked'; qr?: strin
 
 export function getSendProgress(): SendProgress {
   return sendProgress;
+}
+
+/**
+ * Termina a sessão de forma explícita: encerra o socket ativo e remove todas
+ * as credenciais (disco + Supabase). Usado pelo botão "Terminar sessão" do
+ * painel para escapar de sessões mortas/reescanear do zero.
+ */
+export async function logout(): Promise<void> {
+  const sock = activeSocket;
+  activeSocket = null;
+  activeSaveCreds = null;
+  if (sock) {
+    try {
+      sock.end(new Error('logout'));
+    } catch {
+      // ignore
+    }
+  }
+  await clearAuthState();
+  logInfo('[WhatsApp] Sessão terminada manualmente');
 }
 
 async function hasAuthState(): Promise<boolean> {

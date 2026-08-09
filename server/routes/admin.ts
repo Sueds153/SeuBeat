@@ -1777,8 +1777,17 @@ router.get('/whatsapp/verify', adminAuth, async (_req, res) => {
   }
 });
 
-router.post('/whatsapp/link', adminAuth, whatsappBulkLimiter, async (_req, res) => {
+router.post('/whatsapp/logout', adminAuth, async (_req, res) => {
   try {
+    const wa = await import('../services/whatsappSender');
+    await wa.logout();
+    res.json({ success: true });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+router.post('/whatsapp/link', adminAuth, whatsappBulkLimiter, async (_req, res) => {  try {
     const wa = await import('../services/whatsappSender');
     const result = await wa.startLink();
     if (result.status === 'qr' && result.qr) {

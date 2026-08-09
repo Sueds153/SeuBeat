@@ -11,6 +11,7 @@ vi.mock('../services/whatsappSender', () => ({
   getSendProgress: vi.fn(),
   runSendBulk: vi.fn(),
   verifyConnection: vi.fn(),
+  logout: vi.fn(),
 }));
 
 vi.mock('../services/supabase', () => ({
@@ -18,7 +19,7 @@ vi.mock('../services/supabase', () => ({
   getPublicSupabase: vi.fn(),
 }));
 
-import { getLinkStatus, getSendProgress, runSendBulk, verifyConnection } from '../services/whatsappSender';
+import { getLinkStatus, getSendProgress, runSendBulk, verifyConnection, logout } from '../services/whatsappSender';
 import { getAdminSupabase } from '../services/supabase';
 import adminRouter from '../routes/admin';
 
@@ -213,5 +214,34 @@ describe('GET /api/admin/whatsapp/verify', () => {
     expect(body.success).toBe(true);
     expect(body.connected).toBe(false);
     expect(body.error).toContain('Timeout');
+  });
+});
+
+describe('POST /api/admin/whatsapp/logout', () => {
+  it('termina a sessão com sucesso', async () => {
+    const base = await startServer();
+    (logout as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+    const res = await fetch(`${base}/api/admin/whatsapp/logout`, {
+      method: 'POST',
+      headers: { Authorization: authHeader() },
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(logout).toHaveBeenCalledTimes(1);
+  });
+
+  it('devolve 500 quando o logout falha', async () => {
+    const base = await startServer();
+    (logout as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('falha ao limpar'));
+
+    const res = await fetch(`${base}/api/admin/whatsapp/logout`, {
+      method: 'POST',
+      headers: { Authorization: authHeader() },
+    });
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.success).toBe(false);
   });
 });

@@ -27,6 +27,9 @@ vi.mock('@whiskeysockets/baileys', () => {
     fetchLatestBaileysVersion: async () => ({ version: [7, 0, 0] }),
     DisconnectReason: { loggedOut: 401, badSession: 500, connectionClosed: 428, connectionLost: 408, timedOut: 440 },
     __getCurrentSock: () => currentSock,
+    __resetSock: () => {
+      currentSock = null;
+    },
   };
 });
 
@@ -47,6 +50,8 @@ beforeEach(async () => {
   process.env.WHATSAPP_AUTH_DIR = authDir;
   vi.clearAllMocks();
   vi.resetModules();
+  const baileys = await import('@whiskeysockets/baileys') as unknown as { __resetSock: () => void };
+  baileys.__resetSock();
   wa = await import('../services/whatsappSender');
 });
 
@@ -88,7 +93,20 @@ describe('getLinkStatus', () => {
 
   it('devolve linked=true quando creds.json tem me.id (sessão pareada)', async () => {
     writeCreds({ registered: true, me: { id: '2449@s.whatsapp.net' } });
-    const status = await wa.getLinkStatus();
+    const promise = wa.getLinkStatus();
+    const baileys = await import('@whiskeysockets/baileys') as unknown as {
+      __getCurrentSock: () => MockSock | null;
+    };
+    let sock = baileys.__getCurrentSock();
+    const started = Date.now();
+    while (!sock && Date.now() - started < 2000) {
+      await new Promise((r) => setTimeout(r, 5));
+      sock = baileys.__getCurrentSock();
+    }
+    expect(sock).not.toBeNull();
+    (sock as MockSock).user = { id: '2449@s.whatsapp.net' } as never;
+    sock!.ev.emit('connection.update', { connection: 'open' });
+    const status = await promise;
     expect(status.linked).toBe(true);
   });
 });
@@ -114,7 +132,20 @@ describe('persistAuthState', () => {
 describe('startLink', () => {
   it('devolve status=linked quando já existe sessão pareada', async () => {
     writeCreds({ registered: true, me: { id: '2449@s.whatsapp.net' } });
-    const result = await wa.startLink();
+    const promise = wa.startLink();
+    const baileys = await import('@whiskeysockets/baileys') as unknown as {
+      __getCurrentSock: () => MockSock | null;
+    };
+    let sock = baileys.__getCurrentSock();
+    const started = Date.now();
+    while (!sock && Date.now() - started < 2000) {
+      await new Promise((r) => setTimeout(r, 5));
+      sock = baileys.__getCurrentSock();
+    }
+    expect(sock).not.toBeNull();
+    (sock as MockSock).user = { id: '2449@s.whatsapp.net' } as never;
+    sock!.ev.emit('connection.update', { connection: 'open' });
+    const result = await promise;
     expect(result.status).toBe('linked');
   });
 
