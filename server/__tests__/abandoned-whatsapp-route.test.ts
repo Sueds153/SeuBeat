@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterAll, vi, type Server } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 import express from 'express';
 import type http from 'node:http';
 import jwt from 'jsonwebtoken';

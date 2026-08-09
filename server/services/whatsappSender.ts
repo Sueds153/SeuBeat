@@ -14,7 +14,9 @@ import { qrToDataUrl } from '../utils/qr';
 import { logInfo, logWarn, logError } from '../utils/logger';
 
 // Sessão Baileys persistida numa pasta local + espelho no Supabase (disco do Render é efémero).
-const AUTH_DIR = path.join(process.cwd(), '.whatsapp-auth');
+const AUTH_DIR = process.env.WHATSAPP_AUTH_DIR
+  ? path.resolve(process.env.WHATSAPP_AUTH_DIR)
+  : path.join(process.cwd(), '.whatsapp-auth');
 const SESSION_ID = '00000000-0000-0000-0000-000000000001';
 
 // Constrains da campanha (configuráveis por env)
@@ -77,17 +79,26 @@ function sleep(ms: number): Promise<void> {
 // Persistência da sessão (pasta local ⇄ Supabase)
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function folderHasCreds(): Promise<boolean> {
+/**
+ * Devolve true apenas quando existe uma sessão realmente pareada.
+ * O Baileys escreve `creds.json` durante a fase de QR (antes do scan) — por
+ * exemplo via handler de `edge_routing` — com `registered: false` e SEM `me`.
+ * Só depois do `pair-success` é que `creds.me.id` fica preenchido. Confiar só
+ * na existência do ficheiro fazia `getLinkStatus()` reportar `linked: true`
+ * sem o utilizador ter escaneado nada (bug "QR nem aparece").
+ */
+async function credsHasValidSession(): Promise<boolean> {
   try {
-    await fs.promises.access(path.join(AUTH_DIR, 'creds.json'));
-    return true;
+    const raw = await fs.promises.readFile(path.join(AUTH_DIR, 'creds.json'), 'utf8');
+    const creds = JSON.parse(raw) as { me?: { id?: string } | null } | null;
+    return !!creds?.me?.id;
   } catch {
     return false;
   }
 }
 
 async function restoreAuthState(): Promise<void> {
-  if (await folderHasCreds()) return;
+  if (await credsHasValidSession()) return;
   const supabase = getAdminSupabase();
   if (!supabase) return;
   try {
@@ -97,6 +108,13 @@ async function restoreAuthState(): Promise<void> {
       .eq('id', SESSION_ID)
       .maybeSingle();
     if (!data?.auth_state || typeof data.auth_state !== 'object') return;
+    const storedCredsRaw = (data.auth_state as Record<string, string>)['creds.json'];
+    if (!storedCredsRaw) return;
+    const storedCreds = JSON.parse(storedCredsRaw) as { me?: { id?: string } | null } | null;
+    if (!storedCreds?.me?.id) {
+      logWarn('[WhatsApp] Sessão parcial no Supabase ignorada (sem creds.me) — será gerado novo QR');
+      return;
+    }
     await fs.promises.mkdir(AUTH_DIR, { recursive: true });
     for (const [file, content] of Object.entries(data.auth_state as Record<string, string>)) {
       await fs.promises.writeFile(path.join(AUTH_DIR, file), String(content), 'utf8');
@@ -107,10 +125,14 @@ async function restoreAuthState(): Promise<void> {
   }
 }
 
-async function persistAuthState(): Promise<void> {
+export async function persistAuthState(): Promise<void> {
   const supabase = getAdminSupabase();
   if (!supabase) return;
   try {
+    if (!(await credsHasValidSession())) {
+      logWarn('[WhatsApp] Sessão parcial ignorada na persistência (sem creds.me)');
+      return;
+    }
     const files = await fs.promises.readdir(AUTH_DIR);
     const blob: Record<string, string> = {};
     for (const f of files) {
@@ -120,6 +142,7 @@ async function persistAuthState(): Promise<void> {
       { id: SESSION_ID, auth_state: blob, updated_at: new Date().toISOString() },
       { onConflict: 'id' }
     );
+    logInfo('[WhatsApp] Sessão persistida no Supabase');
   } catch (err) {
     logWarn('[WhatsApp] Falha ao persistir sessão', { error: err instanceof Error ? err.message : String(err) });
   }
@@ -221,7 +244,7 @@ function connectSocket() {
 export async function getLinkStatus(): Promise<{ linked: boolean; qr?: string }> {
   if (activeSocket?.user?.id) return { linked: true };
   await restoreAuthState();
-  if (await folderHasCreds()) return { linked: true };
+  if (await credsHasValidSession()) return { linked: true };
   if (latestQr) {
     return { linked: false, qr: await qrToDataUrl(latestQr) };
   }
@@ -234,7 +257,11 @@ export async function getLinkStatus(): Promise<{ linked: boolean; qr?: string }>
  */
 export async function startLink(): Promise<{ status: 'qr' | 'linked'; qr?: string }> {
   const current = await getLinkStatus();
-  if (current.linked) return { status: 'linked' };
+  if (current.linked) {
+    logInfo('[WhatsApp] startLink: sessão válida existente, devolvido linked');
+    return { status: 'linked' };
+  }
+  logInfo('[WhatsApp] startLink: sem sessão válida, a gerar QR');
 
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -257,6 +284,7 @@ export async function startLink(): Promise<{ status: 'qr' | 'linked'; qr?: strin
           clearTimeout(timer);
           activeSocket = sock;
           activeSaveCreds = saveCreds;
+          logInfo('[WhatsApp] startLink: QR gerado');
           resolve({ status: 'qr', qr });
           return;
         }
@@ -266,6 +294,7 @@ export async function startLink(): Promise<{ status: 'qr' | 'linked'; qr?: strin
           clearTimeout(timer);
           activeSocket = sock;
           activeSaveCreds = saveCreds;
+          logInfo('[WhatsApp] startLink: conexão aberta, sessão ligada');
           saveCreds().then(persistAuthState).catch(() => {});
           resolve({ status: 'linked' });
           return;
@@ -301,7 +330,7 @@ export function getSendProgress(): SendProgress {
 
 async function hasAuthState(): Promise<boolean> {
   await restoreAuthState();
-  return folderHasCreds();
+  return credsHasValidSession();
 }
 
 async function checkConstraints(force: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
