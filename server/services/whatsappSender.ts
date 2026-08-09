@@ -252,6 +252,29 @@ export async function getLinkStatus(): Promise<{ linked: boolean; qr?: string }>
 }
 
 /**
+ * Verificação real da ligação: tenta abrir o socket Baileys e confirma o
+ * número autenticado. Usado pelo botão "Verificar ligação" do painel — o
+ * `getLinkStatus()` apenas reflete a existência de uma sessão válida.
+ */
+export async function verifyConnection(): Promise<{ connected: boolean; phone?: string; error?: string }> {
+  try {
+    const { sock } = await connectAndWaitOpen();
+    const jid = sock?.user?.id || activeSocket?.user?.id;
+    if (jid) {
+      const digits = String(jid).split('@')[0]?.replace(/\D/g, '') || '';
+      logInfo('[WhatsApp] verifyConnection: ligação confirmada', { jid });
+      return { connected: true, phone: digits };
+    }
+    logWarn('[WhatsApp] verifyConnection: socket aberto mas sem user.id');
+    return { connected: false, error: 'Socket aberto mas sem utilizador autenticado.' };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logWarn('[WhatsApp] verifyConnection: falhou', { error: message });
+    return { connected: false, error: message };
+  }
+}
+
+/**
  * Liga o número por QR. Se já houver sessão, devolve { status: 'linked' }.
  * Se não, devolve { status: 'qr', qr } e mantém o socket aberto para o scan completar.
  */

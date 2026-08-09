@@ -5,6 +5,8 @@ import {
   buildAbandonedMessage,
   normalizePhoneToE164,
   ABANDONED_BUCKET_ORDER,
+  isAbandonedTimeRange,
+  elapsedInRange,
 } from '../services/abandonedMessages';
 
 describe('bucketForElapsed', () => {
@@ -89,5 +91,56 @@ describe('normalizePhoneToE164', () => {
     expect(normalizePhoneToE164('123456789')).toBeNull();
     expect(normalizePhoneToE164('2441234')).toBeNull();
     expect(normalizePhoneToE164('abc')).toBeNull();
+  });
+});
+
+describe('isAbandonedTimeRange / elapsedInRange', () => {
+  const h = 60 * 60 * 1000;
+
+  it('reconhece apenas chaves válidas', () => {
+    expect(isAbandonedTimeRange('lt1h')).toBe(true);
+    expect(isAbandonedTimeRange('1-6h')).toBe(true);
+    expect(isAbandonedTimeRange('gt72h')).toBe(true);
+    expect(isAbandonedTimeRange('all')).toBe(false);
+    expect(isAbandonedTimeRange('xx')).toBe(false);
+    expect(isAbandonedTimeRange('')).toBe(false);
+  });
+
+  it('lt1h: do limite inferior (0) até antes de 1h', () => {
+    expect(elapsedInRange(0, 'lt1h')).toBe(true);
+    expect(elapsedInRange(59 * 60 * 1000, 'lt1h')).toBe(true);
+    expect(elapsedInRange(60 * 60 * 1000, 'lt1h')).toBe(false);
+  });
+
+  it('1-6h: de 1h (incl.) até antes de 6h', () => {
+    expect(elapsedInRange(1 * h, '1-6h')).toBe(true);
+    expect(elapsedInRange(5.9 * h, '1-6h')).toBe(true);
+    expect(elapsedInRange(6 * h, '1-6h')).toBe(false);
+    expect(elapsedInRange(30 * 60 * 1000, '1-6h')).toBe(false);
+  });
+
+  it('6-24h: de 6h até antes de 24h', () => {
+    expect(elapsedInRange(6 * h, '6-24h')).toBe(true);
+    expect(elapsedInRange(23.9 * h, '6-24h')).toBe(true);
+    expect(elapsedInRange(24 * h, '6-24h')).toBe(false);
+  });
+
+  it('24-48h e 48-72h', () => {
+    expect(elapsedInRange(24 * h, '24-48h')).toBe(true);
+    expect(elapsedInRange(47.9 * h, '24-48h')).toBe(true);
+    expect(elapsedInRange(48 * h, '24-48h')).toBe(false);
+    expect(elapsedInRange(48 * h, '48-72h')).toBe(true);
+    expect(elapsedInRange(71.9 * h, '48-72h')).toBe(true);
+    expect(elapsedInRange(72 * h, '48-72h')).toBe(false);
+  });
+
+  it('gt72h: sem limite superior', () => {
+    expect(elapsedInRange(72 * h, 'gt72h')).toBe(true);
+    expect(elapsedInRange(10 * 24 * h, 'gt72h')).toBe(true);
+    expect(elapsedInRange(48 * h, 'gt72h')).toBe(false);
+  });
+
+  it('range desconhecido devolve false', () => {
+    expect(elapsedInRange(3 * h, 'xx' as never)).toBe(false);
   });
 });

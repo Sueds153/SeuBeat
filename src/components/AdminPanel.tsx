@@ -396,6 +396,9 @@ export default function AdminPanel() {
   const [waLinked, setWaLinked] = useState<boolean | null>(null);
   const [waLinking, setWaLinking] = useState(false);
   const [waQr, setWaQr] = useState<string | null>(null);
+  const [waVerifying, setWaVerifying] = useState(false);
+  const [waVerifiedPhone, setWaVerifiedPhone] = useState<string | null>(null);
+  const [abandonedRange, setAbandonedRange] = useState<string>('all');
   const [sendProgress, setSendProgress] = useState<SendProgress | null>(null);
   const [sendButtonLoading, setSendButtonLoading] = useState(false);
   const [logsModal, setLogsModal] = useState<{ id: string; loading: boolean; logs: any[] } | null>(null);
@@ -634,10 +637,11 @@ export default function AdminPanel() {
     setCampaignsLoading(false);
   }, [adminToken, apiFetch]);
 
-  const fetchAbandoned = useCallback(async () => {
+  const fetchAbandoned = useCallback(async (range?: string) => {
     if (!adminToken) return;
     setAbandonedLoading(true);
-    const data = await apiFetch('/api/admin/abandoned');
+    const qs = range && range !== 'all' ? `?range=${encodeURIComponent(range)}` : '';
+    const data = await apiFetch(`/api/admin/abandoned${qs}`);
     if (data) {
       setAbandonedBuckets(Array.isArray(data.buckets) ? data.buckets : []);
       setAbandonedTotal(data.total || 0);
@@ -646,6 +650,27 @@ export default function AdminPanel() {
     }
     setAbandonedLoading(false);
   }, [adminToken, apiFetch]);
+
+  const verifyWhatsApp = useCallback(async () => {
+    if (!adminToken) return;
+    setWaVerifying(true);
+    try {
+      const data = await apiFetch('/api/admin/whatsapp/verify');
+      if (data?.connected) {
+        setWaVerifiedPhone(data.phone || null);
+        setWaLinked(true);
+        showToast(`WhatsApp ligado${data.phone ? ` · ${data.phone}` : ''}.`, 'success');
+      } else {
+        setWaVerifiedPhone(null);
+        setWaLinked(false);
+        showToast(data?.error || 'WhatsApp não conectado.', 'error');
+      }
+    } catch {
+      setWaVerifiedPhone(null);
+      showToast('Não foi possível verificar a ligação.', 'error');
+    }
+    setWaVerifying(false);
+  }, [adminToken, apiFetch, showToast]);
 
   const fetchSendProgress = useCallback(async () => {
     if (!adminToken) return;
@@ -670,9 +695,9 @@ export default function AdminPanel() {
     const data = await apiFetch(`/api/admin/abandoned/${id}/mark-contacted`, { method: 'POST' });
     if (data?.success) {
       showToast('Marcado como contactado manualmente.', 'success');
-      fetchAbandoned();
+      fetchAbandoned(abandonedRange);
     }
-  }, [adminToken, apiFetch, showToast, fetchAbandoned]);
+  }, [adminToken, apiFetch, showToast, fetchAbandoned, abandonedRange]);
 
   const linkWhatsApp = useCallback(async () => {
     if (!adminToken) return;
@@ -731,7 +756,7 @@ export default function AdminPanel() {
           });
           if (!d.progress.running) {
             clearInterval(poll);
-            if (d.progress.processed > 0) fetchAbandoned();
+            if (d.progress.processed > 0) fetchAbandoned(abandonedRange);
             if (d.progress.error) {
               showToast(`Envio falhou: ${d.progress.error}`, 'error');
             } else {
@@ -743,7 +768,7 @@ export default function AdminPanel() {
     } else {
       showToast(data?.error || 'Falha ao iniciar o envio.', 'error');
     }
-  }, [adminToken, apiFetch, showToast, fetchAbandoned, fetchSendProgress]);
+  }, [adminToken, apiFetch, showToast, fetchAbandoned, fetchSendProgress, abandonedRange]);
 
   const fetchLogs = useCallback(async (requestId: string) => {
     setLogsModal({ id: requestId, loading: true, logs: [] });
@@ -821,9 +846,9 @@ export default function AdminPanel() {
     else if (activeView === 'diagnostics') fetchDiagnostics();
     else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
     else if (activeView === 'campaigns') fetchCampaigns();
-    else if (activeView === 'abandoned') { fetchAbandoned(); fetchSendProgress(); }
+    else if (activeView === 'abandoned') { fetchAbandoned(abandonedRange); fetchSendProgress(); }
     else if (activeView === 'clients') fetchClientsList();
-  }, [authenticated, activeView]);
+  }, [authenticated, activeView, abandonedRange]);
 
   // Poll progress every 5s when on requests tab
   useEffect(() => {
@@ -842,10 +867,10 @@ export default function AdminPanel() {
     else if (activeView === 'clients') fetchClientsList();
     else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
     else if (activeView === 'campaigns') fetchCampaigns();
-    else if (activeView === 'abandoned') { fetchAbandoned(); fetchSendProgress(); }
+    else if (activeView === 'abandoned') { fetchAbandoned(abandonedRange); fetchSendProgress(); }
     else if (activeView === 'credits') fetchCredits();
     else if (activeView === 'diagnostics') fetchDiagnostics();
-  }, [activeView, fetchPayments, fetchRequests, fetchSongs, fetchClientsList, fetchMetrics, fetchProfitability, fetchCredits, fetchDiagnostics, fetchAbandoned, fetchSendProgress]);
+  }, [activeView, fetchPayments, fetchRequests, fetchSongs, fetchClientsList, fetchMetrics, fetchProfitability, fetchCredits, fetchDiagnostics, fetchAbandoned, fetchSendProgress, abandonedRange]);
 
   const resetViewPoll = useCallback(() => {
     if (viewPollRef.current) clearInterval(viewPollRef.current);
@@ -864,10 +889,10 @@ export default function AdminPanel() {
     else if (activeView === 'diagnostics') fetchDiagnostics();
     else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
     else if (activeView === 'campaigns') fetchCampaigns();
-    else if (activeView === 'abandoned') { fetchAbandoned(); fetchSendProgress(); }
+    else if (activeView === 'abandoned') { fetchAbandoned(abandonedRange); fetchSendProgress(); }
     else if (activeView === 'clients') fetchClientsList();
     resetViewPoll();
-  }, [activeView, fetchStats, fetchPayments, fetchRequests, fetchProgress, fetchSongs, fetchCredits, fetchDiagnostics, fetchMetrics, fetchProfitability, fetchClientsList, resetViewPoll, fetchAbandoned, fetchSendProgress]);
+  }, [activeView, fetchStats, fetchPayments, fetchRequests, fetchProgress, fetchSongs, fetchCredits, fetchDiagnostics, fetchMetrics, fetchProfitability, fetchClientsList, resetViewPoll, fetchAbandoned, fetchSendProgress, abandonedRange]);
 
   // Poll current view data every 10s
   useEffect(() => {
@@ -2728,18 +2753,26 @@ export default function AdminPanel() {
                       <p className="text-stone-500 text-sm mt-1">Clientes com letra pronta que ainda não pagaram — recuperação via email automático e WhatsApp manual</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={fetchAbandoned} disabled={abandonedLoading} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
+                      <button onClick={() => fetchAbandoned(abandonedRange)} disabled={abandonedLoading} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
                         <RefreshCw className={`w-3.5 h-3.5 ${abandonedLoading ? 'animate-spin' : ''}`} /> {abandonedLoading ? 'A carregar...' : 'Atualizar'}
                       </button>
                       {waLinked ? (
                         <span className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 rounded-xl">
-                          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" /> WhatsApp ligado
+                          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" /> WhatsApp ligado{waVerifiedPhone ? ` · ${waVerifiedPhone}` : ''}
                         </span>
                       ) : (
                         <button onClick={linkWhatsApp} disabled={waLinking} className="flex items-center gap-2 text-xs text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl transition-colors cursor-pointer">
                           <Send className={`w-3.5 h-3.5 ${waLinking ? 'animate-spin' : ''}`} /> {waLinking ? 'A ligar...' : 'Ligar WhatsApp'}
                         </button>
                       )}
+                      <button
+                        onClick={verifyWhatsApp}
+                        disabled={waVerifying}
+                        className="flex items-center gap-2 text-xs text-stone-300 hover:text-emerald-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                        title="Abre o socket Baileys para confirmar a ligação real"
+                      >
+                        <CheckCircle className={`w-3.5 h-3.5 ${waVerifying ? 'animate-pulse' : ''}`} /> {waVerifying ? 'A verificar...' : 'Verificar ligação'}
+                      </button>
                     </div>
                   </div>
 
@@ -2754,7 +2787,7 @@ export default function AdminPanel() {
                         <StatCard icon={Send} label="Abandonados" value={abandonedTotal} color="bg-violet-500/15 text-violet-400" onClick={() => {}} />
                         <StatCard icon={CheckCircle} label="Por contactar" value={abandonedNotContacted} color="bg-emerald-500/15 text-emerald-400" onClick={() => {}} />
                         <StatCard icon={Clock} label="Buckets" value={abandonedBuckets.length} color="bg-purple-500/15 text-purple-400" onClick={() => {}} />
-                        <StatCard icon={Send} label="Estado WhatsApp" value={waLinked ? 'Ligado' : 'Desligado'} color={waLinked ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'} onClick={() => {}} />
+                        <StatCard icon={Send} label="Estado WhatsApp" value={waLinked ? (waVerifiedPhone ? `Ligado · ${waVerifiedPhone}` : 'Ligado') : 'Desligado'} color={waLinked ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'} onClick={() => {}} />
                       </div>
 
                       {/* Send progress */}
@@ -2785,6 +2818,31 @@ export default function AdminPanel() {
                         <span className="text-xs text-stone-500">Respeita o limite diário e o horário configurado (default 9h–20h, máx 30/dia)</span>
                       </div>
 
+                      {/* Time filter */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-mono text-stone-500 uppercase tracking-wider mr-1">Desde a criação:</span>
+                        {[
+                          { key: 'all', label: 'Todos' },
+                          { key: 'lt1h', label: '<1h' },
+                          { key: '1-6h', label: '1–6h' },
+                          { key: '6-24h', label: '6–24h' },
+                          { key: '24-48h', label: '24–48h' },
+                          { key: '48-72h', label: '48–72h' },
+                          { key: 'gt72h', label: '>72h' },
+                        ].map((r) => (
+                          <button
+                            key={r.key}
+                            onClick={() => { setAbandonedRange(r.key); fetchAbandoned(r.key); }}
+                            className={`text-xs px-3 py-1.5 rounded-xl border transition-colors cursor-pointer ${abandonedRange === r.key
+                              ? 'bg-amber-500/15 border-amber-500/40 text-amber-300'
+                              : 'bg-stone-900 border-stone-800 text-stone-400 hover:text-stone-200'
+                            }`}
+                          >
+                            {r.label}
+                          </button>
+                        ))}
+                      </div>
+
                       {/* QR modal */}
                       {waQr && (
                         <div className="rounded-2xl border border-stone-800 bg-stone-900/60 p-6">
@@ -2796,8 +2854,8 @@ export default function AdminPanel() {
                           <div className="flex justify-center">
                             <img src={waQr} alt="QR Code WhatsApp" className="w-64 h-64 rounded-xl bg-white p-2" />
                           </div>
-                          <button onClick={fetchAbandoned} className="mt-4 w-full flex items-center justify-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl hover:bg-amber-500/20 transition-colors cursor-pointer">
-                            Verificar ligação
+                          <button onClick={verifyWhatsApp} className="mt-4 w-full flex items-center justify-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl hover:bg-amber-500/20 transition-colors cursor-pointer">
+                            <CheckCircle className="w-3.5 h-3.5" /> Verificar ligação
                           </button>
                         </div>
                       )}

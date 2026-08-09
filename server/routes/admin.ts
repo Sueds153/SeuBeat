@@ -19,6 +19,7 @@ import { adminLimiter, whatsappBulkLimiter } from '../middleware/rateLimiter';
 import {
   bucketForElapsed, bucketLabel, buildAbandonedMessage,
   normalizePhoneToE164, ABANDONED_BUCKET_ORDER,
+  isAbandonedTimeRange, elapsedInRange,
 } from '../services/abandonedMessages';
 import type { BulkClient } from '../services/whatsappSender';
 
@@ -1638,6 +1639,16 @@ router.get('/abandoned', adminAuth, async (req, res) => {
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
+    const { range } = req.query as { range?: string };
+    let rangeFilter: ((elapsedMs: number) => boolean) | null = null;
+    if (range !== undefined && range !== '' && range !== 'all') {
+      if (!isAbandonedTimeRange(range)) {
+        return res.status(400).json({ success: false, error: 'Filtro de tempo inválido.' });
+      }
+      const matchRange = range;
+      rangeFilter = (elapsedMs: number) => elapsedInRange(elapsedMs, matchRange);
+    }
+
     const { data, error } = await supabase
       .from('song_requests')
       .select(
@@ -1661,6 +1672,7 @@ router.get('/abandoned', adminAuth, async (req, res) => {
       const elapsedMs = now - new Date(row.created_at).getTime();
       const bucket = bucketForElapsed(elapsedMs);
       if (!bucket) continue;
+      if (rangeFilter && !rangeFilter(elapsedMs)) continue;
 
       const phoneRaw = row.phone || row.users?.[0]?.phone;
       const resumePath = `/wizard?resume=${row.id}&step=payment`;
@@ -1692,7 +1704,9 @@ router.get('/abandoned', adminAuth, async (req, res) => {
 
     const bucketedRows = (data || []).filter((row) => {
       const elapsedMs = now - new Date(row.created_at).getTime();
-      return bucketForElapsed(elapsedMs) !== null;
+      if (bucketForElapsed(elapsedMs) === null) return false;
+      if (rangeFilter && !rangeFilter(elapsedMs)) return false;
+      return true;
     });
 
     let linked = false;
@@ -1748,6 +1762,16 @@ router.get('/whatsapp/link-status', adminAuth, async (_req, res) => {
     const wa = await import('../services/whatsappSender');
     const status = await wa.getLinkStatus();
     res.json({ success: true, linked: status.linked, qr: status.qr || null });
+  } catch (err: unknown) {
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+router.get('/whatsapp/verify', adminAuth, async (_req, res) => {
+  try {
+    const wa = await import('../services/whatsappSender');
+    const result = await wa.verifyConnection();
+    res.json({ success: true, ...result });
   } catch (err: unknown) {
     res.status(500).json({ success: false, error: safeMessage(err) });
   }

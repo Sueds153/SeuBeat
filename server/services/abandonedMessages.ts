@@ -42,6 +42,41 @@ export function bucketLabel(key: AbandonedBucketKey): string {
   return def ? def.label : key;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Filtros por tempo (presets) — aba Abandonados
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type AbandonedTimeRange = 'lt1h' | '1-6h' | '6-24h' | '24-48h' | '48-72h' | 'gt72h';
+
+export interface AbandonedTimeRangeDef {
+  key: AbandonedTimeRange;
+  label: string;
+  minMs: number;
+  maxMs: number | null; // null = sem limite superior
+}
+
+export const ABANDONED_TIME_RANGES: AbandonedTimeRangeDef[] = [
+  { key: 'lt1h', label: '<1h', minMs: 0, maxMs: 60 * 60 * 1000 },
+  { key: '1-6h', label: '1–6h', minMs: 60 * 60 * 1000, maxMs: 6 * 60 * 60 * 1000 },
+  { key: '6-24h', label: '6–24h', minMs: 6 * 60 * 60 * 1000, maxMs: 24 * 60 * 60 * 1000 },
+  { key: '24-48h', label: '24–48h', minMs: 24 * 60 * 60 * 1000, maxMs: 48 * 60 * 60 * 1000 },
+  { key: '48-72h', label: '48–72h', minMs: 48 * 60 * 60 * 1000, maxMs: 72 * 60 * 60 * 1000 },
+  { key: 'gt72h', label: '>72h', minMs: 72 * 60 * 60 * 1000, maxMs: null },
+];
+
+export function isAbandonedTimeRange(key: string): key is AbandonedTimeRange {
+  return ABANDONED_TIME_RANGES.some((r) => r.key === key);
+}
+
+/** Devolve true se o tempo decorrido (ms) cai na faixa indicada. */
+export function elapsedInRange(elapsedMs: number, range: AbandonedTimeRange): boolean {
+  const def = ABANDONED_TIME_RANGES.find((r) => r.key === range);
+  if (!def) return false;
+  if (elapsedMs < def.minMs) return false;
+  if (def.maxMs !== null && elapsedMs >= def.maxMs) return false;
+  return true;
+}
+
 /** Monta a mensagem persuasiva de um bucket para um cliente. */
 export function buildAbandonedMessage(key: AbandonedBucketKey, name: string, link: string): string {
   const tpl = MESSAGE_TEMPLATES[key];
