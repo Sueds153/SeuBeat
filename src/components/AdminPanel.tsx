@@ -176,6 +176,7 @@ interface SendProgress {
   sent: number;
   skippedNoWhatsApp: number;
   failed: number;
+  error?: string | null;
   startedAt?: string | null;
   finishedAt?: string | null;
 }
@@ -402,6 +403,7 @@ export default function AdminPanel() {
   const [notification, setNotification] = useState<{ message: string } | null>(null);
   const prevCountsRef = useRef({ requests: 0, payments: 0 });
   const notifIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const waLinkPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ action: 'approve' | 'reject'; paymentId: string; plan?: string } | null>(null);
   const [clients, setClients] = useState<any[]>([]);
   const [paymentSearchQuery, setPaymentSearchQuery] = useState('');
@@ -656,6 +658,7 @@ export default function AdminPanel() {
         sent: data.progress.sent || 0,
         skippedNoWhatsApp: data.progress.skippedNoWhatsApp || 0,
         failed: data.progress.failed || 0,
+        error: data.progress.error || null,
         startedAt: data.progress.startedAt || null,
         finishedAt: data.progress.finishedAt || null,
       });
@@ -678,6 +681,20 @@ export default function AdminPanel() {
     setWaLinking(false);
     if (data?.qr) {
       setWaQr(data.qr);
+      if (waLinkPollRef.current) clearInterval(waLinkPollRef.current);
+      waLinkPollRef.current = setInterval(async () => {
+        const d = await apiFetch('/api/admin/whatsapp/link-status');
+        if (!d) return;
+        if (d.linked) {
+          if (waLinkPollRef.current) clearInterval(waLinkPollRef.current);
+          waLinkPollRef.current = null;
+          setWaLinked(true);
+          setWaQr(null);
+          showToast('WhatsApp ligado com sucesso.', 'success');
+        } else if (d.qr) {
+          setWaQr(d.qr);
+        }
+      }, 5000);
     } else if (data?.status === 'linked' || data?.success) {
       setWaLinked(true);
       setWaQr(null);
@@ -708,13 +725,18 @@ export default function AdminPanel() {
             sent: d.progress.sent || 0,
             skippedNoWhatsApp: d.progress.skippedNoWhatsApp || 0,
             failed: d.progress.failed || 0,
+            error: d.progress.error || null,
             startedAt: d.progress.startedAt || null,
             finishedAt: d.progress.finishedAt || null,
           });
           if (!d.progress.running) {
             clearInterval(poll);
             if (d.progress.processed > 0) fetchAbandoned();
-            showToast(`Envio terminado: ${d.progress.sent} ok, ${d.progress.failed} falhas.`, d.progress.failed > 0 ? 'error' : 'success');
+            if (d.progress.error) {
+              showToast(`Envio falhou: ${d.progress.error}`, 'error');
+            } else {
+              showToast(`Envio terminado: ${d.progress.sent} ok, ${d.progress.failed} falhas.`, d.progress.failed > 0 ? 'error' : 'success');
+            }
           }
         }
       }, 4000);
@@ -760,6 +782,10 @@ export default function AdminPanel() {
     }
     return () => { if (notifIntervalRef.current) clearInterval(notifIntervalRef.current); };
   }, [authenticated, checkNewData]);
+
+  useEffect(() => {
+    return () => { if (waLinkPollRef.current) clearInterval(waLinkPollRef.current); };
+  }, []);
 
   // Clear notification after 5s
   useEffect(() => {
@@ -2764,7 +2790,7 @@ export default function AdminPanel() {
                         <div className="rounded-2xl border border-stone-800 bg-stone-900/60 p-6">
                           <div className="flex items-center justify-between mb-4">
                             <h3 className="text-sm font-bold text-stone-100">Ligar o telemóvel</h3>
-                            <button onClick={() => setWaQr(null)} className="text-stone-400 hover:text-stone-200 cursor-pointer"><X className="w-4 h-4" /></button>
+                            <button onClick={() => { setWaQr(null); if (waLinkPollRef.current) { clearInterval(waLinkPollRef.current); waLinkPollRef.current = null; } }} className="text-stone-400 hover:text-stone-200 cursor-pointer"><X className="w-4 h-4" /></button>
                           </div>
                           <p className="text-xs text-stone-400 mb-4">Abre o WhatsApp no telemóvel → Definições → Dispositivos ligados → Ligar um dispositivo → e aponta a câmara para este QR code. A mensagem será enviada a partir do número 929 423 278.</p>
                           <div className="flex justify-center">

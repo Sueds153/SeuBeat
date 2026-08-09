@@ -12,7 +12,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
 import { logInfo, logError, logWarn } from '../utils/logger';
-import { publicErrorMessage, getAppUrl } from '../utils/helpers';
+import { publicErrorMessage, getAppUrl, qrToDataUrl } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
 import { sendPurchaseEvent, generateServerEventId } from '../services/metaPixelCapi';
 import { adminLimiter, whatsappBulkLimiter } from '../middleware/rateLimiter';
@@ -1690,6 +1690,11 @@ router.get('/abandoned', adminAuth, async (req, res) => {
       .map((key) => bucketMap[key])
       .filter((b) => b.clients.length > 0);
 
+    const bucketedRows = (data || []).filter((row) => {
+      const elapsedMs = now - new Date(row.created_at).getTime();
+      return bucketForElapsed(elapsedMs) !== null;
+    });
+
     let linked = false;
     try {
       const wa = await import('../services/whatsappSender');
@@ -1701,8 +1706,8 @@ router.get('/abandoned', adminAuth, async (req, res) => {
     res.json({
       success: true,
       buckets,
-      total: data?.length || 0,
-      notContacted: (data || []).filter((r) => !r.manual_contacted_at).length,
+      total: bucketedRows.length,
+      notContacted: bucketedRows.filter((r) => !r.manual_contacted_at).length,
       linked,
     });
   } catch (err: unknown) {
@@ -1741,8 +1746,8 @@ router.post('/abandoned/:id/mark-contacted', adminAuth, async (req, res) => {
 router.get('/whatsapp/link-status', adminAuth, async (_req, res) => {
   try {
     const wa = await import('../services/whatsappSender');
-    const { linked } = await wa.getLinkStatus();
-    res.json({ success: true, linked });
+    const status = await wa.getLinkStatus();
+    res.json({ success: true, linked: status.linked, qr: status.qr || null });
   } catch (err: unknown) {
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
@@ -1752,7 +1757,11 @@ router.post('/whatsapp/link', adminAuth, whatsappBulkLimiter, async (_req, res) 
   try {
     const wa = await import('../services/whatsappSender');
     const result = await wa.startLink();
-    res.json({ success: true, status: result.status, qr: result.qr || null });
+    if (result.status === 'qr' && result.qr) {
+      res.json({ success: true, status: 'qr', qr: await qrToDataUrl(result.qr) });
+    } else {
+      res.json({ success: true, status: result.status, qr: null });
+    }
   } catch (err: unknown) {
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
@@ -1807,9 +1816,15 @@ router.post('/abandoned/send-bulk', adminAuth, whatsappBulkLimiter, async (req, 
       return res.status(409).json({ success: false, error: 'Já existe um envio em curso.' });
     }
 
+    const linkStatus = await wa.getLinkStatus();
+    if (!linkStatus.linked) {
+      return res.status(400).json({ success: false, error: 'WhatsApp não ligado. Faz o scan do QR primeiro.' });
+    }
+
     // Corre em background — a request não bloqueia durante os atrasos da fila.
-    void wa.runSendBulk(clients, { force: !!force }).catch(() => {
-      // erro já registado no serviço
+    // O progresso e eventuais erros são expostos via /abandoned/send-status.
+    void wa.runSendBulk(clients, { force: !!force }).catch((err) => {
+      logError('[WhatsApp] Erro ao iniciar campanha', err instanceof Error ? err : new Error(String(err)));
     });
 
     res.json({ success: true, started: true, total: clients.length });

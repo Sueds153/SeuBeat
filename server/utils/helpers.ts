@@ -83,3 +83,5 @@ export function getAppUrl(req?: Request): string {
   }
   return process.env.APP_URL || 'http://localhost:3000';
 }
+
+export { qrToDataUrl } from './qr';

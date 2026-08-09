@@ -10,6 +10,7 @@ import {
 } from '@whiskeysockets/baileys';
 import type { WASocket } from '@whiskeysockets/baileys';
 import { getAdminSupabase } from './supabase';
+import { qrToDataUrl } from '../utils/qr';
 import { logInfo, logWarn, logError } from '../utils/logger';
 
 // Sessão Baileys persistida numa pasta local + espelho no Supabase (disco do Render é efémero).
@@ -44,6 +45,7 @@ interface SendProgress {
   sent: number;
   skippedNoWhatsApp: number;
   failed: number;
+  error: string | null;
   startedAt: string | null;
   finishedAt: string | null;
 }
@@ -55,12 +57,17 @@ let sendProgress: SendProgress = {
   sent: 0,
   skippedNoWhatsApp: 0,
   failed: 0,
+  error: null,
   startedAt: null,
   finishedAt: null,
 };
 
 let activeSocket: WASocket | null = null;
 let activeSaveCreds: (() => Promise<void>) | null = null;
+
+// Último QR gerado pelo Baileys (string crua). O QR regenera a cada ~20s até o
+// scan completar — guardamos o mais recente para o frontend poder refrescar.
+let latestQr: string | null = null;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -134,9 +141,17 @@ async function clearAuthState(): Promise<void> {
 // Ligação Baileys
 // ─────────────────────────────────────────────────────────────────────────────
 
+async function resolveBaileysVersion(): Promise<{ version: [number, number, number] }> {
+  try {
+    return await fetchLatestBaileysVersion();
+  } catch {
+    return { version: [7, 0, 0] };
+  }
+}
+
 function connectSocket() {
   return useMultiFileAuthState(AUTH_DIR).then(({ state, saveCreds }) => {
-    return fetchLatestBaileysVersion().then(({ version }) => {
+    return resolveBaileysVersion().then(({ version }) => {
       const sock = makeWASocket({
         version,
         logger: pino({ level: 'silent' }),
@@ -148,9 +163,7 @@ function connectSocket() {
       return { sock, saveCreds };
     });
   });
-}
-
-async function connectAndWaitOpen(): Promise<{ sock: WASocket; saveCreds: () => Promise<void> }> {
+}async function connectAndWaitOpen(): Promise<{ sock: WASocket; saveCreds: () => Promise<void> }> {
   await restoreAuthState();
   if (activeSocket?.user?.id) {
     return { sock: activeSocket, saveCreds: activeSaveCreds || (async () => {}) };
@@ -205,10 +218,14 @@ async function connectAndWaitOpen(): Promise<{ sock: WASocket; saveCreds: () => 
 // API pública para as rotas
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function getLinkStatus(): Promise<{ linked: boolean }> {
+export async function getLinkStatus(): Promise<{ linked: boolean; qr?: string }> {
   if (activeSocket?.user?.id) return { linked: true };
   await restoreAuthState();
-  return { linked: await folderHasCreds() };
+  if (await folderHasCreds()) return { linked: true };
+  if (latestQr) {
+    return { linked: false, qr: await qrToDataUrl(latestQr) };
+  }
+  return { linked: false };
 }
 
 /**
@@ -230,11 +247,12 @@ export async function startLink(): Promise<{ status: 'qr' | 'linked'; qr?: strin
       }, 60000);
 
       sock.ev.on('connection.update', async (raw) => {
-        if (settled) return;
         const update = raw as ConnectionUpdate;
         const { connection, qr, lastDisconnect } = update;
 
         if (qr) {
+          latestQr = qr;
+          if (settled) return;
           settled = true;
           clearTimeout(timer);
           activeSocket = sock;
@@ -243,6 +261,7 @@ export async function startLink(): Promise<{ status: 'qr' | 'linked'; qr?: strin
           return;
         }
         if (connection === 'open') {
+          latestQr = null;
           settled = true;
           clearTimeout(timer);
           activeSocket = sock;
@@ -254,6 +273,7 @@ export async function startLink(): Promise<{ status: 'qr' | 'linked'; qr?: strin
         if (connection === 'close') {
           const code = lastDisconnect?.error?.output?.statusCode;
           if (code === DisconnectReason.loggedOut || code === DisconnectReason.badSession) {
+            latestQr = null;
             settled = true;
             clearTimeout(timer);
             await clearAuthState();
@@ -355,6 +375,7 @@ export async function runSendBulk(clients: BulkClient[], opts: BulkOptions = {})
     sent: 0,
     skippedNoWhatsApp: 0,
     failed: 0,
+    error: null,
     startedAt: new Date().toISOString(),
     finishedAt: null,
   };
@@ -397,6 +418,8 @@ export async function runSendBulk(clients: BulkClient[], opts: BulkOptions = {})
     activeSocket = null;
     activeSaveCreds = null;
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    sendProgress.error = message;
     logError('[WhatsApp] Campanha falhou', err instanceof Error ? err : new Error(String(err)));
     throw err;
   } finally {
