@@ -4,7 +4,7 @@
 Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + Suno API).
 
 ## Constraints & Preferences
-- Não quebrar nada existente — cada mudança validada com lint + testes (173 tests).
+- Não quebrar nada existente — cada mudança validada com lint + testes (223 tests).
 - Wizard.tsx e AdminPanel.tsx mantidos como estão (2982 e 3036 linhas) — risco de extração elevado, acordado manter.
 
 ## Progress
@@ -74,6 +74,11 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Rollback automático Suno testado + notificação completa**: `rollbackSunoWorkflow` exportado (`workflow.ts`) — reverte `payments.status→failed` + `approved_at:null`, limpa storage órfão, notifica admin (com email/nome do cliente, nº de pagamentos revertidos e link `/admin`) e cliente (`sendWorkflowFailedEmail`). 8 unit tests em `server/__tests__/workflow-rollback.test.ts` (reversão, sem aprovados, fallback `users.email`, storage cleanup, graceful em falhas).
 - **Recuperação gratuita de abandonados via WhatsApp (Baileys) + página `/retomar`**: campanha manual no admin — bucket 30min/72h/24h/48h (prioridade), limites 30/dia + 9h–20h (env), envio `@whiskeysockets/baileys` a partir do número `244929423278`, E.164 normalizado, templates genéricos. Novos ficheiros: `supabase_migration_abandoned_whatsapp.sql` (aplicada em produção), `server/services/abandonedMessages.ts`, `server/services/whatsappSender.ts` (import lazy nas rotas — nunca no boot; `sock.end()` requer argumento), rotas em `admin.ts` (`/abandoned`, `/abandoned/send-bulk`, `/abandoned/send-status`, `/abandoned/:id/mark-contacted`, `/whatsapp/link`, `/whatsapp/link-status`), `POST /api/song/recover-by-email` (página `/retomar`), `RecoverPage.tsx`, tab "Abandonados" no `AdminPanel`. **Baileys fica fora do bundle server com `esbuild --packages=external`**; import lazy dentro dos handlers. Limiter `recoverByEmailLimiter` (20/h) + `whatsappBulkLimiter` (10/h). 192 testes (novos: `server/__tests__/abandoned-messages.test.ts` 15, `recoverByEmail` 4 em `song-api.test.ts`).
 - **Filtro por tempo na aba Abandonados + verificação real do WhatsApp**: pills "Desde a criação" (`Todos/<1h/1–6h/6–24h/24–48h/48–72h/>72h`) no AdminPanel com `abandonedRange` state — `GET /api/admin/abandoned?range=` filtra por `elapsedInRange` (presets `ABANDONED_TIME_RANGES` + `isAbandonedTimeRange`/`elapsedInRange` em `abandonedMessages.ts`); botão "Verificar ligação" (header + modal QR) chama `GET /api/admin/whatsapp/verify` → `verifyConnection()` no `whatsappSender.ts` (abre o socket Baileys real, devolve `{connected, phone}`), StatCard e badge mostram o número verificado. Typecheck corrigido (rangeFilter `((elapsedMs)=>boolean)|null`; onClick com `() => fetchAbandoned(range)`). Testes: +7 em `abandoned-messages.test.ts` (ranges), +4 em `abandoned-whatsapp-route.test.ts` (range 400/filtro/todos + verify). Total: 218 testes (19 ficheiros).
+- **Auditoria de saúde (10/Ago 2026)**: site saudável (HTTP 200, deploy `c096482` live, zero erros pós-deploy); OpenAI/Anthropic sem créditos — só Gemini operacional (ver secção AI Providers). Adicionados:
+  - **Fix `crypto.randomUUID()` (crash página em branco em Android 10/webview Facebook)**: novo `src/lib/uuid.ts` com `safeUUID()` (usa `crypto.randomUUID()` quando existe; fallback Web Crypto `getRandomValues` ou `Math.random`); substituídos os 8 callsites (`analytics.ts`, `LandingPage.tsx`, `Wizard.tsx` x6). 5 testes novos (`src/__tests__/uuid.test.ts`).
+  - **Índice `email_events(request_id)`**: `supabase_migration_email_events_request_id_idx.sql` + aplicado em produção (`idx_email_events_request_id`).
+  - **Sentry: filtro do ruído do Facebook in-app webview** em `src/instrument.ts` (`beforeSend` ignora `window.webkit.messageHandlers`, `Java object is gone`, `iabjs:`, FBWebView) — as issues JAVASCRIPT-REACT-3/5/6/7/H são código injetado pelo próprio Facebook, não nosso.
+  - **`/health` ainda não valida `GEMINI_API_KEY`/créditos** — recomendado adicionar futuramente (só reporta anthropic/openai/suno/brevo).
 
 ## AI Providers (Ordem de fallback)
 1. **Gemini** (`gemini-2.5-flash`) — tentado primeiro
@@ -81,6 +86,8 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 3. **Claude** (`claude-3-5-sonnet-20241022`) — tentado último
 
 Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos), a próxima é tentada automaticamente. Se todas falharem, o utilizador vê: *"O saldo de créditos da API de geração de letras está esgotado."*
+
+> **⚠️ Estado real (10/Ago 2026)**: só o **Gemini** está com créditos operacionais. OpenAI devolve `429 no credits` e Anthropic `400 balance too low` desde ~06/Ago — o fallback para estes 2 está morto. Se o Gemini der `503 high demand` (aconteceu 06–07/Ago, quebrando utilizadores reais), a geração falha. Recarregar OpenAI ou Anthropic restaura a redundância. Fica documentado em `server/services/ai.ts` (`DEFAULT_PROVIDER_ORDER`).
 
 ## Sentry SDK (Monitorização de Erros)
 - **Versão**: `@sentry/node` e `@sentry/react` v10.62.0
@@ -102,7 +109,7 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - **CI corre em ubuntu-latest com Node 22**, npm ci, lint, test.
 
 ## Testes
-- **218 testes**, 19 ficheiros — todos passam (vitest + jsdom).- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (11), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (3), aiShared (14), helpers (5), workflow-rollback (8), abandoned-messages (22), abandoned-whatsapp-route (8), whatsapp-sender (7).
+- **223 testes**, 20 ficheiros — todos passam (vitest + jsdom).- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (11), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (3), aiShared (14), helpers (5), workflow-rollback (8), abandoned-messages (22), abandoned-whatsapp-route (8), whatsapp-sender (7), uuid (5).
 - **Playwright E2E**: 13 testes (landing, wizard, dedication, admin).
 
 ## Next Steps
@@ -111,7 +118,7 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 3. **Monitorizar métricas do funil de conversão** — recuperação de abandonados ativa em produção; acompanhar taxa de resume (`payment_screen` vs. `resume-data` hits) e conversão pós-lembrete.
 
 ## Critical Context
-- **173 testes passam sempre** após cada mudança (vitest).
+- **223 testes passam sempre** após cada mudança (vitest).
 - **Supabase**: `service_role` key usada apenas onde necessário (admin routes, auth.admin.*, workflows, signed URLs). Anon key usada no endpoint público de dedicatória.
 - **AI providers**: OpenAI + Gemini + Claude configurados. Fallback automático se um falhar.
 - **Suno**: API key configurada, 500+ créditos. `deliveryScheduler.ts` para entregas Standard.
@@ -137,11 +144,13 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - `server/utils/helpers.ts`: `publicErrorMessage`, `getAppUrl`.
 - `server/__tests__/workflow-rollback.test.ts`: 8 testes do `rollbackSunoWorkflow`.
 - `supabase_setup.sql`: Setup SQL original **desatualizado** face ao schema real.
+- `supabase_migration_email_events_request_id_idx.sql`: Migration com `idx_email_events_request_id` (aplicada em produção).
 - `supabase_migration_scheduler.sql`: Migration com `deliver_at`, `delivered_at`, `deleted_at`, índice.
 - `supabase_migration_wizard_optional_fields.sql`: Migration com `reference_artist`, `why_created_today`, `only_she_does`, `where_it_happened`.
 - `.github/workflows/ci.yml`: CI pipeline (lint + test + e2e).
 - `vitest.config.ts`: config jsdom + React plugin.
 - `src/lib/validation.ts`: Zod schemas partilhados (frontend).
+- `src/lib/uuid.ts`: `safeUUID()` com fallback seguro para browsers sem `crypto.randomUUID`.
 - `src/components/WizardSteps.tsx`: erros inline via `fieldErrors`.
 - `src/components/WhatsAppHelp.tsx`: botão de ajuda WhatsApp.
 - `e2e/`: 13 testes Playwright.

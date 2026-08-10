@@ -13,6 +13,7 @@ import { gaViewContent, gaInitiateCheckout } from '../lib/analytics';
 import { useTypewriter } from '../hooks/useTypewriter';
 import { useUtm } from '../hooks/useUtm';
 import { useSocialProof } from '../lib/socialProof';
+import { safeUUID } from '../lib/uuid';
 import { CURRENCY } from '../constants/currency';
 
 interface LandingPageProps {
@@ -147,7 +148,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   }, []);
 
   useEffect(() => {
-    fbViewContent('landing', 0, CURRENCY, crypto.randomUUID());
+    fbViewContent('landing', 0, CURRENCY, safeUUID());
     gaViewContent('landing');
   }, []);
 

@@ -26,6 +26,7 @@ import { DEMO_SONGS } from '../constants/demoSongs';
 import { useUtm } from '../hooks/useUtm';
 import { useSocialProof, formatMinutesAgo } from '../lib/socialProof';
 import { CURRENCY } from '../constants/currency';
+import { safeUUID } from '../lib/uuid';
 import { buildTeaser, loadTeaserEdits, saveTeaserEdits, clearTeaserEdits, isTeaserEnabled, resetTeaserEnabledCache } from '../lib/lyricsTeaser';
 import LyricsTeaserPreview from './LyricsTeaserPreview';
 
@@ -448,7 +449,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const plan = selectedPlanID || 'standard';
         gaViewContent(plan, PLAN_VALUES[plan]);
         // Meta: letras geradas = CompleteRegistration real
-        fbLyricsGenerated(crypto.randomUUID());
+        fbLyricsGenerated(safeUUID());
       }
     }
   }, [generationStatus]);
@@ -458,7 +459,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     if (conversionStep === 'plans') {
       const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
       const plan = selectedPlanID || 'standard';
-      fbCheckoutView(plan, PLAN_VALUES[plan], CURRENCY, crypto.randomUUID());
+      fbCheckoutView(plan, PLAN_VALUES[plan], CURRENCY, safeUUID());
     }
   }, [conversionStep]);
 
@@ -472,7 +473,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   useEffect(() => {
     if (step === 1 && !wizardStartedRef.current) {
       wizardStartedRef.current = true;
-      fbStartWizard(crypto.randomUUID());
+      fbStartWizard(safeUUID());
     }
   }, [step]);
 
@@ -849,7 +850,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   useEffect(() => {
     if (isDone && !paymentScreenTrackedRef.current) {
       paymentScreenTrackedRef.current = true;
-      fbWizardStep('payment_screen', 9, crypto.randomUUID());
+      fbWizardStep('payment_screen', 9, safeUUID());
     }
   }, [isDone]);
 
@@ -1288,7 +1289,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     if (step < 9) {
       const nextStepNum = step + 1;
       setStep(nextStepNum);
-      fbWizardStep(`step_${nextStepNum}`, nextStepNum, crypto.randomUUID());
+      fbWizardStep(`step_${nextStepNum}`, nextStepNum, safeUUID());
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       fbSetUserData(formData.email, formData.phone);
@@ -1879,7 +1880,7 @@ const ROTATING_MESSAGES = [
                 }}
                 onUnlockClick={() => {
                   setConversionStep('plans');
-                  fbWizardStep('unlock_click', 0, crypto.randomUUID());
+                  fbWizardStep('unlock_click', 0, safeUUID());
                 }}
               />
             ) : (

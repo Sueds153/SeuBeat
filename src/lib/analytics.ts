@@ -1,5 +1,6 @@
 import ReactGA from 'react-ga4';
 import { CURRENCY } from '../constants/currency';
+import { safeUUID } from './uuid';
 
 const MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
 const IS_ENABLED = Boolean(MEASUREMENT_ID);
@@ -103,7 +104,7 @@ export function gaPurchase(plan?: string, value?: number, currency = CURRENCY): 
   if (!IS_ENABLED || !initialized) return;
   try {
     ReactGA.event('purchase', {
-      transaction_id: crypto.randomUUID(),
+      transaction_id: safeUUID(),
       currency,
       value,
       items: [{ item_name: plan || 'unknown', price: value }],
