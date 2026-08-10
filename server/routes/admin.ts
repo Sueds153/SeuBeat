@@ -1004,10 +1004,10 @@ router.post('/undo', adminAuth, async (req, res) => {
           .update({ status: 'pending_verification', approved_at: null, notes: 'Desfeito pelo admin' })
           .eq('id', entityId)
           .eq('status', targetStatus);
-        if (undoError || !undoError) {
+        if (!undoError) {
           const { data: pay } = await supabase.from('payments').select('request_id, status').eq('id', entityId).single();
           if (pay?.request_id && pay.status === 'pending_verification') {
-            await supabase.from('song_requests').update({ status: 'payment_submitted' }).eq('id', pay.request_id).in('status', ['payment_rejected', 'approved']);
+            await supabase.from('song_requests').update({ status: 'payment_submitted' }).eq('id', pay.request_id).in('status', ['payment_rejected', 'approved', 'delivered', 'music_ready', 'music_processing', 'voice_processing']);
           }
         }
         logAdminAction({ action: 'undo', entityType: 'payment', entityId, notes: `Undo: ${action}` });

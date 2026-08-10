@@ -112,6 +112,13 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - **223 testes**, 20 ficheiros — todos passam (vitest + jsdom).- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (11), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (3), aiShared (14), helpers (5), workflow-rollback (8), abandoned-messages (22), abandoned-whatsapp-route (8), whatsapp-sender (7), uuid (5).
 - **Playwright E2E**: 13 testes (landing, wizard, dedication, admin).
 
+## Security Advisor (10/Ago 2026) — resolvido (11→1 lint)
+- Migration `supabase_migration_security_advisor_cleanup.sql` (aplicada em produção): 10 drops de tabelas/funções do **AngoLife** que poluíam o projeto (`profiles`, `multicaixas`, `reportes_multicaixa`, `subscriptions_pending`, `news_articles`, `product_deals`, `orders`, `exchange_rates`, `push_subscriptions`, `jobs` + funções `multicaixa_*` e `generate_referral_code`). Confirmado: zero refs no código SeuBeat, FKs apenas internas ao conjunto.
+- **RLS nas 3 tabelas SeuBeat sem policy** (`admin_audit_log`, `whatsapp_send_log`, `whatsapp_session`): `REVOKE all` de `anon`/`authenticated` + `create policy "deny_all" ... using(false) with check(false)`. `service_role` continua com acesso (bypass).
+- **Restou 1 lint**: `auth_leaked_password_protection` — **passo manual**: Dashboard → Authentication → Password Protection → ativar (não há token de management válido p/ API).
+- Realtime de `multicaixas`/`reportes_multicaixa` removido automaticamente com o drop das tabelas.
+- **Bugfix undo no AdminPanel** (`server/routes/admin.ts:1007`): `if (undoError || !undoError)` (sempre true) → `if (!undoError)`; lista de reversão do `song_requests` alinhada (agora inclui `delivered`, `music_ready`, `music_processing`, `voice_processing`). Antes, um approved→undo não revertia músicas já `delivered`.
+
 ## Next Steps
 1. **Custom domain** apontar `seubeat.ao` para Render.
 2. **E2E tests completos** com API reais (Wizard → pagamento → dedicatória).
