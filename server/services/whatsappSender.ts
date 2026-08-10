@@ -23,6 +23,9 @@ const SESSION_ID = '00000000-0000-0000-0000-000000000001';
 const DAILY_CAP = Number(process.env.WHATSAPP_DAILY_CAP || 30);
 const START_HOUR = Number(process.env.WHATSAPP_START_HOUR || 9);
 const END_HOUR = Number(process.env.WHATSAPP_END_HOUR || 20);
+// Atraso anti-spam entre mensagens (30–90s), configurável por env.
+const MIN_SEND_DELAY_MS = Number(process.env.WHATSAPP_MIN_SEND_DELAY_MS || 30_000);
+const MAX_SEND_DELAY_MS = Number(process.env.WHATSAPP_MAX_SEND_DELAY_MS || 90_000);
 
 interface ConnectionUpdate {
   connection?: string;
@@ -37,7 +40,7 @@ export interface BulkClient {
 }
 
 export interface BulkOptions {
-  force?: boolean; // ignora cap diário e horário
+  // reservado para opções futuras — o cap diário e o horário nunca são ignorados
 }
 
 interface SendProgress {
@@ -66,6 +69,21 @@ let sendProgress: SendProgress = {
 
 let activeSocket: WASocket | null = null;
 let activeSaveCreds: (() => Promise<void>) | null = null;
+
+// Liveness real da ligação — `activeSocket.user` fica preenchido mesmo depois
+// da ligação cair, por isso o estado `connected` é só confiável via este flag,
+// atualizado no handler global de connection.update.
+let liveConnected = false;
+// Reconexão automática após quedas não-fatais (connectionClosed/Lost/timedOut/
+// restartRequired/connectionReplaced) — backoff exponencial 5s→60s.
+let reconnectTimer: NodeJS.Timeout | null = null;
+let reconnectAttempts = 0;
+// Persistência periódica do espelho no Supabase enquanto houver sessão válida.
+let persistenceTimer: NodeJS.Timeout | null = null;
+
+const MAX_RECONNECT_DELAY_MS = 60_000;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const PERSIST_INTERVAL_MS = 5 * 60_000;
 
 // Último QR gerado pelo Baileys (string crua). O QR regenera a cada ~20s até o
 // scan completar — guardamos o mais recente para o frontend poder refrescar.
@@ -190,8 +208,55 @@ function connectSocket() {
         markOnlineOnConnect: false,
         syncFullHistory: false,
       });
+      attachGlobalHandlers(sock, saveCreds);
       return { sock, saveCreds };
     });
+  });
+}
+
+/**
+ * Handler GLOBAL de cada socket Baileys. Garante que a liveness (`liveConnected`)
+ * reflete a ligação real (não o `user.id` stale) e que quedas não-fatais são
+ * resolvidas por reconexão automática — sem apagar credenciais.
+ */
+function attachGlobalHandlers(sock: WASocket, saveCreds: () => Promise<void>): void {
+  sock.ev.on('creds.update', () => {
+    saveCreds().then(persistAuthState).catch(() => {});
+  });
+
+  sock.ev.on('connection.update', (raw: unknown) => {
+    const update = raw as ConnectionUpdate;
+    const { connection, qr, lastDisconnect } = update;
+    if (qr) latestQr = qr;
+    if (connection === 'open') {
+      liveConnected = true;
+      reconnectAttempts = 0;
+      if (activeSocket !== sock) {
+        activeSocket = sock;
+        activeSaveCreds = saveCreds;
+      }
+      saveCreds().then(persistAuthState).catch(() => {});
+      startPersistenceTimer();
+      return;
+    }
+    if (connection === 'close') {
+      liveConnected = false;
+      lastLiveCheck = null;
+      if (activeSocket === sock) {
+        activeSocket = null;
+        activeSaveCreds = null;
+      }
+      const code = lastDisconnect?.error?.output?.statusCode;
+      logWarn('[WhatsApp] Socket fechado (global)', { code: code ?? null });
+      if (code === DisconnectReason.loggedOut || code === DisconnectReason.badSession) {
+        latestQr = null;
+        void clearAuthState();
+        return;
+      }
+      // Quedas não-fatais (connectionClosed/connectionLost/timedOut/
+      // restartRequired/connectionReplaced): reconectar sem apagar a sessão.
+      scheduleReconnect();
+    }
   });
 }
 
@@ -209,10 +274,70 @@ function ensureSocketCreated(): Promise<{ sock: WASocket; saveCreds: () => Promi
   return socketCreatePromise;
 }
 
+/** Liveness real: socket existente, autenticado e com ligação confirmada como aberta. */
+function isSocketAlive(): boolean {
+  return !!activeSocket?.user?.id && liveConnected === true;
+}
+
+function scheduleReconnect(): void {
+  if (reconnectTimer) return;
+  if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+    logWarn('[WhatsApp] Circuit breaker: demasiadas reconexões falhadas — auto-reconexão desligada até nova ligação manual');
+    return;
+  }
+  const delay = Math.min(5000 * Math.pow(2, reconnectAttempts), MAX_RECONNECT_DELAY_MS);
+  reconnectAttempts += 1;
+  const timer = setTimeout(() => {
+    reconnectTimer = null;
+    void reconnectInBackground();
+  }, delay);
+  timer.unref?.();
+  reconnectTimer = timer;
+}
+
+async function reconnectInBackground(): Promise<void> {
+  try {
+    await restoreAuthState();
+    // Pairing QR em curso — não interferir (o scan do admin está a decorrer).
+    if (activeSocket && !activeSocket.user?.id) return;
+    if (!(await credsHasValidSession())) return;
+    if (isSocketAlive()) return;
+    await connectAndWaitOpen();
+    logInfo('[WhatsApp] Ligação restabelecida automaticamente após queda');
+  } catch {
+    scheduleReconnect();
+  }
+}
+
+function stopReconnect(): void {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+}
+
+function startPersistenceTimer(): void {
+  if (persistenceTimer) return;
+  const timer = setInterval(() => {
+    void persistAuthState();
+  }, PERSIST_INTERVAL_MS);
+  timer.unref?.();
+  persistenceTimer = timer;
+}
+
+function stopPersistenceTimer(): void {
+  if (persistenceTimer) {
+    clearInterval(persistenceTimer);
+    persistenceTimer = null;
+  }
+}
+
 async function connectAndWaitOpen(): Promise<{ sock: WASocket; saveCreds: () => Promise<void> }> {
   await restoreAuthState();
-  if (activeSocket?.user?.id) {
-    return { sock: activeSocket, saveCreds: activeSaveCreds || (async () => {}) };
+  // Liveness real: só reusa o socket atual se a ligação estiver confirmada como
+  // aberta (não basta `user.id` — fica stale depois da ligação cair).
+  if (isSocketAlive()) {
+    return { sock: activeSocket as WASocket, saveCreds: activeSaveCreds || (async () => {}) };
   }
   // Socket em fase de pairing (QR ainda por escanear): abrir um segundo socket
   // com as mesmas credenciais mataria o primeiro. Devolvemos erro claro.
@@ -309,8 +434,8 @@ async function liveCheckSocket(): Promise<{ linked: boolean; phone?: string; err
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function getLinkStatus(): Promise<{ linked: boolean; qr?: string }> {
-  // Socket realmente aberto e autenticado — ligação confirmada.
-  if (activeSocket?.user?.id) return { linked: true };
+  // Socket realmente aberto e autenticado — ligação confirmada (liveness real).
+  if (isSocketAlive()) return { linked: true };
 
   // Cache curto da verificação viva para o polling não abrir socket a cada 5s.
   if (lastLiveCheck && Date.now() - lastLiveCheck.at < LIVE_CHECK_TTL_MS) {
@@ -457,9 +582,15 @@ export function getSendProgress(): SendProgress {
  * painel para escapar de sessões mortas/reescanear do zero.
  */
 export async function logout(): Promise<void> {
+  stopReconnect();
+  stopPersistenceTimer();
   const sock = activeSocket;
   activeSocket = null;
   activeSaveCreds = null;
+  liveConnected = false;
+  reconnectAttempts = 0;
+  latestQr = null;
+  lastLiveCheck = null;
   if (sock) {
     try {
       sock.end(new Error('logout'));
@@ -476,11 +607,10 @@ async function hasAuthState(): Promise<boolean> {
   return credsHasValidSession();
 }
 
-async function checkConstraints(force: boolean): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (force) return { ok: true };
+async function checkConstraints(): Promise<{ ok: true } | { ok: false; error: string }> {
   const h = new Date().getHours();
   if (h < START_HOUR || h >= END_HOUR) {
-    return { ok: false, error: `Fora do horário definido (${START_HOUR}h–${END_HOUR}h). Usa o modo forçado para continuar.` };
+    return { ok: false, error: `Fora do horário definido (${START_HOUR}h–${END_HOUR}h).` };
   }
   const supabase = getAdminSupabase();
   if (supabase) {
@@ -491,7 +621,7 @@ async function checkConstraints(force: boolean): Promise<{ ok: true } | { ok: fa
       .eq('status', 'sent')
       .gte('created_at', today);
     if ((count ?? 0) >= DAILY_CAP) {
-      return { ok: false, error: `Limite diário atingido (${count}/${DAILY_CAP}). Usa o modo forçado para continuar.` };
+      return { ok: false, error: `Limite diário atingido (${count}/${DAILY_CAP}).` };
     }
   }
   return { ok: true };
@@ -551,10 +681,10 @@ export async function runSendBulk(clients: BulkClient[], opts: BulkOptions = {})
     startedAt: new Date().toISOString(),
     finishedAt: null,
   };
-  logInfo('[WhatsApp] Campanha iniciada', { total: clients.length, force: !!opts.force });
+  logInfo('[WhatsApp] Campanha iniciada', { total: clients.length });
 
   try {
-    const check = await checkConstraints(opts.force ?? false);
+    const check = await checkConstraints();
     if (!check.ok) throw new Error(check.error);
 
     const { sock, saveCreds } = await connectAndWaitOpen();
@@ -581,7 +711,8 @@ export async function runSendBulk(clients: BulkClient[], opts: BulkOptions = {})
         await logSend(client, 'failed', err instanceof Error ? err.message : String(err));
       }
       if (i < clients.length - 1) {
-        await sleep(8000 + Math.floor(Math.random() * 7000));
+        // Anti-spam: 30–90s aleatório entre mensagens para evitar ban do WhatsApp.
+        await sleep(MIN_SEND_DELAY_MS + Math.floor(Math.random() * (MAX_SEND_DELAY_MS - MIN_SEND_DELAY_MS)));
       }
     }
 

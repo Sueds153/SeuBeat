@@ -1802,7 +1802,7 @@ router.post('/whatsapp/link', adminAuth, whatsappBulkLimiter, async (_req, res) 
 
 router.post('/abandoned/send-bulk', adminAuth, whatsappBulkLimiter, async (req, res) => {
   try {
-    const { requestIds, force } = req.body || {};
+    const { requestIds } = req.body || {};
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
@@ -1856,7 +1856,7 @@ router.post('/abandoned/send-bulk', adminAuth, whatsappBulkLimiter, async (req, 
 
     // Corre em background — a request não bloqueia durante os atrasos da fila.
     // O progresso e eventuais erros são expostos via /abandoned/send-status.
-    void wa.runSendBulk(clients, { force: !!force }).catch((err) => {
+    void wa.runSendBulk(clients).catch((err) => {
       logError('[WhatsApp] Erro ao iniciar campanha', err instanceof Error ? err : new Error(String(err)));
     });
 
