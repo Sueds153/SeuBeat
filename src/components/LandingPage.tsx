@@ -101,6 +101,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const [showCount, setShowCount] = useState(false);
   const [animatedCount, setAnimatedCount] = useState(0);
   const [heroIdx, setHeroIdx] = useState(0);
+  const [showStickyBar, setShowStickyBar] = useState(false);
 
   const socialProof = useSocialProof();
   const todayCount = socialProof.createdToday;
@@ -148,6 +149,23 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   }, []);
 
   useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      const vh = window.innerHeight || 1;
+      const docHeight = document.documentElement.scrollHeight;
+      const nearBottom = docHeight - (scrollY + vh) < vh * 1.2;
+      setShowStickyBar(scrollY > vh * 0.6 && !nearBottom);
+    };
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, []);
+
+  useEffect(() => {
     fbViewContent('landing', 0, CURRENCY, safeUUID());
     gaViewContent('landing');
   }, []);
@@ -180,6 +198,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
         )}
         <span className="underline underline-offset-2">Sem assinatura</span>{' '}
         <span className="max-sm:hidden">· paga apenas quando a letra te encantar 💛</span>
+        <span className="sm:hidden">· só pagas quando aprovares 💛</span>
       </div>
 
       {/* Ambient Background */}
@@ -259,11 +278,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       </header>
 
       {/* ─── 1. HERO — SPLIT LAYOUT ─── */}
-      <section className="relative max-w-7xl mx-auto px-4 md:px-8 pt-14 pb-20">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+      <section className="relative max-w-7xl mx-auto px-4 md:px-8 pt-8 md:pt-14 pb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10 lg:gap-12 items-center">
 
-          {/* Left: Text */}
-          <div className="space-y-8 text-left">
+          {/* Intro + Headline */}
+          <div className="space-y-6 md:space-y-8 text-left lg:col-start-1">
             <div className="inline-flex items-center gap-3 rounded-2xl border border-stone-800/80 bg-stone-900/35 px-4 py-3 shadow-lg shadow-black/20">
               <LogoIcon size={44} className="shrink-0" />
               <div>
@@ -308,63 +327,35 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 </AnimatePresence>
               </p>
             </div>
-
-            {/* Trust badges */}
-            <div className="flex flex-wrap gap-3 text-xs font-mono text-stone-500 uppercase tracking-wider">
-              {['Letras em Português Real', 'Kizomba · Semba · Gospel', 'Entrega por E-mail'].map((t) => (
-                <div key={t} className="flex items-center gap-1.5">
-                  <Check className="w-3.5 h-3.5 text-amber-500" />
-                  <span>{t}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex flex-col items-start gap-1">
-                <button
-                  id="hero-primary-cta"
-                  onClick={onStartWizard}
-                  className="px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm md:text-base rounded-full shadow-xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all inline-flex items-center justify-center gap-2 cursor-pointer animate-glow-pulse"
-                >
-                  <span>Criar Minha Música</span>
-                  <ArrowRight className="w-5 h-5 shrink-0" />
-                </button>
-                <span className="flex items-center gap-1 text-[10px] text-amber-400/70 font-mono mt-1">
-                  <Shield className="w-3 h-3" /> 100% Satisfação Garantida ou Reembolso
-                </span>
-              </div>
-
-              <a
-                href="#audio-demo-section"
-                className="px-8 py-4 bg-stone-900 hover:bg-stone-850 text-stone-200 font-medium text-sm md:text-base rounded-full border border-stone-800 hover:border-stone-700 transition-colors inline-flex items-center justify-center gap-2"
-              >
-                <Play className="w-4 h-4 fill-current text-amber-400 shrink-0" />
-                <span>Ouvir Exemplos Reais</span>
-              </a>
-            </div>
-
-            {/* Social proof micro-stats */}
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-stone-500 font-mono">
-              <div className="flex items-center gap-1.5">
-                <span ref={countRef} className="text-amber-400 font-bold text-base">+{showCount ? animatedCount : 0}</span>
-                <span>músicas criadas</span>
-              </div>
-              <div className="w-px h-4 bg-stone-800" />
-              <div className="flex items-center gap-1.5">
-                <span className="text-amber-400 font-bold text-base">4.9★</span>
-                <span>(118 avaliações)</span>
-              </div>
-              <div className="w-px h-4 bg-stone-800" />
-              <div className="flex items-center gap-1.5">
-                <span className="text-amber-400 font-bold text-base">100%</span>
-                <span>personalizado</span>
-              </div>
-            </div>
           </div>
 
-          {/* Right: Emotional Photo */}
-          <div className="relative flex justify-center lg:justify-end">
+          {/* CTAs */}
+          <div className="flex flex-col sm:flex-row gap-4 lg:col-start-1">
+            <div className="flex flex-col items-start gap-1">
+              <button
+                id="hero-primary-cta"
+                onClick={onStartWizard}
+                className="px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm md:text-base rounded-full shadow-xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all inline-flex items-center justify-center gap-2 cursor-pointer animate-glow-pulse"
+              >
+                <span>Criar Minha Música</span>
+                <ArrowRight className="w-5 h-5 shrink-0" />
+              </button>
+              <span className="flex items-center gap-1 text-[10px] text-amber-400/70 font-mono mt-1">
+                <Shield className="w-3 h-3" /> 100% Satisfação Garantida ou Reembolso
+              </span>
+            </div>
+
+            <a
+              href="#audio-demo-section"
+              className="px-8 py-4 bg-stone-900 hover:bg-stone-850 text-stone-200 font-medium text-sm md:text-base rounded-full border border-stone-800 hover:border-stone-700 transition-colors inline-flex items-center justify-center gap-2"
+            >
+              <Play className="w-4 h-4 fill-current text-amber-400 shrink-0" />
+              <span>Ouvir Exemplos Reais</span>
+            </a>
+          </div>
+
+          {/* Emotional Photo — mobile: após CTA, acima das trust badges; desktop: coluna direita */}
+          <div className="relative flex justify-center lg:justify-end lg:col-start-2 lg:row-start-1 lg:row-span-full">
             <div className="relative w-full max-w-md">
               {/* Main photo */}
               <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-amber-900/20 border border-stone-800/60">
@@ -399,6 +390,34 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               <div className="absolute -top-4 right-4 md:-right-2 bg-gradient-to-br from-amber-500 to-rose-600 text-stone-950 rounded-2xl px-4 py-2 text-xs font-black shadow-xl shadow-amber-500/30 rotate-0 md:rotate-3">
                 🎵 Entrega em 24h
               </div>
+            </div>
+          </div>
+
+          {/* Trust badges */}
+          <div className="flex flex-wrap gap-3 text-xs font-mono text-stone-500 uppercase tracking-wider lg:col-start-1">
+            {['Letras em Português Real', 'Kizomba · Semba · Gospel', 'Entrega por E-mail'].map((t) => (
+              <div key={t} className="flex items-center gap-1.5">
+                <Check className="w-3.5 h-3.5 text-amber-500" />
+                <span>{t}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Social proof micro-stats */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-stone-500 font-mono lg:col-start-1">
+            <div className="flex items-center gap-1.5">
+              <span ref={countRef} className="text-amber-400 font-bold text-base">+{showCount ? animatedCount : 0}</span>
+              <span>músicas criadas</span>
+            </div>
+            <div className="w-px h-4 bg-stone-800" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-amber-400 font-bold text-base">4.9★</span>
+              <span>(118 avaliações)</span>
+            </div>
+            <div className="w-px h-4 bg-stone-800" />
+            <div className="flex items-center gap-1.5">
+              <span className="text-amber-400 font-bold text-base">100%</span>
+              <span>personalizado</span>
             </div>
           </div>
         </div>
@@ -536,11 +555,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
       {/* ─── 4. AUDIO DEMO ─── */}
       <section id="audio-demo-section" className="py-20 border-t border-stone-900/60 max-w-7xl mx-auto px-4 md:px-8">
-        <AudioDemo />
+        <AudioDemo onStartWizard={onStartWizard} />
       </section>
 
       {/* ─── 5. VIDEO TESTIMONIAL ─── */}
-      <VideoTestimonial />
+      <VideoTestimonial onStartWizard={onStartWizard} />
 
       {/* ─── 6. PRICING ─── */}
       <section id="pricing-section" className="py-20 border-t border-stone-900/60 bg-stone-950 px-4 md:px-8 relative text-center">
@@ -556,7 +575,16 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-10 items-stretch max-w-5xl mx-auto">
-            {PRICING_PLANS.map((plan, idx) => (
+            {PRICING_PLANS.map((plan, idx) => {
+              const orderClass =
+                plan.id === 'express'
+                  ? 'order-first md:order-2'
+                  : plan.id === 'standard'
+                    ? 'md:order-1'
+                    : plan.id === 'premium'
+                      ? 'md:order-3'
+                      : '';
+              return (
               <motion.div
                 id={`pricing-card-${plan.id}`}
                 key={plan.id}
@@ -564,7 +592,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-50px' }}
                 transition={{ duration: 0.4, delay: idx * 0.15, ease: 'easeOut' }}
-                className={`rounded-3xl p-6 md:p-8 flex flex-col justify-between relative transition-all duration-300 ${
+                className={`rounded-3xl p-6 md:p-8 flex flex-col justify-between relative transition-all duration-300 ${orderClass} ${
                   plan.popular
                     ? 'bg-gradient-to-b from-amber-950/40 via-stone-900/60 to-stone-900/30 border-2 border-amber-500 shadow-xl shadow-amber-500/5 md:scale-[1.03] z-10'
                     : 'bg-stone-900/30 border border-stone-850 hover:border-stone-800'
@@ -630,7 +658,8 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                   </span>
                 </div>
               </motion.div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -653,15 +682,57 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           </p>
         </div>
         <Testimonials />
+        <div className="max-w-xl mx-auto text-center space-y-3">
+          <button
+            id="testimonials-cta-btn"
+            onClick={onStartWizard}
+            className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm md:text-base rounded-full shadow-xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer"
+          >
+            <span>O próximo depoimento pode ser o teu ❤️</span>
+            <ArrowRight className="w-5 h-5 shrink-0" />
+          </button>
+          <p className="text-[10px] text-stone-500 font-mono">
+            Cria a tua história em menos de 2 minutos
+          </p>
+        </div>
       </motion.section>
 
-      {/* ─── 8. CTA FINAL ─── */}
+      {/* ─── 8. FAQ ─── */}
+      <section id="faq-section" className="py-20 border-t border-stone-900/60 bg-stone-950 px-4 md:px-8 text-center space-y-12">
+        <div className="max-w-2xl mx-auto space-y-3">
+          <span className="text-amber-500 text-xs font-mono font-bold uppercase tracking-widest block">Centro de Ajuda</span>
+          <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
+            Perguntas Frequentes 💡
+          </h2>
+          <p className="text-stone-400 text-xs md:text-sm">
+            Tudo o que precisa de saber para encomendar a sua composição.
+          </p>
+        </div>
+        <FAQ />
+
+        <div className="max-w-3xl mx-auto flex flex-col items-center gap-3 pt-2">
+          <p className="text-stone-400 text-sm">
+            Ainda com dúvidas? <span className="text-amber-400 font-semibold">Fala connosco no WhatsApp</span>
+          </p>
+          <a
+            href={WHATSAPP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-3 bg-green-900/30 border border-green-800/50 rounded-full text-green-400 hover:bg-green-900/50 transition-colors text-sm font-semibold"
+          >
+            <MessageCircle className="w-4 h-4" />
+            WhatsApp: 922 058 136
+          </a>
+        </div>
+      </section>
+
+      {/* ─── 9. CTA FINAL ─── */}
       <motion.section
         initial={{ opacity: 0, scale: 0.95 }}
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true, margin: '-50px' }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="py-24 px-4 md:px-8 relative"
+        className="py-24 px-4 md:px-8 relative border-t border-stone-900/60"
       >
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-950/10 to-transparent pointer-events-none" />
         <div className="max-w-2xl mx-auto text-center space-y-8 relative z-10">
@@ -704,20 +775,6 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           </div>
         </div>
       </motion.section>
-
-      {/* ─── 9. FAQ ─── */}
-      <section id="faq-section" className="py-20 border-t border-stone-900/60 bg-stone-950 px-4 md:px-8 text-center space-y-12">
-        <div className="max-w-2xl mx-auto space-y-3">
-          <span className="text-amber-500 text-xs font-mono font-bold uppercase tracking-widest block">Centro de Ajuda</span>
-          <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
-            Perguntas Frequentes 💡
-          </h2>
-          <p className="text-stone-400 text-xs md:text-sm">
-            Tudo o que precisa de saber para encomendar a sua composição.
-          </p>
-        </div>
-        <FAQ />
-      </section>
 
       {/* ─── 9. FOOTER — SIMPLIFICADO ─── */}
       <footer className="border-t border-stone-900 bg-stone-950/60 py-10 px-4 md:px-8 text-stone-500 text-xs relative z-10">
@@ -765,6 +822,30 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           Construído com amor para recordar para sempre · Luanda, Angola
         </div>
       </footer>
+
+      {/* Sticky bottom CTA — mobile apenas */}
+      {showStickyBar && (
+        <motion.div
+          initial={{ y: 80 }}
+          animate={{ y: 0 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 260, mass: 0.8 }}
+          className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-stone-950/90 backdrop-blur-md border-t border-stone-800/60 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(0,0,0,0.5)]"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col leading-tight shrink-0">
+              <span className="text-[10px] text-stone-500 font-mono uppercase tracking-wider">A tua história em música</span>
+              <span className="text-sm font-serif font-bold text-amber-400">a partir de 7.900 Kz</span>
+            </div>
+            <button
+              id="sticky-cta-btn"
+              onClick={onStartWizard}
+              className="flex-1 py-3.5 bg-gradient-to-r from-amber-500 to-rose-600 active:from-amber-400 active:to-rose-500 text-stone-950 font-extrabold text-sm rounded-full shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
+            >
+              Criar Minha Música ❤️
+            </button>
+          </div>
+        </motion.div>
+      )}
 
     </div>
   );

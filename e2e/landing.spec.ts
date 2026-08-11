@@ -5,7 +5,7 @@ test.describe('LandingPage', () => {
     await page.goto('/', { waitUntil: 'load' });
     await expect(page.getByRole('heading', { name: /Transforme a sua hist/ }).first()).toBeVisible();
     await expect(page.getByRole('button', { name: /Criar M/ }).first()).toBeVisible();
-    await expect(page.getByRole('link', { name: /WhatsApp/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /WhatsApp/ }).first()).toBeVisible();
   });
 
   test('clicking CTA starts wizard', async ({ page }) => {

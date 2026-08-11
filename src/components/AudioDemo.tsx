@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Volume2, VolumeX, Music, Heart, Sparkles } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Music, Heart, Sparkles, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import LogoIcon from './LogoIcon';
 import { DEMO_SONGS } from '../constants/demoSongs';
 import type { DemoSong } from '../constants/demoSongs';
 
-export default function AudioDemo() {
+interface AudioDemoProps {
+  onStartWizard?: () => void;
+}
+
+export default function AudioDemo({ onStartWizard }: AudioDemoProps) {
   const [selectedSong, setSelectedSong] = useState<DemoSong>(DEMO_SONGS[0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -300,6 +304,22 @@ export default function AudioDemo() {
 
         </div>
       </div>
+
+      {onStartWizard && (
+        <div className="relative z-10 mt-8 md:mt-10 text-center">
+          <button
+            id="audio-demo-cta-btn"
+            onClick={onStartWizard}
+            className="inline-flex items-center gap-2 px-6 sm:px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm md:text-base rounded-full shadow-xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer"
+          >
+            <span>Gostou? A tua vai ser igual — sobre a vossa história ❤️</span>
+            <ArrowRight className="w-5 h-5 shrink-0" />
+          </button>
+          <p className="text-[10px] text-stone-500 font-mono mt-2">
+            Kizomba · Semba · Gospel · Pop · R&B — à escolha
+          </p>
+        </div>
+      )}
     </div>
   );
 }

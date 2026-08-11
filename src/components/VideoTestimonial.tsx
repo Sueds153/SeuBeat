@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2, VolumeX, Heart, Share2, MessageCircle, Sparkles, Star, Quote } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Heart, Share2, MessageCircle, Sparkles, Star, Quote, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LogoIcon from './LogoIcon';
 
@@ -30,7 +30,11 @@ const TESTIMONIALS = [
   }
 ];
 
-export default function VideoTestimonial() {
+interface VideoTestimonialProps {
+  onStartWizard?: () => void;
+}
+
+export default function VideoTestimonial({ onStartWizard }: VideoTestimonialProps) {
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
   const [likesCount, setLikesCount] = useState(1420);
   const [hasLiked, setHasLiked] = useState(false);
@@ -141,6 +145,22 @@ export default function VideoTestimonial() {
               </div>
             </div>
           </div>
+
+          {onStartWizard && (
+            <div>
+              <button
+                id="video-proof-cta-btn"
+                onClick={onStartWizard}
+                className="inline-flex items-center gap-2 px-7 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm md:text-base rounded-full shadow-xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer"
+              >
+                <span>Quero uma música assim ❤️</span>
+                <ArrowRight className="w-5 h-5 shrink-0" />
+              </button>
+              <p className="text-[10px] text-stone-500 font-mono mt-2">
+                +200 músicas já entregues em Angola
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-5 flex justify-center">
