@@ -1066,7 +1066,6 @@ router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
 
     if (reqError || !requestData) return res.status(404).json({ success: false, error: 'Pedido não encontrado' });
     const existingSong = firstRelated(requestData.songs);
-    if (!existingSong) return res.status(400).json({ success: false, error: 'Música associada em falta.' });
 
     const formData = {
       userNick: requestData.users?.name || 'Autor',
@@ -1095,20 +1094,51 @@ router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
       email: requestData.users?.email || undefined
     });
 
-    const { data: updatedSong, error: songError } = await supabase
+    if (existingSong) {
+      const { data: updatedSong, error: songError } = await supabase
+        .from('songs')
+        .update({
+          title: parsedData.songTitle,
+          lyrics: parsedData.lyrics,
+          lyrics_snippet: parsedData.lyricsSnippet,
+          letter_text: parsedData.letterText
+        })
+        .eq('id', existingSong.id)
+        .select()
+        .single();
+
+      if (songError) return res.status(500).json({ success: false, error: safeMessage(songError) });
+      return res.json({ success: true, song: updatedSong, recovered: false });
+    }
+
+    // Pedido falhado sem música associada (ex.: falha de IA no /generate-lyrics):
+    // gera a letra, cria a row de songs e marca lyrics_ready para o pedido retomar no pagamento.
+    const { data: createdSong, error: createError } = await supabase
       .from('songs')
-      .update({
+      .insert([{
+        request_id: requestData.id,
         title: parsedData.songTitle,
         lyrics: parsedData.lyrics,
         lyrics_snippet: parsedData.lyricsSnippet,
-        letter_text: parsedData.letterText
-      })
-      .eq('id', existingSong.id)
+        letter_text: parsedData.letterText,
+        mureka_status: 'not_started'
+      }])
       .select()
       .single();
 
-    if (songError) return res.status(500).json({ success: false, error: safeMessage(songError) });
-    res.json({ success: true, song: updatedSong });
+    if (createError) return res.status(500).json({ success: false, error: safeMessage(createError) });
+
+    if (requestData.status === 'failed') {
+      const { error: statusError } = await supabase
+        .from('song_requests')
+        .update({ status: 'lyrics_ready', error_details: null })
+        .eq('id', requestData.id);
+      if (statusError) {
+        logError('[API] Falha ao atualizar status após regenerar pedido falhado', statusError, { requestId: requestData.id });
+      }
+    }
+
+    res.json({ success: true, song: createdSong, recovered: true });
   } catch (err: unknown) { res.status(500).json({ success: false, error: safeMessage(err) }); }
 });
 

@@ -1,12 +1,13 @@
 export { startAbandonedRecoveryScheduler } from './abandonedRecoveryScheduler';
 export { generateLyrics } from './ai';
+export { startFailedLyricsRecoveryScheduler } from './failedLyricsRecoveryScheduler';
 export { downloadFile, createPreviewAudio, applyFades, convertToWav, getAudioDuration } from './audio';
 export { generateLyricsWithClaude } from './claude';
 export { startDeliveryScheduler } from './deliveryScheduler';
 export {
   sendPersonalizedEmail, sendPaymentRejectionEmail, sendConfirmationEmail,
   sendAdminNotification, sendAbandonedFirstReminder, sendAbandonedSecondReminder,
-  sendFollowUp7d, sendFollowUp30d, sendWorkflowFailedEmail,
+  sendFollowUp7d, sendFollowUp30d, sendWorkflowFailedEmail, sendLyricsRecoveredEmail,
 } from './email';
 export { startFollowUpScheduler } from './followUpScheduler';
 export { generateLyricsWithGemini } from './gemini';

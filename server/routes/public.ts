@@ -12,6 +12,7 @@ function sanitize(str: string): string {
 }
 import { setProgress, updateRequestStatus } from '../services/workflow';
 import { publicErrorMessage, getAppUrl } from '../utils/helpers';
+import { allFailuresTransient, LYRIC_GENERATION_QUEUED_MESSAGE } from '../utils/aiFailure';
 import { 
   GenerateLyricsSchema, 
   UpdateLyricsSchema,
@@ -598,7 +599,14 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
       songId: dbSongId
     });
     if (!res.headersSent) {
-      res.status(500).json({ success: false, error: publicErrorMessage(err) });
+      // Falha 100% transitória (ex.: gemini 503 "high demand") e pedido registado:
+      // o failedLyricsRecoveryScheduler regenera em background e avisa por email.
+      const providerFailures = (err as { providerFailures?: unknown } | null)?.providerFailures;
+      if (allFailuresTransient(providerFailures) && dbSongRequestId) {
+        res.status(503).json({ success: false, error: LYRIC_GENERATION_QUEUED_MESSAGE });
+      } else {
+        res.status(500).json({ success: false, error: publicErrorMessage(err) });
+      }
     }
   }
 });

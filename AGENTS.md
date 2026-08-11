@@ -79,6 +79,9 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
   - **Índice `email_events(request_id)`**: `supabase_migration_email_events_request_id_idx.sql` + aplicado em produção (`idx_email_events_request_id`).
   - **Sentry: filtro do ruído do Facebook in-app webview** em `src/instrument.ts` (`beforeSend` ignora `window.webkit.messageHandlers`, `Java object is gone`, `iabjs:`, FBWebView) — as issues JAVASCRIPT-REACT-3/5/6/7/H são código injetado pelo próprio Facebook, não nosso.
   - **`/health` ainda não valida `GEMINI_API_KEY`/créditos** — recomendado adicionar futuramente (só reporta anthropic/openai/suno/brevo).
+- **Recuperação automática de letras falhadas** (`failedLyricsRecoveryScheduler.ts`, 10min): pedidos `failed` com `error_details` (sem `recovery_retried_at`) e sem música nas últimas 48h são regenerados em background (`generateLyrics`), cria-se a row de `songs` e marca-se `lyrics_ready` (o cliente retoma no pagamento). Guardas: **one-shot** via `recovery_retried_at` (claim atómico com `.filter(..., is null)`), dedupe **um pedido por email** (o mais recente), emails com outro pedido recuperável (`lyrics_ready`/`payment_submitted`) são ignorados, janela de 48h (não gasta créditos em leads antigos), notificação ao cliente via `sendLyricsRecoveredEmail`. Reutiliza o mapeamento `buildRecoveryFormData` idêntico ao resume-data/regenerate do admin.
+- **Mensagem 503 amigável em falha 100% transitória**: `ai.ts` agora anexa `providerFailures` (array `{provider, kind, message}`) ao erro final via `classifyAIError`; `server/utils/aiFailure.ts` com `allFailuresTransient` + `LYRIC_GENERATION_QUEUED_MESSAGE`; o catch de `/generate-lyrics` devolve 503 "guardámos o teu pedido — vamos gerar automaticamente" quando TODOS os providers falharam transitória (503/429/timeout) e o pedido está registado — os restantes cenários (créditos, config, auth) continuam com o 500/`publicErrorMessage` normal.
+- **Botão "Regenerar letra" no admin para pedidos falhados**: `POST /api/admin/request/:id/regenerate-lyrics` (com auth admin) gera a letra; se o pedido não tem música, cria a row de `songs` (`mureka_status: not_started`), marca `lyrics_ready` (se `status === failed`, limpando `error_details`) e devolve `recovered: true`; se já tem música, atualiza a song existente e devolve `recovered: false` (sem tocar no status). Caminho para desbloquear manualmente pedidos que falharam antes do scheduler/pagar de novo.
 
 ## AI Providers (Ordem de fallback)
 1. **Gemini** (`gemini-2.5-flash`) — tentado primeiro
@@ -109,7 +112,7 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - **CI corre em ubuntu-latest com Node 22**, npm ci, lint, test.
 
 ## Testes
-- **223 testes**, 20 ficheiros — todos passam (vitest + jsdom).- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (11), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (3), aiShared (14), helpers (5), workflow-rollback (8), abandoned-messages (22), abandoned-whatsapp-route (8), whatsapp-sender (7), uuid (5).
+- **242 testes**, 23 ficheiros — todos passam (vitest + jsdom).- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (11), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (3), aiShared (14), helpers (5), workflow-rollback (8), abandoned-messages (22), abandoned-whatsapp-route (8), whatsapp-sender (7), uuid (5), aiFailure (6), failed-lyrics-recovery (10), admin-regenerate (3).
 - **Playwright E2E**: 13 testes (landing, wizard, dedication, admin).
 
 ## Security Advisor (10/Ago 2026) — resolvido (11→1 lint)
@@ -125,7 +128,7 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 3. **Monitorizar métricas do funil de conversão** — recuperação de abandonados ativa em produção; acompanhar taxa de resume (`payment_screen` vs. `resume-data` hits) e conversão pós-lembrete.
 
 ## Critical Context
-- **223 testes passam sempre** após cada mudança (vitest).
+- **242 testes passam sempre** após cada mudança (vitest).
 - **Supabase**: `service_role` key usada apenas onde necessário (admin routes, auth.admin.*, workflows, signed URLs). Anon key usada no endpoint público de dedicatória.
 - **AI providers**: OpenAI + Gemini + Claude configurados. Fallback automático se um falhar.
 - **Suno**: API key configurada, 500+ créditos. `deliveryScheduler.ts` para entregas Standard.
@@ -137,19 +140,24 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - `server/services/supabase.ts`: `getAdminSupabase()`, `getPublicSupabase()`, `uploadToSupabase()`.
 - `server/services/deliveryScheduler.ts`: scheduler de entrega 24h (10min interval).
 - `server/services/abandonedRecoveryScheduler.ts`: scheduler de lembretes de abandono (30min/24h/48h/72h; exclui `payment_submitted`).
+- `server/services/failedLyricsRecoveryScheduler.ts`: scheduler de recuperação de letras falhadas (10min; one-shot via `recovery_retried_at`, janela 48h, dedupe por email).
 - `server/services/workflow.ts`: orquestração Suno + transições de status (`resumeSunoTaskWorkflow`, `persistGeneratedSunoAudio`, `rollbackSunoWorkflow` exportado, `MIN_SONG_DURATION_SEC`).
+- `server/services/email.ts`: `sendPersonalizedEmail`, `sendConfirmationEmail`, `sendPaymentRejectionEmail`, `sendLyricsRecoveredEmail`.
+- `server/services/ai.ts`: orquestrador de providers (OpenAI → Gemini → Claude); anexa `providerFailures` ao erro final.
+- `server/utils/aiFailure.ts`: `allFailuresTransient` + `LYRIC_GENERATION_QUEUED_MESSAGE` (503 amigável).
+- `server/routes/admin.ts`: painel admin + aprovação/rejeição + cron + `POST /request/:id/regenerate-lyrics`.
 - `server/services/suno.ts`: `querySunoTask`, `pollSunoTask`, `FAILED_STATUSES`, `extractAudioUrl`.
 - `server/services/audio.ts`: `getAudioDuration`, `getAudioDurationFfmpeg` (stderr do ffmpeg), `applyFades`.
-- `server/services/email.ts`: `sendPersonalizedEmail`, `sendConfirmationEmail`, `sendPaymentRejectionEmail`.
-- `server/services/ai.ts`: orquestrador de providers (OpenAI → Gemini → Claude).
 - `server/services/aiShared.ts`: shared utils de retry, extractJSON, validateComposition.
 - `server/routes/public.ts`: rotas públicas (wizard, pagamento, dedicatória, `GET /song/resume-data/:requestId`).
-- `server/routes/admin.ts`: painel admin + aprovação/rejeição + cron.
 - `server/middleware/security.ts`: Helmet, CORS, logger.
 - `server/middleware/adminIpRestriction.ts`: IP whitelist opcional.
 - `server/utils/audit.ts`: log de acções admin para undo.
 - `server/utils/helpers.ts`: `publicErrorMessage`, `getAppUrl`.
 - `server/__tests__/workflow-rollback.test.ts`: 8 testes do `rollbackSunoWorkflow`.
+- `server/__tests__/failed-lyrics-recovery.test.ts`: 10 testes do `processFailedLyricsRecovery` (claim one-shot, dedupe, janela 48h).
+- `server/__tests__/admin-regenerate.test.ts`: 3 testes do `POST /request/:id/regenerate-lyrics`.
+- `server/__tests__/aiFailure.test.ts`: 6 testes do `allFailuresTransient`.
 - `supabase_setup.sql`: Setup SQL original **desatualizado** face ao schema real.
 - `supabase_migration_email_events_request_id_idx.sql`: Migration com `idx_email_events_request_id` (aplicada em produção).
 - `supabase_migration_scheduler.sql`: Migration com `deliver_at`, `delivered_at`, `deleted_at`, índice.
