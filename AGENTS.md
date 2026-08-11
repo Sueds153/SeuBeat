@@ -123,6 +123,13 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - Realtime de `multicaixas`/`reportes_multicaixa` removido automaticamente com o drop das tabelas.
 - **Bugfix undo no AdminPanel** (`server/routes/admin.ts:1007`): `if (undoError || !undoError)` (sempre true) → `if (!undoError)`; lista de reversão do `song_requests` alinhada (agora inclui `delivered`, `music_ready`, `music_processing`, `voice_processing`). Antes, um approved→undo não revertia músicas já `delivered`.
 
+## Supabase Advisor (11/Ago 2026) — warnings pendentes
+- **MCP Supabase sem permissões** (token bloqueado: nem `list_tables`/`get_advisors` funcionam) — migrações só via Dashboard manual.
+- **WARN `auth_rls_initplan`** (performance): policy `admin_select` em `email_events` reavalia `auth.role()` por linha. Fix preparado em `supabase_migration_fix_auth_rls_initplan.sql` (usa `(SELECT auth.role())` — initplan). **Aplicar no Dashboard → SQL Editor**.
+- **5 × INFO `unused_index`**: `idx_email_events_recipient`, `idx_email_events_event`, `idx_song_requests_abandoned_48h`, `idx_song_requests_abandoned_72h`, `idx_whatsapp_send_log_request` — nunca usados; drops incluídos na mesma migration. `idx_song_requests_abandoned_48h/72h` foram criados manualmente (sem ficheiro de migration) e o scheduler não os usa.
+- **WARN `auth_leaked_password_protection`** (security): passo manual — Dashboard → Authentication → Password Protection → ativar (sem token de management p/ API).
+- **3 commits push**: `0876097` (migração WhatsApp Cloud), `9ad2657` + `317519b` (warnings advisor).
+
 ## Next Steps
 1. **Custom domain** apontar `seubeat.ao` para Render.
 2. **E2E tests completos** com API reais (Wizard → pagamento → dedicatória).
