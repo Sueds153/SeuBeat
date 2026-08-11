@@ -272,7 +272,7 @@ export function Step3Style({
                 }`}
               >
                 <span className="text-xs font-semibold leading-tight block">{artist.name}</span>
-                <span className="text-[8px] text-stone-550 leading-tight block font-mono">{artist.style}</span>
+                <span className="text-[10px] text-stone-550 leading-tight block font-mono">{artist.style}</span>
               </button>
             );
           })}
@@ -454,7 +454,7 @@ export function Step6Memory({
             <Sparkles className="w-3.5 h-3.5 text-amber-500" />
             <span>Ideias de Composição & Detalhes Reais</span>
           </div>
-          <span className="text-[9.5px] text-stone-500 font-mono hidden sm:inline">Toque para preencher ou anexar</span>
+          <span className="text-[10px] text-stone-500 font-mono hidden sm:inline">Toque para preencher ou anexar</span>
         </div>
 
         <div className="flex flex-wrap gap-1">
@@ -640,7 +640,7 @@ export function Step6Memory({
         </div>
 
         <div className="space-y-1.5 pt-2 border-t border-stone-850/60">
-          <span className="text-[9.5px] font-mono text-stone-400 font-bold tracking-wide uppercase block">Adicione Pormenores Sensoriais:</span>
+          <span className="text-[10px] font-mono text-stone-400 font-bold tracking-wide uppercase block">Adicione Pormenores Sensoriais:</span>
           <div className="flex flex-wrap gap-1.5 pt-0.5">
             {[
               { label: "+ Brisa do mar", append: " com a brisa maravilhosa do mar a acariciar o rosto e o embalo das ondas" },

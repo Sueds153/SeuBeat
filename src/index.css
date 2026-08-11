@@ -27,6 +27,10 @@
   --spacing-5\.5: 1.375rem;
 }
 
+html, body {
+  overflow-x: clip;
+}
+
 /* Custom subtle scrollbar hides for lyrics & items */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

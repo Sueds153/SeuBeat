@@ -1554,7 +1554,7 @@ const ROTATING_MESSAGES = [
             initial={{ opacity: 0, y: -40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -40 }}
-            className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-2xl font-mono text-sm shadow-2xl border ${
+            className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-2xl font-mono text-sm shadow-2xl border break-words max-w-[calc(100vw-2rem)] ${
               toast.type === 'success'
                 ? 'bg-emerald-900/90 border-emerald-500/30 text-emerald-300'
                 : toast.type === 'error'
@@ -2063,13 +2063,13 @@ const ROTATING_MESSAGES = [
                 </div>
                 <div className="text-right">
                   <span className="text-xs font-bold text-stone-200">+5.000 Kz</span>
-                  <span className="text-[9px] text-stone-600 font-mono block">s/ Express 9.900</span>
+                  <span className="text-[10px] text-stone-600 font-mono block">s/ Express 9.900</span>
                 </div>
               </div>
               <p className="text-[10px] text-stone-500 flex items-center gap-1">
                 <Check className="w-3 h-3 text-purple-400 shrink-0" /> Inclui: voz clonada, dueto, carta narrada, entrega imediata
               </p>
-              <p className="text-[9px] text-stone-500 text-center pt-1">
+              <p className="text-[10px] text-stone-500 text-center pt-1">
                 <button
                   onClick={() => handlePlanSelection('premium')}
                   className="text-purple-400 hover:text-purple-300 underline underline-offset-2 font-medium cursor-pointer"
@@ -3043,7 +3043,7 @@ const ROTATING_MESSAGES = [
               </AnimatePresence>
 
               {/* Wizard Nav Controls Footer */}
-              <div className="flex items-center justify-between pt-6 border-t border-stone-900 mt-6 relative z-10">
+              <div className="flex items-center justify-between flex-wrap gap-2 pt-6 border-t border-stone-900 mt-6 relative z-10">
                 <button
                   id="wizard-back-btn"
                   onClick={handleBack}

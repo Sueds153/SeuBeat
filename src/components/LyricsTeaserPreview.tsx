@@ -89,8 +89,8 @@ export function LyricsTeaserPreview({
           <div className="space-y-1">
             {section.lines.map((line, idx) => (
               <div key={idx} className="relative">
-                <div className="w-full px-3 py-2 bg-stone-950 border border-stone-850 rounded-lg text-stone-500 text-sm font-medium">
-                  <span className="blur-sm select-none">{'█'.repeat(Math.min(line.length, 60))}</span>
+                <div className="w-full px-3 py-2 bg-stone-950 border border-stone-850 rounded-lg text-stone-500 text-sm font-medium overflow-hidden">
+                  <span className="blur-sm select-none">{'█'.repeat(Math.min(line.length, 28))}</span>
                   <span className="text-[10px] text-stone-600 ml-2">({line.length} caracteres)</span>
                 </div>
               </div>
