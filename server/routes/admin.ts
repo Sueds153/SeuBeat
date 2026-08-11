@@ -12,7 +12,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
 import { logInfo, logError, logWarn } from '../utils/logger';
-import { publicErrorMessage, getAppUrl, qrToDataUrl } from '../utils/helpers';
+import { publicErrorMessage, getAppUrl } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
 import { sendPurchaseEvent, generateServerEventId } from '../services/metaPixelCapi';
 import { adminLimiter, whatsappBulkLimiter } from '../middleware/rateLimiter';
@@ -22,6 +22,7 @@ import {
   isAbandonedTimeRange, elapsedInRange,
 } from '../services/abandonedMessages';
 import type { BulkClient } from '../services/whatsappSender';
+import { templateForBucket, enabledWhatsAppBuckets } from '../services/whatsappTemplates';
 
 const router = express.Router();
 
@@ -1740,9 +1741,12 @@ router.get('/abandoned', adminAuth, async (req, res) => {
     });
 
     let linked = false;
+    let waPhone: string | null = null;
     try {
       const wa = await import('../services/whatsappSender');
-      linked = (await wa.getLinkStatus()).linked;
+      const st = await wa.getLinkStatus();
+      linked = !!st.linked;
+      waPhone = typeof st.phone === 'string' ? st.phone : null;
     } catch {
       linked = false;
     }
@@ -1753,6 +1757,7 @@ router.get('/abandoned', adminAuth, async (req, res) => {
       total: bucketedRows.length,
       notContacted: bucketedRows.filter((r) => !r.manual_contacted_at).length,
       linked,
+      phone: waPhone,
     });
   } catch (err: unknown) {
     res.status(500).json({ success: false, error: safeMessage(err) });
@@ -1787,44 +1792,11 @@ router.post('/abandoned/:id/mark-contacted', adminAuth, async (req, res) => {
   }
 });
 
-router.get('/whatsapp/link-status', adminAuth, async (_req, res) => {
+router.get('/whatsapp/config-status', adminAuth, async (_req, res) => {
   try {
     const wa = await import('../services/whatsappSender');
-    const status = await wa.getLinkStatus();
-    res.json({ success: true, linked: status.linked, qr: status.qr || null });
-  } catch (err: unknown) {
-    res.status(500).json({ success: false, error: safeMessage(err) });
-  }
-});
-
-router.get('/whatsapp/verify', adminAuth, async (_req, res) => {
-  try {
-    const wa = await import('../services/whatsappSender');
-    const result = await wa.verifyConnection();
-    res.json({ success: true, ...result });
-  } catch (err: unknown) {
-    res.status(500).json({ success: false, error: safeMessage(err) });
-  }
-});
-
-router.post('/whatsapp/logout', adminAuth, async (_req, res) => {
-  try {
-    const wa = await import('../services/whatsappSender');
-    await wa.logout();
-    res.json({ success: true });
-  } catch (err: unknown) {
-    res.status(500).json({ success: false, error: safeMessage(err) });
-  }
-});
-
-router.post('/whatsapp/link', adminAuth, whatsappBulkLimiter, async (_req, res) => {  try {
-    const wa = await import('../services/whatsappSender');
-    const result = await wa.startLink();
-    if (result.status === 'qr' && result.qr) {
-      res.json({ success: true, status: 'qr', qr: await qrToDataUrl(result.qr) });
-    } else {
-      res.json({ success: true, status: result.status, qr: null });
-    }
+    const status = await wa.getConfigStatus();
+    res.json({ success: true, ...status });
   } catch (err: unknown) {
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
@@ -1863,9 +1835,15 @@ router.post('/abandoned/send-bulk', adminAuth, whatsappBulkLimiter, async (req, 
       if (!phone) continue;
       const bucket = bucketForElapsed(now - new Date(row.created_at).getTime());
       if (!bucket) continue;
+      // Só buckets com WhatsApp ativo (env WHATSAPP_ENABLED_BUCKETS, default 30min);
+      // os restantes continuam só por email (outros schedulers).
+      if (!enabledWhatsAppBuckets().includes(bucket)) continue;
       clients.push({
         requestId: row.id,
         phone,
+        bucket,
+        templateName: templateForBucket(bucket)?.name || '',
+        params: [row.recipient_name || '', `${appUrl}/wizard?resume=${row.id}&step=payment`],
         message: buildAbandonedMessage(bucket, row.recipient_name || '', `${appUrl}/wizard?resume=${row.id}&step=payment`),
       });
     }
@@ -1881,7 +1859,7 @@ router.post('/abandoned/send-bulk', adminAuth, whatsappBulkLimiter, async (req, 
 
     const linkStatus = await wa.getLinkStatus();
     if (!linkStatus.linked) {
-      return res.status(400).json({ success: false, error: 'WhatsApp não ligado. Faz o scan do QR primeiro.' });
+      return res.status(400).json({ success: false, error: 'WhatsApp API não configurada. Define WHATSAPP_API_TOKEN e WHATSAPP_PHONE_NUMBER_ID no ambiente.' });
     }
 
     // Corre em background — a request não bloqueia durante os atrasos da fila.

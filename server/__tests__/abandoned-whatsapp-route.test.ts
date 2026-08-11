@@ -5,13 +5,13 @@ import jwt from 'jsonwebtoken';
 
 process.env.JWT_SECRET = 'test-secret-1234567890';
 process.env.ADMIN_PASSWORD = 'test-admin-password';
+process.env.WHATSAPP_ENABLED_BUCKETS = '30min';
 
 vi.mock('../services/whatsappSender', () => ({
   getLinkStatus: vi.fn(),
   getSendProgress: vi.fn(),
   runSendBulk: vi.fn(),
-  verifyConnection: vi.fn(),
-  logout: vi.fn(),
+  getConfigStatus: vi.fn(),
 }));
 
 vi.mock('../services/supabase', () => ({
@@ -19,7 +19,7 @@ vi.mock('../services/supabase', () => ({
   getPublicSupabase: vi.fn(),
 }));
 
-import { getLinkStatus, getSendProgress, runSendBulk, verifyConnection, logout } from '../services/whatsappSender';
+import { getLinkStatus, getSendProgress, runSendBulk, getConfigStatus } from '../services/whatsappSender';
 import { getAdminSupabase } from '../services/supabase';
 import adminRouter from '../routes/admin';
 
@@ -65,7 +65,7 @@ beforeEach(() => {
 });
 
 describe('POST /api/admin/abandoned/send-bulk', () => {
-  it('devolve 400 quando o WhatsApp não está ligado', async () => {
+  it('devolve 400 quando a WhatsApp API não está configurada', async () => {
     const base = await startServer();
     const created = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     buildSupabaseMock([
@@ -83,7 +83,7 @@ describe('POST /api/admin/abandoned/send-bulk', () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.success).toBe(false);
-    expect(body.error).toContain('WhatsApp não ligado');
+    expect(body.error).toContain('WHATSAPP_API_TOKEN');
     expect(runSendBulk).not.toHaveBeenCalled();
   });
 
@@ -186,62 +186,45 @@ describe('GET /api/admin/abandoned?range=', () => {
   });
 });
 
-describe('GET /api/admin/whatsapp/verify', () => {
-  it('devolve connected com phone quando ligado', async () => {
+describe('GET /api/admin/whatsapp/config-status', () => {
+  it('devolve configured true com phone quando a API está configurada', async () => {
     const base = await startServer();
-    (verifyConnection as ReturnType<typeof vi.fn>).mockResolvedValue({ connected: true, phone: '244929423278' });
+    (getConfigStatus as ReturnType<typeof vi.fn>).mockResolvedValue({
+      configured: true,
+      phone: '244922058136',
+      phoneNumberId: '123456789',
+      templates: [{ bucket: '30min', name: 'seubeat_abandono_30min' }],
+      enabledBuckets: ['30min'],
+    });
 
-    const res = await fetch(`${base}/api/admin/whatsapp/verify`, {
+    const res = await fetch(`${base}/api/admin/whatsapp/config-status`, {
       headers: { Authorization: authHeader() },
     });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.connected).toBe(true);
-    expect(body.phone).toBe('244929423278');
-    expect(verifyConnection).toHaveBeenCalledTimes(1);
+    expect(body.configured).toBe(true);
+    expect(body.phone).toBe('244922058136');
+    expect(getConfigStatus).toHaveBeenCalledTimes(1);
   });
 
-  it('devolve connected false com erro quando não ligado', async () => {
+  it('devolve configured false quando falta configuração', async () => {
     const base = await startServer();
-    (verifyConnection as ReturnType<typeof vi.fn>).mockResolvedValue({ connected: false, error: 'Timeout ao ligar' });
+    (getConfigStatus as ReturnType<typeof vi.fn>).mockResolvedValue({
+      configured: false,
+      phone: '244922058136',
+      phoneNumberId: null,
+      templates: [],
+      enabledBuckets: ['30min'],
+    });
 
-    const res = await fetch(`${base}/api/admin/whatsapp/verify`, {
+    const res = await fetch(`${base}/api/admin/whatsapp/config-status`, {
       headers: { Authorization: authHeader() },
     });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.success).toBe(true);
-    expect(body.connected).toBe(false);
-    expect(body.error).toContain('Timeout');
-  });
-});
-
-describe('POST /api/admin/whatsapp/logout', () => {
-  it('termina a sessão com sucesso', async () => {
-    const base = await startServer();
-    (logout as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
-
-    const res = await fetch(`${base}/api/admin/whatsapp/logout`, {
-      method: 'POST',
-      headers: { Authorization: authHeader() },
-    });
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.success).toBe(true);
-    expect(logout).toHaveBeenCalledTimes(1);
-  });
-
-  it('devolve 500 quando o logout falha', async () => {
-    const base = await startServer();
-    (logout as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('falha ao limpar'));
-
-    const res = await fetch(`${base}/api/admin/whatsapp/logout`, {
-      method: 'POST',
-      headers: { Authorization: authHeader() },
-    });
-    expect(res.status).toBe(500);
-    const body = await res.json();
-    expect(body.success).toBe(false);
+    expect(body.configured).toBe(false);
+    expect(body.phoneNumberId).toBeNull();
   });
 });

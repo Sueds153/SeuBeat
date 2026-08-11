@@ -394,11 +394,8 @@ export default function AdminPanel() {
   const [abandonedNotContacted, setAbandonedNotContacted] = useState(0);
   const [abandonedLoading, setAbandonedLoading] = useState(false);
   const [waLinked, setWaLinked] = useState<boolean | null>(null);
-  const [waLinking, setWaLinking] = useState(false);
-  const [waQr, setWaQr] = useState<string | null>(null);
-  const [waVerifying, setWaVerifying] = useState(false);
   const [waVerifiedPhone, setWaVerifiedPhone] = useState<string | null>(null);
-  const [waLoggingOut, setWaLoggingOut] = useState(false);
+  const [waConfigLoading, setWaConfigLoading] = useState(false);
   const [abandonedRange, setAbandonedRange] = useState<string>('all');
   const [sendProgress, setSendProgress] = useState<SendProgress | null>(null);
   const [sendButtonLoading, setSendButtonLoading] = useState(false);
@@ -407,7 +404,6 @@ export default function AdminPanel() {
   const [notification, setNotification] = useState<{ message: string } | null>(null);
   const prevCountsRef = useRef({ requests: 0, payments: 0 });
   const notifIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const waLinkPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ action: 'approve' | 'reject'; paymentId: string; plan?: string } | null>(null);
   const [clients, setClients] = useState<any[]>([]);
   const [paymentSearchQuery, setPaymentSearchQuery] = useState('');
@@ -648,53 +644,26 @@ export default function AdminPanel() {
       setAbandonedTotal(data.total || 0);
       setAbandonedNotContacted(data.notContacted || 0);
       setWaLinked(data.linked === true);
+      setWaVerifiedPhone(data.phone || null);
     }
     setAbandonedLoading(false);
   }, [adminToken, apiFetch]);
 
-  const verifyWhatsApp = useCallback(async () => {
+  const refreshWhatsAppConfig = useCallback(async () => {
     if (!adminToken) return;
-    setWaVerifying(true);
+    setWaConfigLoading(true);
     try {
-      const data = await apiFetch('/api/admin/whatsapp/verify');
-      if (data?.connected) {
+      const data = await apiFetch('/api/admin/whatsapp/config-status');
+      if (data) {
+        setWaLinked(data.configured === true);
         setWaVerifiedPhone(data.phone || null);
-        setWaLinked(true);
-        showToast(`WhatsApp ligado${data.phone ? ` · ${data.phone}` : ''}.`, 'success');
-      } else {
-        setWaVerifiedPhone(null);
-        setWaLinked(false);
-        showToast(data?.error || 'WhatsApp não conectado.', 'error');
       }
     } catch {
+      setWaLinked(false);
       setWaVerifiedPhone(null);
-      showToast('Não foi possível verificar a ligação.', 'error');
     }
-    setWaVerifying(false);
-  }, [adminToken, apiFetch, showToast]);
-
-  const logoutWhatsApp = useCallback(async () => {
-    if (!adminToken) return;
-    setWaLoggingOut(true);
-    try {
-      const data = await apiFetch('/api/admin/whatsapp/logout', { method: 'POST' });
-      if (data?.success) {
-        setWaLinked(false);
-        setWaVerifiedPhone(null);
-        setWaQr(null);
-        if (waLinkPollRef.current) {
-          clearInterval(waLinkPollRef.current);
-          waLinkPollRef.current = null;
-        }
-        showToast('Sessão WhatsApp terminada. Faz scan do QR para ligar de novo.', 'success');
-      } else {
-        showToast(data?.error || 'Falha ao terminar a sessão.', 'error');
-      }
-    } catch {
-      showToast('Não foi possível terminar a sessão.', 'error');
-    }
-    setWaLoggingOut(false);
-  }, [adminToken, apiFetch, showToast]);
+    setWaConfigLoading(false);
+  }, [adminToken, apiFetch]);
 
   const fetchSendProgress = useCallback(async () => {
     if (!adminToken) return;
@@ -722,36 +691,6 @@ export default function AdminPanel() {
       fetchAbandoned(abandonedRange);
     }
   }, [adminToken, apiFetch, showToast, fetchAbandoned, abandonedRange]);
-
-  const linkWhatsApp = useCallback(async () => {
-    if (!adminToken) return;
-    setWaLinking(true);
-    const data = await apiFetch('/api/admin/whatsapp/link', { method: 'POST' });
-    setWaLinking(false);
-    if (data?.qr) {
-      setWaQr(data.qr);
-      if (waLinkPollRef.current) clearInterval(waLinkPollRef.current);
-      waLinkPollRef.current = setInterval(async () => {
-        const d = await apiFetch('/api/admin/whatsapp/link-status');
-        if (!d) return;
-        if (d.linked) {
-          if (waLinkPollRef.current) clearInterval(waLinkPollRef.current);
-          waLinkPollRef.current = null;
-          setWaLinked(true);
-          setWaQr(null);
-          showToast('WhatsApp ligado com sucesso.', 'success');
-        } else if (d.qr) {
-          setWaQr(d.qr);
-        }
-      }, 5000);
-    } else if (data?.status === 'linked' || data?.success) {
-      setWaLinked(true);
-      setWaQr(null);
-      showToast('WhatsApp ligado com sucesso.', 'success');
-    } else {
-      showToast(data?.error || 'Falha ao iniciar a ligação.', 'error');
-    }
-  }, [adminToken, apiFetch, showToast]);
 
   const sendAbandonedBulk = useCallback(async (requestIds?: string[]) => {
     if (!adminToken) return;
@@ -831,10 +770,6 @@ export default function AdminPanel() {
     }
     return () => { if (notifIntervalRef.current) clearInterval(notifIntervalRef.current); };
   }, [authenticated, checkNewData]);
-
-  useEffect(() => {
-    return () => { if (waLinkPollRef.current) clearInterval(waLinkPollRef.current); };
-  }, []);
 
   // Clear notification after 5s
   useEffect(() => {
@@ -2782,31 +2717,21 @@ export default function AdminPanel() {
                       </button>
                       {waLinked ? (
                         <span className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 rounded-xl">
-                          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" /> WhatsApp ligado{waVerifiedPhone ? ` · ${waVerifiedPhone}` : ''}
+                          <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" /> WhatsApp API configurada{waVerifiedPhone ? ` · ${waVerifiedPhone}` : ''}
                         </span>
                       ) : (
-                        <button onClick={linkWhatsApp} disabled={waLinking} className="flex items-center gap-2 text-xs text-amber-400 hover:text-amber-300 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl transition-colors cursor-pointer">
-                          <Send className={`w-3.5 h-3.5 ${waLinking ? 'animate-spin' : ''}`} /> {waLinking ? 'A ligar...' : 'Ligar WhatsApp'}
-                        </button>
+                        <span className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl" title="Define WHATSAPP_API_TOKEN e WHATSAPP_PHONE_NUMBER_ID no ambiente (Meta WhatsApp Business Cloud API) para ativar o envio por templates.">
+                          WhatsApp API não configurada
+                        </span>
                       )}
                       <button
-                        onClick={verifyWhatsApp}
-                        disabled={waVerifying}
+                        onClick={refreshWhatsAppConfig}
+                        disabled={waConfigLoading}
                         className="flex items-center gap-2 text-xs text-stone-300 hover:text-emerald-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-                        title="Abre o socket Baileys para confirmar a ligação real"
+                        title="Verifica a configuração da WhatsApp Business API"
                       >
-                        <CheckCircle className={`w-3.5 h-3.5 ${waVerifying ? 'animate-pulse' : ''}`} /> {waVerifying ? 'A verificar...' : 'Verificar ligação'}
+                        <RefreshCw className={`w-3.5 h-3.5 ${waConfigLoading ? 'animate-spin' : ''}`} /> {waConfigLoading ? 'A verificar...' : 'Verificar configuração'}
                       </button>
-                      {waLinked && (
-                        <button
-                          onClick={logoutWhatsApp}
-                          disabled={waLoggingOut}
-                          className="flex items-center gap-2 text-xs text-rose-400 hover:text-rose-300 bg-rose-500/10 border border-rose-500/30 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-                          title="Termina a sessão e remove as credenciais (disco + Supabase)"
-                        >
-                          <XCircle className={`w-3.5 h-3.5 ${waLoggingOut ? 'animate-spin' : ''}`} /> {waLoggingOut ? 'A terminar...' : 'Terminar sessão'}
-                        </button>
-                      )}
                     </div>
                   </div>
 
@@ -2821,7 +2746,7 @@ export default function AdminPanel() {
                         <StatCard icon={Send} label="Abandonados" value={abandonedTotal} color="bg-violet-500/15 text-violet-400" onClick={() => {}} />
                         <StatCard icon={CheckCircle} label="Por contactar" value={abandonedNotContacted} color="bg-emerald-500/15 text-emerald-400" onClick={() => {}} />
                         <StatCard icon={Clock} label="Buckets" value={abandonedBuckets.length} color="bg-purple-500/15 text-purple-400" onClick={() => {}} />
-                        <StatCard icon={Send} label="Estado WhatsApp" value={waLinked ? (waVerifiedPhone ? `Ligado · ${waVerifiedPhone}` : 'Ligado') : 'Desligado'} color={waLinked ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'} onClick={() => {}} />
+                        <StatCard icon={Send} label="WhatsApp API" value={waLinked ? (waVerifiedPhone ? `Configurada · ${waVerifiedPhone}` : 'Configurada') : 'Não configurada'} color={waLinked ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'} onClick={() => {}} />
                       </div>
 
                       {/* Send progress */}
@@ -2876,23 +2801,6 @@ export default function AdminPanel() {
                           </button>
                         ))}
                       </div>
-
-                      {/* QR modal */}
-                      {waQr && (
-                        <div className="rounded-2xl border border-stone-800 bg-stone-900/60 p-6">
-                          <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-sm font-bold text-stone-100">Ligar o telemóvel</h3>
-                            <button onClick={() => { setWaQr(null); if (waLinkPollRef.current) { clearInterval(waLinkPollRef.current); waLinkPollRef.current = null; } }} className="text-stone-400 hover:text-stone-200 cursor-pointer"><X className="w-4 h-4" /></button>
-                          </div>
-                          <p className="text-xs text-stone-400 mb-4">Abre o WhatsApp no telemóvel → Definições → Dispositivos ligados → Ligar um dispositivo → e aponta a câmara para este QR code. A mensagem será enviada a partir do número 929 423 278.</p>
-                          <div className="flex justify-center">
-                            <img src={waQr} alt="QR Code WhatsApp" className="w-64 h-64 rounded-xl bg-white p-2" />
-                          </div>
-                          <button onClick={verifyWhatsApp} className="mt-4 w-full flex items-center justify-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl hover:bg-amber-500/20 transition-colors cursor-pointer">
-                            <CheckCircle className="w-3.5 h-3.5" /> Verificar ligação
-                          </button>
-                        </div>
-                      )}
 
                       {/* Buckets */}
                       {abandonedBuckets.length === 0 && (

@@ -46,4 +46,33 @@ router.post('/webhooks/brevo', async (req, res) => {
   }
 });
 
+const WHATSAPP_WEBHOOK_VERIFY_TOKEN = process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || '';
+
+// Handshake de verificação exigido pela Meta ao configurar o webhook da WhatsApp API
+router.get('/webhooks/whatsapp', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+
+  if (mode === 'subscribe' && token === WHATSAPP_WEBHOOK_VERIFY_TOKEN && typeof challenge === 'string') {
+    logInfo('[WhatsApp Webhook] Verificação aceite');
+    res.status(200).send(challenge);
+  } else {
+    logWarn('[WhatsApp Webhook] Verificação falhada');
+    res.status(403).send('Verification failed');
+  }
+});
+
+// Delivery status dos templates (sent/delivered/read/failed)
+router.post('/webhooks/whatsapp', async (req, res) => {
+  res.status(200).json({ received: true });
+
+  try {
+    const wa = await import('../services/whatsappSender');
+    await wa.handleDeliveryWebhook(req.body);
+  } catch (err) {
+    logError('[WhatsApp Webhook] Erro ao processar payload', err instanceof Error ? err : new Error(String(err)));
+  }
+});
+
 export default router;
