@@ -651,7 +651,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       if (adminSupabase) {
         const { error: deliveryError } = await adminSupabase
           .from('song_requests')
-          .update({ status: 'delivered', deliver_at: null })
+          .update({ status: 'delivered', deliver_at: null, delivered_at: new Date().toISOString() })
           .eq('id', songData.request_id)
           .eq('status', 'approved');
 
