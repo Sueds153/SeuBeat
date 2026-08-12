@@ -194,4 +194,28 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     expect(sb.updateCalls[0].payload).toMatchObject({ status: 'payment_submitted' });
     expect(sb.insertCalls).toHaveLength(1);
   });
+
+  it('faz rollback do status para o estado anterior quando o insert do pagamento falha', async () => {
+    const base = await startServer();
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: { status: 'lyrics_ready' },
+      updateError: null,
+      insertResult: { data: null, error: { message: 'duplicate key value violates unique constraint' } },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(validBody()),
+    });
+
+    expect(res.status).toBe(500);
+    const updates = sb.updateCalls.filter((u) => u.table === 'song_requests');
+    expect(updates).toHaveLength(2);
+    expect(updates[0].payload).toMatchObject({ status: 'payment_submitted' });
+    expect(updates[1].payload).toMatchObject({ status: 'lyrics_ready' });
+  });
 });

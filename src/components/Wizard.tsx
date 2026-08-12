@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   ArrowRight, ArrowLeft, Heart, Sparkles, Check, Upload,
-  Mic, Mail, Eye, Lock, RefreshCw, Play, AlertTriangle, ShieldCheck, Copy
+  Mic, Mail, Eye, Lock, RefreshCw, Play, AlertTriangle, ShieldCheck, Copy,
+  Send, FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import StepErrorBoundary from './StepErrorBoundary';
@@ -296,6 +297,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
   // Estado do upload de comprovativo de pagamento
   const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreviewUrl, setProofPreviewUrl] = useState<string | null>(null);
 
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [paymentSubmitted, setPaymentSubmitted] = useState(() => {
@@ -655,11 +657,14 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     return () => { cancelled = true; resumeAppliedRef.current = false; };
   }, [dbSongId]);
 
-  useEffect(() => {
-    if (proofFile && !paymentSubmitting && !paymentSubmitted && !paymentSubmitError) {
-      submitPaymentProof();
-    }
-  }, [proofFile]);
+  const clearProof = () => {
+    setProofPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    setProofFile(null);
+    setPaymentSubmitError('');
+  };
 
   const handleProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -669,7 +674,12 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         e.target.value = '';
         return;
       }
+      setProofPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
       setProofFile(file);
+      setProofPreviewUrl(URL.createObjectURL(file));
       setPaymentSubmitError('');
     }
   };
@@ -734,11 +744,13 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
             if (res.ok && data.success) {
               setPaymentSubmitted(true);
               setPaymentSubmitError('');
+              clearProof();
               fbSetUserData(formData.email, formData.phone);
               gaSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()));
             } else if (res.status === 409) {
               setPaymentSubmitted(true);
               setPaymentSubmitError('');
+              clearProof();
             } else {
               setPaymentSubmitError(data.error || 'Erro ao submeter o comprovativo.');
             }
@@ -2620,17 +2632,60 @@ const ROTATING_MESSAGES = [
                         </div>
                       ) : (
                         <>
-                          <label className="flex flex-col items-center justify-center border border-dashed border-stone-850 hover:border-amber-500/40 bg-stone-950 hover:bg-stone-900/60 p-6 rounded-xl cursor-pointer transition-all duration-300 relative">
-                            <Upload className="w-6 h-6 text-stone-500 mb-2" />
-                            <span className="text-xs text-stone-300 font-semibold mb-1">Carregar arquivo de comprovativo</span>
-                            <span className="text-[10px] text-stone-500 font-mono">JPG, PNG ou PDF (máx. 10MB)</span>
-                            <input
-                              type="file"
-                              accept="image/*,application/pdf"
-                              className="hidden"
-                              onChange={handleProofChange}
-                            />
-                          </label>
+                          {proofFile && proofPreviewUrl ? (
+                            <div className="space-y-3">
+                              <div className="rounded-xl border border-stone-800 bg-stone-900/60 p-3 space-y-2">
+                                {proofFile.type.startsWith('image/') ? (
+                                  <img
+                                    src={proofPreviewUrl}
+                                    alt="Pré-visualização do comprovativo"
+                                    className="w-full max-h-64 object-contain rounded-lg"
+                                  />
+                                ) : (
+                                  <div className="flex items-center justify-center gap-2 p-6 text-stone-400 text-xs font-mono">
+                                    <FileText className="w-5 h-5 shrink-0" />
+                                    <span className="truncate">{proofFile.name}</span>
+                                  </div>
+                                )}
+                                <p className="text-[10px] text-stone-500 font-mono truncate">
+                                  {proofFile.name} · {proofFile.type.startsWith('image/') ? 'Imagem' : 'PDF'} · {proofFile.size > 1024 * 1024 ? `${(proofFile.size / 1024 / 1024).toFixed(1)}MB` : `${Math.max(1, Math.round(proofFile.size / 1024))}KB`}
+                                </p>
+                              </div>
+                              <p className="text-[10px] text-amber-500/80 font-mono text-left">
+                                Confirma que é esta a imagem/foto do comprovativo certo antes de enviar.
+                              </p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={clearProof}
+                                  className="py-2.5 px-3 bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-300 hover:text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                                >
+                                  Remover
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={submitPaymentProof}
+                                  disabled={paymentSubmitting}
+                                  className="py-2.5 px-3 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-95 text-stone-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 tracking-wide uppercase cursor-pointer disabled:opacity-50"
+                                >
+                                  <Send className="w-3.5 h-3.5" />
+                                  Confirmar e Enviar Comprovativo
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <label className="flex flex-col items-center justify-center border border-dashed border-stone-850 hover:border-amber-500/40 bg-stone-950 hover:bg-stone-900/60 p-6 rounded-xl cursor-pointer transition-all duration-300 relative">
+                              <Upload className="w-6 h-6 text-stone-500 mb-2" />
+                              <span className="text-xs text-stone-300 font-semibold mb-1">Carregar arquivo de comprovativo</span>
+                              <span className="text-[10px] text-stone-500 font-mono">JPG, PNG ou PDF (máx. 10MB)</span>
+                              <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                className="hidden"
+                                onChange={handleProofChange}
+                              />
+                            </label>
+                          )}
 
                           <p className="text-[10px] text-stone-500 font-mono text-center">
                             ⏱️ Demora 2 minutos. {formData.recipientGender === 'Masculino' ? 'Ele' : 'Ela'} vai ouvir ainda hoje.
@@ -2670,8 +2725,7 @@ const ROTATING_MESSAGES = [
                           setPaymentSubmitted(false);
                           setPaymentStatus('pending');
                           setPaymentNotes('');
-                          setPaymentSubmitError('');
-                          setProofFile(null);
+                          clearProof();
                         }}
                         className="py-3 px-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-95 text-stone-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 tracking-wide uppercase cursor-pointer text-center w-full shadow-lg"
                       >

@@ -86,6 +86,8 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Bugfix: teaser de letras quebrava no refresh** (letra completa voltava a aparecer a não-pagantes após F5): o estado `lyricsTeaser` não era persistido no localStorage e só era reconstruído na geração/regeneração/resume com `?resume=`. No refresh, `lyricsTeaser` ficava `null` e a tela de preview caía no `else` que mostrava `aiLyrics.join('\n')` completo. Fix: novo `useEffect` em `Wizard.tsx` reconstrói `buildTeaser(aiLyrics.join('\n'))` quando `generationStatus === 'lyrics_ready' && teaserEnabled && !lyricsTeaser && aiLyrics.length > 0` (deps: `[teaserEnabled, generationStatus, lyricsTeaser, aiLyrics]`).
 - **Supabase Advisor (12/Ago 2026)**: `public_bucket_allows_listing` resolvido — `DROP POLICY "Public can view avatars"` e `"Public view discount images"` em `storage.objects` (migration `security_advisor_bucket_listing_fix` aplicada). Resta `auth_leaked_password_protection` (passo manual Dashboard → Authentication → Password Protection). `auth_rls_initplan` corrigido via `supabase_migration_fix_auth_rls_initplan.sql` (Dashboard SQL Editor).
 - **Bugfix: pedido aprovado rebaixado para `payment_submitted` → página só tocava 30s** (`leitao12@yahoo.com.br`): pedido `8c7092c2-...` tinha música completa (197s) + pagamento aprovado (`10cc4de7`, 12/Ago 17:23), mas às 18:29:18 o cliente re-submeteu o comprovativo (aba do wizard antiga) e `POST /api/submit-payment` reescreveu `song_requests.status = 'payment_submitted'` SEM validar o pagamento aprovado — o `INSERT` em `payments` falhava silenciosamente (UNIQUE em `payments.request_id`; catch sem log → 500 invisível). Como `GET /api/song/:id` só serve o áudio completo em `delivered`/`approved`, o cliente ficou só com o preview de 30s. Fix: guard em `server/routes/public.ts` — se já existe payment `approved` OU o pedido está `approved`/`delivered`, devolve **409** sem tocar no estado (o wizard já trata 409 como sucesso). Dados corrigidos via `UPDATE status='approved', deliver_at = now()-1min` → o scheduler entregou (`delivered` às 22:24:52). 3 testes novos em `server/__tests__/submit-payment.test.ts`.
+- **Auditoria de catches silenciosos (13/Ago 2026)**: todos os `catch` que devolviam 500 sem log em `public.ts` (`/submit-payment`, `/payment-status`, `/latest-song`) e `admin.ts` (~33 rotas) agora registam o erro com contexto via novo `logRouteError(req, err, extra)` (`server/utils/helpers.ts`) — método + URL + mensagem legível (extrai `.message` de objetos do Supabase, que não são `instanceof Error`). Bónus no `submit-payment`: se o `INSERT` em `payments` falhar (ex.: UNIQUE por race de duplo clique), o `song_requests.status` é **revertido** para o estado anterior em vez de ficar corrompido em `payment_submitted`. +1 teste (`submit-payment` 3→4).
+- **Preview do comprovativo antes de submeter (Wizard)**: o upload deixou de auto-submeter ao selecionar — agora mostra pré-visualização (thumbnail da imagem, ou cartão com nome para PDF) + tamanho/nome do ficheiro, com botões "Remover" e **"Confirmar e Enviar Comprovativo"** (texto exato esperado pelo E2E `full-flow.spec.ts`). `clearProof()` revoga o object URL; preview limpo em sucesso/409/rejeição. Reduce submissões de comprovativos errados (causa de rejeições + retrabalho manual).
 
 ## AI Providers (Ordem de fallback)
 1. **Gemini** (`gemini-2.5-flash`) — tentado primeiro
@@ -116,7 +118,7 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - **CI corre em ubuntu-latest com Node 22**, npm ci, lint, test.
 
 ## Testes
-- **249 testes**, 23 ficheiros — todos passam (vitest + jsdom; 2 do AdminPanel podem dar timeout em run paralelo pesado, passam isolados).- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (11), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (3), aiShared (14), helpers (5), workflow-rollback (8), abandoned-messages (22), abandoned-whatsapp-route (8), whatsapp-cloud (15), uuid (5), aiFailure (6), failed-lyrics-recovery (10), admin-regenerate (3), submit-payment (3).
+- **250 testes**, 23 ficheiros — todos passam (vitest + jsdom; 2 do AdminPanel podem dar timeout em run paralelo pesado, passam isolados).- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (11), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (3), aiShared (14), helpers (5), workflow-rollback (8), abandoned-messages (22), abandoned-whatsapp-route (8), whatsapp-cloud (15), uuid (5), aiFailure (6), failed-lyrics-recovery (10), admin-regenerate (3), submit-payment (4).
 - **Playwright E2E**: 13 testes (landing, wizard, dedication, admin).
 
 ## Security Advisor (10/Ago 2026) — resolvido (11→1 lint)
@@ -139,7 +141,7 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 3. **Monitorizar métricas do funil de conversão** — recuperação de abandonados ativa em produção; acompanhar taxa de resume (`payment_screen` vs. `resume-data` hits) e conversão pós-lembrete.
 
 ## Critical Context
-- **249 testes passam sempre** após cada mudança (vitest).
+- **250 testes passam sempre** após cada mudança (vitest).
 - **Supabase**: `service_role` key usada apenas onde necessário (admin routes, auth.admin.*, workflows, signed URLs). Anon key usada no endpoint público de dedicatória.
 - **AI providers**: OpenAI + Gemini + Claude configurados. Fallback automático se um falhar.
 - **Suno**: API key configurada, 500+ créditos. `deliveryScheduler.ts` para entregas Standard.
@@ -169,7 +171,7 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - `server/__tests__/failed-lyrics-recovery.test.ts`: 10 testes do `processFailedLyricsRecovery` (claim one-shot, dedupe, janela 48h).
 - `server/__tests__/admin-regenerate.test.ts`: 3 testes do `POST /request/:id/regenerate-lyrics`.
 - `server/__tests__/aiFailure.test.ts`: 6 testes do `allFailuresTransient`.
-- `server/__tests__/submit-payment.test.ts`: 3 testes do guard anti-rebaixamento do `POST /submit-payment`.
+- `server/__tests__/submit-payment.test.ts`: 4 testes do guard anti-rebaixamento + rollback do `POST /submit-payment`.
 - `supabase_setup.sql`: Setup SQL original **desatualizado** face ao schema real.
 - `supabase_migration_email_events_request_id_idx.sql`: Migration com `idx_email_events_request_id` (aplicada em produção).
 - `supabase_migration_scheduler.sql`: Migration com `deliver_at`, `delivered_at`, `deleted_at`, índice.

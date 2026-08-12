@@ -1,4 +1,19 @@
 import { Request } from 'express';
+import { logError } from './logger';
+
+export function logRouteError(req: Request | undefined, err: unknown, extra?: Record<string, unknown>): void {
+  const method = req?.method || '?';
+  const url = req?.originalUrl || req?.url || '?';
+  const readable =
+    err instanceof Error
+      ? err
+      : new Error(
+          typeof err === 'object' && err !== null && 'message' in err
+            ? String((err as { message: unknown }).message)
+            : String(err)
+        );
+  logError(`[Route:${method} ${url}]`, readable, extra);
+}
 
 export function publicErrorMessage(err: unknown, fallback = 'Não foi possível concluir esta etapa. Tente novamente em instantes.') {
   const message = err instanceof Error ? err.message : String(err ?? '');

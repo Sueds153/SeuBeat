@@ -11,7 +11,7 @@ function sanitize(str: string): string {
   return DOMPurify.sanitize(str.trim().slice(0, 5000));
 }
 import { setProgress, updateRequestStatus } from '../services/workflow';
-import { publicErrorMessage, getAppUrl } from '../utils/helpers';
+import { publicErrorMessage, getAppUrl, logRouteError } from '../utils/helpers';
 import { allFailuresTransient, LYRIC_GENERATION_QUEUED_MESSAGE } from '../utils/aiFailure';
 import { 
   GenerateLyricsSchema, 
@@ -999,6 +999,8 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       .eq('id', songRequestId);
     if (requestUpdateError) throw requestUpdateError;
 
+    const previousStatus = requestGuard?.status || 'lyrics_ready';
+
     const { data: paymentRecord, error: paymentError } = await supabase.from('payments').insert([{
       request_id: songRequestId,
       user_email: userEmail,
@@ -1009,7 +1011,21 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       proof_filename: proofFilename || proofPath?.split('/').pop() || null,
       status: 'pending_verification'
     }]).select('id').single();
-    if (paymentError) throw paymentError;
+    if (paymentError) {
+      logError('[API] Falha ao gravar pagamento — a reverter estado do pedido', paymentError, {
+        songRequestId,
+        userEmail,
+        plan,
+        previousStatus,
+        proofPath
+      });
+      try {
+        await supabase.from('song_requests').update({ status: previousStatus }).eq('id', songRequestId);
+      } catch (rollbackErr: unknown) {
+        logError('[API] Falha ao reverter estado do pedido após erro de pagamento', rollbackErr, { songRequestId, previousStatus });
+      }
+      throw paymentError;
+    }
 
     sendInitiateCheckoutEvent({
       eventId: eventIds?.initiateCheckout || generateServerEventId(songRequestId, 'InitiateCheckout'),
@@ -1066,6 +1082,11 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
 
     res.json({ success: true, paymentId: paymentRecord?.id });
   } catch (err: unknown) {
+    logRouteError(req, err, {
+      songRequestId: req.body?.songRequestId,
+      userEmail: req.body?.userEmail,
+      plan: req.body?.plan
+    });
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
@@ -1107,6 +1128,7 @@ router.get('/payment-status', paymentStatusLimiter, async (req, res) => {
     if (error) throw error;
     res.json(data ? { status: data.status, notes: data.notes || null } : { status: 'not_found' });
   } catch (err: unknown) {
+    logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
@@ -1163,6 +1185,7 @@ router.get('/latest-song', getSongLimiter, async (req, res) => {
       status: 'lyrics_ready'
     });
   } catch (err: unknown) {
+    logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
