@@ -930,6 +930,29 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       return res.status(409).json({ success: false, error: 'Já existe um comprovativo pendente para este pedido.' });
     }
 
+    const { data: approvedPayment } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('request_id', songRequestId)
+      .eq('status', 'approved')
+      .maybeSingle();
+
+    const { data: requestGuard } = await supabase
+      .from('song_requests')
+      .select('status')
+      .eq('id', songRequestId)
+      .maybeSingle();
+
+    if (
+      approvedPayment ||
+      (requestGuard && (requestGuard.status === 'approved' || requestGuard.status === 'delivered'))
+    ) {
+      return res.status(409).json({
+        success: false,
+        error: 'Este pedido já tem um pagamento aprovado. A tua música está pronta!',
+      });
+    }
+
     let proofPath: string | null = null;
     if (proofBase64) {
       const resolvedMime = proofMimeType || 'image/jpeg';
