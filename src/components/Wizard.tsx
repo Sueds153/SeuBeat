@@ -440,6 +440,22 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     return () => { mounted = false; };
   }, []);
 
+  // Reconstruir teaser após refresh: o estado lyricsTeaser não é persistido
+  // no localStorage, por isso é regenerado assim que a flag e a letra existem.
+  // Exclui quem já submeteu pagamento (vê a letra completa após refresh).
+  useEffect(() => {
+    if (
+      generationStatus === 'lyrics_ready' &&
+      teaserEnabled &&
+      !paymentSubmitted &&
+      !lyricsTeaser &&
+      Array.isArray(aiLyrics) &&
+      aiLyrics.length > 0
+    ) {
+      setLyricsTeaser(buildTeaser(aiLyrics.join('\n')));
+    }
+  }, [teaserEnabled, generationStatus, paymentSubmitted, lyricsTeaser, aiLyrics]);
+
   // Definir ecrã de preview quando a letra fica pronta
   useEffect(() => {
     if (generationStatus === 'lyrics_ready') {
