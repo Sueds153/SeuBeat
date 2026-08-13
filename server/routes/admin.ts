@@ -276,6 +276,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
         .from('song_requests')
         .update({
           status: 'delivered',
+          delivered_at: new Date().toISOString(),
           final_mixed_audio_url: fullAudioUrl || songRequest.final_mixed_audio_url || null
         })
         .eq('id', requestId);
@@ -655,9 +656,14 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
+    const updatePayload: Record<string, unknown> = { [statusField]: status };
+    if (table === 'song_requests' && status === 'delivered') {
+      updatePayload.delivered_at = new Date().toISOString();
+    }
+
     const { data, error } = await supabase
       .from(table)
-      .update({ [statusField]: status })
+      .update(updatePayload)
       .eq('id', id)
       .select()
       .single();
@@ -984,13 +990,15 @@ router.post('/song/:id/upload-audio', adminAuth, async (req, res) => {
         const isStandard = (approvedPayment as any).plan === 'standard';
         const paymentCreatedAt = (approvedPayment as any).created_at || new Date().toISOString();
         const deliverAt = isStandard ? new Date(new Date(paymentCreatedAt).getTime() + 24 * 60 * 60 * 1000).toISOString() : null;
+        const retryUpdate: Record<string, unknown> = {
+          status: isStandard ? 'approved' : 'delivered',
+          deliver_at: deliverAt,
+          final_mixed_audio_url: fullAudioUrl
+        };
+        if (!isStandard) retryUpdate.delivered_at = new Date().toISOString();
         await supabase
           .from('song_requests')
-          .update({
-            status: isStandard ? 'approved' : 'delivered',
-            deliver_at: deliverAt,
-            final_mixed_audio_url: fullAudioUrl
-          })
+          .update(retryUpdate)
           .eq('id', songData.request_id);
       } else {
         await supabase.from('song_requests').update({ status: 'music_ready' }).eq('id', songData.request_id);
