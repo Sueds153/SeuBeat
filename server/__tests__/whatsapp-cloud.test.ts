@@ -102,7 +102,7 @@ describe('whatsappSender (Cloud API)', () => {
     expect(st.phoneNumberId).toBe('123456789');
     expect(st.enabledBuckets).toEqual(['30min']);
     const t = st.templates.find((x: { bucket: string }) => x.bucket === '30min');
-    expect(t?.name).toBe('seubeat_abandono_30min');
+    expect(t?.name).toBe('seubeat_abandono_30min_v6');
   });
 
   it('runSendBulk lança erro quando não configurado', async () => {
@@ -120,7 +120,7 @@ describe('whatsappSender (Cloud API)', () => {
       json: async () => ({ messages: [{ id: 'wamid.123' }] }),
     });
 
-    const r = await wa.sendTemplate('244900000001', 'seubeat_abandono_30min', ['Rui', 'https://seubeat.ao/wizard?resume=x']);
+    const r = await wa.sendTemplate('244900000001', 'seubeat_abandono_30min_v6', ['Rui', 'https://seubeat.ao/wizard?resume=x']);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.messageId).toBe('wamid.123');
 
@@ -130,7 +130,7 @@ describe('whatsappSender (Cloud API)', () => {
     const body = JSON.parse(String(init.body));
     expect(body.type).toBe('template');
     expect(body.to).toBe('244900000001');
-    expect(body.template.name).toBe('seubeat_abandono_30min');
+    expect(body.template.name).toBe('seubeat_abandono_30min_v6');
     expect(body.template.language.code).toBe('pt_PT');
     expect(body.template.components[0].parameters).toHaveLength(2);
   });
@@ -142,7 +142,7 @@ describe('whatsappSender (Cloud API)', () => {
       status: 401,
       json: async () => ({ error: { message: 'Invalid OAuth access token', type: 'OAuthException' } }),
     });
-    const r = await wa.sendTemplate('244900000001', 'seubeat_abandono_30min', ['Rui', 'https://x']);
+    const r = await wa.sendTemplate('244900000001', 'seubeat_abandono_30min_v6', ['Rui', 'https://x']);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toContain('Token da WhatsApp API inválido');
   });
@@ -154,7 +154,7 @@ describe('whatsappSender (Cloud API)', () => {
       status: 400,
       json: async () => ({ error: { code: 132000, message: 'Template is in paused state' } }),
     });
-    const r = await wa.sendTemplate('244900000001', 'seubeat_abandono_30min', ['Rui', 'https://x']);
+    const r = await wa.sendTemplate('244900000001', 'seubeat_abandono_30min_v6', ['Rui', 'https://x']);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toContain('não aprovado');
   });

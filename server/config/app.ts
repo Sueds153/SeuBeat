@@ -74,6 +74,7 @@ export async function createApp(): Promise<express.Application> {
         adminPassword: !!getEnv('ADMIN_PASSWORD'),
         jwtSecret: !!getEnv('JWT_SECRET'),
         multicaixa: !!getEnv('MULTICAIXA_ENTIDADE') && !!getEnv('MULTICAIXA_REFERENCIA'),
+        whatsapp: !!getEnv('WHATSAPP_API_TOKEN') && !!getEnv('WHATSAPP_PHONE_NUMBER_ID'),
       },
     });
   });

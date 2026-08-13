@@ -8,24 +8,25 @@ export interface WhatsAppTemplateDef {
 }
 
 // Corpos usados pelos templates aprovados na Meta (placeholder {{1}} = nome, {{2}} = link).
-// Mantêm o mesmo tom das mensagens em abandonedMessages.ts — quando registares um template
-// novo na Meta Business, o corpo tem de corresponder a estas strings (com {{1}}/{{2}}).
+// Nota Meta: as variáveis não podem estar no início nem no fim do texto — por isso cada
+// corpo tem texto estático após o {{2}}. Sem acentos/emojis (ASCII) para evitar rejeições
+// INVALID_FORMAT e garantir consistência com o texto criado na API (v6).
 export const WHATSAPP_TEMPLATES: Record<AbandonedBucketKey, WhatsAppTemplateDef> = {
   '30min': {
-    name: 'seubeat_abandono_30min',
-    body: () => `Olá {{1}}! A tua música está quase pronta 🎵 — só falta escolheres o plano. Continua aqui em 1 minuto: {{2}}`,
+    name: 'seubeat_abandono_30min_v6',
+    body: () => `Ola {{1}}! A tua musica esta quase pronta. So falta escolheres o plano. Continua aqui em 1 minuto: {{2}}. Esta tudo a tua espera!`,
   },
   '24h': {
-    name: 'seubeat_abandono_24h',
-    body: () => `Olá {{1}}, sou eu de novo 😊 A tua música personalizada ainda te espera. Garante já a tua entrega: {{2}}`,
+    name: 'seubeat_abandono_24h_v6',
+    body: () => `Ola {{1}}, sou eu de novo. A tua musica personalizada ainda te espera. Garante ja a tua entrega: {{2}}. Nao demores!`,
   },
   '48h': {
-    name: 'seubeat_abandono_48h',
-    body: () => `Olá {{1}}! Não deixes a tua música especial por terminar — está guardada à tua espera. Continua aqui: {{2}}`,
+    name: 'seubeat_abandono_48h_v6',
+    body: () => `Ola {{1}}! Nao deixes a tua musica especial por terminar. Esta guardada a tua espera. Continua aqui: {{2}}. Ainda vais a tempo!`,
   },
   '72h': {
-    name: 'seubeat_abandono_72h',
-    body: () => `Última chamada, {{1}}! ⏰ A tua música guardada vai ser fechada em breve. Termina agora: {{2}}`,
+    name: 'seubeat_abandono_72h_v6',
+    body: () => `Ultima chamada, {{1}}! A tua musica guardada vai ser fechada em breve. Termina agora: {{2}}. Vamos la!`,
   },
 };
 

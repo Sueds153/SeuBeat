@@ -193,7 +193,7 @@ describe('GET /api/admin/whatsapp/config-status', () => {
       configured: true,
       phone: '244922058136',
       phoneNumberId: '123456789',
-      templates: [{ bucket: '30min', name: 'seubeat_abandono_30min' }],
+      templates: [{ bucket: '30min', name: 'seubeat_abandono_30min_v6' }],
       enabledBuckets: ['30min'],
     });
 
