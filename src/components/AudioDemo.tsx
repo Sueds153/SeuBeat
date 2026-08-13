@@ -9,12 +9,18 @@ interface AudioDemoProps {
   onStartWizard?: () => void;
 }
 
+function formatTime(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 export default function AudioDemo({ onStartWizard }: AudioDemoProps) {
   const [selectedSong, setSelectedSong] = useState<DemoSong>(DEMO_SONGS[0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [currentLyricIndex, setCurrentLyricIndex] = useState(0);
+  const [realDuration, setRealDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lyricIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -35,6 +41,7 @@ export default function AudioDemo({ onStartWizard }: AudioDemoProps) {
     }
     setProgress(0);
     setCurrentLyricIndex(0);
+    setRealDuration(0);
   };
 
   // Play selected song
@@ -47,6 +54,7 @@ export default function AudioDemo({ onStartWizard }: AudioDemoProps) {
 
     audio.onloadedmetadata = () => {
       if (isMuted) audio.muted = true;
+      setRealDuration(audio.duration || 0);
       audio.play().catch(() => setIsPlaying(false));
     };
 
@@ -54,6 +62,10 @@ export default function AudioDemo({ onStartWizard }: AudioDemoProps) {
       setIsPlaying(false);
       setCurrentLyricIndex(0);
       setProgress(100);
+      if (lyricIntervalRef.current) {
+        clearInterval(lyricIntervalRef.current);
+        lyricIntervalRef.current = null;
+      }
     };
 
     audio.ontimeupdate = () => {
@@ -66,12 +78,7 @@ export default function AudioDemo({ onStartWizard }: AudioDemoProps) {
     setIsPlaying(true);
 
     // Cycle lyrics while playing
-    lyricIntervalRef.current = setInterval(() => {
-      setCurrentLyricIndex((prev) => {
-        const next = prev + 1;
-        return next >= song.lyrics.length ? 0 : next;
-      });
-    }, 4000);
+    startLyricCycle(song);
   };
 
   // Pause current audio
@@ -80,6 +87,21 @@ export default function AudioDemo({ onStartWizard }: AudioDemoProps) {
       audioRef.current.pause();
       setIsPlaying(false);
     }
+    if (lyricIntervalRef.current) {
+      clearInterval(lyricIntervalRef.current);
+      lyricIntervalRef.current = null;
+    }
+  };
+
+  // Resume lyric cycling (restarted after a pause)
+  const startLyricCycle = (song: DemoSong) => {
+    if (lyricIntervalRef.current) return;
+    lyricIntervalRef.current = setInterval(() => {
+      setCurrentLyricIndex((prev) => {
+        const next = prev + 1;
+        return next >= song.lyrics.length ? 0 : next;
+      });
+    }, 4000);
   };
 
   // Handle play/pause toggle
@@ -90,7 +112,10 @@ export default function AudioDemo({ onStartWizard }: AudioDemoProps) {
       if (!audioRef.current) {
         playSong(selectedSong);
       } else {
-        audioRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
+        audioRef.current.play().then(() => {
+          setIsPlaying(true);
+          startLyricCycle(selectedSong);
+        }).catch(() => {});
       }
     }
   };
@@ -249,10 +274,7 @@ export default function AudioDemo({ onStartWizard }: AudioDemoProps) {
 
           <div className="space-y-3 bg-stone-900/80 p-3.5 rounded-xl border border-stone-800">
             <div className="flex items-center gap-3 text-xs text-stone-500 font-mono">
-              <span>
-                {Math.floor((progress / 100) * 185 / 60)}:
-                {String(Math.floor((progress / 100) * 185 % 60)).padStart(2, '0')}
-              </span>
+              <span>{realDuration ? formatTime((progress / 100) * realDuration) : '0:00'}</span>
               <div id="player-progress-bar-container" className="flex-1 h-1 bg-stone-800 rounded-full overflow-hidden relative cursor-pointer group">
                 <div 
                   className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full transition-all duration-300 relative" 
@@ -261,7 +283,7 @@ export default function AudioDemo({ onStartWizard }: AudioDemoProps) {
                   <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </div>
-              <span>{selectedSong.duration}</span>
+              <span>{realDuration ? formatTime(realDuration) : selectedSong.duration}</span>
             </div>
 
             <div className="flex items-center justify-between">

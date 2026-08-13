@@ -16,7 +16,7 @@ export const DEMO_SONGS: DemoSong[] = [
     style: 'Kizomba',
     occasion: '60º Aniversário',
     recipient: 'Mãe (Lúcia)',
-    duration: '4:30',
+    duration: '3:12',
     audioUrl: '/assets/kizomba_lucia.mp3',
     lyrics: [
       "Lúcia, nos teus sessenta anos de luz,",
@@ -35,7 +35,7 @@ export const DEMO_SONGS: DemoSong[] = [
     style: 'Semba',
     occasion: 'Memorial — 1 ano',
     recipient: 'Avô (Carlos)',
-    duration: '3:45',
+    duration: '2:48',
     audioUrl: '/assets/semba_carlos.mp3',
     lyrics: [
       "Um ano passou, mas o teu semba ainda toca,",
@@ -54,7 +54,7 @@ export const DEMO_SONGS: DemoSong[] = [
     style: 'Gospel',
     occasion: 'Declaração de Amor',
     recipient: 'Marido (Paulo)',
-    duration: '4:35',
+    duration: '3:17',
     audioUrl: '/assets/gospel_paulo.mp3',
     lyrics: [
       "Paulo, há um amor que Deus pôs no meu caminho,",
