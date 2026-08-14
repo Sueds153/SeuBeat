@@ -11,17 +11,17 @@ export default function SocialProof() {
   const messages: string[] = [];
   if (proof.lastActivity) {
     messages.push(
-      `🎵 Uma música foi criada para ${proof.lastActivity.firstName || 'alguém especial'} ${formatMinutesAgo(proof.lastActivity.minutesAgo)}`
+      `Uma música foi criada para ${proof.lastActivity.firstName || 'alguém especial'} ${formatMinutesAgo(proof.lastActivity.minutesAgo)}`
     );
   }
   if (proof.paidToday > 0) {
-    messages.push(`❤️ +${proof.paidToday} ${proof.paidToday === 1 ? 'compra concluída' : 'compras concluídas'} hoje`);
+    messages.push(`+${proof.paidToday} ${proof.paidToday === 1 ? 'compra concluída' : 'compras concluídas'} hoje`);
   }
   if (proof.createdToday > 0) {
-    messages.push(`✨ +${proof.createdToday} ${proof.createdToday === 1 ? 'música criada' : 'músicas criadas'} hoje`);
+    messages.push(`+${proof.createdToday} ${proof.createdToday === 1 ? 'música criada' : 'músicas criadas'} hoje`);
   }
   if (proof.deliveredTotal > 0) {
-    messages.push(`🎧 ${proof.deliveredTotal} músicas já entregues`);
+    messages.push(`${proof.deliveredTotal} músicas já entregues`);
   }
 
   const hasMessages = messages.length > 0;

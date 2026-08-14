@@ -1,6 +1,7 @@
 import { Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import * as Sentry from '@sentry/react';
+import { Music } from 'lucide-react';
 import WhatsAppHelp from './WhatsAppHelp';
 
 interface Props {
@@ -43,7 +44,7 @@ export default class ErrorBoundary extends Component<Props, State> {
         <div className="min-h-screen bg-[#151210] flex items-center justify-center p-4">
           <div className="text-center space-y-4 max-w-md">
             <div className="w-16 h-16 mx-auto rounded-full bg-amber-500/10 flex items-center justify-center">
-              <span className="text-3xl">🎵</span>
+              <Music className="w-8 h-8 text-amber-400" />
             </div>
             <h1 className="font-serif text-2xl text-stone-100 font-bold">
               Algo correu mal

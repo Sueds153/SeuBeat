@@ -31,7 +31,7 @@ export const PRICING_PLANS: PricingPlan[] = [
   },
   {
     id: 'express',
-    name: 'SeuBeat Express ⚡',
+    name: 'SeuBeat Express',
     price: '9.900 Kz',
     originalPrice: '13.500 Kz',
     subtitle: 'Tudo do Standard com entrega mais rápida e mais benefícios.',
@@ -49,7 +49,7 @@ export const PRICING_PLANS: PricingPlan[] = [
   },
   {
     id: 'premium',
-    name: 'Premium Voice 👑',
+    name: 'Premium Voice',
     price: '14.900 Kz',
     originalPrice: '19.900 Kz',
     subtitle: 'Tudo do Express com a sua voz personalizada.',

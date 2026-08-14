@@ -144,11 +144,11 @@ export function Step1Relation({
         </p>
       </div>
       <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        {formData.recipientRelation === 'Mãe' ? `🤱 +${todayCount} já fizeram para uma mãe` :
-         formData.recipientRelation === 'Namorado' || formData.recipientRelation === 'Esposa' || formData.recipientRelation === 'Marido' ? `💕 +${todayCount} declarações em música` :
-         formData.recipientRelation === 'Pai' ? `⭐ +${todayCount} já fizeram para um pai` :
-         formData.recipientRelation === 'Filho' ? `👶 +${todayCount} músicas para filhos` :
-         `🎵 +${todayCount} músicas criadas`}
+        {formData.recipientRelation === 'Mãe' ? `+${todayCount} já fizeram para uma mãe` :
+         formData.recipientRelation === 'Namorado' || formData.recipientRelation === 'Esposa' || formData.recipientRelation === 'Marido' ? `+${todayCount} declarações em música` :
+         formData.recipientRelation === 'Pai' ? `+${todayCount} já fizeram para um pai` :
+         formData.recipientRelation === 'Filho' ? `+${todayCount} músicas para filhos` :
+         `+${todayCount} músicas criadas`}
       </p>
     </div>
   );
@@ -206,11 +206,11 @@ export function Step2Occasion({
         </p>
       </div>
       <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        {formData.occasion === 'Declaração' ? '💍 Sabia que 9 em cada 10 pessoas que fizeram uma declaração em música receberam um "sim"? A sua pode ser a próxima.' :
-         formData.occasion === 'Aniversário' ? '🎂 Mais de 300 músicas de aniversário já foram entregues — um presente que não se esquece.' :
-         formData.occasion === 'Casamento' ? '💒 Mais de 100 casais já eternizaram o amor deles numa canção — o próximo pode ser o vosso.' :
-         formData.occasion === 'Aniversário de namoro' ? '💕 Mais de 200 músicas já celebraram amores que duram — celebrem o vosso também.' :
-         '💍 Aniversários e Declarações de Amor são as ocasiões mais escolhidas — a seguir vai escolher o ritmo perfeito 🎵'}
+        {formData.occasion === 'Declaração' ? 'Sabia que 9 em cada 10 pessoas que fizeram uma declaração em música receberam um "sim"? A sua pode ser a próxima.' :
+         formData.occasion === 'Aniversário' ? 'Mais de 300 músicas de aniversário já foram entregues — um presente que não se esquece.' :
+         formData.occasion === 'Casamento' ? 'Mais de 100 casais já eternizaram o amor deles numa canção — o próximo pode ser o vosso.' :
+         formData.occasion === 'Aniversário de namoro' ? 'Mais de 200 músicas já celebraram amores que duram — celebrem o vosso também.' :
+         'Aniversários e Declarações de Amor são as ocasiões mais escolhidas — a seguir vai escolher o ritmo perfeito'}
       </p>
     </div>
   );
@@ -282,10 +282,10 @@ export function Step3Style({
         </p>
       </div>
       <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        {formData.musicStyle === 'Kizomba' ? '💃 A Kizomba é o estilo mais escolhido — perfeito para histórias de amor.' :
-         formData.musicStyle === 'Semba' ? '🎸 O Semba é a alma musical de Angola — uma escolha cheia de tradição.' :
-         formData.musicStyle === 'Gospel' ? `✨ Gospel: +${todayCount} músicas criadas` :
-         '🎙️ No próximo passo: escolher quem vai cantar esta história'}
+        {formData.musicStyle === 'Kizomba' ? 'A Kizomba é o estilo mais escolhido — perfeito para histórias de amor.' :
+         formData.musicStyle === 'Semba' ? 'O Semba é a alma musical de Angola — uma escolha cheia de tradição.' :
+         formData.musicStyle === 'Gospel' ? `Gospel: +${todayCount} músicas criadas` :
+         'No próximo passo: escolher quem vai cantar esta história'}
       </p>
     </div>
   );
@@ -327,7 +327,7 @@ export function Step4Voice({
         "A voz certa transforma a emoção da letra."
       </p>
       <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        🎤 Já ajudámos centenas de pessoas a eternizar momentos especiais — os detalhes que partilhar tornam a letra única
+        Já ajudámos centenas de pessoas a eternizar momentos especiais — os detalhes que partilhar tornam a letra única
       </p>
     </div>
   );
@@ -418,7 +418,7 @@ export function Step5Traits({
         </p>
       </div>
       <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        📖 A seguir: partilhe uma memória inesquecível — são estes detalhes que fazem a letra parecer escrita por alguém que conhece bem essa pessoa
+        A seguir: partilhe uma memória inesquecível — são estes detalhes que fazem a letra parecer escrita por alguém que conhece bem essa pessoa
       </p>
     </div>
   );
@@ -690,7 +690,7 @@ export function Step6Memory({
         </p>
       </div>
       <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        🎤 As memórias mais simples são as que geram as letras mais emocionantes — os nossos compositores já transformaram centenas de histórias reais em canções inesquecíveis
+        As memórias mais simples são as que geram as letras mais emocionantes — os nossos compositores já transformaram centenas de histórias reais em canções inesquecíveis
       </p>
     </div>
   );
@@ -768,7 +768,7 @@ export function Step7Message({
         )}
       </div>
       <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        💌 Mais de 800 mensagens do coração já foram imortalizadas em canções. Escreva como se fosse uma carta de amor — é isso que torna a música única para sempre.
+        Mais de 800 mensagens do coração já foram imortalizadas em canções. Escreva como se fosse uma carta de amor — é isso que torna a música única para sempre.
       </p>
     </div>
   );
@@ -829,7 +829,7 @@ export function Step8Photo({
         "Esta foto será exibida na página personalizada da música."
       </p>
       <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        📸 9 em cada 10 pessoas que carregam uma foto dizem que a dedicatória ficou ainda mais especial — é o toque final que torna a página única
+        9 em cada 10 pessoas que carregam uma foto dizem que a dedicatória ficou ainda mais especial — é o toque final que torna a página única
       </p>
     </div>
   );
@@ -901,7 +901,7 @@ export function Step9Contact({
         "Estamos quase a transformar a tua história numa música."
       </div>
       <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        🔒 Seus dados estão protegidos — usados apenas para criar e entregar a sua música. Mais de 800 músicas já foram criadas com segurança.
+        Seus dados estão protegidos — usados apenas para criar e entregar a sua música. Mais de 800 músicas já foram criadas com segurança.
       </p>
     </div>
   );

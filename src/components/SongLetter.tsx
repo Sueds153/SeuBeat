@@ -1,3 +1,5 @@
+import { PenLine } from 'lucide-react';
+
 interface SongLetterProps {
   recipientName: string;
   recipientNick: string;
@@ -19,7 +21,7 @@ export default function SongLetter(props: SongLetterProps) {
 
       <div className="flex items-center gap-3 border-b border-white/5 pb-4">
         <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-          <span className="text-base">✍️</span>
+          <PenLine className="w-4 h-4 text-amber-500" />
         </div>
         <div>
           <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest block">Carta Dedicatória</span>

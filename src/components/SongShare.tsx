@@ -32,7 +32,7 @@ export default function SongShare(props: SongShareProps) {
         <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto">
           <Share2 className="w-5 h-5 text-amber-500" />
         </div>
-        <h3 className="text-lg font-bold text-white">Partilha esta dedicatória 💍</h3>
+        <h3 className="text-lg font-bold text-white">Partilha esta dedicatória</h3>
         <p className="text-sm text-[#b3b3b3] max-w-sm mx-auto">
           Envia o link para <span className="text-white font-semibold">{props.recipientName}</span> ouvir a música criada especialmente para ela.
         </p>

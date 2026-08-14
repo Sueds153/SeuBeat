@@ -1,6 +1,7 @@
 import { Component } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import * as Sentry from '@sentry/react';
+import { TriangleAlert } from 'lucide-react';
 import WhatsAppHelp from './WhatsAppHelp';
 
 interface Props {
@@ -37,7 +38,7 @@ export default class StepErrorBoundary extends Component<Props, State> {
       return (
         <div className="bg-stone-900/60 rounded-3xl p-6 md:p-8 border border-red-800/40 shadow-xl text-center space-y-4">
           <div className="w-12 h-12 mx-auto rounded-full bg-red-500/10 flex items-center justify-center">
-            <span className="text-xl">⚠️</span>
+              <TriangleAlert className="w-6 h-6 text-red-400" />
           </div>
           <div>
             <h3 className="font-serif text-lg text-stone-100 font-bold">

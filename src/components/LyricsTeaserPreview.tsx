@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit2, Lock, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { Edit2, Lock, Eye, EyeOff, Sparkles, Music, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
 import { 
   LyricsTeaser, 
@@ -60,8 +60,8 @@ export function LyricsTeaserPreview({
         }`}
       >
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs font-mono text-amber-500 uppercase tracking-wider">
-            {section.type === 'chorus' ? '🎵' : '📝'} {section.label}
+          <span className="text-xs font-mono text-amber-500 uppercase tracking-wider inline-flex items-center gap-1">
+            {section.type === 'chorus' ? <Music className="w-3 h-3" /> : <FileText className="w-3 h-3" />} {section.label}
           </span>
           {!isVisible && (
             <span className="text-[10px] text-stone-500 font-mono px-2 py-0.5 rounded bg-stone-800">

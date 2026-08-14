@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import {
-  Heart, Sparkles, Upload, Image as ImageIcon, ArrowLeft
+  Heart, Sparkles, Upload, Image as ImageIcon, ArrowLeft, Music, PartyPopper
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSong } from '../hooks/useSong';
@@ -105,7 +105,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
       <div className="min-h-screen bg-[#090807] flex items-center justify-center p-4">
         <div className="text-center space-y-4 max-w-md">
           <div className="w-20 h-20 mx-auto rounded-full bg-stone-900 flex items-center justify-center">
-            <span className="text-4xl">🎵</span>
+            <Music className="w-10 h-10 text-amber-400" />
           </div>
           <h1 className="text-2xl text-white font-bold">Música não encontrada</h1>
           <p className="text-stone-400 text-sm">O link que abriste não é válido ou a música foi removida.</p>
@@ -213,18 +213,18 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
             </p>
             <div className="flex flex-wrap gap-2">
               {songDetails.musicStyle && (
-                <span className="px-3 py-1 bg-stone-900 border border-stone-800 rounded-full text-[11px] text-stone-300 font-medium">
-                  🎵 {capitalize(songDetails.musicStyle)}
+                <span className="px-3 py-1 bg-stone-900 border border-stone-800 rounded-full text-[11px] text-stone-300 font-medium inline-flex items-center gap-1">
+                  <Music className="w-3 h-3 text-amber-400" /> {capitalize(songDetails.musicStyle)}
                 </span>
               )}
               {songDetails.occasion && (
-                <span className="px-3 py-1 bg-stone-900 border border-stone-800 rounded-full text-[11px] text-stone-300 font-medium">
-                  🎉 {capitalize(songDetails.occasion)}
+                <span className="px-3 py-1 bg-stone-900 border border-stone-800 rounded-full text-[11px] text-stone-300 font-medium inline-flex items-center gap-1">
+                  <PartyPopper className="w-3 h-3 text-amber-400" /> {capitalize(songDetails.occasion)}
                 </span>
               )}
               {songDetails.desiredEmotion && (
-                <span className="px-3 py-1 bg-stone-900 border border-stone-800 rounded-full text-[11px] text-stone-300 font-medium">
-                  💖 {capitalize(songDetails.desiredEmotion)}
+                <span className="px-3 py-1 bg-stone-900 border border-stone-800 rounded-full text-[11px] text-stone-300 font-medium inline-flex items-center gap-1">
+                  <Heart className="w-3 h-3 text-amber-400" /> {capitalize(songDetails.desiredEmotion)}
                 </span>
               )}
             </div>

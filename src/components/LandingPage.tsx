@@ -1,4 +1,4 @@
-import { ArrowRight, Sparkles, Check, Play, MessageCircle, Menu, X, Shield } from 'lucide-react';
+import { ArrowRight, Sparkles, Check, Play, MessageCircle, Menu, X, Shield, Flame, Music2, Crown, Headphones, Trophy, Mic, Gem, Heart, Cake, HandHeart, HeartHandshake, Feather } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import LogoIcon from './LogoIcon';
@@ -29,12 +29,12 @@ const NAV_LINKS = [
 ];
 
 const OCCASIONS = [
-  { icon: '💍', label: 'Aniversário de Casamento', desc: 'Para quem partilha uma vida' },
-  { icon: '❤️', label: 'Declaração de Amor', desc: 'Diz o que sentes em música' },
-  { icon: '🎂', label: 'Aniversário', desc: 'Um presente eterno e único' },
-  { icon: '👩‍👧', label: 'Para a Mãe', desc: 'A homenagem que ela merece' },
-  { icon: '🙏', label: 'Agradecimento', desc: 'Gratidão que toca a alma' },
-  { icon: '🕊️', label: 'Em Memória', desc: 'Eterniza quem nunca esquecemos' },
+  { icon: Gem, label: 'Aniversário de Casamento', desc: 'Para quem partilha uma vida' },
+  { icon: Heart, label: 'Declaração de Amor', desc: 'Diz o que sentes em música' },
+  { icon: Cake, label: 'Aniversário', desc: 'Um presente eterno e único' },
+  { icon: HandHeart, label: 'Para a Mãe', desc: 'A homenagem que ela merece' },
+  { icon: HeartHandshake, label: 'Agradecimento', desc: 'Gratidão que toca a alma' },
+  { icon: Feather, label: 'Em Memória', desc: 'Eterniza quem nunca esquecemos' },
 ];
 
 const OCCASION_REPLIES: Record<string, { msg: string; style: string }> = {
@@ -47,9 +47,9 @@ const OCCASION_REPLIES: Record<string, { msg: string; style: string }> = {
 };
 
 const HERO_VARIANTS = [
-  'numa música inesquecível ❤️',
-  'numa canção que emociona 🥹',
-  'num presente que não se esquece 💝',
+  'numa música inesquecível',
+  'numa canção que emociona',
+  'num presente que não se esquece',
 ];
 
 function TypewriterQuote() {
@@ -173,13 +173,6 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   return (
     <div id="landing-page-root" className="relative min-h-screen bg-[#151210] text-stone-100 selection:bg-amber-500/30 selection:text-amber-200">
       <style>{`
-        @keyframes glow-pulse {
-          0%, 100% { box-shadow: 0 0 20px rgba(245,158,11,0.2), 0 0 40px rgba(245,158,11,0.1); }
-          50% { box-shadow: 0 0 32px rgba(245,158,11,0.45), 0 0 60px rgba(245,158,11,0.2); }
-        }
-        .animate-glow-pulse {
-          animation: glow-pulse 2s ease-in-out infinite;
-        }
         details > summary { list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
         details[open] > div.faq-body { animation: faq-open 0.25s ease-out; }
@@ -190,15 +183,15 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       `}</style>
 
       {/* ─── PROMO BAR ─── */}
-      <div className="w-full bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-stone-950 text-center py-2 max-sm:py-1.5 px-4 text-xs max-sm:text-[10px] max-sm:leading-tight font-bold tracking-wide animate-pulse-slow z-50 relative">
+      <div className="w-full bg-gradient-to-r from-amber-600 via-rose-600 to-amber-600 text-stone-950 text-center py-2 max-sm:py-1.5 px-4 text-xs max-sm:text-[10px] max-sm:leading-tight font-bold tracking-wide z-50 relative">
         {todayCount > 0 ? (
-          <>🔥 +{todayCount} músicas criadas hoje{'\u00A0'}·{' '}</>
+          <><Flame className="w-3.5 h-3.5 inline-block -mt-0.5 mr-1" />+{todayCount} músicas criadas hoje{'\u00A0'}·{' '}</>
         ) : (
-          <>🔥 Músicas personalizadas criadas com amor{'\u00A0'}·{' '}</>
+          <>Músicas personalizadas criadas com amor{'\u00A0'}·{' '}</>
         )}
         <span className="underline underline-offset-2">Sem assinatura</span>{' '}
-        <span className="max-sm:hidden">· paga apenas quando a letra te encantar 💛</span>
-        <span className="sm:hidden">· só pagas quando aprovares 💛</span>
+        <span className="max-sm:hidden">· paga apenas quando a letra te encantar</span>
+        <span className="sm:hidden">· só pagas quando aprovares</span>
       </div>
 
       {/* Ambient Background */}
@@ -262,7 +255,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 onClick={() => { setMobileMenuOpen(false); onStartWizard(); }}
                 className="mt-4 px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 text-stone-950 font-bold text-lg rounded-full shadow-xl"
               >
-                Criar Música ❤️
+                Criar Música
               </button>
             </div>
           </div>
@@ -273,7 +266,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           onClick={onStartWizard}
           className="px-5 py-3 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 text-xs md:text-sm font-extrabold rounded-full shadow-lg shadow-amber-500/10 active:scale-95 transition-all shrink-0 cursor-pointer"
         >
-          Criar Música ❤️
+          Criar Música
         </button>
       </header>
 
@@ -286,7 +279,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             <div className="inline-flex items-center gap-3 rounded-2xl border border-stone-800/80 bg-stone-900/35 px-4 py-3 shadow-lg shadow-black/20">
               <LogoIcon size={44} className="shrink-0" />
               <div>
-                <p className="text-[10px] font-mono font-bold uppercase tracking-[0.22em] text-amber-400">
+                <p className="text-[10px] font-sans font-bold uppercase tracking-[0.22em] text-amber-400">
                   SeuBeat Studio
                 </p>
                 <p className="text-xs text-stone-400">Sua Música. Seu Momento.</p>
@@ -335,12 +328,12 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               <button
                 id="hero-primary-cta"
                 onClick={onStartWizard}
-                className="px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm md:text-base rounded-full shadow-xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all inline-flex items-center justify-center gap-2 cursor-pointer animate-glow-pulse"
+                className="px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm md:text-base rounded-full shadow-xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all inline-flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>Criar Minha Música</span>
                 <ArrowRight className="w-5 h-5 shrink-0" />
               </button>
-              <span className="flex items-center gap-1 text-[10px] text-amber-400/70 font-mono mt-1">
+              <span className="flex items-center gap-1 text-[10px] text-amber-400/70 font-sans mt-1">
                 <Shield className="w-3 h-3" /> 100% Satisfação Garantida ou Reembolso
               </span>
             </div>
@@ -388,13 +381,13 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
               {/* Floating badge top-right */}
               <div className="absolute -top-4 right-4 md:-right-2 bg-gradient-to-br from-amber-500 to-rose-600 text-stone-950 rounded-2xl px-4 py-2 text-xs font-black shadow-xl shadow-amber-500/30 rotate-0 md:rotate-3">
-                🎵 Entrega em 24h
+                <span className="inline-flex items-center gap-1"><Music2 className="w-3.5 h-3.5" /> Entrega em 24h</span>
               </div>
             </div>
           </div>
 
           {/* Trust badges */}
-          <div className="flex flex-wrap gap-3 text-xs font-mono text-stone-500 uppercase tracking-wider lg:col-start-1">
+          <div className="flex flex-wrap gap-3 text-xs font-sans text-stone-500 uppercase tracking-wider lg:col-start-1">
             {['Letras em Português Real', 'Kizomba · Semba · Gospel', 'Entrega por E-mail'].map((t) => (
               <div key={t} className="flex items-center gap-1.5">
                 <Check className="w-3.5 h-3.5 text-amber-500" />
@@ -404,7 +397,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           </div>
 
           {/* Social proof micro-stats */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-stone-500 font-mono lg:col-start-1">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-stone-500 font-sans lg:col-start-1">
             <div className="flex items-center gap-1.5">
               <span ref={countRef} className="text-amber-400 font-bold text-base">+{showCount ? animatedCount : 0}</span>
               <span>músicas criadas</span>
@@ -427,7 +420,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       <section id="how-it-works-section" className="py-20 border-t border-stone-900/60 bg-stone-950/40 relative z-10 text-center">
         <div className="max-w-7xl mx-auto px-4 md:px-8 space-y-12">
           <div className="max-w-2xl mx-auto space-y-3">
-            <span className="text-amber-500 text-xs font-mono font-bold uppercase tracking-widest block">Estúdio SeuBeat</span>
+            <span className="text-amber-500 text-xs font-sans font-bold uppercase tracking-[0.2em] block">Estúdio SeuBeat</span>
             <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
               Como funciona o presente perfeito?
             </h2>
@@ -463,17 +456,17 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
       {/* ─── AUTHORITY BAR ─── */}
       <div className="border-t border-stone-900/60 bg-stone-950/30 py-6">
-        <div className="max-w-4xl mx-auto px-4 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs text-stone-500 font-mono">
+        <div className="max-w-4xl mx-auto px-4 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs text-stone-500 font-sans">
           <span className="flex items-center gap-2">
-            🎧 <span>Tecnologia de Áudio Profissional</span>
+            <Headphones className="w-4 h-4 text-stone-400" /> <span>Tecnologia de Áudio Profissional</span>
           </span>
           <span className="hidden sm:inline text-stone-800">|</span>
           <span className="flex items-center gap-2">
-            🏆 <span>Recomendado por Músicos Angolanos</span>
+            <Trophy className="w-4 h-4 text-stone-400" /> <span>Recomendado por Músicos Angolanos</span>
           </span>
           <span className="hidden sm:inline text-stone-800">|</span>
           <span className="flex items-center gap-2">
-            🎙️ <span>Vozes Reais com Timbre Profissional</span>
+            <Mic className="w-4 h-4 text-stone-400" /> <span>Vozes Reais com Timbre Profissional</span>
           </span>
         </div>
       </div>
@@ -482,9 +475,9 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       <section id="occasions-section" className="py-20 border-t border-stone-900/60 px-4 md:px-8">
         <div className="max-w-7xl mx-auto space-y-12">
           <div className="max-w-2xl mx-auto text-center space-y-3">
-            <span className="text-amber-500 text-xs font-mono font-bold uppercase tracking-widest block">Para Cada Momento</span>
+            <span className="text-amber-500 text-xs font-sans font-bold uppercase tracking-[0.2em] block">Para Cada Momento</span>
             <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
-              Qual é a vossa ocasião especial? ✨
+              Qual é a vossa ocasião especial?
             </h2>
             <p className="text-stone-400 text-xs md:text-sm">
               Cada canção é moldada para o momento exato que quer eternizar.
@@ -509,7 +502,9 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                         : 'bg-stone-900/30 hover:bg-stone-900/70 border border-stone-800 hover:border-amber-500/40 hover:-translate-y-1'
                   }`}
                 >
-                  <span className={`text-3xl transition-transform ${isSelected ? 'scale-110' : 'group-hover:scale-110'}`}>{occ.icon}</span>
+                  <span className={`transition-transform ${isSelected ? 'scale-110' : 'group-hover:scale-110'}`}>
+                    <occ.icon className="w-8 h-8 text-amber-400/90" strokeWidth={1.75} />
+                  </span>
                   <div>
                     <p className="text-stone-200 text-xs font-semibold leading-tight">{occ.label}</p>
                     <p className="text-stone-500 text-[10px] mt-1 font-mono leading-tight">{occ.desc}</p>
@@ -531,15 +526,15 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 <p className="text-stone-200 text-sm leading-relaxed font-serif italic">
                   "{OCCASION_REPLIES[selectedOccasion].msg}"
                 </p>
-                <div className="flex items-center justify-center gap-2 text-xs text-amber-400 font-mono">
+                <div className="flex items-center justify-center gap-2 text-xs text-amber-400 font-sans">
                   <Sparkles className="w-4 h-4" />
-                  <span>🎵 Sugerimos: <strong>{OCCASION_REPLIES[selectedOccasion].style}</strong></span>
+                  <span>Sugerimos: <strong>{OCCASION_REPLIES[selectedOccasion].style}</strong></span>
                 </div>
                 <button
                   onClick={onStartWizard}
                   className="w-full py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-black text-sm rounded-2xl shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
                 >
-                  Sim, quero uma {selectedOccasion.toLowerCase()} em música ❤️
+                  Sim, quero uma {selectedOccasion.toLowerCase()} em música
                 </button>
                 <button
                   onClick={() => setSelectedOccasion(null)}
@@ -565,9 +560,9 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       <section id="pricing-section" className="py-20 border-t border-stone-900/60 bg-stone-950 px-4 md:px-8 relative text-center">
         <div className="max-w-7xl mx-auto space-y-14">
           <div className="max-w-2xl mx-auto space-y-3">
-            <span className="text-amber-500 text-xs font-mono font-bold uppercase tracking-widest block">Sem Subscrições Secretas</span>
+            <span className="text-amber-500 text-xs font-sans font-bold uppercase tracking-[0.2em] block">Sem Subscrições Secretas</span>
             <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
-              Preços Únicos Por Canção 💎
+              Preços Únicos Por Canção
             </h2>
             <p className="text-stone-400 text-xs md:text-sm">
               Encontre o plano ideal para a surpresa sentimental, sem mensalidades.
@@ -633,7 +628,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                   </ul>
                   {plan.popularity && (
                     <p className="text-center text-[10px] text-amber-500/80 font-mono font-medium pt-1">
-                      🔥 {plan.popularity} dos clientes escolhem esta opção
+                      <Flame className="w-3 h-3 inline-block -mt-0.5 mr-1" />{plan.popularity} dos clientes escolhem esta opção
                     </p>
                   )}
                 </div>
@@ -651,7 +646,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                         : 'bg-stone-800 hover:bg-stone-750 text-stone-100'
                     }`}
                   >
-                    {plan.id === 'premium' ? 'Criar com Minha Voz 👑' : 'Escolher Este Plano'}
+                    {plan.id === 'premium' ? (
+                      <span className="inline-flex items-center justify-center gap-1.5">
+                        <Crown className="w-4 h-4" /> Criar com Minha Voz
+                      </span>
+                    ) : 'Escolher Este Plano'}
                   </button>
                   <span className="text-[10px] text-stone-400 block text-center mt-2 font-mono">
                     ✓ {plan.guarantee || 'Suporte pós-venda incluído'}
@@ -673,9 +672,9 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
         className="py-20 border-t border-stone-900/60 max-w-7xl mx-auto px-4 md:px-8 text-center space-y-14"
       >
         <div className="max-w-2xl mx-auto space-y-3">
-          <span className="text-amber-500 text-xs font-mono font-bold uppercase tracking-widest block">Corações Conquistados</span>
+          <span className="text-amber-500 text-xs font-sans font-bold uppercase tracking-[0.2em] block">Corações Conquistados</span>
           <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
-            Quem ofereceu, nunca mais esqueceu ❤️
+            Quem ofereceu, nunca mais esqueceu
           </h2>
           <p className="text-stone-400 text-xs md:text-sm">
             Depoimentos reais de pessoas em Angola que criaram recordações eternas.
@@ -688,7 +687,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             onClick={onStartWizard}
             className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm md:text-base rounded-full shadow-xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer"
           >
-            <span>O próximo depoimento pode ser o teu ❤️</span>
+            <span>O próximo depoimento pode ser o teu</span>
             <ArrowRight className="w-5 h-5 shrink-0" />
           </button>
           <p className="text-[10px] text-stone-500 font-mono">
@@ -700,9 +699,9 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       {/* ─── 8. FAQ ─── */}
       <section id="faq-section" className="py-20 border-t border-stone-900/60 bg-stone-950 px-4 md:px-8 text-center space-y-12">
         <div className="max-w-2xl mx-auto space-y-3">
-          <span className="text-amber-500 text-xs font-mono font-bold uppercase tracking-widest block">Centro de Ajuda</span>
+          <span className="text-amber-500 text-xs font-sans font-bold uppercase tracking-[0.2em] block">Centro de Ajuda</span>
           <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
-            Perguntas Frequentes 💡
+            Perguntas Frequentes
           </h2>
           <p className="text-stone-400 text-xs md:text-sm">
             Tudo o que precisa de saber para encomendar a sua composição.
@@ -758,7 +757,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             onClick={onStartWizard}
             className="inline-flex items-center gap-3 px-6 sm:px-10 py-5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-extrabold text-base md:text-lg rounded-full shadow-2xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer"
           >
-            <span>♪ Criar a minha canção</span>
+            <span className="inline-flex items-center gap-2"><Music2 className="w-5 h-5" />Criar a minha canção</span>
             <ArrowRight className="w-5 h-5" />
           </button>
 
@@ -841,7 +840,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               onClick={onStartWizard}
               className="flex-1 py-3.5 bg-gradient-to-r from-amber-500 to-rose-600 active:from-amber-400 active:to-rose-500 text-stone-950 font-extrabold text-sm rounded-full shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
             >
-              Criar Minha Música ❤️
+              Criar Minha Música
             </button>
           </div>
         </motion.div>

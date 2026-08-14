@@ -45,55 +45,55 @@ type GenerationStatus =
 // Custom steps configuration with titles, subtitles, examples, and tips
 const STEP_META = [
   {
-    title: 'Para quem é esta canção? ❤️',
+    title: 'Para quem é esta canção?',
     subtitle: 'Escolha a relação e configure os nomes para rimas profundas.',
     example: 'Exemplo: "Para a minha Mãe (Dona Maria)", mostrando gratidão.',
     tip: 'Passo 1  • Os pormenores pessoais criam mais empatia na música.'
   },
   {
-    title: 'Qual é a ocasião especial? 🎂',
+    title: 'Qual é a ocasião especial?',
     subtitle: 'O compasso e ritmo assentam na festa pretendida.',
     example: 'Exemplo: "Aniversário de Casamento", ou "Uma declaração sem motivo".',
     tip: 'Passo 2  • Conte-nos brevemente as razões da surpresa de hoje.'
   },
   {
-    title: 'Qual é o estilo e artista de inspiração? 🎵',
+    title: 'Qual é o estilo e artista de inspiração?',
     subtitle: 'Navegue pelos sons angolanos ou uma balada emocionante.',
     example: 'Exemplo: Kizomba ao estilo de Anselmo Ralph ou Chelsea Dinorath.',
     tip: 'Passo 3  • Isto ajuda a modelar com mais precisão a vibração ideal.'
   },
   {
-    title: 'Quem deve cantar esta homenagem? 🎙️',
+    title: 'Quem deve cantar esta homenagem?',
     subtitle: 'A voz transmite sentimentos inesquecíveis.',
     example: 'Exemplo: Voz Feminina celestial ou Dueto Romântico expressivo.',
     tip: 'Passo 4  • Note: A sua própria voz poderá ser personalizada na fase seguinte!'
   },
   {
-    title: 'O que torna esta pessoa especial? ✨',
+    title: 'O que torna esta pessoa especial?',
     subtitle: 'Escreva sobre os seus superpoderes e mimos diários.',
     example: 'Exemplo: "É uma pessoa muito atenciosa e canta sempre no banho de manhã."',
     tip: 'Passo 5  • Detalhes engraçados convertem-se no presente perfeito.'
   },
   {
-    title: 'Onde e qual é a vossa memória forte? 📍',
+    title: 'Onde e qual é a vossa memória forte?',
     subtitle: 'O local e os momentos formam a lírica narrativa.',
     example: 'Exemplo: "Amamos passear em Luanda, e rimos imenso quando a tenda caiu no Cabo Ledo."',
     tip: 'Passo 6  • Locais e datas criam um ambiente imersivo fantástico.'
   },
   {
-    title: 'O que gostaria de nunca esquecer? 🥹',
+    title: 'O que gostaria de nunca esquecer?',
     subtitle: 'A mensagem pura do seu peito que compõe o marcante refrão.',
     example: 'Exemplo: "Que essa pessoa mudou a minha vida e que estarei sempre ao seu lado."',
     tip: 'Passo 7  • Escreva com verdade crua para derreter corações.'
   },
   {
-    title: 'Fotografia marcante do casal 📸',
+    title: 'Fotografia marcante do casal',
     subtitle: 'Esta foto preencherá o ecrã do player digital da dedicatória.',
     example: 'Exemplo: Um lindo retrato do aniversário passado juntos.',
     tip: 'Passo 8  • Acompanha o correio eletrónico nas capas de estúdio.'
   },
   {
-    title: 'Contacto de segurança do autor 🛡️',
+    title: 'Contacto de segurança do autor',
     subtitle: 'Preencha o correio eletrónico para o seu link privado de escuta.',
     example: 'Exemplo: Receba o ficheiro WAV directamente no WhatsApp.',
     tip: 'Passo 9  • Estamos quase prontos para criar a melodia!'

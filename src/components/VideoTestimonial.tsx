@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2, VolumeX, Heart, Share2, MessageCircle, Sparkles, Star, Quote, ArrowRight } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Heart, Share2, MessageCircle, Sparkles, Star, Quote, ArrowRight, Flag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LogoIcon from './LogoIcon';
 
@@ -122,7 +122,7 @@ export default function VideoTestimonial({ onStartWizard }: VideoTestimonialProp
 
           <div className="flex flex-wrap gap-4 items-center">
             <div className="bg-stone-900/40 border border-stone-850/80 px-4 py-3.5 rounded-2xl flex items-center gap-3">
-              <span className="text-2xl">😭</span>
+              <Heart className="w-6 h-6 text-rose-400" />
               <div>
                 <span className="text-xs font-bold text-stone-200 block">Lágrimas Garantidas</span>
                 <span className="text-[10px] text-stone-500 font-mono uppercase">+200 músicas emocionantes</span>
@@ -130,7 +130,7 @@ export default function VideoTestimonial({ onStartWizard }: VideoTestimonialProp
             </div>
 
             <div className="bg-stone-900/40 border border-stone-850/80 px-4 py-3.5 rounded-2xl flex items-center gap-3">
-              <span className="text-2xl">🇦🇴</span>
+              <Flag className="w-6 h-6 text-amber-400" />
               <div>
                 <span className="text-xs font-bold text-stone-200 block">Identidade Nacional</span>
                 <span className="text-[10px] text-stone-500 font-mono uppercase">Compositores e vozes de Angola</span>
@@ -138,7 +138,7 @@ export default function VideoTestimonial({ onStartWizard }: VideoTestimonialProp
             </div>
 
             <div className="bg-stone-900/40 border border-stone-850/80 px-4 py-3.5 rounded-2xl flex items-center gap-3">
-              <span className="text-2xl">⭐</span>
+              <Star className="w-6 h-6 text-amber-400 fill-amber-400" />
               <div>
                 <span className="text-xs font-bold text-stone-200 block">4.9/5 Estrelas</span>
                 <span className="text-[10px] text-stone-500 font-mono uppercase">+200 avaliações positivas</span>
@@ -153,7 +153,7 @@ export default function VideoTestimonial({ onStartWizard }: VideoTestimonialProp
                 onClick={onStartWizard}
                 className="inline-flex items-center gap-2 px-7 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm md:text-base rounded-full shadow-xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer"
               >
-                <span>Quero uma música assim ❤️</span>
+                <span>Quero uma música assim</span>
                 <ArrowRight className="w-5 h-5 shrink-0" />
               </button>
               <p className="text-[10px] text-stone-500 font-mono mt-2">
