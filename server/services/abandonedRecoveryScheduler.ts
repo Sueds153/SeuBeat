@@ -1,6 +1,6 @@
 import { getAdminSupabase } from './supabase';
 import { sendAbandonedFirstReminder, sendAbandonedSecondReminder, sendAbandonedThirdReminder, sendAbandonedFourthReminder } from './email';
-import { sendTemplate } from '../services/whatsappSender';
+import { sendAbandonedWhatsApp } from '../services/whatsappSender';
 import { enabledWhatsAppBuckets, templateForBucket } from './whatsappTemplates';
 import { bucketForElapsed } from './abandonedMessages';
 import { logInfo, logError, logWarn } from '../utils/logger';
@@ -9,7 +9,14 @@ import { getAppUrl } from '../utils/helpers';
 const INTERVAL_MS = 10 * 60 * 1000;
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
 
-async function processAbandonedRecovery(): Promise<void> {
+const WHATSAPP_FLAG_BY_BUCKET: Record<string, string> = {
+  '30min': 'whatsapp_30min_sent_at',
+  '24h': 'whatsapp_24h_sent_at',
+  '48h': 'whatsapp_48h_sent_at',
+  '72h': 'whatsapp_72h_sent_at',
+};
+
+export async function processAbandonedRecovery(): Promise<void> {
   const supabase = getAdminSupabase();
   if (!supabase) {
     logWarn('[AbandonedRecovery] Admin Supabase client indisponivel');
@@ -18,7 +25,7 @@ async function processAbandonedRecovery(): Promise<void> {
 
   const { data: abandoned, error } = await supabase
     .from('song_requests')
-    .select('id, email, recipient_name, phone, created_at, abandoned_30min_sent_at, abandoned_24h_sent_at, abandoned_48h_sent_at, abandoned_72h_sent_at, user_id')
+    .select('id, email, recipient_name, phone, created_at, abandoned_30min_sent_at, abandoned_24h_sent_at, abandoned_48h_sent_at, abandoned_72h_sent_at, whatsapp_30min_sent_at, whatsapp_24h_sent_at, whatsapp_48h_sent_at, whatsapp_72h_sent_at, user_id, users(phone)')
     .in('status', ['lyrics_ready', 'lyrics_generating'])
     .is('deleted_at', null)
     .not('email', 'is', null);
@@ -60,22 +67,32 @@ async function processAbandonedRecovery(): Promise<void> {
         logInfo('[AbandonedRecovery] Primeiro lembrete enviado (30min) por email', { requestId: req.id, email: req.email });
       }
 
-      // --- NOVO: Envia WhatsApp para clientes não pagantes nos buckets habilitados ---
+      // --- WhatsApp para clientes não pagantes nos buckets habilitados ---
       const whatsappBuckets = enabledWhatsAppBuckets();
-      if (bucket && whatsappBuckets.includes(bucket as any) && diffMs >= 30 * 60 * 1000) {
-        // Verifica se o cliente ainda não pagou (consulta payments table)
-        const hasPayment = await checkPaymentStatus(req.id);
-        if (!hasPayment) {
-          const templateDef = templateForBucket(bucket!);
-          if (templateDef?.name) {
+      const whatsappFlagKey = WHATSAPP_FLAG_BY_BUCKET[bucket as string];
+      if (bucket && whatsappBuckets.includes(bucket as any) && diffMs >= 30 * 60 * 1000 && whatsappFlagKey && !req[whatsappFlagKey as keyof typeof req]) {
+        const templateDef = templateForBucket(bucket!);
+        if (templateDef?.name) {
+          // Verifica se o cliente ainda não pagou (consulta payments table)
+          const hasPayment = await checkPaymentStatus(req.id);
+          if (!hasPayment) {
             const appUrl = getAppUrl();
             const resumeUrl = `${appUrl}/wizard?resume=${req.id}&step=payment`;
-            const phone = req.phone || '';
-            await sendTemplate(phone, templateDef.name, [req.recipient_name || '', resumeUrl]);
-            // Atualiza flag do bucket correspondente
-            const flagKey = bucket === '30min' ? 'abandoned_30min_sent_at' : bucket === '24h' ? 'abandoned_24h_sent_at' : bucket === '48h' ? 'abandoned_48h_sent_at' : 'abandoned_72h_sent_at';
-            await supabase.from('song_requests').update({ [flagKey]: now }).eq('id', req.id);
-            logInfo('[AbandonedRecovery] WhatsApp enviado (bucket: {bucket}) para cliente não pagante', { requestId: req.id, email: req.email, bucket, phone });
+            const phone = req.phone || req.users?.[0]?.phone || '';
+            const result = await sendAbandonedWhatsApp({
+              requestId: req.id,
+              phone,
+              bucket: bucket as string,
+              templateName: templateDef.name,
+              params: [req.recipient_name || '', resumeUrl],
+            });
+            if (result === 'sent') {
+              // Atualiza a flag WhatsApp do bucket correspondente (só em sucesso)
+              await supabase.from('song_requests').update({ [whatsappFlagKey]: now }).eq('id', req.id);
+              logInfo('[AbandonedRecovery] WhatsApp enviado (bucket: {bucket}) para cliente não pagante', { requestId: req.id, email: req.email, bucket, phone });
+            } else {
+              logWarn('[AbandonedRecovery] WhatsApp não enviado (result: {result})', { requestId: req.id, email: req.email, bucket, result });
+            }
           }
         }
       }
@@ -85,18 +102,23 @@ async function processAbandonedRecovery(): Promise<void> {
   }
 }
 
-async function checkPaymentStatus(requestId: string): Promise<boolean> {
-  return new Promise(async (resolve) => {
-    const supabase = getAdminSupabase();
-    if (!supabase) return resolve(false);
-    const { data } = await supabase.from('payments')
+export async function checkPaymentStatus(requestId: string): Promise<boolean> {
+  const supabase = getAdminSupabase();
+  if (!supabase) return false;
+  try {
+    const { data } = await supabase
+      .from('payments')
       .select('status')
       .eq('request_id', requestId)
-      .single();
-    if (!data) return resolve(true); // Não tem registro de pagamento = não pagou
+      .maybeSingle();
+    // Sem registo de pagamento = ainda não pagou → devolve false
+    if (!data) return false;
     const paidStatuses = ['approved', 'delivered'];
-    resolve(!paidStatuses.includes(data.status));
-  });
+    return paidStatuses.includes(data.status);
+  } catch (err) {
+    logError('[AbandonedRecovery] Erro ao consultar pagamento', err, { requestId });
+    return false;
+  }
 }
 
 export function startAbandonedRecoveryScheduler(): void {

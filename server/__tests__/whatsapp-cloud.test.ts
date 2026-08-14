@@ -246,6 +246,77 @@ describe('whatsappSender (Cloud API)', () => {
     expect(insertRow.status).toBe('failed');
   });
 
+  it('sendAbandonedWhatsApp devolve window-closed fora da janela', async () => {
+    const wa = await importSender({ WHATSAPP_START_HOUR: '0', WHATSAPP_END_HOUR: '0' });
+    const res = await wa.sendAbandonedWhatsApp({
+      requestId: 'r1', phone: '244900000001', bucket: '30min', params: ['Rui', 'https://x'],
+    });
+    expect(res).toBe('window-closed');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('sendAbandonedWhatsApp devolve cap-reached quando o cap diário acabou', async () => {
+    supabaseState.query = buildSupabaseMock({ count: 30 });
+    const wa = await importSender();
+    const res = await wa.sendAbandonedWhatsApp({
+      requestId: 'r1', phone: '244900000001', bucket: '30min', params: ['Rui', 'https://x'],
+    });
+    expect(res).toBe('cap-reached');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('sendAbandonedWhatsApp devolve skipped para cliente sem telefone', async () => {
+    const wa = await importSender();
+    const res = await wa.sendAbandonedWhatsApp({
+      requestId: 'r2', phone: '', bucket: '30min', params: ['Ana', 'https://x'],
+    });
+    expect(res).toBe('skipped');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('sendAbandonedWhatsApp envia, marca contacto e devolve sent', async () => {
+    const wa = await importSender();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ messages: [{ id: 'wamid.77' }] }),
+    });
+    const res = await wa.sendAbandonedWhatsApp({
+      requestId: 'r1', phone: '244900000001', bucket: '30min', params: ['Rui', 'https://x'],
+    });
+    expect(res).toBe('sent');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const supabase = supabaseState.query;
+    expect(supabase.update).toHaveBeenCalledWith(expect.objectContaining({ manual_contacted_at: expect.any(String) }));
+    const insertRow = supabase.insert.mock.calls[0][0];
+    expect(insertRow.status).toBe('sent');
+    expect(insertRow.message_id).toBe('wamid.77');
+    expect(insertRow.request_id).toBe('r1');
+  });
+
+  it('sendAbandonedWhatsApp devolve failed quando a API devolve erro fatal', async () => {
+    const wa = await importSender();
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: 132000, message: 'not approved' } }),
+    });
+    const res = await wa.sendAbandonedWhatsApp({
+      requestId: 'r1', phone: '244900000001', bucket: '30min', params: ['Rui', 'https://x'],
+    });
+    expect(res).toBe('failed');
+    const insertRow = supabaseState.query.insert.mock.calls[0][0];
+    expect(insertRow.status).toBe('failed');
+  });
+
+  it('sendAbandonedWhatsApp devolve unconfigured sem env', async () => {
+    const wa = await importUnconfigured();
+    const res = await wa.sendAbandonedWhatsApp({
+      requestId: 'r1', phone: '244900000001', bucket: '30min', params: ['Rui', 'https://x'],
+    });
+    expect(res).toBe('unconfigured');
+  });
+
   it('handleDeliveryWebhook atualiza o log mais recente com delivered', async () => {
     supabaseState.query = buildSupabaseMock({ data: [{ id: 'log-1' }] });
     const wa = await importSender();

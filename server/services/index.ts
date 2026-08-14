@@ -29,8 +29,9 @@ export {
 export type { AbandonedBucketKey } from './abandonedMessages';
 export {
   getLinkStatus, getConfigStatus, runSendBulk, getSendProgress, handleDeliveryWebhook,
+  sendAbandonedWhatsApp,
 } from './whatsappSender';
-export type { BulkClient, BulkOptions } from './whatsappSender';
+export type { BulkClient, BulkOptions, AbandonedSendResult } from './whatsappSender';
 export { extractAudioUrl, querySunoTask, generateFullSong } from './suno';
 export { getAdminSupabase, getPublicSupabase, uploadToSupabase } from './supabase';
 export {

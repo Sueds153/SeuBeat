@@ -119,7 +119,7 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - **CI corre em ubuntu-latest com Node 22**, npm ci, lint, test.
 
 ## Testes
-- **250 testes**, 23 ficheiros — todos passam (vitest + jsdom; 2 do AdminPanel podem dar timeout em run paralelo pesado, passam isolados).- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (11), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (3), aiShared (14), helpers (5), workflow-rollback (8), abandoned-messages (22), abandoned-whatsapp-route (8), whatsapp-cloud (15), uuid (5), aiFailure (6), failed-lyrics-recovery (10), admin-regenerate (3), submit-payment (4).
+- **266 testes**, 24 ficheiros — todos passam (vitest + jsdom; 2 do AdminPanel podem dar timeout em run paralelo pesado, passam isolados).- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (11), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (3), aiShared (14), helpers (5), workflow-rollback (8), abandoned-messages (22), abandoned-whatsapp-route (8), whatsapp-cloud (21), uuid (5), aiFailure (6), failed-lyrics-recovery (10), admin-regenerate (3), submit-payment (4), abandoned-scheduler (10).
 - **Playwright E2E**: 13 testes (landing, wizard, dedication, admin).
 
 ## Security Advisor (10/Ago 2026) — resolvido (11→1 lint)
@@ -144,7 +144,8 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - **Pagamentos**: 13 aprovados + 3 rejeitados (9 dos 13 aprovados nos últimos 14 dias). Sem `pending_verification` em aberto.
 - **Pool de recuperação (sem pagamento)**: 197 pedidos (`lyrics_ready`+`music_ready` sem payment) — buckets: <1h: 3, 1–6h: 2, 6–24h: 6, 24–48h: 6, 48–72h: 20, **>72h: 160**.
 - **Email (canal ativo)**: 781 lembretes de abandono entregues/14d (~93% deliverability; 30min "Pedido recebido" 138, 24h "Ainda vai a tempo" 106, 48h "expira em 48h" 286, 72h "Última chance" 149). Scheduler para aos 72h — os **160 leads >72h nunca recebem 4º lembrete** (oportunidade: bucket "7 dias").
-- **WhatsApp (Cloud API 13/Ago, ativo)**: Baileys abandonado (228 falhas `Connection Closed`). Env vars configuradas no Render (deploy `4104cf9`): `WHATSAPP_API_TOKEN` (System User, nunca expira), `WHATSAPP_PHONE_NUMBER_ID=1201588979704338`, `WHATSAPP_PHONE=244922058136`, verify token webhook. **Webhook Meta ligado** (callback `https://seubeat.onrender.com/api/webhooks/whatsapp` + campo `messages` subscrito — `Subscribed`). Templates criados na WABA `2754160688292272` (Academia de Publicidade): `seubeat_abandono_30min/24h/48h/72h_v6` (UTILITY pt_PT, ASCII, com `example.body_text` — necessário para não levar `INVALID_FORMAT`). ⚠️ **14/Ago: ainda `PENDING`** (aprov. da Meta pendente; verificar com `GET {wabaId}/message_templates?fields=name,status`). Número `+244 922 058 136` com `code_verification_status NOT_VERIFIED` (verificação por SMS da Meta indisponível — tentar depois; não bloqueia envio de templates). Envio real ainda não testado ponta-a-ponta.
+- **WhatsApp (Cloud API 13/Ago, ativo)**: Baileys abandonado (228 falhas `Connection Closed`). Env vars configuradas no Render (deploy `4104cf9`): `WHATSAPP_API_TOKEN` (System User, nunca expira), `WHATSAPP_PHONE_NUMBER_ID=1201588979704338`, `WHATSAPP_PHONE=244922058136`, verify token webhook. **Webhook Meta ligado** (callback `https://seubeat.onrender.com/api/webhooks/whatsapp` + campo `messages` subscrito — `Subscribed`). Templates na WABA `2754160688292272` (Academia de Publicidade): `seubeat_abandono_30min/24h/48h/72h_v6` + `seubeat_probe_c` — **14/Ago: todos `APPROVED`** (verificado via `GET {wabaId}/message_templates?fields=name,status,language,category`; categoria **MARKETING** e não UTILITY, `pt_PT`, ASCII, corpos coincidem com `whatsappTemplates.ts`). ⚠️ **`code_verification_status NOT_VERIFIED`** — número `+244 922 058 136` não verificado (verificação por SMS da Meta indisponível). **Consequência prática: envio real a clientes está BLOQUEADO** — teste ponta-a-ponta (`POST /{phoneNumberId}/messages` com `seubeat_probe_c` para `244922058136`) devolveu `(#100) Invalid parameter`; contas não verificadas só enviam para números de teste autorizados na WABA. Verificar número primeiro (Dashboard WhatsApp Manager → verificar com SMS/código) para desbloquear o envio real.
+- **Bugfix scheduler WhatsApp (14/Ago)**: `checkPaymentStatus` estava **invertido** — sem registo de pagamento devolvia `true` (não enviava a quem devia) e `approved`/`delivered` devolvia `false` (enviava a quem já pagou). Fix: sem pagamento → `false`; `approved`/`delivered` → `true`; `maybeSingle()` + try/catch (removido `new Promise(async…)`). Scheduler WhatsApp passa a usar a nova `sendAbandonedWhatsApp` (`whatsappSender.ts`) com todas as proteções do `runSendBulk` (normalização E.164, janela 9–20h, cap diário, delay anti-spam, `insertSendLog` + `markContacted`) e **dedupe por flag dedicada** `whatsapp_*_sent_at` (migration `supabase_migration_whatsapp_flags.sql` aplicada em produção via MCP — colunas separadas das `abandoned_*_sent_at` do email). Select inclui `users(phone)` fallback. `getAppUrl()` sem req cai para `https://seubeat.onrender.com`. `.env` local corrigido (`WHATSAPP_PHONE_NUMBER_ID` tinha o WABA ID `2754160688292272` em vez do phone number ID `1201588979704338`). 16 testes novos: `server/__tests__/abandoned-scheduler.test.ts` (10) + `whatsapp-cloud.test.ts` (21, +6 `sendAbandonedWhatsApp`). Total: **266 testes**.
 - **Follow-ups 7d/30d**: passaram a estar funcionais a 13/Ago (fix `delivered_at` nas 4 vias) — reativação de clientes entregues pendente de dados.
 
 ## Next Steps
@@ -163,8 +164,9 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 
 ## Relevant Files
 - `server/services/supabase.ts`: `getAdminSupabase()`, `getPublicSupabase()`, `uploadToSupabase()`.
+- `server/services/whatsappSender.ts`: envio via WhatsApp Business Cloud API (`sendTemplate`, `runSendBulk`, `sendAbandonedWhatsApp` com normalize E.164/janela/cap/delay/`insertSendLog`/`markContacted`, `handleDeliveryWebhook`).
 - `server/services/deliveryScheduler.ts`: scheduler de entrega 24h (10min interval).
-- `server/services/abandonedRecoveryScheduler.ts`: scheduler de lembretes de abandono (30min/24h/48h/72h; exclui `payment_submitted`).
+- `server/services/abandonedRecoveryScheduler.ts`: scheduler de lembretes de abandono (30min/24h/48h/72h; exclui `payment_submitted`; `checkPaymentStatus` corrigido — sem pagamento → envia WhatsApp; dedupe por `whatsapp_*_sent_at`; usa `sendAbandonedWhatsApp`).
 - `server/services/failedLyricsRecoveryScheduler.ts`: scheduler de recuperação de letras falhadas (10min; one-shot via `recovery_retried_at`, janela 48h, dedupe por email).
 - `server/services/workflow.ts`: orquestração Suno + transições de status (`resumeSunoTaskWorkflow`, `persistGeneratedSunoAudio`, `rollbackSunoWorkflow` exportado, `MIN_SONG_DURATION_SEC`).
 - `server/services/email.ts`: `sendPersonalizedEmail`, `sendConfirmationEmail`, `sendPaymentRejectionEmail`, `sendLyricsRecoveredEmail`.
@@ -184,10 +186,13 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - `server/__tests__/admin-regenerate.test.ts`: 3 testes do `POST /request/:id/regenerate-lyrics`.
 - `server/__tests__/aiFailure.test.ts`: 6 testes do `allFailuresTransient`.
 - `server/__tests__/submit-payment.test.ts`: 4 testes do guard anti-rebaixamento + rollback do `POST /submit-payment`.
+- `server/__tests__/abandoned-scheduler.test.ts`: 10 testes do scheduler WhatsApp (`checkPaymentStatus` não-pagante→envia/aprovado→não envia, dedupe por flag, isolamento email/WhatsApp).
+- `server/__tests__/whatsapp-cloud.test.ts`: 21 testes do `sendAbandonedWhatsApp` (janela, cap, sem telefone, sent, failed, unconfigured).
 - `supabase_setup.sql`: Setup SQL original **desatualizado** face ao schema real.
 - `supabase_migration_email_events_request_id_idx.sql`: Migration com `idx_email_events_request_id` (aplicada em produção).
 - `supabase_migration_scheduler.sql`: Migration com `deliver_at`, `delivered_at`, `deleted_at`, índice.
 - `supabase_migration_wizard_optional_fields.sql`: Migration com `reference_artist`, `why_created_today`, `only_she_does`, `where_it_happened`.
+- `supabase_migration_whatsapp_flags.sql`: Migration com `whatsapp_30min/24h/48h/72h_sent_at` (dedupe WhatsApp separado do email; aplicada em produção).
 - `.github/workflows/ci.yml`: CI pipeline (lint + test + e2e).
 - `vitest.config.ts`: config jsdom + React plugin.
 - `src/lib/validation.ts`: Zod schemas partilhados (frontend).

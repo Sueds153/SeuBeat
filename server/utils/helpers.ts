@@ -96,5 +96,5 @@ export function getAppUrl(req?: Request): string {
       return `${protocol}://${host}`;
     }
   }
-  return process.env.APP_URL || 'http://localhost:3000';
+  return process.env.APP_URL || 'https://seubeat.onrender.com';
 }
