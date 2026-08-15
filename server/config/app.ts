@@ -11,6 +11,7 @@ import { renderOgPage } from '../services/ogTemplate';
 import adminRouter from '../routes/admin';
 import publicRouter from '../routes/public';
 import webhookRouter from '../routes/webhook';
+import { hasDeepSeekApiKey } from '../services/deepseekConfig';
 
 const sentryDsn = getEnv('SENTRY_DSN');
 
@@ -69,7 +70,7 @@ export async function createApp(): Promise<express.Application> {
         anthropic: !!getEnv('ANTHROPIC_API_KEY'),
         openai: !!getEnv('OPENAI_API_KEY'),
         gemini: !!getEnv('GEMINI_API_KEY'),
-        deepseek: !!getEnv('DEEPSEEK_API_KEY'),
+        deepseek: hasDeepSeekApiKey(),
         supabase: !!getEnv('SUPABASE_URL'),
         brevo: !!getEnv('BREVO_API_KEY'),
         adminPassword: !!getEnv('ADMIN_PASSWORD'),

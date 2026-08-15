@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { LyricsComposition, WizardFormData } from './types';
 import { selectPrompt } from './prompts';
 import { withAIServiceRetry, extractJSON, validateCompositionStrict } from './aiShared';
+import { getDeepSeekApiKey } from './deepseekConfig';
 
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash';
 const DEEPSEEK_TIMEOUT_MS = Number(process.env.DEEPSEEK_TIMEOUT_MS || 30000);
@@ -31,9 +32,9 @@ A letra deve usar EXATAMENTE estes marcadores, cada um numa linha própria do ar
 [Verso 1], [Pré-Refrão], [Refrão], [Verso 2], [Ponte Emocional], [Refrão Final]`;
 
 export async function generateLyricsWithDeepSeek(formData: WizardFormData): Promise<LyricsComposition> {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const apiKey = getDeepSeekApiKey();
   if (!apiKey) {
-    throw new Error('DEEPSEEK_API_KEY não configurada no servidor.');
+    throw new Error('DEEPSEEK_API_KEY não configurada no servidor (ou alias DEEPSEEK_SECRET_KEY).');
   }
 
   const prompt = selectPrompt(formData);

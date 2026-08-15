@@ -3,6 +3,7 @@ import { generateLyricsWithGPT } from './openai';
 import { generateLyricsWithClaude } from './claude';
 import { generateLyricsWithGemini } from './gemini';
 import { generateLyricsWithDeepSeek } from './deepseek';
+import { hasDeepSeekApiKey } from './deepseekConfig';
 import { classifyAIError, AIProviderFailure } from './aiShared';
 import { sendAdminNotification } from './email';
 import { logInfo, logWarn, logError } from '../utils/logger';
@@ -54,10 +55,10 @@ export async function generateLyrics(
     { name: 'claude', key: 'ANTHROPIC_API_KEY', fn: generateLyricsWithClaude },
   ];
 
-  const available = providers.filter(p => !!process.env[p.key]);
+  const available = providers.filter(p => p.name === 'deepseek' ? hasDeepSeekApiKey() : !!process.env[p.key]);
 
   if (available.length === 0) {
-    throw new Error('Nenhuma chave de API de IA configurada (DEEPSEEK_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY ou GEMINI_API_KEY).');
+    throw new Error('Nenhuma chave de API de IA configurada (DEEPSEEK_API_KEY/DEEPSEEK_SECRET_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY ou GEMINI_API_KEY).');
   }
 
   const order = providerOrder();

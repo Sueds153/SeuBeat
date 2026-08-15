@@ -24,6 +24,7 @@ import {
 import type { BulkClient } from '../services/whatsappSender';
 import { templateForBucket, enabledWhatsAppBuckets } from '../services/whatsappTemplates';
 import { getMetaAdsSpend } from '../services/metaAds';
+import { getDeepSeekApiKey } from '../services/deepseekConfig';
 
 const router = express.Router();
 
@@ -54,9 +55,9 @@ function isoDateOnly(date: Date): string {
 }
 
 async function checkDeepSeek(now: Date) {
-  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const apiKey = getDeepSeekApiKey();
   const model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash';
-  if (!apiKey) return { ok: false, error: 'DEEPSEEK_API_KEY em falta', model, lastCheck: now.toISOString() };
+  if (!apiKey) return { ok: false, error: 'DEEPSEEK_API_KEY em falta no ambiente do servidor (ou alias DEEPSEEK_SECRET_KEY)', model, lastCheck: now.toISOString() };
   try {
     const res = await fetch('https://api.deepseek.com/user/balance', {
       headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
