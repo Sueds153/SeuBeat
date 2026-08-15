@@ -9,6 +9,7 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 
 ## Progress
 ### Done
+- **DeepSeek integrado como 1º provider de geração de letras** (`server/services/deepseek.ts`): SDK `openai` com `baseURL 'https://api.deepseek.com'`, modelo `deepseek-v4-flash` (env `DEEPSEEK_MODEL`), `temperature 0.8`, `max_tokens 4000`, `thinking disabled` + `response_format json_object`. Ordem default `['deepseek','gemini','openai','claude']` (`AI_PROVIDER_ORDER`). Chave testada com sucesso (JSON válido, 1170 tokens ≈ $0.003/letra; saldo ~$2.00 → ~4.000 letras). `/health` reporta `deepseek`. 5 testes novos (`deepseek.test.ts`) + 2 novos em `ai.test.ts` (deepseek em 1º / ignorado sem chave). Env vars: `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`, `DEEPSEEK_TIMEOUT_MS`.
 - **Rate limiting** em `/api/generate-lyrics` (10 req/hora) já existente e funcional.
 - **Foto não perder no refresh**: sessionStorage guarda base64, restaurado ao recarregar.
 - **Página dedicatória sem `?id=`** bater na API: fallback `seubeat_last_song_id`; mostra "não encontrada".
@@ -91,13 +92,14 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Bugfix: auto-delivery da página sem `delivered_at`**: o `GET /api/song/:id` (public.ts:654) entregava com `{status:'delivered', deliver_at:null}` mas sem `delivered_at`, ao contrário do scheduler (`deliveryScheduler.ts`). Como o `followUpScheduler` exige `delivered_at` not null, entregas via página nunca disparavam follow-ups 7d/30d. Fix de 1 linha: adicionado `delivered_at: new Date().toISOString()` ao update (guard `.eq('status','approved')` mantém idempotência). Backfill manual em produção para o pedido do leitao12 (`8c7092c2-a13c-4e91-875c-ce9a807aa755`, `delivered_at` = 12/Ago 22:24). Nota residual: force-status do admin para `delivered` também não preenche `delivered_at` (fora de scope).
 
 ## AI Providers (Ordem de fallback)
-1. **Gemini** (`gemini-2.5-flash`) — tentado primeiro
-2. **OpenAI** (`gpt-4o-mini`) — tentado segundo
-3. **Claude** (`claude-3-5-sonnet-20241022`) — tentado último
+1. **DeepSeek** (`deepseek-v4-flash`) — tentado primeiro (mais barato, pré-pago)
+2. **Gemini** (`gemini-2.5-flash`) — tentado segundo
+3. **OpenAI** (`gpt-4o-mini`) — tentado terceiro
+4. **Claude** (`claude-3-5-sonnet-20241022`) — tentado último
 
-Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos), a próxima é tentada automaticamente. Se todas falharem, o utilizador vê: *"O saldo de créditos da API de geração de letras está esgotado."*
+Todas as 4 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos), a próxima é tentada automaticamente. Se todas falharem, o utilizador vê: *"O saldo de créditos da API de geração de letras está esgotado."*
 
-> **⚠️ Estado real (10/Ago 2026)**: só o **Gemini** está com créditos operacionais. OpenAI devolve `429 no credits` e Anthropic `400 balance too low` desde ~06/Ago — o fallback para estes 2 está morto. Se o Gemini der `503 high demand` (aconteceu 06–07/Ago, quebrando utilizadores reais), a geração falha. Recarregar OpenAI ou Anthropic restaura a redundância. Fica documentado em `server/services/ai.ts` (`DEFAULT_PROVIDER_ORDER`).
+> **⚠️ Estado real (15/Ago 2026)**: o **DeepSeek** (novo provider, `DEEPSEEK_API_KEY`, pré-pago com ~$2.00 de saldo) é o principal e o único com créditos fiáveis — a geração passa por ele primeiro. Gemini segue operacional mas com `503 high demand` ocasional (06–07/Ago). OpenAI devolve `429 no credits` e Anthropic `400 balance too low` desde ~06/Ago — fallback morto para estes 2. Preços DeepSeek (USD/1M in/out): `deepseek-v4-flash` $0.14/$0.28; sobem para peak/off-peak a 16/Ago 2026 16:00 UTC (off-peak $0.22/$0.66, peak $0.44/$1.32). Ordem controlável por `AI_PROVIDER_ORDER` em `server/services/ai.ts` (`DEFAULT_PROVIDER_ORDER`).
 
 ## Sentry SDK (Monitorização de Erros)
 - **Versão**: `@sentry/node` e `@sentry/react` v10.62.0
@@ -119,7 +121,7 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - **CI corre em ubuntu-latest com Node 22**, npm ci, lint, test.
 
 ## Testes
-- **266 testes**, 24 ficheiros — todos passam (vitest + jsdom; 2 do AdminPanel podem dar timeout em run paralelo pesado, passam isolados).- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (11), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (3), aiShared (14), helpers (5), workflow-rollback (8), abandoned-messages (22), abandoned-whatsapp-route (8), whatsapp-cloud (21), uuid (5), aiFailure (6), failed-lyrics-recovery (10), admin-regenerate (3), submit-payment (4), abandoned-scheduler (10).
+- **293 testes**, 26 ficheiros — todos passam (vitest + jsdom; 2 do AdminPanel podem dar timeout em run paralelo pesado, passam isolados).- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (11), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (5), aiShared (14), helpers (5), workflow-rollback (8), abandoned-messages (22), abandoned-whatsapp-route (8), whatsapp-cloud (21), uuid (5), aiFailure (6), failed-lyrics-recovery (10), admin-regenerate (3), submit-payment (4), abandoned-scheduler (10), deepseek (5), admin-fixes (7).
 - **Playwright E2E**: 13 testes (landing, wizard, dedication, admin).
 
 ## Security Advisor (10/Ago 2026) — resolvido (11→1 lint)
@@ -131,6 +133,15 @@ Todas as 3 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - **`delivered_at` em todas as vias de entrega (13/Ago)**: além do auto-delivery da página (`public.ts:654`), as 3 vias do admin passaram a gravar `delivered_at` no momento da entrega — aprovação Express/Premium (`admin.ts:278`), retry com pagamento aprovado (`admin.ts:990`, apenas quando não-Standard) e force-status modal (`admin.ts:660`, quando `status='delivered'`). Fecha o gap: entregas via admin também disparam follow-ups 7d/30d.
 - **`/health` reporta `gemini`** (`app.ts:71`): `env.gemini` passa a indicar presença da `GEMINI_API_KEY` (o único provider com créditos) — além de anthropic/openai.
 - **CI estável**: `vitest.config.ts` com `testTimeout: 15000` — elimina os 3 timeouts flaky do AdminPanel no run paralelo (`--testTimeout` antes necessário). Suite completa corre em ~35s.
+
+## Auditoria do Admin Panel (15/Ago 2026) — 13 bugs + 7 lacunas corrigidos
+- **Segurança**: header legacy `x-admin-password` removido de `server/middleware/auth.ts` (autenticação admin passa a ser **só Bearer JWT**, fechando o bypass do rate-limit de brute-force) + header retirado do CORS em `security.ts`. Endpoint órfão `POST /cron/deliver-pending` **removido** (o `deliveryScheduler.ts` interno já entrega; 404 confirmado por teste).
+- **Bugs funcionais**: `/songs` passou a selecionar `plan` aninhado (`admin.ts`) → filtro de plano da tab Músicas funciona (antes sempre vazio); opção `pending` fantasma removida do dropdown de Pedidos; `music_processing` adicionado a `STATUS_COLORS`/`STATUS_LABELS` (antes cinzento); `failed` adicionado aos status de payments do force-status (FE).
+- **Observabilidade**: 16 pares de `logRouteError(req, err)` duplicados removidos em `admin.ts`; `pendingCount` agora soma payments `pending_verification` (antes `pending_verification` era só status de payments, nunca de song_requests); `avgDeliveryHours` → `avgApprovalHours` (mede criação→aprovação, nome corrigido no FE também); `utm-stats` alinhou o parsing de amount (string → dígitos/100) com o `/metrics`.
+- **Abandonados**: select `/abandoned` inclui `whatsapp_30min/24h/48h/72h_sent_at`; FE mostra badges `wa 30min/24h/48h/72h` (interface `AbandonedClient` + `whatsappSent`). Evita reenvio manual duplicado.
+- **Higiene**: card Brevo usa `credits.email.email` (o campo `host` não existe no backend); const morta `ADMIN_PASSWORD_KEY` removida; comentário stale "(Baileys)" limpo.
+- **Novos testes**: `server/__tests__/admin-fixes.test.ts` (7): approve standard com áudio (agendamento 24h + `deliver_at` + email + Meta CAPI), approve express (entrega imediata + `delivered_at`), approve 409, reject (marca `rejected` + `payment_rejected` + email), reject 409, `/cron/deliver-pending` → 404, `/songs` devolve `plan` aninhado. **Total: 286 testes** (25 ficheiros).
+- Docs atualizados: `EXECUTIVE_SUMMARY.md`, `ARCHITECTURE_ANALYSIS.md` (header legacy removido).
 
 ## Supabase Advisor (13/Ago 2026) — 1 pendência
 - **RESOLVIDO** (13/Ago via MCP `apply_migration`, `advisor_fix_auth_rls_initplan_and_unused_indexes`): WARN `auth_rls_initplan` (policy `admin_select` em `email_events` agora usa `(SELECT auth.role())` — initplan) + 5 × INFO `unused_index` removidos (`idx_email_events_recipient`, `idx_email_events_event`, `idx_song_requests_abandoned_48h`, `idx_song_requests_abandoned_72h`, `idx_whatsapp_send_log_request`). Verificado no schema.

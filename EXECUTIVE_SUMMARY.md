@@ -19,7 +19,7 @@
 │              POST /api/generate-lyrics (Backend Express)             │
 │                                                                     │
 │  1. Criar song_request + song records no Supabase                   │
-│  2. Chamar Claude API → gerar letras personalizadas                 │
+│  2. Chamar API IA (DeepSeek → Gemini → OpenAI → Claude) para gerar letras │
 │  3. Retornar preview ao cliente                                     │
 │  4. Iniciar Suno em BACKGROUND (não bloqueia)                       │
 └────────────────────────────┬────────────────────────────────────────┘
@@ -93,7 +93,8 @@
 
 | Serviço | Função | Status | Latência |
 |---------|--------|--------|----------|
-| **Claude (Anthropic)** | Geração de letras personalizadas | ✅ 100% | 5-15s |
+| **DeepSeek (v4-flash)** | Geração de letras (1º provider, mais barato) | ✅ 100% (15/Ago 2026) | 5-15s |
+| **Claude (Anthropic)** | Geração de letras (fallback) | ⚠️ sem créditos desde ~06/Ago | 5-15s |
 | **Suno AI** | Composição musical | ✅ 100% (substituiu Mureka) | 30-120s |
 | **Suno Voice** | Clonagem de voz | ✅ 100% (substituiu ElevenLabs) | 10-30s |
 | **Brevo SMTP** | Envio de emails (gratuito, 300/dia) | ✅ 100% (substituiu Resend) | 1-2s |
@@ -109,7 +110,7 @@
 | XSS via `proofModal` no AdminPanel | Apenas URLs `https://` são renderizadas |
 | Brute force no login admin | 10 tentativas / 15 min por IP |
 | Password hardcoded `seubeat2024admin` | Removido; lida apenas de env var |
-| Query string para password admin | Apenas header `x-admin-password` |
+| Query string para password admin | Header `x-admin-password` (removido em 15/Ago/2026) — só JWT Bearer |
 
 ### Backend
 | Problema | Correção |

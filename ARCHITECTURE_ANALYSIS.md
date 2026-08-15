@@ -8,7 +8,7 @@ Status: **Produção-Ready (pós-correções)**
 ## 1. VISÃO GERAL DO PROJETO
 
 **SeuBeat** é uma plataforma de criação de músicas personalizadas com IA. Os usuários completam um wizard, fornecem dados pessoais, e a plataforma gera:
-- ✅ Letras personalizadas com Claude (Anthropic)
+- ✅ Letras personalizadas com IA multi-provider (DeepSeek → Gemini → OpenAI → Claude)
 - ✅ Música completa com Suno AI
 - ✅ Voz clonada com Suno Voice
 - ✅ Email de entrega via Brevo SMTP (nodemailer)
@@ -17,7 +17,7 @@ Status: **Produção-Ready (pós-correções)**
 - **Frontend**: React 19 + Vite 6 + TailwindCSS 4 + Motion
 - **Backend**: Express + TypeScript (strict mode) + Node.js 26
 - **Database**: Supabase (PostgreSQL) + Storage Buckets
-- **IA/APIs**: Claude (Anthropic), Suno AI, Suno Voice
+- **IA/APIs**: DeepSeek, Gemini, OpenAI, Claude (fallback de providers) + Suno AI, Suno Voice
 - **Email**: Brevo SMTP (nodemailer)
 - **Logger**: Winston (ficheiro + console)
 - **Rate Limiting**: express-rate-limit (7 limiters)
@@ -211,7 +211,7 @@ Cliente pode compartilhar no WhatsApp, Instagram, etc.
 - `GET /api/admin/diagnostics` → Estado das APIs
 
 **Middleware:**
-- `adminAuth` → Protecção contra brute force + header `x-admin-password` (sem fallback hardcoded)
+- `adminAuth` → Protecção contra brute force no login; autenticação apenas via Bearer JWT (header `x-admin-password` removido)
 - `globalLimiter` → 100 requests/15min por IP
 - `validate: { xForwardedForHeader: false }` nos limiters para evitar conflito com IPv6
 
