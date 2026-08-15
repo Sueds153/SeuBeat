@@ -116,6 +116,7 @@ type RawSong = Omit<Song, 'song_requests'> & {
 
 interface DiagnosticsResult {
   supabase: { ok: boolean; error?: string; buckets?: { name: string; public: boolean }[] };
+  deepseek: { ok: boolean; error?: string; model?: string; total_balance?: number; currency?: string };
   claude: { ok: boolean; error?: string };
   openai: { ok: boolean; error?: string };
   gemini: { ok: boolean; error?: string };
@@ -127,6 +128,7 @@ interface DiagnosticsResult {
 
 interface CreditsResult {
   suno: { ok: boolean; error?: string; credits: number; low?: boolean; lastCheck: string };
+  deepseek: { ok: boolean; error?: string; model?: string; currency?: string; total_balance?: number; topped_up_balance?: number; low?: boolean; estimatedLyricsRemaining?: number; lastCheck: string };
   claude: { ok: boolean; error?: string; model?: string; quota_exceeded?: boolean; lastCheck: string };
   openai: { ok: boolean; error?: string; total_granted?: number; total_used?: number; total_available?: number; model?: string; quota_exceeded?: boolean; lastCheck: string };
   gemini: { ok: boolean; error?: string; model?: string; quota_exceeded?: boolean; lastCheck: string };
@@ -137,7 +139,7 @@ interface CreditsResult {
     songsByMonth: { month: string; count: number }[];
     estimatedSunoCreditsUsed: number;
     estimatedSongsRemaining: number;
-    cost: { sunoUSD: number; claudeUSD: number; openaiUSD: number; totalUSD: number; perSong: number };
+    cost: { sunoUSD: number; deepseekUSD?: number; claudeUSD: number; openaiUSD: number; lyricUSD?: number; totalUSD: number; perSong: number };
   };
 }
 
@@ -1417,7 +1419,7 @@ export default function AdminPanel() {
                     <span className="ml-auto bg-amber-500 text-stone-950 text-[9px] font-black px-1.5 py-0.5 rounded-full">
                       {stats.pendingPayments}
                     </span>
-                  ) : item.id === 'credits' && credits && (credits.suno.low || credits.claude.quota_exceeded || (credits.openai && !credits.openai.ok)) ? (
+                  ) : item.id === 'credits' && credits && (credits.suno.low || credits.deepseek?.low || !credits.deepseek?.ok || credits.claude.quota_exceeded || (credits.openai && !credits.openai.ok)) ? (
                     <span className="ml-auto w-2 h-2 rounded-full bg-rose-500 animate-pulse" title="API com créditos baixos" />
                   ) : null}
                 </button>
@@ -2338,6 +2340,56 @@ export default function AdminPanel() {
                           )}
                         </div>
 
+                        {/* DeepSeek Card */}
+                        <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-6 space-y-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
+                              <Sparkles className="w-5 h-5 text-cyan-400" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-stone-200">DeepSeek</p>
+                              <p className="text-[10px] font-mono text-stone-500">Geração de Letras (Principal)</p>
+                            </div>
+                          </div>
+
+                          {credits.deepseek?.ok ? (
+                            <div className="space-y-2">
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-mono text-stone-400">Saldo Disponível</span>
+                                  <span className={`text-lg font-mono font-black ${credits.deepseek.low ? 'text-rose-400' : (credits.deepseek.total_balance || 0) < 2 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                    {credits.deepseek.currency || 'USD'} {(credits.deepseek.total_balance || 0).toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="w-full bg-stone-800 rounded-full h-2">
+                                  <div className={`h-2 rounded-full transition-all ${credits.deepseek.low ? 'bg-rose-500' : (credits.deepseek.total_balance || 0) < 2 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                    style={{ width: `${Math.min(100, ((credits.deepseek.total_balance || 0) / 5) * 100)}%` }} />
+                                </div>
+                                <div className="flex items-center justify-between text-[10px] font-mono">
+                                  <span className={credits.deepseek.low ? 'text-rose-400' : 'text-stone-500'}>
+                                    {credits.deepseek.low ? '⚠️ Saldo baixo!' : '✅ Saldo ativo'}
+                                  </span>
+                                  <span className="text-stone-600">~{credits.deepseek.estimatedLyricsRemaining || 0} letras</span>
+                                </div>
+                              </div>
+                              <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-[10px] font-mono space-y-1">
+                                <div className="flex justify-between text-stone-500">
+                                  <span>Modelo</span>
+                                  <span className="text-stone-400">{credits.deepseek.model || 'deepseek-v4-flash'}</span>
+                                </div>
+                                <div className="flex justify-between text-stone-500">
+                                  <span>Última verificação</span>
+                                  <span className="text-stone-400">{new Date(credits.deepseek.lastCheck).toLocaleString('pt')}</span>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3">
+                              <p className="text-xs text-rose-400 font-mono">{credits.deepseek?.error || 'Indisponível'}</p>
+                            </div>
+                          )}
+                        </div>
+
                         {/* Claude Card */}
                         <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-6 space-y-4">
                           <div className="flex items-center gap-3">
@@ -2563,7 +2615,7 @@ export default function AdminPanel() {
                           <div className="bg-stone-950 rounded-xl p-4 border border-stone-800 text-center">
                             <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Custo Estimado</p>
                             <p className="text-xl font-bold text-amber-400">${credits.usage?.cost?.totalUSD.toFixed(2) || '0.00'}</p>
-                            <p className="text-[9px] font-mono text-stone-600">${credits.usage?.cost?.perSong.toFixed(2) || '0.00'}/música</p>
+                            <p className="text-[9px] font-mono text-stone-600">${credits.usage?.cost?.perSong.toFixed(4) || '0.0000'}/música</p>
                           </div>
                           <div className="bg-stone-950 rounded-xl p-4 border border-stone-800 text-center">
                             <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Músicas Restantes</p>
@@ -2595,6 +2647,25 @@ export default function AdminPanel() {
                             </div>
                           </div>
                         )}
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-5">
+                          <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                            <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Suno</p>
+                            <p className="text-sm font-bold text-purple-400">${credits.usage?.cost?.sunoUSD.toFixed(2) || '0.00'}</p>
+                          </div>
+                          <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                            <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">DeepSeek</p>
+                            <p className="text-sm font-bold text-cyan-400">${credits.usage?.cost?.deepseekUSD?.toFixed(4) || '0.0000'}</p>
+                          </div>
+                          <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                            <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Claude Est.</p>
+                            <p className="text-sm font-bold text-violet-400">${credits.usage?.cost?.claudeUSD.toFixed(2) || '0.00'}</p>
+                          </div>
+                          <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                            <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Letra Usada</p>
+                            <p className="text-sm font-bold text-emerald-400">${credits.usage?.cost?.lyricUSD?.toFixed(4) || '0.0000'}</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -2621,6 +2692,8 @@ export default function AdminPanel() {
                     <div className="space-y-3">
                       <DiagBadge ok={diagnostics.supabase.ok} label="Supabase (Base de Dados & Storage)"
                         detail={diagnostics.supabase.ok ? `Buckets: ${diagnostics.supabase.buckets?.map(b => b.name).join(', ')}` : diagnostics.supabase.error} />
+                      <DiagBadge ok={diagnostics.deepseek?.ok} label="DeepSeek (Geração de Letras)"
+                        detail={diagnostics.deepseek?.ok ? `${diagnostics.deepseek.model || 'deepseek-v4-flash'} · ${diagnostics.deepseek.currency || 'USD'} ${(diagnostics.deepseek.total_balance || 0).toFixed(2)}` : diagnostics.deepseek?.error} />
                       <DiagBadge ok={diagnostics.claude.ok} label="Anthropic Claude (Geração de Letras)"
                         detail={diagnostics.claude.error} />
                       <DiagBadge ok={diagnostics.openai?.ok} label="OpenAI GPT-4o (Geração de Letras)"
@@ -2906,6 +2979,9 @@ export default function AdminPanel() {
                         <StatCard icon={Clock} label="Tempo Médio (aprovação)" value={`${metrics.avgApprovalHours}h`} color="bg-blue-500/15 text-blue-400" subtitle={metrics.avgApprovalHours > 0 ? 'Da criação à aprovação' : 'Sem dados'} />
                         <StatCard icon={TrendingUp} label="Receita Total" value={metrics.totalRevenue?.toLocaleString('pt') + ' Kz' || '0 Kz'} color="bg-rose-500/15 text-rose-400" subtitle="Pagamentos aprovados" />
                         <StatCard icon={Music} label="Pedidos Pendentes" value={metrics.pendingCount} color="bg-amber-500/15 text-amber-400" subtitle="Aguardando pagamento" />
+                        <StatCard icon={Megaphone} label="Gasto Meta" value={metrics.metaAds?.ok ? `$${metrics.metaAds.spendUSD.toFixed(2)}` : '—'} color="bg-violet-500/15 text-violet-400" subtitle={metrics.metaAds?.ok ? `${metrics.metaAds.spendKz.toLocaleString('pt')} Kz` : (metrics.metaAds?.error || 'Sem dados')} />
+                        <StatCard icon={Activity} label="ROAS Meta" value={metrics.metaAds?.roas ? `${metrics.metaAds.roas}x` : '—'} color="bg-cyan-500/15 text-cyan-400" subtitle={metrics.metaAds?.accountName || metrics.metaAds?.accountId || 'Conta Meta'} />
+                        <StatCard icon={TrendingUp} label="Após Anúncios" value={`${(metrics.metaAds?.netAfterAdsKz ?? metrics.totalRevenue ?? 0).toLocaleString('pt')} Kz`} color={(metrics.metaAds?.netAfterAdsKz ?? 0) >= 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'} subtitle="Receita - gasto Meta" />
                       </div>
 
                       {/* Popular Styles */}
@@ -2991,9 +3067,11 @@ export default function AdminPanel() {
                                 <p className="text-[9px] font-mono text-stone-600">{profitability.summary.songCount} músicas geradas</p>
                               </div>
                               <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
-                                <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Custos API</p>
+                                <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Custos Totais</p>
                                 <p className="text-lg font-bold text-rose-400">${profitability.summary.totalCostsUSD.toFixed(2)}</p>
-                                <p className="text-[9px] font-mono text-stone-600">{profitability.costs.sunoUSD > 0 ? `Suno $${profitability.costs.sunoUSD}` : ''}{profitability.costs.claudeUSD > 0 ? ` + Claude $${profitability.costs.claudeUSD}` : ''}</p>
+                                <p className="text-[9px] font-mono text-stone-600">
+                                  Suno ${profitability.costs.sunoUSD} · Letras ${profitability.costs.lyricUSD ?? 0} · Meta ${profitability.costs.metaAdsUSD ?? 0}
+                                </p>
                               </div>
                               <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
                                 <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Lucro Líquido</p>
@@ -3038,22 +3116,49 @@ export default function AdminPanel() {
                             {profitability.summary.songCount > 0 && (
                               <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
                                 <p className="text-[10px] font-mono text-stone-500 uppercase mb-2">Custo por Música</p>
-                                <div className="grid grid-cols-3 gap-3 text-center">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
                                   <div>
                                     <p className="text-[18px] font-bold text-amber-400">${profitability.costs.costPerSong.suno}</p>
-                                    <p className="text-[9px] font-mono text-stone-500">Suno (2 créditos)</p>
+                                    <p className="text-[9px] font-mono text-stone-500">Suno</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[18px] font-bold text-cyan-400">${profitability.costs.costPerSong.deepseek}</p>
+                                    <p className="text-[9px] font-mono text-stone-500">DeepSeek</p>
                                   </div>
                                   <div>
                                     <p className="text-[18px] font-bold text-violet-400">${profitability.costs.costPerSong.claude}</p>
-                                    <p className="text-[9px] font-mono text-stone-500">Claude (letra)</p>
+                                    <p className="text-[9px] font-mono text-stone-500">Claude est.</p>
                                   </div>
                                   <div>
                                     <p className="text-[18px] font-bold text-stone-300">${profitability.costs.costPerSong.total}</p>
-                                    <p className="text-[9px] font-mono text-stone-500">Total</p>
+                                    <p className="text-[9px] font-mono text-stone-500">API Total</p>
                                   </div>
                                 </div>
                               </div>
                             )}
+
+                            <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
+                              <p className="text-[10px] font-mono text-stone-500 uppercase mb-2">Meta Ads</p>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-mono">
+                                <div>
+                                  <p className="text-stone-500">Gasto</p>
+                                  <p className={profitability.metaAds?.ok ? 'text-violet-400 font-bold' : 'text-stone-500'}>
+                                    {profitability.metaAds?.ok ? `$${profitability.metaAds.spendUSD.toFixed(2)}` : 'Indisponível'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-stone-500">Conta</p>
+                                  <p className="text-stone-300 truncate">{profitability.metaAds?.accountName || profitability.metaAds?.accountId || '—'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-stone-500">Período</p>
+                                  <p className="text-stone-300">{profitability.metaAds?.since || '—'} → {profitability.metaAds?.until || '—'}</p>
+                                </div>
+                              </div>
+                              {!profitability.metaAds?.ok && profitability.metaAds?.error && (
+                                <p className="mt-2 text-[10px] font-mono text-amber-400">{profitability.metaAds.error}</p>
+                              )}
+                            </div>
 
                             {/* By plan */}
                             {profitability.byPlan?.length > 0 && (

@@ -23,6 +23,7 @@ import {
 } from '../services/abandonedMessages';
 import type { BulkClient } from '../services/whatsappSender';
 import { templateForBucket, enabledWhatsAppBuckets } from '../services/whatsappTemplates';
+import { getMetaAdsSpend } from '../services/metaAds';
 
 const router = express.Router();
 
@@ -41,6 +42,51 @@ function mapRelated<T = any>(value: T | T[] | null | undefined, mapper: (item: T
   if (Array.isArray(value)) return value.map(mapper);
   if (value) return mapper(value);
   return value;
+}
+
+function parseMoneyAmount(value: unknown): number {
+  if (typeof value === 'number') return value;
+  return parseInt(String(value || '0').replace(/\D/g, ''), 10) / 100;
+}
+
+function isoDateOnly(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+async function checkDeepSeek(now: Date) {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  const model = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash';
+  if (!apiKey) return { ok: false, error: 'DEEPSEEK_API_KEY em falta', model, lastCheck: now.toISOString() };
+  try {
+    const res = await fetch('https://api.deepseek.com/user/balance', {
+      headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+    });
+    const text = await res.text();
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
+    if (!res.ok) return { ok: false, error: data?.error?.message || `HTTP ${res.status}`, model, lastCheck: now.toISOString() };
+
+    const balances = Array.isArray(data?.balance_infos) ? data.balance_infos : [];
+    const usd = balances.find((b: any) => String(b.currency || '').toUpperCase() === 'USD') || balances[0];
+    const totalBalance = Number(usd?.total_balance ?? usd?.granted_balance ?? 0);
+    const toppedUpBalance = Number(usd?.topped_up_balance ?? 0);
+    return {
+      ok: true,
+      model,
+      currency: usd?.currency || 'USD',
+      total_balance: totalBalance,
+      topped_up_balance: toppedUpBalance,
+      low: totalBalance < 1,
+      estimatedLyricsRemaining: Math.floor(totalBalance / (Number(process.env.DEEPSEEK_COST_PER_GENERATION_USD) || 0.0005)),
+      lastCheck: now.toISOString(),
+    };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err), model, lastCheck: now.toISOString() };
+  }
 }
 
 function extractStoragePath(url: string | null | undefined, bucket: string): string | null {
@@ -509,7 +555,7 @@ router.get('/credits', adminAuth, async (req, res) => {
     const now = new Date();
     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [sunoResult, claudeResult, openaiResult, geminiResult, emailResult, songsRes, songsMonthRes, songsByMonthRes] = await Promise.all([
+    const [sunoResult, deepseekResult, claudeResult, openaiResult, geminiResult, emailResult, songsRes, songsMonthRes, songsByMonthRes] = await Promise.all([
       // Suno live credit check
       (async () => {
         const key = process.env.SUNO_API_KEY;
@@ -522,6 +568,7 @@ router.get('/credits', adminAuth, async (req, res) => {
           return { ok: true, credits, low: credits < 20, lastCheck: now.toISOString() };
         } catch (err: unknown) { return { ok: false, error: err instanceof Error ? err.message : String(err) }; }
       })(),
+      checkDeepSeek(now),
       // Claude live check
       (async () => {
         const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -632,15 +679,19 @@ router.get('/credits', adminAuth, async (req, res) => {
     const estCreditsUsed = totalSongs * CREDITS_PER_SONG;
     const estSongsRemaining = sunoCredits > 0 ? Math.floor(sunoCredits / CREDITS_PER_SONG) : 0;
     const sunoCostPerCredit = Number(process.env.SUNO_COST_PER_CREDIT_USD) || 0.005;
+    const deepseekCostPerGen = Number(process.env.DEEPSEEK_COST_PER_GENERATION_USD) || 0.0005;
     const claudeCostPerGen = Number(process.env.CLAUDE_COST_PER_GENERATION_USD) || 0.03;
     const openaiCostPerGen = Number(process.env.OPENAI_COST_PER_GENERATION_USD) || 0.01;
     const estSunoCost = +(estCreditsUsed * sunoCostPerCredit).toFixed(2);
+    const estDeepSeekCost = +(totalSongs * deepseekCostPerGen).toFixed(2);
     const estClaudeCost = +(totalSongs * claudeCostPerGen).toFixed(2);
     const estOpenAICost = +(totalSongs * openaiCostPerGen).toFixed(2);
-    const estTotalCost = +(estSunoCost + estClaudeCost + estOpenAICost).toFixed(2);
+    const estLyricCost = Math.min(estDeepSeekCost, estClaudeCost, estOpenAICost);
+    const estTotalCost = +(estSunoCost + estLyricCost).toFixed(2);
 
     res.json({
       suno: sunoResult,
+      deepseek: deepseekResult,
       claude: claudeResult,
       openai: openaiResult,
       gemini: geminiResult,
@@ -653,10 +704,12 @@ router.get('/credits', adminAuth, async (req, res) => {
         estimatedSongsRemaining: estSongsRemaining,
         cost: {
           sunoUSD: estSunoCost,
+          deepseekUSD: estDeepSeekCost,
           claudeUSD: estClaudeCost,
           openaiUSD: estOpenAICost,
+          lyricUSD: +estLyricCost.toFixed(2),
           totalUSD: estTotalCost,
-          perSong: +((sunoCostPerCredit * CREDITS_PER_SONG) + Math.min(claudeCostPerGen, openaiCostPerGen)).toFixed(2),
+          perSong: +((sunoCostPerCredit * CREDITS_PER_SONG) + Math.min(deepseekCostPerGen, claudeCostPerGen, openaiCostPerGen)).toFixed(4),
         },
       },
     });
@@ -742,7 +795,8 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
 // H. Diagnostics
 router.get('/diagnostics', adminAuth, async (req, res) => {
   try {
-    const [supabaseDiag, claudeDiag, openaiDiag, geminiDiag, sunoDiag, sunoVoiceDiag, emailDiag] = await Promise.all([
+    const now = new Date();
+    const [supabaseDiag, deepseekDiag, claudeDiag, openaiDiag, geminiDiag, sunoDiag, sunoVoiceDiag, emailDiag] = await Promise.all([
       (async () => {
         const supabase = getAdminSupabase();
         if (!supabase) return { ok: false, error: 'Cliente não inicializado' };
@@ -752,6 +806,7 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
           return { ok: true, buckets: data.map(b => ({ name: b.name, public: b.public })) };
         } catch (err: unknown) { return { ok: false, error: err instanceof Error ? err.message : String(err) }; }
       })(),
+      checkDeepSeek(now),
       (async () => {
         const apiKey = process.env.ANTHROPIC_API_KEY;
         if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY em falta' };
@@ -816,6 +871,7 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
     const mem = process.memoryUsage();
     res.json({
       supabase: supabaseDiag,
+      deepseek: deepseekDiag,
       claude: claudeDiag,
       openai: openaiDiag,
       gemini: geminiDiag,
@@ -1289,6 +1345,13 @@ router.get('/metrics', adminAuth, async (req, res) => {
     const requests = requestsRes.data || [];
     const payments = paymentsRes.data || [];
     const songs = songsRes.data || [];
+    const firstActivityAt = [...requests.map(r => r.created_at), ...payments.map(p => p.created_at), ...songs.map(s => s.created_at)]
+      .filter(Boolean)
+      .sort()[0];
+    const since = firstActivityAt ? isoDateOnly(new Date(firstActivityAt)) : isoDateOnly(new Date());
+    const until = isoDateOnly(new Date());
+    const metaAds = await getMetaAdsSpend({ since, until });
+    const usdToKz = Number(process.env.USD_TO_KZ_RATE) || 900;
 
     // Conversion rate
     const totalRequests = requests.length;
@@ -1322,7 +1385,7 @@ router.get('/metrics', adminAuth, async (req, res) => {
     const monthlyRevenue: Record<string, number> = {};
     approvedPayments.forEach(p => {
       const month = new Date(p.approved_at!).toISOString().slice(0, 7);
-      const num = typeof p.amount === 'number' ? p.amount : parseInt(String(p.amount || '0').replace(/\D/g, ''), 10) / 100;
+      const num = parseMoneyAmount(p.amount);
       monthlyRevenue[month] = (monthlyRevenue[month] || 0) + num;
     });
     const revenueByMonth = Object.entries(monthlyRevenue)
@@ -1333,7 +1396,7 @@ router.get('/metrics', adminAuth, async (req, res) => {
     const planRevenue: Record<string, number> = {};
     approvedPayments.forEach(p => {
       const plan = p.plan || 'standard';
-      const num = typeof p.amount === 'number' ? p.amount : parseInt(String(p.amount || '0').replace(/\D/g, ''), 10) / 100;
+      const num = parseMoneyAmount(p.amount);
       planRevenue[plan] = (planRevenue[plan] || 0) + num;
     });
     const revenueByPlan = Object.entries(planRevenue)
@@ -1344,6 +1407,12 @@ router.get('/metrics', adminAuth, async (req, res) => {
       requests.filter(r => r.status === 'payment_submitted').length +
       payments.filter(p => p.status === 'pending_verification').length;
 
+    const totalRevenue = approvedPayments
+      .reduce((sum, p) => sum + parseMoneyAmount(p.amount), 0);
+    const adSpendKz = +(metaAds.spendUSD * usdToKz).toFixed(0);
+    const netAfterAdsKz = +(totalRevenue - adSpendKz).toFixed(0);
+    const roas = metaAds.spendUSD > 0 ? +((totalRevenue / usdToKz) / metaAds.spendUSD).toFixed(2) : null;
+
     res.json({
       totalRequests,
       paidRequests,
@@ -1353,11 +1422,13 @@ router.get('/metrics', adminAuth, async (req, res) => {
       revenueByMonth,
       revenueByPlan,
       pendingCount,
-      totalRevenue: approvedPayments
-        .reduce((sum, p) => {
-          const num = typeof p.amount === 'number' ? p.amount : parseInt(String(p.amount || '0').replace(/\D/g, ''), 10) / 100;
-          return sum + num;
-        }, 0)
+      totalRevenue,
+      metaAds: {
+        ...metaAds,
+        spendKz: adSpendKz,
+        netAfterAdsKz,
+        roas,
+      }
     });
   } catch (err: unknown) {
     logRouteError(req, err);
@@ -1373,8 +1444,10 @@ router.get('/profitability', adminAuth, async (req, res) => {
 
     const { ENV } = await import('../config/env');
     const sunoCostPerCreditUSD = ENV.SUNO_COST_PER_CREDIT_USD;
+    const deepseekCostPerGenUSD = Number(process.env.DEEPSEEK_COST_PER_GENERATION_USD) || 0.0005;
     const claudeCostPerGenUSD = ENV.CLAUDE_COST_PER_GENERATION_USD;
     const monthlyFixedUSD = ENV.MONTHLY_FIXED_COST_USD;
+    const usdToKz = Number(process.env.USD_TO_KZ_RATE) || 900;
 
     const [paymentsRes, songsRes] = await Promise.all([
       supabase.from('payments').select('amount, plan, created_at, approved_at').eq('status', 'approved'),
@@ -1387,26 +1460,33 @@ router.get('/profitability', adminAuth, async (req, res) => {
 
     // Revenue (convert from Kz cents to USD using rate)
     const totalRevenueKz = approvedPayments.reduce((sum, p) => {
-      const num = typeof p.amount === 'number' ? p.amount : parseInt(String(p.amount || '0').replace(/\D/g, ''), 10) / 100;
-      return sum + num;
+      return sum + parseMoneyAmount(p.amount);
     }, 0);
-    const totalRevenueUSD = +(totalRevenueKz / 900).toFixed(2);
+    const totalRevenueUSD = +(totalRevenueKz / usdToKz).toFixed(2);
+    const firstActivityAt = [...approvedPayments.map(p => p.created_at), ...songsGenerated.map(s => s.created_at)]
+      .filter(Boolean)
+      .sort()[0];
+    const since = firstActivityAt ? isoDateOnly(new Date(firstActivityAt)) : isoDateOnly(new Date());
+    const until = isoDateOnly(new Date());
+    const metaAds = await getMetaAdsSpend({ since, until });
+    const metaAdsCostUSD = metaAds.ok ? metaAds.spendUSD : 0;
 
     // Revenue by plan (in USD)
     const revenueByPlanBreakdown: Record<string, number> = {};
     approvedPayments.forEach(p => {
       const plan = p.plan || 'standard';
-      const num = typeof p.amount === 'number' ? p.amount : parseInt(String(p.amount || '0').replace(/\D/g, ''), 10) / 100;
-      revenueByPlanBreakdown[plan] = (revenueByPlanBreakdown[plan] || 0) + (num / 900);
+      revenueByPlanBreakdown[plan] = (revenueByPlanBreakdown[plan] || 0) + (parseMoneyAmount(p.amount) / usdToKz);
     });
 
     // Costs — each song: 24 Suno credits (12 start + 12 continue) + lyric generation
     const CREDITS_PER_SONG = 24;
     const sunoCreditsUsed = songCount * CREDITS_PER_SONG;
     const sunoCostUSD = +(sunoCreditsUsed * sunoCostPerCreditUSD).toFixed(2);
+    const deepseekCostUSD = +(songCount * deepseekCostPerGenUSD).toFixed(2);
     const claudeCostUSD = +(songCount * claudeCostPerGenUSD).toFixed(2);
-    const totalAPIcostUSD = +(sunoCostUSD + claudeCostUSD).toFixed(2);
-    const totalCostsUSD = +(totalAPIcostUSD + monthlyFixedUSD).toFixed(2);
+    const lyricCostUSD = Math.min(deepseekCostUSD, claudeCostUSD);
+    const totalAPIcostUSD = +(sunoCostUSD + lyricCostUSD).toFixed(2);
+    const totalCostsUSD = +(totalAPIcostUSD + monthlyFixedUSD + metaAdsCostUSD).toFixed(2);
     const apiCostPerSong = totalAPIcostUSD / Math.max(songCount, 1);
 
     // Profit
@@ -1416,8 +1496,9 @@ router.get('/profitability', adminAuth, async (req, res) => {
     // Cost per song breakdown
     const costPerSong = {
       suno: +((sunoCostPerCreditUSD * CREDITS_PER_SONG)).toFixed(2),
+      deepseek: +(deepseekCostPerGenUSD).toFixed(4),
       claude: +(claudeCostPerGenUSD).toFixed(2),
-      total: +((sunoCostPerCreditUSD * CREDITS_PER_SONG) + claudeCostPerGenUSD).toFixed(2),
+      total: +((sunoCostPerCreditUSD * CREDITS_PER_SONG) + Math.min(deepseekCostPerGenUSD, claudeCostPerGenUSD)).toFixed(4),
     };
 
     // Profitability by plan
@@ -1437,7 +1518,7 @@ router.get('/profitability', adminAuth, async (req, res) => {
     const planDetails = Object.entries(revenueByPlanBreakdown).map(([plan, rev]) => {
       const count = planCount[plan] || 0;
       const share = totalPlanCount > 0 ? count / totalPlanCount : 0;
-      const cost = +(totalAPIcostUSD * share).toFixed(2);
+      const cost = +((totalAPIcostUSD + metaAdsCostUSD) * share).toFixed(2);
       return {
         plan,
         revenueUSD: +rev.toFixed(2),
@@ -1457,11 +1538,15 @@ router.get('/profitability', adminAuth, async (req, res) => {
       },
       costs: {
         sunoUSD: sunoCostUSD,
+        deepseekUSD: deepseekCostUSD,
         claudeUSD: claudeCostUSD,
+        lyricUSD: +lyricCostUSD.toFixed(2),
+        metaAdsUSD: +metaAdsCostUSD.toFixed(2),
         totalUSD: totalAPIcostUSD,
         fixedUSD: monthlyFixedUSD,
         costPerSong,
       },
+      metaAds,
       byPlan: planDetails,
     });
   } catch (err: unknown) {
