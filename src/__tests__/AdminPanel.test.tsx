@@ -560,6 +560,40 @@ describe('AdminPanel', () => {
       expect(screen.getByText(/ana/i)).toBeInTheDocument();
       expect(screen.queryByText(/carlos/i)).not.toBeInTheDocument();
     });
+
+    it('shows and searches songs when Supabase returns related request as an array', async () => {
+      setupFetchMock({
+        '/api/admin/songs': okResponse({
+          songs: [{
+            ...mockSongs[0],
+            song_requests: [{
+              recipient_name: 'Ana',
+              music_style: 'Pop',
+              occasion: 'Aniversário',
+              plan: 'premium',
+              users: { name: 'João', email: 'joao@email.com', phone: '+244923456789' }
+            }]
+          }],
+          total: 1
+        })
+      });
+
+      render(<AdminPanel />);
+
+      const user = userEvent.setup();
+      await user.click(screen.getAllByText(/músicas/i)[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Minha Canção')).toBeInTheDocument();
+        expect(screen.getByText(/Para: Ana .* Pop/i)).toBeInTheDocument();
+      });
+
+      const searchInput = screen.getByPlaceholderText(/pesquisar por título, destinatário, email, telefone/i);
+      await user.type(searchInput, 'joao@email.com');
+
+      expect(screen.getByText('Minha Canção')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /ver/i })).toHaveAttribute('href', '/song/ana?id=song1');
+    });
   });
 
   describe('Toast Notifications', () => {

@@ -110,6 +110,10 @@ interface Song {
   };
 }
 
+type RawSong = Omit<Song, 'song_requests'> & {
+  song_requests?: Song['song_requests'] | Song['song_requests'][] | null;
+};
+
 interface DiagnosticsResult {
   supabase: { ok: boolean; error?: string; buckets?: { name: string; public: boolean }[] };
   claude: { ok: boolean; error?: string };
@@ -259,6 +263,14 @@ function formatDate(dateStr: string) {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit'
   });
+}
+
+function normalizeSong(song: RawSong): Song {
+  const relatedRequest = Array.isArray(song.song_requests) ? song.song_requests[0] : song.song_requests;
+  return {
+    ...song,
+    song_requests: relatedRequest || undefined
+  };
 }
 
 const VALID_STATUSES_FRONTEND: Record<string, { label: string; value: string }[]> = {
@@ -539,7 +551,7 @@ export default function AdminPanel() {
     if (!adminToken) return;
     setLoading(true);
     const d = await apiFetch('/api/admin/songs');
-    if (d) setSongs(d.songs || []);
+    if (d) setSongs((d.songs || []).map(normalizeSong));
     setLoading(false);
   }, [adminToken, apiFetch]);
 
