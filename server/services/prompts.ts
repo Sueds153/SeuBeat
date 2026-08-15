@@ -116,7 +116,7 @@ function referenceArtistInstruction(artistName?: string): string {
 
 function languageInstruction(lang?: string): string {
   const instructions: Record<string, string> = {
-    'português': 'Escreva a letra COMPLETAMENTE em português de Angola, com expressões naturais e autênticas.',
+    'português': 'Escreva a letra COMPLETAMENTE em português de Angola, com expressões naturais e autênticas. Use vocabulário angolano corrente quando o tom permitir (ex.: "bué", "xé", "baza", "bocado", "na boa", "fixe") e o tratamento "tu"/"nós". Evite expressões do português do Brasil (ex.: "a gente", "pô", "muito legal", "você" informal) e girias do português europeu. O texto deve ler-se e cantar-se com pronúncia e vocabulário angolanos.',
     'kimbundu': 'Escreva a letra MESCLANDO português com palavras e expressões em Kimbundu (língua nacional angolana). Incorpore termos como "muene", "kota", "kibai", "ngana", "kizua" naturalmente na letra.',
     'umbundu': 'Escreva a letra MESCLANDO português com palavras e expressões em UmBundu (língua nacional angolana). Incorpore termos como "ochi", "suku", "etu", "ociwa" naturalmente na letra.',
     'kikongo': 'Escreva a letra MESCLANDO português com palavras e expressões em Kikongo (língua nacional angolana). Incorpore termos como "ngolo", "kiese", "zola", "kamba" naturalmente na letra.',
@@ -165,21 +165,24 @@ export function selectPrompt(formData: WizardFormData) {
   const relacao = normalizeLower(formData.recipientRelation);
   const ocasiao = normalizeLower(formData.occasion);
 
-  const promptMestre = getPromptFromFile('mestre.txt', `Você é um Compositor e Poeta nível Sênior, especializado em "Storytelling Musical" e letras altamente personalizadas em Português de Portugal e Brasil.
-Seu objetivo é criar uma canção que soe como um presente único, capturando a essência da relação e memórias compartilhadas.
+  const promptMestre = getPromptFromFile('mestre.txt', `Você é um Compositor e Poeta nível Sênior, especializado em "Storytelling Musical" e letras altamente personalizadas em Português de Angola.
+Seu objetivo é criar uma canção que soe como um presente único, capturando a essência da relação e memórias compartilhadas, com sotaque angolano.
 
 REGRAS DE OURO PARA COMPOSIÇÃO:
 1. PERSONALIZAÇÃO RADICAL: Use cada detalhe fornecido (nomes, apelidos, memórias, locais, trejeitos únicos). Se o formulário diz que a pessoa "faz um café incrível às 7h", isso deve estar na letra.
-2. EMOÇÃO AUTÊNTICA: Evite clichês como "amor eterno" ou "te amo demais" sem contexto. Prefira "a forma como sorris quando o comboio chega" ou "aquele abraço no Largo do Chiado".
-3. ESTRUTURA PROFISSIONAL:
-   - Verso 1: Estabelece o cenário, o local ou uma memória inicial.
-   - Pré-Refrão: Cria tensão emocional, prepara para a mensagem principal.
-   - Refrão: A alma da música. Deve ser memorável, rítmico e conter o nome da pessoa ou o motivo central.
-   - Verso 2: Aprofunda a história, traz detalhes novos ou o "detalhe único" que só essa pessoa faz.
-   - Ponte: Momento de reflexão, mudança de tom ou uma promessa para o futuro.
-   - Refrão Final: Explosão emocional, encerramento marcante.
-4. LINGUAGEM: Português natural, fluído e rítmico. Nada de "IA-speak" ou frases genéricas.
-5. ESTILO: Adapte o vocabulário ao estilo musical escolhido (ex: mais urbano para Rap, mais doce para MPB/Bossa, rítmico para Kizomba).
+2. EMOÇÃO AUTÊNTICA: Evite clichês como "amor eterno" ou "te amo demais" sem contexto. Prefira "a forma como sorris quando chegas do trabalho" ou "aquele abraço no Mussulo ao pôr do sol".
+3. SOTAQUE ANGOLANO: Escreva em português de Angola autêntico. Use expressões locais naturais (ex: "bué", "xé", "baza", "bocado", "na boa") quando o tom permitir e o tratamento "tu"/"nós". Evite expressões do português do Brasil ("a gente", "pô", "muito legal", "você" informal) e girias do português europeu ("giro", "bica"). O texto deve ler-se e cantar-se com pronúncia angolana.
+4. ESTRUTURA PROFISSIONAL (OBRIGATÓRIA, nesta ordem):
+   - [Verso 1]: Estabelece o cenário, o local ou uma memória inicial.
+   - [Pré-Refrão]: Cria tensão emocional, prepara para a mensagem principal.
+   - [Refrão]: A alma da música. Memorável, rítmico, contém o nome da pessoa ou o gancho.
+   - [Verso 2]: Aprofunda a história, traz detalhes novos ou o "detalhe único" que só essa pessoa faz.
+   - [Ponte Emocional]: Momento de reflexão, mudança de tom ou uma promessa para o futuro.
+   - [Refrão Final]: Explosão emocional, encerramento marcante.
+5. LINGUAGEM: Português natural, fluído e rítmico. Nada de "IA-speak" ou frases genéricas. Nenhuma linha repetida mais de 3 vezes.
+6. ESTILO: Adapte o vocabulário ao estilo musical escolhido (ex: mais urbano para Rap, mais doce para Balada, rítmico para Kizomba).
+
+GANCHO (hook): Se for fornecida uma frase-gancho, o refrão DEVE incorporar ou girar em torno dela. É a mensagem que a pessoa nunca deve esquecer.
 
 DEDICATÓRIA (letterText): Escreva uma carta íntima, curta e poderosa em prosa, que resume o sentimento da música. Não repita a letra aqui.`);
 

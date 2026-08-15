@@ -12,6 +12,20 @@
 #  1. Primeiro ela lê "mestre.txt" (Regras globais e estrutura Verso/Refrão).
 #  2. Depois, ela escolhe o prompt temático dependendo da Ocasião ou Relação:
 #
+#  ⚠️ MARCADORES VALIDADOS POR MÁQUINA (server/services/aiShared.ts):
+#  A estrutura é verificada automaticamente após a geração (sem rejeição, só
+#  diagnóstico nos logs). Os marcadores canónicos são obrigatórios no mestre.txt
+#  e nos prompts — MANTENHA EXATAMENTE estes nomes, um por linha:
+#  [Verso 1], [Pré-Refrão], [Refrão], [Verso 2], [Ponte Emocional], [Refrão Final]
+#  Alias aceites na validação: [Coro]/[Estribilho]=Refrão, [Ponte]=Ponte Emocional.
+#
+#  🇦🇴 SOTAQUE ANGOLANO (CRÍTICO):
+#  A letra deve ler-se e cantar-se em português de Angola. Use expressões locais
+#  ("bué", "xé", "baza", "bocado", "na boa") e o tratamento "tu"/"nós". Evite
+#  expressões do Brasil ("a gente", "pô") e girias do europeu. O style prompt do
+#  Suno também anexa tokens de sotaque quando a letra é em português
+#  (SUNO_ACCENT_ENABLED=false desliga).
+#
 #  POR OCASIÃO (Tem prioridade máxima):
 #  - Se a ocasião contiver "aniversario"     → Usa "aniversario.txt"
 #    - Sub-ocasião "aniversario de namoro"   → Usa "aniversario_namoro.txt"

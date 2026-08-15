@@ -1,5 +1,5 @@
-import { LyricsComposition, AIProvider } from './types';
-import { logError, logInfo } from '../utils/logger';
+import { LyricsComposition, AIProvider, WizardFormData } from './types';
+import { logError, logInfo, logWarn } from '../utils/logger';
 
 const MAX_ATTEMPTS = Number(process.env.AI_MAX_ATTEMPTS || 2);
 const TRANSIENT_MAX_ATTEMPTS = Number(process.env.AI_TRANSIENT_MAX_ATTEMPTS || 4);
@@ -122,6 +122,120 @@ export function validateComposition(value: unknown, label: string): LyricsCompos
   }
 
   return { songTitle, lyrics, lyricsSnippet, letterText };
+}
+
+export interface LyricsStructureIssues {
+  issues: string[];
+  warnings: string[];
+}
+
+export const LYRIC_MARKERS = [
+  '[Verso 1]',
+  '[Pré-Refrão]',
+  '[Refrão]',
+  '[Verso 2]',
+  '[Ponte Emocional]',
+  '[Refrão Final]',
+] as const;
+
+const MARKER_ALIASES: Record<string, string[]> = {
+  '[Verso 1]': ['verso 1', 'verso i'],
+  '[Pré-Refrão]': ['pre refrao', 'pre-refrao'],
+  '[Refrão]': ['refrao', 'refrao 1', 'coro', 'estribilho'],
+  '[Verso 2]': ['verso 2', 'verso ii'],
+  '[Ponte Emocional]': ['ponte emocional', 'ponte'],
+  '[Refrão Final]': ['refrao final', 'refrao 2', 'ultimo refrao', 'refrao final x2', 'refrao final (x2)'],
+};
+
+const MAX_LINE_REPEATS = 3;
+
+function normalizeToken(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function markerIndex(lines: string[], canonical: string): number {
+  const aliases = MARKER_ALIASES[canonical] ?? [];
+  for (let i = 0; i < lines.length; i++) {
+    if (aliases.includes(normalizeToken(lines[i]))) return i;
+  }
+  return -1;
+}
+
+// Validação DIAGNÓSTICA da estrutura: nunca rejeita nem volta a chamar a IA
+// (0 créditos extra). Apenas reporta problemas para observabilidade; o prompt
+// (mestre.txt / SYSTEM_PROMPT) é o que melhora a estrutura na 1ª chamada.
+export function validateLyricsStructure(
+  composition: LyricsComposition,
+  formData: WizardFormData = {}
+): LyricsStructureIssues {
+  const issues: string[] = [];
+  const warnings: string[] = [];
+  const lines = composition.lyrics;
+
+  const found: { canonical: string; index: number }[] = [];
+  for (const marker of LYRIC_MARKERS) {
+    const index = markerIndex(lines, marker);
+    if (index === -1) {
+      issues.push(`faltou o marcador "${marker}"`);
+    } else {
+      found.push({ canonical: marker, index });
+    }
+  }
+
+  const inOrder = found.every((entry, i) => i === 0 || entry.index > found[i - 1].index);
+  if (!inOrder) {
+    issues.push('os marcadores estão fora da ordem esperada ([Verso 1] → [Pré-Refrão] → [Refrão] → [Verso 2] → [Ponte Emocional] → [Refrão Final])');
+  }
+
+  const fullText = lines.join('\n');
+  const hook = clean(formData.hookPhrase, '');
+  if (hook) {
+    const normHook = normalizeToken(hook);
+    if (!normalizeToken(fullText).includes(normHook)) {
+      issues.push(`o gancho "${hook}" não aparece na letra`);
+    }
+  }
+
+  const counts = new Map<string, number>();
+  for (const line of lines) {
+    counts.set(line, (counts.get(line) ?? 0) + 1);
+  }
+  const repeated = [...counts.entries()].filter(([, count]) => count > MAX_LINE_REPEATS);
+  if (repeated.length > 0) {
+    issues.push(`${repeated.length} linha(s) repetida(s) mais de ${MAX_LINE_REPEATS} vezes`);
+  }
+
+  const recipientName = clean(formData.recipientName, '');
+  if (recipientName && normalizeToken(recipientName).length >= 2) {
+    const searchable = normalizeToken(`${composition.songTitle}\n${fullText}`);
+    if (!searchable.includes(normalizeToken(recipientName))) {
+      warnings.push(`nome do destinatário "${recipientName}" não aparece na letra nem no título`);
+    }
+  }
+
+  return { issues, warnings };
+}
+
+export function validateCompositionStrict(
+  value: unknown,
+  label: string,
+  formData: WizardFormData = {}
+): LyricsComposition {
+  const composition = validateComposition(value, label);
+  const { issues, warnings } = validateLyricsStructure(composition, formData);
+  if (issues.length > 0) {
+    logWarn(`[${label}] Estrutura da letra com problemas (entregue como está, sem rejeição)`, { issues });
+  }
+  if (warnings.length > 0) {
+    logWarn(`[${label}] Personalização com avisos`, { warnings });
+  }
+  return composition;
 }
 
 export interface AIServiceRetryOptions {

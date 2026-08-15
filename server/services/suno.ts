@@ -139,7 +139,7 @@ function collectAudioUrls(value: unknown, urls: string[] = []): string[] {
 }
 
 const STYLE_MAP: Record<string, string> = {
-  kizomba: 'kizomba, afro romance, slow tempo 70bpm, sensual rhythm, soft bass, tarraxinha, romantic vocal, african beats',
+  kizomba: 'kizomba, afro romance, angolan romantic, slow tempo 70bpm, sensual rhythm, soft bass, tarraxinha, romantic vocal, african beats',
   semba: 'semba, traditional angolan rhythm, acoustic guitar, fast tempo 120bpm, energetic percussion, dance',
   zouk: 'zouk, caribbean rhythm, romantic, soft synth, french creole vibe, sensual, mid tempo 90bpm',
   samba: 'samba, carnival percussion, brazilian drums, festive, energetic 100bpm, tamborim, agogo, celebration',
@@ -223,6 +223,13 @@ const EMOTION_STYLE_MAP: Record<string, string> = {
   saudade: 'melancholic, nostalgic, wistful atmosphere',
   inspiração: 'uplifting, inspiring, hopeful mood',
 };
+
+// Sotaque angolano no canto. Fraseado só positivo (negações são pouco fiáveis
+// em prompts de áudio e podem dar efeito contrário). Desligável via env.
+const ANGOLAN_ACCENT_STYLE =
+  'Angolan Portuguese accent (Luanda), authentic Angolan Portuguese pronunciation, singing in Angolan Portuguese';
+const SUNO_ACCENT_ENABLED = process.env.SUNO_ACCENT_ENABLED !== 'false';
+const PORTUGUESE_TEXT_RE = /[àáâãéêíóôõúç]/i;
 
 const ARTIST_STYLE_MAP: Record<string, string> = {
   'Anselmo Ralph': 'anselmo ralph style, romantic kizomba, warm tenor vocal, soft brass, zouk',
@@ -324,6 +331,12 @@ async function startSunoMusic(lyrics: string[], musicStyle: string, songTitle: s
     if (artistStyle) parts.push(artistStyle);
   }
 
+  const isPortugueseLyrics = PORTUGUESE_TEXT_RE.test(lyricsText);
+  const accentApplied = SUNO_ACCENT_ENABLED && isPortugueseLyrics;
+  if (accentApplied) {
+    parts.push(ANGOLAN_ACCENT_STYLE);
+  }
+
   const stylePrompt = parts.join(', ');
 
   logInfo('[Suno] Submitting music generation task', {
@@ -336,6 +349,7 @@ async function startSunoMusic(lyrics: string[], musicStyle: string, songTitle: s
     voiceType: extraParams?.voiceType,
     desiredEmotion: extraParams?.desiredEmotion,
     referenceArtist: extraParams?.referenceArtist,
+    accentApplied,
   });
 
   const payload: Record<string, unknown> = {

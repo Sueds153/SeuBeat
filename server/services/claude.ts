@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { LyricsComposition, WizardFormData } from './types';
 import { selectPrompt } from './prompts';
-import { withAIServiceRetry, extractJSON, validateComposition } from './aiShared';
+import { withAIServiceRetry, extractJSON, validateCompositionStrict } from './aiShared';
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022';
 const CLAUDE_TIMEOUT_MS = Number(process.env.CLAUDE_TIMEOUT_MS || 60000);
@@ -27,7 +27,10 @@ O JSON gerado deve obrigatoriamente seguir esta estrutura:
   ],
   "letterText": "Dedicatória curta (2-3 frases) em prosa, sem repetir a letra.",
   "lyricsSnippet": "Pequeno trecho da letra (máx 200 caracteres) para pré-visualização."
-}`;
+}
+
+A letra deve usar EXATAMENTE estes marcadores, cada um numa linha própria do array "lyrics", nesta ordem:
+[Verso 1], [Pré-Refrão], [Refrão], [Verso 2], [Ponte Emocional], [Refrão Final]`;
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string, controller?: AbortController): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -82,6 +85,6 @@ export async function generateLyricsWithClaude(formData: WizardFormData): Promis
     }
 
     const json = extractJSON(block.text);
-    return validateComposition(json, 'Claude');
+    return validateCompositionStrict(json, 'Claude', formData);
   }, SAFETY_FATAL);
 }

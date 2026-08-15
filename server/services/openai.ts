@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { LyricsComposition, WizardFormData } from './types';
 import { selectPrompt } from './prompts';
-import { withAIServiceRetry, extractJSON, validateComposition } from './aiShared';
+import { withAIServiceRetry, extractJSON, validateCompositionStrict } from './aiShared';
 
 const GPT_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const GPT_TIMEOUT_MS = Number(process.env.OPENAI_TIMEOUT_MS || 30000);
@@ -25,7 +25,10 @@ O JSON gerado deve obrigatoriamente seguir esta estrutura:
   ],
   "letterText": "Dedicatória curta (2-3 frases) em prosa, sem repetir a letra.",
   "lyricsSnippet": "Pequeno trecho da letra (máx 200 caracteres) para pré-visualização."
-}`;
+}
+
+A letra deve usar EXATAMENTE estes marcadores, cada um numa linha própria do array "lyrics", nesta ordem:
+[Verso 1], [Pré-Refrão], [Refrão], [Verso 2], [Ponte Emocional], [Refrão Final]`;
 
 export async function generateLyricsWithGPT(formData: WizardFormData): Promise<LyricsComposition> {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -56,6 +59,6 @@ export async function generateLyricsWithGPT(formData: WizardFormData): Promise<L
     }
 
     const json = extractJSON(content);
-    return validateComposition(json, 'GPT');
+    return validateCompositionStrict(json, 'GPT', formData);
   });
 }

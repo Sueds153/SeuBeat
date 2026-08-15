@@ -1,7 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { LyricsComposition, WizardFormData } from './types';
 import { selectPrompt } from './prompts';
-import { withAIServiceRetry, validateComposition, extractJSON } from './aiShared';
+import { withAIServiceRetry, validateCompositionStrict, extractJSON } from './aiShared';
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 90000);
@@ -25,7 +25,10 @@ O JSON gerado deve obrigatoriamente seguir esta estrutura:
   ],
   "letterText": "Dedicatória curta (2-3 frases) em prosa, sem repetir a letra.",
   "lyricsSnippet": "Pequeno trecho da letra (máx 200 caracteres) para pré-visualização."
-}`;
+}
+
+A letra deve usar EXATAMENTE estes marcadores, cada um numa linha própria do array "lyrics", nesta ordem:
+[Verso 1], [Pré-Refrão], [Refrão], [Verso 2], [Ponte Emocional], [Refrão Final]`;
 
 export async function generateLyricsWithGemini(formData: WizardFormData): Promise<LyricsComposition> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -58,6 +61,6 @@ export async function generateLyricsWithGemini(formData: WizardFormData): Promis
     }
 
     const json = extractJSON(text);
-    return validateComposition(json, 'Gemini');
+    return validateCompositionStrict(json, 'Gemini', formData);
   }, undefined, { fatalPatterns: GEMINI_FATAL });
 }

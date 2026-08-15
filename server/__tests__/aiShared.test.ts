@@ -3,6 +3,9 @@ import {
   classifyAIError,
   retryBackoffMs,
   withAIServiceRetry,
+  validateLyricsStructure,
+  validateCompositionStrict,
+  LYRIC_MARKERS,
 } from '../services/aiShared';
 
 afterEach(() => {
@@ -121,5 +124,144 @@ describe('withAIServiceRetry', () => {
       })
     ).resolves.toBe('ok');
     expect(fn).toHaveBeenCalledTimes(2);
+  });
+});
+
+interface TestComposition {
+  songTitle: string;
+  lyrics: string[];
+  lyricsSnippet: string;
+  letterText: string;
+}
+
+function buildComposition(linesOverride?: string[]): TestComposition {
+  const lines = linesOverride ?? [
+    '[Verso 1]', 'linha um do verso', 'linha dois do verso',
+    '[Pré-Refrão]', 'linha pre refrao um', 'linha pre refrao dois',
+    '[Refrão]', 'o meu amor é bué forte', 'nunca mais te deixo ir',
+    '[Verso 2]', 'linha verso dois um', 'linha verso dois dois',
+    '[Ponte Emocional]', 'ponte emocional um', 'ponte emocional dois',
+    '[Refrão Final]', 'o meu amor é bué forte', 'nunca mais te deixo ir',
+  ];
+  return {
+    songTitle: 'Canção Teste',
+    lyrics: lines,
+    lyricsSnippet: 'o meu amor é bué forte',
+    letterText: 'Dedicatória de teste.',
+  };
+}
+
+describe('LYRIC_MARKERS', () => {
+  it('exposes the 6 canonical markers in order', () => {
+    expect(LYRIC_MARKERS).toEqual([
+      '[Verso 1]',
+      '[Pré-Refrão]',
+      '[Refrão]',
+      '[Verso 2]',
+      '[Ponte Emocional]',
+      '[Refrão Final]',
+    ]);
+  });
+});
+
+describe('validateLyricsStructure', () => {
+  it('returns no issues for a well-formed composition', () => {
+    const result = validateLyricsStructure(buildComposition(), {});
+    expect(result.issues).toEqual([]);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it('accepts alias markers (Coro, Ponte)', () => {
+    const comp = buildComposition();
+    const lines = comp.lyrics.map((line) => {
+      if (line === '[Refrão]') return '[Coro]';
+      if (line === '[Ponte Emocional]') return '[Ponte]';
+      return line;
+    });
+    const result = validateLyricsStructure({ ...comp, lyrics: lines }, {});
+    expect(result.issues).toEqual([]);
+  });
+
+  it('flags a missing marker', () => {
+    const comp = buildComposition();
+    const lines = comp.lyrics.filter((line) => line !== '[Ponte Emocional]');
+    const result = validateLyricsStructure({ ...comp, lyrics: lines }, {});
+    expect(result.issues.join(' ')).toContain('[Ponte Emocional]');
+  });
+
+  it('flags markers out of order', () => {
+    const comp = buildComposition();
+    const lines = [...comp.lyrics];
+    const idx = lines.indexOf('[Refrão]');
+    const [marker] = lines.splice(idx, 1);
+    lines.unshift(marker);
+    const result = validateLyricsStructure({ ...comp, lyrics: lines }, {});
+    expect(result.issues.join(' ')).toContain('ordem');
+  });
+
+  it('flags a hook phrase missing from the lyric', () => {
+    const result = validateLyricsStructure(buildComposition(), {
+      hookPhrase: 'frase gancho que nunca aparece',
+    });
+    expect(result.issues.join(' ')).toContain('gancho');
+  });
+
+  it('does not flag a hook present in the lyric (chorus fallback)', () => {
+    const result = validateLyricsStructure(buildComposition(), {
+      hookPhrase: 'o meu amor é bué forte',
+    });
+    expect(result.issues.join(' ')).not.toContain('gancho');
+  });
+
+  it('flags a line repeated more than 3 times', () => {
+    const comp = buildComposition();
+    const lines = [
+      ...comp.lyrics,
+      'linha repetida demais',
+      'linha repetida demais',
+      'linha repetida demais',
+      'linha repetida demais',
+    ];
+    const result = validateLyricsStructure({ ...comp, lyrics: lines }, {});
+    expect(result.issues.join(' ')).toContain('repetida');
+  });
+
+  it('does not flag chorus lines that repeat 2x across Refrão/Refrão Final', () => {
+    const comp = buildComposition();
+    const result = validateLyricsStructure({ ...comp, lyrics: comp.lyrics }, {});
+    expect(result.issues.join(' ')).not.toContain('repetida');
+  });
+
+  it('adds a soft warning when the recipient name is absent', () => {
+    const result = validateLyricsStructure(buildComposition(), {
+      recipientName: 'Zulmira',
+    });
+    expect(result.warnings.join(' ')).toContain('Zulmira');
+    expect(result.issues).toEqual([]);
+  });
+});
+
+describe('validateCompositionStrict', () => {
+  it('returns the composition even with structure issues (diagnostic-only)', () => {
+    const comp = buildComposition();
+    const lyrics = comp.lyrics.filter((line) => line !== '[Ponte Emocional]');
+    const out = validateCompositionStrict({ ...comp, lyrics }, 'Test');
+    expect(out.lyrics).toEqual(lyrics);
+  });
+
+  it('still rejects malformed/short compositions (same as validateComposition)', () => {
+    expect(() =>
+      validateCompositionStrict(
+        { songTitle: 'x', lyrics: ['a'], letterText: 'y' },
+        'Test'
+      )
+    ).toThrow();
+  });
+
+  it('passes through a valid composition untouched', () => {
+    const comp = buildComposition();
+    const out = validateCompositionStrict(comp, 'Test');
+    expect(out.songTitle).toBe('Canção Teste');
+    expect(out.lyrics).toHaveLength(comp.lyrics.length);
   });
 });
