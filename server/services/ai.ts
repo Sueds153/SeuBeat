@@ -2,6 +2,7 @@ import { LyricsComposition, AIProvider, WizardFormData } from './types';
 import { generateLyricsWithGPT } from './openai';
 import { generateLyricsWithClaude } from './claude';
 import { generateLyricsWithGemini } from './gemini';
+import { generateLyricsWithDeepSeek } from './deepseek';
 import { classifyAIError, AIProviderFailure } from './aiShared';
 import { sendAdminNotification } from './email';
 import { logInfo, logWarn, logError } from '../utils/logger';
@@ -11,9 +12,9 @@ const ADMIN_ALERT_COOLDOWN_MS = Number(process.env.ADMIN_ALERT_COOLDOWN_MS || 15
 
 let lastAdminAlertAt = 0;
 
-const DEFAULT_PROVIDER_ORDER: AIProvider[] = ['gemini', 'openai', 'claude'];
+const DEFAULT_PROVIDER_ORDER: AIProvider[] = ['deepseek', 'gemini', 'openai', 'claude'];
 
-// Ordem dos providers controlável por AI_PROVIDER_ORDER (ex: "gemini,openai,claude").
+// Ordem dos providers controlável por AI_PROVIDER_ORDER (ex: "deepseek,gemini,openai,claude").
 // Útil para despriorizar/ignorar um provider sem chave de créditos (ex: OpenAI 429).
 function providerOrder(): AIProvider[] {
   const raw = process.env.AI_PROVIDER_ORDER;
@@ -21,7 +22,7 @@ function providerOrder(): AIProvider[] {
   const order = raw
     .split(',')
     .map((s) => s.trim().toLowerCase())
-    .filter((s): s is AIProvider => s === 'openai' || s === 'gemini' || s === 'claude');
+    .filter((s): s is AIProvider => s === 'deepseek' || s === 'openai' || s === 'gemini' || s === 'claude');
   return order.length ? order : DEFAULT_PROVIDER_ORDER;
 }
 
@@ -47,6 +48,7 @@ export async function generateLyrics(
   context: GenerateLyricsContext = {}
 ): Promise<{ result: LyricsComposition; provider: AIProvider }> {
   const providers: { name: AIProvider; key: string; fn: (data: WizardFormData) => Promise<LyricsComposition> }[] = [
+    { name: 'deepseek', key: 'DEEPSEEK_API_KEY', fn: generateLyricsWithDeepSeek },
     { name: 'openai', key: 'OPENAI_API_KEY', fn: generateLyricsWithGPT },
     { name: 'gemini', key: 'GEMINI_API_KEY', fn: generateLyricsWithGemini },
     { name: 'claude', key: 'ANTHROPIC_API_KEY', fn: generateLyricsWithClaude },
@@ -55,7 +57,7 @@ export async function generateLyrics(
   const available = providers.filter(p => !!process.env[p.key]);
 
   if (available.length === 0) {
-    throw new Error('Nenhuma chave de API de IA configurada (ANTHROPIC_API_KEY, OPENAI_API_KEY ou GEMINI_API_KEY).');
+    throw new Error('Nenhuma chave de API de IA configurada (DEEPSEEK_API_KEY, ANTHROPIC_API_KEY, OPENAI_API_KEY ou GEMINI_API_KEY).');
   }
 
   const order = providerOrder();

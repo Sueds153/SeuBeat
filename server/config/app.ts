@@ -69,6 +69,7 @@ export async function createApp(): Promise<express.Application> {
         anthropic: !!getEnv('ANTHROPIC_API_KEY'),
         openai: !!getEnv('OPENAI_API_KEY'),
         gemini: !!getEnv('GEMINI_API_KEY'),
+        deepseek: !!getEnv('DEEPSEEK_API_KEY'),
         supabase: !!getEnv('SUPABASE_URL'),
         brevo: !!getEnv('BREVO_API_KEY'),
         adminPassword: !!getEnv('ADMIN_PASSWORD'),

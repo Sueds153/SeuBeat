@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   generateLyricsWithGPT: vi.fn(),
   generateLyricsWithClaude: vi.fn(),
   generateLyricsWithGemini: vi.fn(),
+  generateLyricsWithDeepSeek: vi.fn(),
 }));
 
 vi.mock('../services/email', () => ({
@@ -21,6 +22,10 @@ vi.mock('../services/claude', () => ({
 
 vi.mock('../services/gemini', () => ({
   generateLyricsWithGemini: () => mocks.generateLyricsWithGemini(),
+}));
+
+vi.mock('../services/deepseek', () => ({
+  generateLyricsWithDeepSeek: () => mocks.generateLyricsWithDeepSeek(),
 }));
 
 import { generateLyrics } from '../services/ai';
@@ -56,12 +61,32 @@ describe('generateLyrics failure handling', () => {
     process.env.OPENAI_API_KEY = 'test-openai';
     process.env.GEMINI_API_KEY = 'test-gemini';
     process.env.ANTHROPIC_API_KEY = 'test-claude';
+    delete process.env.DEEPSEEK_API_KEY;
     mocks.generateLyricsWithGPT.mockRejectedValue(new Error('Insufficient quota: 429 Too Many Requests'));
     mocks.generateLyricsWithClaude.mockRejectedValue(new Error('Insufficient quota: 429 Too Many Requests'));
     mocks.generateLyricsWithGemini.mockRejectedValue(new Error('503 The model is overloaded. Please retry later.'));
+    mocks.generateLyricsWithDeepSeek.mockRejectedValue(new Error('503 The model is overloaded. Please retry later.'));
+  });
+
+  it('usa o deepseek em primeiro lugar quando a chave existe e funciona', async () => {
+    process.env.DEEPSEEK_API_KEY = 'test-deepseek';
+    mocks.generateLyricsWithDeepSeek.mockResolvedValue({
+      songTitle: 'Titulo DeepSeek',
+      lyrics: Array.from({ length: 16 }, (_, i) => `linha ${i + 1} do refrao final completo`),
+      letterText: 'Dedicatória de teste.',
+    });
+
+    const { generateLyrics } = await import('../services/ai');
+    const { result, provider } = await generateLyrics(minimalForm);
+
+    expect(provider).toBe('deepseek');
+    expect(result.songTitle).toBe('Titulo DeepSeek');
+    expect(mocks.generateLyricsWithDeepSeek).toHaveBeenCalledTimes(1);
+    expect(mocks.generateLyricsWithGemini).not.toHaveBeenCalled();
   });
 
   it('throws when all providers fail and attaches providerFailures', async () => {
+    process.env.DEEPSEEK_API_KEY = 'test-deepseek';
     const { generateLyrics } = await import('../services/ai');
     const err = await generateLyrics(minimalForm).then(
       () => null,
@@ -70,12 +95,24 @@ describe('generateLyrics failure handling', () => {
 
     expect(err).toBeInstanceOf(Error);
     expect(err!.providerFailures).toBeDefined();
-    expect(err!.providerFailures!.length).toBe(3);
-    expect(err!.providerFailures!.map((f) => f.provider).sort()).toEqual(['claude', 'gemini', 'openai']);
+    expect(err!.providerFailures!.length).toBe(4);
+    expect(err!.providerFailures!.map((f) => f.provider).sort()).toEqual(['claude', 'deepseek', 'gemini', 'openai']);
+    const deepseek = err!.providerFailures!.find((f) => f.provider === 'deepseek');
+    expect(deepseek!.kind).toBe('transient');
     const gemini = err!.providerFailures!.find((f) => f.provider === 'gemini');
     expect(gemini!.kind).toBe('transient');
     const openai = err!.providerFailures!.find((f) => f.provider === 'openai');
     expect(openai!.kind).toBe('credits');
+  });
+
+  it('ignora o deepseek quando a chave não existe', async () => {
+    const { generateLyrics } = await import('../services/ai');
+    const err = await generateLyrics(minimalForm).then(
+      () => null,
+      (e) => e as Error & { providerFailures?: AIProviderFailure[] }
+    );
+
+    expect(err!.providerFailures!.map((f) => f.provider).sort()).toEqual(['claude', 'gemini', 'openai']);
   });
 
   it('sends admin notification with context', async () => {

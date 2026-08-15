@@ -30,9 +30,9 @@ export function validateEnv(): void {
     console.error(`[FATAL] Variaveis de ambiente em falta: ${missing.join(', ')}`);
     process.exit(1);
   }
-  if (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY && !process.env.GEMINI_API_KEY) {
+  if (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY && !process.env.GEMINI_API_KEY && !process.env.DEEPSEEK_API_KEY) {
     if (process.env.CI || process.env.NODE_ENV === 'test') {
-      console.warn('[WARN] Nenhuma chave de IA configurada (OPENAI_API_KEY, ANTHROPIC_API_KEY ou GEMINI_API_KEY)');
+      console.warn('[WARN] Nenhuma chave de IA configurada (DEEPSEEK_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY ou GEMINI_API_KEY)');
       return;
     }
     console.warn('[WARN] Nenhuma chave de IA configurada — a geração de letras não funcionará.');
