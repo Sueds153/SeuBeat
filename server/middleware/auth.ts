@@ -100,12 +100,6 @@ export function adminAuth(req: express.Request, res: express.Response, next: exp
     }
   }
 
-  const legacyPassword = req.headers['x-admin-password'] as string | undefined;
-  const adminPassword = getAdminPassword();
-  if (legacyPassword && adminPassword && timingSafeCompare(legacyPassword, adminPassword)) {
-    return next();
-  }
-
   return res.status(401).json({ success: false, error: 'Acesso não autorizado.' });
 }
 

@@ -10,8 +10,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import LogoIcon from './LogoIcon';
 import WhatsAppHelp from './WhatsAppHelp';
 
-const ADMIN_PASSWORD_KEY = 'seubeat_admin_auth';
-
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
   { id: 'payments', label: 'Pagamentos', icon: CreditCard },
@@ -119,7 +117,8 @@ interface DiagnosticsResult {
   gemini: { ok: boolean; error?: string };
   suno: { ok: boolean; error?: string; credits?: number };
   sunoVoice: { ok: boolean; error?: string };
-  email: { ok: boolean; error?: string; provider?: string; host?: string };
+  email: { ok: boolean; error?: string; provider?: string; host?: string; email?: string };
+  lastCheck?: string;
 }
 
 interface CreditsResult {
@@ -127,7 +126,7 @@ interface CreditsResult {
   claude: { ok: boolean; error?: string; model?: string; quota_exceeded?: boolean; lastCheck: string };
   openai: { ok: boolean; error?: string; total_granted?: number; total_used?: number; total_available?: number; model?: string; quota_exceeded?: boolean; lastCheck: string };
   gemini: { ok: boolean; error?: string; model?: string; quota_exceeded?: boolean; lastCheck: string };
-  email: { ok: boolean; error?: string; provider?: string; host?: string; lastCheck: string };
+  email: { ok: boolean; error?: string; provider?: string; host?: string; email?: string; lastCheck: string };
   usage: {
     totalSongs: number;
     songsThisMonth: number;
@@ -158,6 +157,7 @@ interface AbandonedClient {
   createdAt: string;
   elapsedMs: number;
   reminders: string[];
+  whatsappSent: string[];
   manualContactedAt: string | null;
   message: string;
   resumePath: string;
@@ -199,6 +199,7 @@ const STATUS_COLORS: Record<string, string> = {
   paid: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
   payment_rejected: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
   music_generating: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+  music_processing: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
   music_ready: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
   not_started: 'bg-stone-700/50 text-stone-500 border-stone-700',
   generating: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
@@ -222,6 +223,7 @@ const STATUS_LABELS: Record<string, string> = {
   paid: '✅ Pago',
   payment_rejected: '❌ Pagamento Rejeitado',
   music_generating: '🎵 Gerando Música',
+  music_processing: '🎵 A Processar Música',
   music_ready: '🎶 Música Pronta',
   not_started: '⏸ Não Iniciado',
   generating: '🎵 Gerando...',
@@ -276,6 +278,7 @@ const VALID_STATUSES_FRONTEND: Record<string, { label: string; value: string }[]
     { label: '⏳ A aguardar verificação', value: 'pending_verification' },
     { label: '✅ Aprovado', value: 'approved' },
     { label: '❌ Rejeitado', value: 'rejected' },
+    { label: '❌ Falhou', value: 'failed' },
   ],
   songs: [
     { label: '⏸ Não iniciado', value: 'not_started' },
@@ -1818,7 +1821,6 @@ export default function AdminPanel() {
                     </select>
                     <select value={reqStatusFilter} onChange={e => setReqStatusFilter(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
                       <option value="">Todos estados</option>
-                      <option value="pending">Pendente</option>
                       <option value="payment_submitted">Comprovativo Enviado</option>
                       <option value="payment_rejected">Pagamento Rejeitado</option>
                       <option value="lyrics_generating">A Gerar Letra</option>
@@ -2503,7 +2505,7 @@ export default function AdminPanel() {
                                 <div>
                                   <p className="text-xs font-mono font-bold text-stone-200">{credits.email.ok ? 'Operacional' : 'Indisponível'}</p>
                                   {credits.email.ok && credits.email.provider && (
-                                    <p className="text-[10px] font-mono text-stone-500">{credits.email.provider} · {credits.email.host}</p>
+                                    <p className="text-[10px] font-mono text-stone-500">{credits.email.provider} · {credits.email.email}</p>
                                   )}
                                 </div>
                               </div>
@@ -2821,7 +2823,10 @@ export default function AdminPanel() {
                                     <span className="text-stone-200 font-medium text-sm truncate">{client.recipientName || 'Sem nome'}</span>
                                     <span className="text-[10px] font-mono text-stone-500">{formatDate(client.createdAt)}</span>
                                     {client.reminders.map((r) => (
-                                      <span key={r} className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">email {r}</span>
+                                      <span key={`email-${r}`} className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">email {r}</span>
+                                    ))}
+                                    {client.whatsappSent.map((r) => (
+                                      <span key={`wa-${r}`} className="text-[10px] font-mono text-green-300 bg-green-500/10 border border-green-500/20 px-1.5 py-0.5 rounded">wa {r}</span>
                                     ))}
                                     {client.manualContactedAt && (
                                       <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">contactado manualmente</span>
@@ -2886,7 +2891,7 @@ export default function AdminPanel() {
                       {/* KPI Cards */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <StatCard icon={BarChart3} label="Conversão" value={metrics.conversionRate} color="bg-emerald-500/15 text-emerald-400" subtitle={`${metrics.paidRequests} de ${metrics.totalRequests} pagaram`} />
-                        <StatCard icon={Clock} label="Tempo Médio (entrega)" value={`${metrics.avgDeliveryHours}h`} color="bg-blue-500/15 text-blue-400" subtitle={metrics.avgDeliveryHours > 0 ? 'Da criação à aprovação' : 'Sem dados'} />
+                        <StatCard icon={Clock} label="Tempo Médio (aprovação)" value={`${metrics.avgApprovalHours}h`} color="bg-blue-500/15 text-blue-400" subtitle={metrics.avgApprovalHours > 0 ? 'Da criação à aprovação' : 'Sem dados'} />
                         <StatCard icon={TrendingUp} label="Receita Total" value={metrics.totalRevenue?.toLocaleString('pt') + ' Kz' || '0 Kz'} color="bg-rose-500/15 text-rose-400" subtitle="Pagamentos aprovados" />
                         <StatCard icon={Music} label="Pedidos Pendentes" value={metrics.pendingCount} color="bg-amber-500/15 text-amber-400" subtitle="Aguardando pagamento" />
                       </div>

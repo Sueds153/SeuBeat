@@ -406,7 +406,7 @@ router.get('/songs', adminAuth, async (req, res) => {
 
     const { data, error } = await supabase
       .from('songs')
-      .select('*, song_requests(recipient_name, music_style, occasion, users(name, email, phone))')
+      .select('*, song_requests(recipient_name, music_style, occasion, plan, users(name, email, phone))')
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
@@ -621,7 +621,6 @@ router.get('/credits', adminAuth, async (req, res) => {
     });
   } catch (err: unknown) {
     logRouteError(req, err);
-    logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
@@ -694,7 +693,6 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
 
     res.json({ success: true, message: `Status atualizado para "${status}" em "${table}".`, data });
   } catch (err: unknown) {
-    logRouteError(req, err);
     logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
@@ -796,7 +794,6 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
     });
   } catch (err: unknown) {
     logRouteError(req, err);
-    logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
@@ -825,7 +822,6 @@ router.post('/request/:id/retry', adminAuth, async (req, res) => {
     res.json({ success: true, message: 'Reiniciado.' });
   } catch (err: unknown) {
     logRouteError(req, err);
-    logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
@@ -850,7 +846,6 @@ router.post('/request/:id/force-voice', adminAuth, async (req, res) => {
     res.json({ success: true, message: 'Processamento de voz Suno Voice forçado.' });
   } catch (err: unknown) {
     logRouteError(req, err);
-    logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
@@ -874,7 +869,6 @@ router.post('/request/:id/resend-email', adminAuth, async (req, res) => {
     await sendPersonalizedEmail(requestData.users.email, requestData.recipient_name, personalizedUrl, songData.letter_text || 'Dedicatória.');
     res.json({ success: true, message: 'Email reenviado.' });
   } catch (err: unknown) {
-    logRouteError(req, err);
     logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
@@ -929,7 +923,6 @@ router.get('/song/:id/audio-url', adminAuth, async (req, res) => {
     if (!fallbackUrl) return res.status(404).json({ success: false, error: 'Áudio indisponível.' });
     res.json({ success: true, url: fallbackUrl, filename: safeAudioFilename(song.title), source: fallbackUrl === song.preview_url ? 'preview' : 'external' });
   } catch (err: unknown) {
-    logRouteError(req, err);
     logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
@@ -1007,7 +1000,6 @@ router.post('/song/:id/upload-audio', adminAuth, async (req, res) => {
     res.json({ success: true });
   } catch (err: unknown) {
     logRouteError(req, err);
-    logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
@@ -1020,7 +1012,6 @@ router.get('/clients', adminAuth, async (req, res) => {
     if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
     res.json({ success: true, clients: data });
   } catch (err: unknown) {
-    logRouteError(req, err);
     logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
@@ -1090,7 +1081,6 @@ router.post('/undo', adminAuth, async (req, res) => {
     res.status(400).json({ success: false, error: 'Combinação entityType/action não suportada para undo.' });
   } catch (err: unknown) {
     logRouteError(req, err);
-    logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
@@ -1110,7 +1100,6 @@ router.post('/request/:id/update-style', adminAuth, async (req, res) => {
     if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
     res.json({ success: true, data });
   } catch (err: unknown) {
-    logRouteError(req, err);
     logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
@@ -1206,7 +1195,6 @@ router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
     res.json({ success: true, song: createdSong, recovered: true });
   } catch (err: unknown) {
     logRouteError(req, err);
-    logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
@@ -1241,7 +1229,6 @@ router.get('/request/:id/logs', adminAuth, async (req, res) => {
     res.json({ success: true, logs });
   } catch (err: unknown) {
     logRouteError(req, err);
-    logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
@@ -1267,16 +1254,16 @@ router.get('/metrics', adminAuth, async (req, res) => {
     const paidRequests = new Set(payments.filter(p => p.status === 'approved' && p.request_id).map(p => p.request_id)).size;
     const conversionRate = totalRequests > 0 ? (paidRequests / totalRequests * 100).toFixed(1) : '0.0';
 
-    // Average time to delivery
+    // Average time from request creation to payment approval
     const approvedPayments = payments.filter(p => p.status === 'approved' && p.approved_at);
-    let avgHours = 0;
+    let avgApprovalHours = 0;
     if (approvedPayments.length > 0) {
       const totalHours = approvedPayments.reduce((sum, p) => {
         const created = new Date(p.created_at).getTime();
         const approved = new Date(p.approved_at!).getTime();
         return sum + (approved - created) / (1000 * 60 * 60);
       }, 0);
-      avgHours = Math.round(totalHours / approvedPayments.length);
+      avgApprovalHours = Math.round(totalHours / approvedPayments.length);
     }
 
     // Popular music styles
@@ -1311,14 +1298,16 @@ router.get('/metrics', adminAuth, async (req, res) => {
     const revenueByPlan = Object.entries(planRevenue)
       .map(([plan, revenue]) => ({ plan, revenue }));
 
-    // Pending requests count
-    const pendingCount = requests.filter(r => r.status === 'payment_submitted' || r.status === 'pending_verification').length;
+    // Pending requests count (comprovativos a aguardar verificação)
+    const pendingCount =
+      requests.filter(r => r.status === 'payment_submitted').length +
+      payments.filter(p => p.status === 'pending_verification').length;
 
     res.json({
       totalRequests,
       paidRequests,
       conversionRate: `${conversionRate}%`,
-      avgDeliveryHours: avgHours,
+      avgApprovalHours,
       popularStyles,
       revenueByMonth,
       revenueByPlan,
@@ -1330,7 +1319,6 @@ router.get('/metrics', adminAuth, async (req, res) => {
         }, 0)
     });
   } catch (err: unknown) {
-    logRouteError(req, err);
     logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
@@ -1437,7 +1425,6 @@ router.get('/profitability', adminAuth, async (req, res) => {
     });
   } catch (err: unknown) {
     logRouteError(req, err);
-    logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
@@ -1496,7 +1483,6 @@ router.get('/export/:type', adminAuth, async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${type}_${Date.now()}.csv"`);
     res.send('\uFEFF' + csv);
   } catch (err: unknown) {
-    logRouteError(req, err);
     logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
@@ -1620,76 +1606,6 @@ router.delete('/request/:id', adminAuth, async (req, res) => {
   }
 });
 
-// Cron job: entrega automática de músicas Standard cujo deliver_at já passou
-router.post('/cron/deliver-pending', async (req, res) => {
-  try {
-    const cronKey = req.headers['x-cron-key'] || req.query.key;
-    if (cronKey !== process.env.CRON_SECRET) {
-      return res.status(401).json({ success: false, error: 'Chave inválida.' });
-    }
-
-    const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
-
-    const now = new Date().toISOString();
-    const { data: pending, error: fetchError } = await supabase
-      .from('song_requests')
-      .select('id, recipient_name, final_mixed_audio_url, users!inner(email), songs!inner(id, full_song_url, audio_url, letter_text)')
-      .eq('status', 'approved')
-      .lte('deliver_at', now)
-      .not('deliver_at', 'is', null);
-
-    if (fetchError) {
-      return res.status(500).json({ success: false, error: `Erro ao buscar entregas pendentes: ${fetchError.message}` });
-    }
-
-    if (!pending || pending.length === 0) {
-      return res.json({ success: true, delivered: 0, message: 'Nenhuma entrega pendente.' });
-    }
-
-    let delivered = 0;
-    for (const sr of pending) {
-      const song = (sr as any).songs?.[0];
-      const userEmail = (sr as any).users?.email;
-
-      if (!userEmail) {
-        delivered++;
-        await supabase
-          .from('song_requests')
-          .update({ status: 'delivered', deliver_at: null })
-          .eq('id', (sr as any).id)
-          .eq('status', 'approved');
-        continue;
-      }
-
-      const slug = ((sr as any).recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-      const baseUrl = process.env.APP_URL || getAppUrl(req);
-      const personalizedUrl = `${baseUrl}/song/${slug}?id=${song?.id}`;
-
-      try {
-        const { error: updateError } = await supabase
-          .from('song_requests')
-          .update({ status: 'delivered', deliver_at: null })
-          .eq('id', (sr as any).id)
-          .eq('status', 'approved');
-        if (updateError) {
-          logError('[Cron] Falha ao atualizar status de entrega', updateError, { requestId: (sr as any).id });
-          continue;
-        }
-        await sendPersonalizedEmail(userEmail, (sr as any).recipient_name, personalizedUrl, song?.letter_text || 'Dedicatória.');
-        delivered++;
-      } catch (emailErr) {
-        logError('[Cron] Falha ao enviar email de entrega', emailErr, { requestId: (sr as any).id });
-      }
-    }
-
-    res.json({ success: true, delivered, message: `${delivered} música(s) entregue(s) automaticamente.` });
-  } catch (err: unknown) {
-    logRouteError(req, err);
-    res.status(500).json({ success: false, error: safeMessage(err) });
-  }
-});
-
 // UTM Campaign Stats
 router.get('/utm-stats', adminAuth, async (req, res) => {
   try {
@@ -1730,7 +1646,8 @@ router.get('/utm-stats', adminAuth, async (req, res) => {
       if (row.status === 'approved' || row.status === 'delivered') {
         existing.converted++;
         const paymentArr = (row as any).payments as { amount: string | number }[] | undefined;
-        const amount = parseFloat(String(paymentArr?.[0]?.amount || '0'));
+        const raw = paymentArr?.[0]?.amount;
+        const amount = typeof raw === 'number' ? raw : parseInt(String(raw || '0').replace(/\D/g, ''), 10) / 100;
         if (!isNaN(amount)) existing.revenue += amount;
       }
       if (row.status === 'delivered') existing.delivered++;
@@ -1748,7 +1665,7 @@ router.get('/utm-stats', adminAuth, async (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Painel de Abandonados + envio WhatsApp (Baileys — lazy para não afetar o boot)
+// Painel de Abandonados + envio WhatsApp (lazy para não afetar o boot)
 // ─────────────────────────────────────────────────────────────────────────────
 
 router.get('/abandoned', adminAuth, async (req, res) => {
@@ -1769,7 +1686,7 @@ router.get('/abandoned', adminAuth, async (req, res) => {
     const { data, error } = await supabase
       .from('song_requests')
       .select(
-        'id, email, phone, recipient_name, created_at, status, abandoned_30min_sent_at, abandoned_24h_sent_at, abandoned_48h_sent_at, abandoned_72h_sent_at, manual_contacted_at, users(name, phone)'
+        'id, email, phone, recipient_name, created_at, status, abandoned_30min_sent_at, abandoned_24h_sent_at, abandoned_48h_sent_at, abandoned_72h_sent_at, whatsapp_30min_sent_at, whatsapp_24h_sent_at, whatsapp_48h_sent_at, whatsapp_72h_sent_at, manual_contacted_at, users(name, phone)'
       )
       .in('status', ['lyrics_ready', 'lyrics_generating'])
       .is('deleted_at', null)
@@ -1807,6 +1724,12 @@ router.get('/abandoned', adminAuth, async (req, res) => {
           row.abandoned_24h_sent_at ? '24h' : null,
           row.abandoned_48h_sent_at ? '48h' : null,
           row.abandoned_72h_sent_at ? '72h' : null,
+        ].filter((r): r is string => Boolean(r)),
+        whatsappSent: [
+          row.whatsapp_30min_sent_at ? '30min' : null,
+          row.whatsapp_24h_sent_at ? '24h' : null,
+          row.whatsapp_48h_sent_at ? '48h' : null,
+          row.whatsapp_72h_sent_at ? '72h' : null,
         ].filter((r): r is string => Boolean(r)),
         manualContactedAt: row.manual_contacted_at,
         message: buildAbandonedMessage(bucket, row.recipient_name || '', `${appUrl}${resumePath}`),
