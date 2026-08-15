@@ -37,6 +37,12 @@ function firstRelated<T = any>(value: T | T[] | null | undefined): T | undefined
   return Array.isArray(value) ? value[0] : value || undefined;
 }
 
+function mapRelated<T = any>(value: T | T[] | null | undefined, mapper: (item: T) => T): T | T[] | null | undefined {
+  if (Array.isArray(value)) return value.map(mapper);
+  if (value) return mapper(value);
+  return value;
+}
+
 function extractStoragePath(url: string | null | undefined, bucket: string): string | null {
   if (!url) return null;
   const markers = [
@@ -406,11 +412,46 @@ router.get('/songs', adminAuth, async (req, res) => {
 
     const { data, error } = await supabase
       .from('songs')
-      .select('*, song_requests(recipient_name, music_style, occasion, plan, users(name, email, phone))')
+      .select('*, song_requests(id, recipient_name, music_style, occasion, users(name, email, phone))')
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
-    res.json({ success: true, songs: data });
+
+    const songs = data || [];
+    const requestIds = Array.from(new Set(
+      songs
+        .map(song => firstRelated(song.song_requests)?.id)
+        .filter(Boolean)
+    ));
+
+    const planByRequestId = new Map<string, string>();
+    if (requestIds.length > 0) {
+      const { data: payments, error: paymentsError } = await supabase
+        .from('payments')
+        .select('request_id, plan, created_at')
+        .in('request_id', requestIds)
+        .order('created_at', { ascending: false });
+
+      if (paymentsError) {
+        logWarn('[Admin] Falha ao carregar planos para músicas', { error: safeMessage(paymentsError) });
+      } else {
+        (payments || []).forEach(payment => {
+          if (payment.request_id && payment.plan && !planByRequestId.has(payment.request_id)) {
+            planByRequestId.set(payment.request_id, payment.plan);
+          }
+        });
+      }
+    }
+
+    const songsWithPlans = songs.map(song => ({
+      ...song,
+      song_requests: mapRelated(song.song_requests, requestData => ({
+        ...requestData,
+        plan: planByRequestId.get(requestData.id)
+      }))
+    }));
+
+    res.json({ success: true, songs: songsWithPlans });
   } catch (err: unknown) {
     logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });

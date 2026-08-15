@@ -103,14 +103,22 @@ function buildSupabaseMock(handlers: {
     eq: vi.fn().mockReturnValue({ in: vi.fn().mockResolvedValue({ error: null }) }),
   });
   const songsSelect = vi.fn();
-  const songsOrder = vi.fn().mockResolvedValue({ data: [{ id: SONG_ID, title: 'T', song_requests: [{ recipient_name: 'Ana', music_style: 'Semba', plan: 'standard' }] }], error: null });
+  const songsOrder = vi.fn().mockResolvedValue({ data: [{ id: SONG_ID, title: 'T', song_requests: [{ id: REQUEST_ID, recipient_name: 'Ana', music_style: 'Semba' }] }], error: null });
   songsSelect.mockReturnValue({ order: songsOrder });
+  const paymentsOrder = vi.fn().mockResolvedValue({ data: [{ request_id: REQUEST_ID, plan: 'standard', created_at: '2026-08-15T00:00:00Z' }], error: null });
+  const paymentsIn = vi.fn().mockReturnValue({ order: paymentsOrder });
+  const paymentsSelect = vi.fn().mockReturnValue({
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({ data: handlers.paymentSingle, error: null }),
+    in: paymentsIn,
+    order: paymentsOrder,
+  });
 
   const from = vi.fn((table: string) => {
     if (table === 'payments') {
       return {
         update: vi.fn().mockReturnThis(),
-        select: vi.fn().mockReturnThis(),
+        select: paymentsSelect,
         eq: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue({ data: handlers.paymentSingle, error: null }),
       };
@@ -130,7 +138,7 @@ function buildSupabaseMock(handlers: {
   });
 
   (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue({ from });
-  return { from, songRequestsUpdate, songsSelect, songsOrder };
+  return { from, songRequestsUpdate, songsSelect, songsOrder, paymentsSelect, paymentsIn, paymentsOrder };
 }
 
 beforeEach(() => {
@@ -243,9 +251,9 @@ describe('POST /api/admin/cron/deliver-pending', () => {
 });
 
 describe('GET /api/admin/songs', () => {
-  it('devolve músicas com plan aninhado para o filtro de plano funcionar', async () => {
+  it('devolve músicas com plan vindo de payments para o filtro de plano funcionar', async () => {
     const base = await startServer();
-    const { songsSelect } = buildSupabaseMock({ paymentSingle: null });
+    const { songsSelect, paymentsSelect, paymentsIn } = buildSupabaseMock({ paymentSingle: null });
 
     const res = await fetch(`${base}/api/admin/songs`, {
       headers: { Authorization: authHeader() },
@@ -257,6 +265,8 @@ describe('GET /api/admin/songs', () => {
     expect(body.songs?.[0]?.song_requests?.[0]?.plan).toBe('standard');
 
     const selectArg = songsSelect.mock.calls[0]?.[0] as string;
-    expect(selectArg).toContain('plan');
+    expect(selectArg).not.toContain('plan');
+    expect(paymentsSelect).toHaveBeenCalledWith('request_id, plan, created_at');
+    expect(paymentsIn).toHaveBeenCalledWith('request_id', [REQUEST_ID]);
   });
 });
