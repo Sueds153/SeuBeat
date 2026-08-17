@@ -20,7 +20,7 @@ export { generateLyricsWithGPT } from './openai';
 export { selectPrompt } from './prompts';
 export {
   generateValidationPhrase, waitForValidationPhrase,
-  createCustomVoice, waitForVoiceId, checkVoiceAvailability,
+  createCustomVoice, waitForVoiceId, checkVoiceAvailability, getValidationPhrase,
 } from './suno-voice';
 export {
   bucketForElapsed, bucketLabel, buildAbandonedMessage,

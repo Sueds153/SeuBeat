@@ -235,3 +235,24 @@ export const whatsappBulkLimiter = rateLimit({
     });
   }
 });
+
+/**
+ * Limiter para gerar a frase de validação de voz (consome créditos Suno Voice)
+ * 10 requests por hora por IP
+ */
+export const voiceValidationLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: {
+    success: false,
+    error: 'Demasiadas tentativas de validação de voz.'
+  },
+  skip: (req) => process.env.NODE_ENV !== 'production',
+  handler: (req, res) => {
+    logWarn('Voice validation rate limit exceeded', { ip: req.ip });
+    res.status(429).json({
+      success: false,
+      error: 'Demasiadas tentativas de validação de voz. Tente novamente mais tarde.'
+    });
+  }
+});

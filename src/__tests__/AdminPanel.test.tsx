@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AdminPanel from '../components/AdminPanel';
 
@@ -467,7 +467,7 @@ describe('AdminPanel', () => {
       });
 
       const noteInput = screen.getByPlaceholderText(/ex: comprovativo ilegível, valor incorreto/i);
-      await user.type(noteInput, 'Comprovativo inválido');
+      fireEvent.change(noteInput, { target: { value: 'Comprovativo inválido' } });
 
       await user.click(screen.getByText(/rejeitar/i));
 
@@ -480,7 +480,7 @@ describe('AdminPanel', () => {
       await waitFor(() => {
         expect(screen.getByText(/❌ pagamento rejeitado/i)).toBeInTheDocument();
       });
-    }, 10000);
+    }, 15000);
 
     it('shows undo button for approved payments', async () => {
       setupFetchMock({

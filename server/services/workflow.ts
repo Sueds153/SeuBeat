@@ -572,6 +572,10 @@ export async function rollbackSunoWorkflow(
   }
 }
 
+function normalizePhrase(phrase: string): string {
+  return phrase.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
 async function resolveVoiceSampleUrl(supabase: NonNullable<ReturnType<typeof getAdminSupabase>>, urlOrPath: string): Promise<string> {
   if (urlOrPath.startsWith('http')) return urlOrPath;
   // É um path de storage — gerar signed URL para download
@@ -591,7 +595,7 @@ export async function processSunoVoice(
   try {
     const { data: voiceRequestData, error: voiceReqError } = await supabase
       .from('song_requests')
-      .select('language')
+      .select('language, elevenlabs_voice_id')
       .eq('id', requestId)
       .single();
     if (voiceReqError || !voiceRequestData) {
@@ -624,31 +628,87 @@ export async function processSunoVoice(
     }
 
     logInfo(`[Suno Voice] Voice sample uploaded`, { requestId, publicVoiceUrl });
-    setProgress(requestId, { status: 'voice_processing', progress: 25, message: 'A gerar frase de validação...' });
+    setProgress(requestId, { status: 'voice_processing', progress: 25, message: 'A preparar validação da voz...' });
 
-    const langMap: Record<string, string> = {
-      'inglês': 'en',
-      'português': 'pt',
-      'kikongo': 'kg',
-      'lingala': 'ln',
-      'kimbundu': 'pt',
-      'umbundu': 'pt',
-    };
-    const voiceLang = langMap[voiceRequestData.language] || 'pt';
-    const validationResult = await generateValidationPhrase(publicVoiceUrl, 0, 30, voiceLang);
-    logInfo(`[Suno Voice] Validation task created`, { taskId: validationResult.taskId, requestId });
+    // Se o cliente já leu a frase de validação no wizard (validation_task_id),
+    // reutilizar essa task — a amostra aqui é a gravação da frase lida por ele.
+    let validationTaskId: string | null = null;
+    let storedPhrase: string | null = null;
+    try {
+      const storedVoice = typeof voiceRequestData.elevenlabs_voice_id === 'string'
+        ? JSON.parse(voiceRequestData.elevenlabs_voice_id)
+        : null;
+      if (storedVoice && typeof storedVoice.validation_task_id === 'string' && storedVoice.validation_task_id) {
+        validationTaskId = storedVoice.validation_task_id;
+        storedPhrase = typeof storedVoice.phrase === 'string' ? storedVoice.phrase : null;
+      }
+    } catch {
+      // JSON inválido — segue para o caminho de geração da frase
+    }
 
-    setProgress(requestId, { status: 'voice_processing', progress: 40, message: 'A aguardar frase de validação...' });
+    if (validationTaskId) {
+      // A task foi criada no wizard (frase que o cliente leu/gravou). Antes de a
+      // reutilizar, confirma que ainda é válida — se a API a tiver expirado, o
+      // createCustomVoice falharia; recupera gerando uma nova frase a partir da
+      // gravação do cliente (pode ser rejeitada se a gravação não contiver a
+      // frase nova, mas é a única via automática e degrada com elegância).
+      try {
+        const phraseCheck = await waitForValidationPhrase(validationTaskId, 5);
+        if (
+          storedPhrase &&
+          phraseCheck.validateInfo &&
+          normalizePhrase(phraseCheck.validateInfo) !== normalizePhrase(storedPhrase)
+        ) {
+          logWarn(`[Suno Voice] Task de validação não corresponde à frase gravada pelo cliente`, {
+            taskId: validationTaskId,
+            requestId,
+          });
+          throw new Error('task_phrase_mismatch');
+        }
+      } catch (verifyErr) {
+        logWarn(`[Suno Voice] Task de validação expirada/inválida — a tentar nova frase`, {
+          taskId: validationTaskId,
+          requestId,
+          error: verifyErr instanceof Error ? verifyErr.message : String(verifyErr),
+        });
+        validationTaskId = null;
+      }
+    }
 
-    // Step 2: Wait for validation phrase
-    const phraseResult = await waitForValidationPhrase(validationResult.taskId);
-    logInfo(`[Suno Voice] Validation phrase received`, { requestId });
+    if (validationTaskId) {
+      logInfo(`[Suno Voice] Reutilizando frase de validação do wizard`, { taskId: validationTaskId, requestId });
+      setProgress(requestId, { status: 'voice_processing', progress: 40, message: 'Frase de validação registada. A criar voz personalizada...' });
+    } else {
+      // Fallback legado + recuperação de task expirada: gera a frase a partir da
+      // amostra. Nota: se a task expirou, o cliente gravou a frase antiga e a API
+      // pode rejeitar a nova ("didn't sound like you said the phrase").
+      setProgress(requestId, { status: 'voice_processing', progress: 25, message: 'A gerar frase de validação...' });
+
+      const langMap: Record<string, string> = {
+        'inglês': 'en',
+        'português': 'pt',
+        'kikongo': 'kg',
+        'lingala': 'ln',
+        'kimbundu': 'pt',
+        'umbundu': 'pt',
+      };
+      const voiceLang = langMap[voiceRequestData.language] || 'pt';
+      const validationResult = await generateValidationPhrase(publicVoiceUrl, 0, 30, voiceLang);
+      logInfo(`[Suno Voice] Validation task created`, { taskId: validationResult.taskId, requestId });
+
+      setProgress(requestId, { status: 'voice_processing', progress: 40, message: 'A aguardar frase de validação...' });
+
+      // Step 2: Wait for validation phrase
+      const phraseResult = await waitForValidationPhrase(validationResult.taskId);
+      logInfo(`[Suno Voice] Validation phrase received`, { requestId });
+      validationTaskId = validationResult.taskId;
+    }
 
     setProgress(requestId, { status: 'voice_processing', progress: 55, message: 'A criar voz personalizada...' });
 
-    // Step 3: Create custom voice using the same audio as verification
+    // Step 3: Create custom voice using the phrase recording (verifyUrl)
     const voiceResult = await createCustomVoice(
-      validationResult.taskId,
+      validationTaskId,
       publicVoiceUrl,
       `SeuBeat_${requestId}`,
       'Custom voice from SeuBeat',

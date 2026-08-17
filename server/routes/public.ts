@@ -1,6 +1,11 @@
 import express from 'express';
 import { randomUUID } from 'node:crypto';
-import { getAdminSupabase, getPublicSupabase } from '../services/supabase';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { getAdminSupabase, getPublicSupabase, uploadToSupabase } from '../services/supabase';
+import { convertToWav } from '../services/audio';
+import { getValidationPhrase } from '../services/suno-voice';
 import { generateLyrics } from '../services/ai';
 import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification } from '../services/email';
 import { generateServerEventId } from '../services/metaPixelCapi';
@@ -28,7 +33,8 @@ import {
   paymentLimiter,
   paymentStatusLimiter,
   resumeDataLimiter,
-  recoverByEmailLimiter
+  recoverByEmailLimiter,
+  voiceValidationLimiter
 } from '../middleware/rateLimiter';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 
@@ -901,6 +907,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       songRequestId, userEmail, phone, plan, amount, 
       proofBase64, proofFilename, proofMimeType, 
       voiceSampleBase64, voiceSampleFilename, voiceSampleMimeType,
+      voiceValidationTaskId, voiceValidationPhrase,
       eventIds 
     } = req.body;
     const supabase = getAdminSupabase();
@@ -974,7 +981,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
     let voiceSampleUrl = null;
     if (voiceSampleBase64) {
       const resolvedVoiceMime = voiceSampleMimeType || 'audio/wav';
-      const ALLOWED_VOICE_MIMES = ['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/x-wav'];
+      const ALLOWED_VOICE_MIMES = ['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/x-wav', 'audio/webm'];
       if (!ALLOWED_VOICE_MIMES.includes(resolvedVoiceMime)) {
         return res.status(400).json({ success: false, error: 'Formato de áudio inválido. Apenas WAV, MP3, MP4 ou OGG.' });
       }
@@ -993,6 +1000,16 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
 
     const updateData: Record<string, unknown> = { status: 'payment_submitted' };
     if (voiceSampleUrl) updateData.voice_sample_url = voiceSampleUrl;
+    if (voiceSampleUrl && voiceValidationTaskId && typeof voiceValidationTaskId === 'string' && voiceValidationTaskId.trim()) {
+      // Task da frase de validação gerada no wizard — reutilizada pelo processSunoVoice
+      // para criar a voz a partir da gravação da frase (verifyUrl). A frase é guardada
+      // para contexto/verificação (identidade da task e recuperação manual pelo admin).
+      const voiceMeta: Record<string, string> = { validation_task_id: voiceValidationTaskId.trim() };
+      if (typeof voiceValidationPhrase === 'string' && voiceValidationPhrase.trim()) {
+        voiceMeta.phrase = voiceValidationPhrase.trim();
+      }
+      updateData.elevenlabs_voice_id = JSON.stringify(voiceMeta);
+    }
     const { error: requestUpdateError } = await supabase
       .from('song_requests')
       .update(updateData)
@@ -1088,6 +1105,82 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       plan: req.body?.plan
     });
     res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+// Normaliza o idioma escolhido no wizard para o código aceite pela Suno Voice.
+function voiceLangFor(language: unknown): string {
+  const langMap: Record<string, string> = {
+    'inglês': 'en',
+    'português': 'pt',
+    'kikongo': 'kg',
+    'lingala': 'ln',
+    'kimbundu': 'pt',
+    'umbundu': 'pt',
+  };
+  return langMap[String(language || 'português').trim().toLowerCase()] || 'pt';
+}
+
+// Gera a frase de validação de voz a partir da amostra do cliente. O texto
+// devolvido (phrase) é o que o cliente deve ler/gravar; a gravação dessa frase
+// é submetida no pagamento como voiceSample + voiceValidationTaskId.
+router.post('/song/voice/validation-phrase', voiceValidationLimiter, async (req, res) => {
+  const tempFiles: string[] = [];
+  try {
+    const { voiceSampleBase64, voiceSampleMimeType, language } = req.body;
+    if (!voiceSampleBase64 || typeof voiceSampleBase64 !== 'string') {
+      return res.status(400).json({ success: false, error: 'Amostra de voz em falta.' });
+    }
+
+    const resolvedMime = voiceSampleMimeType || 'audio/wav';
+    const ALLOWED_VOICE_MIMES = ['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/x-wav', 'audio/webm'];
+    if (!ALLOWED_VOICE_MIMES.includes(resolvedMime)) {
+      return res.status(400).json({ success: false, error: 'Formato de áudio inválido. Apenas WAV, MP3, MP4 ou OGG.' });
+    }
+
+    const voiceBuffer = decodeBase64Payload(voiceSampleBase64);
+    if (voiceBuffer.length > 5 * 1024 * 1024) {
+      return res.status(400).json({ success: false, error: 'Amostra de voz demasiado grande. Máx. 5MB.' });
+    }
+    if (voiceBuffer.length < 1024) {
+      return res.status(400).json({ success: false, error: 'Amostra de voz demasiado pequena. Grava pelo menos 3 segundos.' });
+    }
+
+    const token = randomUUID();
+    const tempSamplePath = path.join(os.tmpdir(), `${token}_sample`);
+    const tempWavPath = path.join(os.tmpdir(), `${token}_converted.wav`);
+    tempFiles.push(tempSamplePath, tempWavPath);
+
+    fs.writeFileSync(tempSamplePath, voiceBuffer);
+    await convertToWav(tempSamplePath, tempWavPath);
+
+    const publicFilename = `sunovoice/phrase_${token}.wav`;
+    const publicVoiceUrl = await uploadToSupabase('preview', publicFilename, tempWavPath, 'audio/wav');
+    if (!publicVoiceUrl) {
+      throw new Error('Falha ao publicar a amostra de voz para validação.');
+    }
+
+    logInfo('[Suno Voice] Gerando frase de validação', {
+      mime: resolvedMime,
+      bytes: voiceBuffer.length,
+      language
+    });
+
+    const { taskId, phrase } = await getValidationPhrase(publicVoiceUrl, voiceLangFor(language));
+
+    res.json({ success: true, data: { phrase, validationTaskId: taskId } });
+  } catch (err: unknown) {
+    logRouteError(req, err, { language: req.body?.language });
+    res.status(500).json({
+      success: false,
+      error: err instanceof Error && /Suno Voice/.test(err.message)
+        ? 'Não foi possível gerar a frase de validação neste momento. Tenta novamente.'
+        : safeMessage(err)
+    });
+  } finally {
+    for (const f of tempFiles) {
+      try { fs.unlinkSync(f); } catch {}
+    }
   }
 });
 

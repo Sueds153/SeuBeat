@@ -146,6 +146,26 @@ export async function waitForValidationPhrase(taskId: string, maxAttempts = 30):
   throw new Error(`Suno Voice validation phrase not ready after ${maxAttempts} attempts`);
 }
 
+export interface ValidationPhraseResult {
+  taskId: string;
+  phrase: string;
+}
+
+/**
+ * Gera a frase de validação a partir da amostra de voz e devolve o texto
+ * (`validateInfo`) que o cliente deve ler/gravar para criar a voz personalizada.
+ * O `taskId` devolvido deve ser reutilizado no createCustomVoice com a
+ * gravação da frase como `verifyUrl`.
+ */
+export async function getValidationPhrase(voiceUrl: string, language = 'pt'): Promise<ValidationPhraseResult> {
+  const validationResult = await generateValidationPhrase(voiceUrl, 0, 30, language);
+  const phraseResult = await waitForValidationPhrase(validationResult.taskId);
+  if (!phraseResult.validateInfo) {
+    throw new Error('Suno Voice: frase de validação não recebida.');
+  }
+  return { taskId: validationResult.taskId, phrase: phraseResult.validateInfo };
+}
+
 export async function createCustomVoice(
   validationTaskId: string,
   verifyUrl: string,

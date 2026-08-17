@@ -90,6 +90,12 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - **Auditoria de catches silenciosos (13/Ago 2026)**: todos os `catch` que devolviam 500 sem log em `public.ts` (`/submit-payment`, `/payment-status`, `/latest-song`) e `admin.ts` (~33 rotas) agora registam o erro com contexto via novo `logRouteError(req, err, extra)` (`server/utils/helpers.ts`) — método + URL + mensagem legível (extrai `.message` de objetos do Supabase, que não são `instanceof Error`). Bónus no `submit-payment`: se o `INSERT` em `payments` falhar (ex.: UNIQUE por race de duplo clique), o `song_requests.status` é **revertido** para o estado anterior em vez de ficar corrompido em `payment_submitted`. +1 teste (`submit-payment` 3→4).
 - **Preview do comprovativo antes de submeter (Wizard)**: o upload deixou de auto-submeter ao selecionar — agora mostra pré-visualização (thumbnail da imagem, ou cartão com nome para PDF) + tamanho/nome do ficheiro, com botões "Remover" e **"Confirmar e Enviar Comprovativo"** (texto exato esperado pelo E2E `full-flow.spec.ts`). `clearProof()` revoga o object URL; preview limpo em sucesso/409/rejeição. Reduce submissões de comprovativos errados (causa de rejeições + retrabalho manual).
 - **Bugfix: auto-delivery da página sem `delivered_at`**: o `GET /api/song/:id` (public.ts:654) entregava com `{status:'delivered', deliver_at:null}` mas sem `delivered_at`, ao contrário do scheduler (`deliveryScheduler.ts`). Como o `followUpScheduler` exige `delivered_at` not null, entregas via página nunca disparavam follow-ups 7d/30d. Fix de 1 linha: adicionado `delivered_at: new Date().toISOString()` ao update (guard `.eq('status','approved')` mantém idempotência). Backfill manual em produção para o pedido do leitao12 (`8c7092c2-a13c-4e91-875c-ce9a807aa755`, `delivered_at` = 12/Ago 22:24). Nota residual: force-status do admin para `delivered` também não preenche `delivered_at` (fora de scope).
+- **Clonagem de voz Premium funcional (17/Ago 2026)**: em produção a voz nunca era realmente clonada — 3/3 falhas (`{"failed":true}`, `"It didn't sound like you said the phrase"`): a API sunoapi.org rejeita amostras que não contenham a frase de validação gerada, e o cliente nunca lia a frase. Fix completo:
+  - **Novo endpoint `POST /api/song/voice/validation-phrase`** (`voiceValidationLimiter`, 10 req/hora/IP) — valida mime (`audio/wav|mpeg|mp4|ogg|webm|x-wav`) e tamanho (≥1KB, ≤5MB), converte com `convertToWav`, publica em `preview/sunovoice/phrase_<uuid>.wav` e chama `getValidationPhrase` (novo helper em `suno-voice.ts`: `generateValidationPhrase` + `waitForValidationPhrase` → `{taskId, phrase}`). Idioma do wizard mapeado via `voiceLangFor` (Português/Kimbundu/UmBundu→`pt`, Inglês→`en`, Kikongo→`kg`, Lingala→`ln`).
+  - **Wizard com 2 passos**: PASSO 1 grava amostra livre (20s) → botão "Gerar Frase de Validação" → PASSO 2 mostra a frase e o cliente grava-a (de preferência a cantar); `phraseRecorded` destrava o botão de prosseguir; `voiceValidationTaskId` enviado no corpo do `submit-payment`.
+  - **`submit-payment`** guarda `elevenlabs_voice_id = {"validation_task_id": ..., "phrase": ...}` (frase para contexto/verificação); **`processSunoVoice`** reutiliza a task e usa a gravação da frase como `verifyUrl` (fallback legado mantido quando não há task). Nova amostra após gravação da frase invalida frase/task (`wasPhraseActive` no `onstop`).
+  - **Endurecimento expiração da task (17/Ago)**: antes de reutilizar a `validation_task_id` do wizard, `processSunoVoice` pré-verifica com `waitForValidationPhrase(taskId, 5)` — se a task expirou/inválida OU a frase devolvida não bate com a gravada (comparação normalizada), descarta e cai no fallback "frase nova" (gera nova frase a partir da gravação; a API pode rejeitar se a gravação não contiver a frase nova — degradação controlada com `{"failed":true}`). Nota de design: um fallback cego para "frase nova" quando a task está viva nunca bateria com a gravação (cliente leu a frase antiga) — por isso a pré-verificação é o gate. `ALLOWED_VOICE_MIMES` do submit-payment alinhado com o endpoint de validação (inclui `audio/webm`).
+  - Testes: `server/__tests__/voice-validation-phrase.test.ts` (5), `process-suno-voice.test.ts` (5: reutilização com pré-verificação, fallback legado, falha→degradação, task expirada→frase nova, frase não corresponde→descarta), `submit-payment.test.ts` (6, com frase guardada). Suite completa **310 testes** (30 ficheiros) — todos passam em run paralelo; `tsc --noEmit`/lint passam.
 
 ## AI Providers (Ordem de fallback)
 1. **DeepSeek** (`deepseek-v4-flash`) — tentado primeiro (mais barato, pré-pago)
@@ -121,7 +127,8 @@ Todas as 4 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - **CI corre em ubuntu-latest com Node 22**, npm ci, lint, test.
 
 ## Testes
-- **293 testes**, 26 ficheiros — todos passam (vitest + jsdom; 2 do AdminPanel podem dar timeout em run paralelo pesado, passam isolados).- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (25), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (11), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (5), aiShared (14), helpers (5), workflow-rollback (8), abandoned-messages (22), abandoned-whatsapp-route (8), whatsapp-cloud (21), uuid (5), aiFailure (6), failed-lyrics-recovery (10), admin-regenerate (3), submit-payment (4), abandoned-scheduler (10), deepseek (5), admin-fixes (7).
+- **310 testes**, 30 ficheiros — todos passam em run paralelo (~47s).- Distribuição: validation (21), email-utils (15), suno-utils (20), AdminPanel (26), validation-frontend (20), SongPlayer (8), metaPixel (20), song-api (11), useAudioPlayer (4), smoke (1), metaPixelCapi (2), ai (5), aiShared (14), helpers (5), workflow-rollback (8), abandoned-messages (22), abandoned-whatsapp-route (8), whatsapp-cloud (21), uuid (5), aiFailure (6), failed-lyrics-recovery (10), admin-regenerate (3), submit-payment (6), abandoned-scheduler (10), deepseek (5), admin-fixes (7), voice-validation-phrase (5), process-suno-voice (5).
+- **Bugfix teste flaky (17/Ago)**: "shows confirmation dialog before rejecting payment" (AdminPanel) dava timeout (>10s) em run paralelo pesado — `user.type` com 20 teclas re-renderizava o AdminPanel inteiro a cada keystroke (`rejectNotes` é estado top-level); substituído por um único `fireEvent.change` (uma re-render) + timeout 15000ms. Teste passou de ~5.7s → ~1.1s; suite completa passou a **308/308** e ficou mais rápida (126s → 47s).
 - **Playwright E2E**: 13 testes (landing, wizard, dedication, admin).
 
 ## Security Advisor (10/Ago 2026) — resolvido (11→1 lint)
@@ -165,8 +172,7 @@ Todas as 4 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 3. **Monitorizar métricas do funil de conversão** — recuperação de abandonados ativa em produção; acompanhar taxa de resume (`payment_screen` vs. `resume-data` hits) e conversão pós-lembrete.
 
 ## Critical Context
-- **250 testes passam sempre** após cada mudança (vitest).
-- **Supabase**: `service_role` key usada apenas onde necessário (admin routes, auth.admin.*, workflows, signed URLs). Anon key usada no endpoint público de dedicatória.
+- **250 testes passam sempre** após cada mudança (vitest).- **Supabase**: `service_role` key usada apenas onde necessário (admin routes, auth.admin.*, workflows, signed URLs). Anon key usada no endpoint público de dedicatória.
 - **AI providers**: OpenAI + Gemini + Claude configurados. Fallback automático se um falhar.
 - **Suno**: API key configurada, 500+ créditos. `deliveryScheduler.ts` para entregas Standard.
 - **Render** faz auto-deploy a cada push no `main`.
@@ -185,9 +191,10 @@ Todas as 4 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - `server/utils/aiFailure.ts`: `allFailuresTransient` + `LYRIC_GENERATION_QUEUED_MESSAGE` (503 amigável).
 - `server/routes/admin.ts`: painel admin + aprovação/rejeição + cron + `POST /request/:id/regenerate-lyrics`.
 - `server/services/suno.ts`: `querySunoTask`, `pollSunoTask`, `FAILED_STATUSES`, `extractAudioUrl`.
-- `server/services/audio.ts`: `getAudioDuration`, `getAudioDurationFfmpeg` (stderr do ffmpeg), `applyFades`.
+- `server/services/audio.ts`: `getAudioDuration`, `getAudioDurationFfmpeg` (stderr do ffmpeg), `applyFades`, `convertToWav`.
+- `server/services/suno-voice.ts`: `getValidationPhrase` (frase + `validationTaskId` via sunoapi.org), `createCustomVoice`, `waitForVoiceId`, `checkVoiceAvailability`.
 - `server/services/aiShared.ts`: shared utils de retry, extractJSON, validateComposition.
-- `server/routes/public.ts`: rotas públicas (wizard, pagamento, dedicatória, `GET /song/resume-data/:requestId`).
+- `server/routes/public.ts`: rotas públicas (wizard, pagamento, dedicatória, `GET /song/resume-data/:requestId`, `POST /song/voice/validation-phrase`).
 - `server/middleware/security.ts`: Helmet, CORS, logger.
 - `server/middleware/adminIpRestriction.ts`: IP whitelist opcional.
 - `server/utils/audit.ts`: log de acções admin para undo.
@@ -196,9 +203,11 @@ Todas as 4 chaves estão configuradas no `.env`. Se uma falha (ex: sem créditos
 - `server/__tests__/failed-lyrics-recovery.test.ts`: 10 testes do `processFailedLyricsRecovery` (claim one-shot, dedupe, janela 48h).
 - `server/__tests__/admin-regenerate.test.ts`: 3 testes do `POST /request/:id/regenerate-lyrics`.
 - `server/__tests__/aiFailure.test.ts`: 6 testes do `allFailuresTransient`.
-- `server/__tests__/submit-payment.test.ts`: 4 testes do guard anti-rebaixamento + rollback do `POST /submit-payment`.
+- `server/__tests__/submit-payment.test.ts`: 6 testes do guard anti-rebaixamento + rollback + `validation_task_id`/frase do `POST /submit-payment`.
 - `server/__tests__/abandoned-scheduler.test.ts`: 10 testes do scheduler WhatsApp (`checkPaymentStatus` não-pagante→envia/aprovado→não envia, dedupe por flag, isolamento email/WhatsApp).
 - `server/__tests__/whatsapp-cloud.test.ts`: 21 testes do `sendAbandonedWhatsApp` (janela, cap, sem telefone, sent, failed, unconfigured).
+- `server/__tests__/voice-validation-phrase.test.ts`: 5 testes do `POST /song/voice/validation-phrase` (validação mime/tamanho, `getValidationPhrase`, `voiceLangFor`).
+- `server/__tests__/process-suno-voice.test.ts`: 5 testes do `processSunoVoice` (reutilização da task com pré-verificação `waitForValidationPhrase`, fallback legado, falha→degradação, task expirada→frase nova, frase não corresponde→descarta).
 - `supabase_setup.sql`: Setup SQL original **desatualizado** face ao schema real.
 - `supabase_migration_email_events_request_id_idx.sql`: Migration com `idx_email_events_request_id` (aplicada em produção).
 - `supabase_migration_scheduler.sql`: Migration com `deliver_at`, `delivered_at`, `deleted_at`, índice.

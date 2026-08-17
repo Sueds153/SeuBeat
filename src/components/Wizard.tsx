@@ -273,6 +273,11 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   const [hasRecorded, setHasRecorded] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [clonedVoiceFile, setClonedVoiceFile] = useState<File | null>(null);
+  const [validationPhrase, setValidationPhrase] = useState<string | null>(null);
+  const [validationTaskId, setValidationTaskId] = useState<string | null>(null);
+  const [phraseRecorded, setPhraseRecorded] = useState(false);
+  const [validationLoading, setValidationLoading] = useState(false);
+  const [validationError, setValidationError] = useState('');
   const [copiedText, setCopiedText] = useState<'entidade' | 'referencia' | 'link' | null>(null);
   const [isDone, setIsDone] = useState(() => {
     try {
@@ -600,6 +605,8 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
   const proofMountedRef = useRef(true);
   useEffect(() => { proofMountedRef.current = true; return () => { proofMountedRef.current = false; }; }, []);
+  const voiceValidationMountedRef = useRef(true);
+  useEffect(() => { voiceValidationMountedRef.current = true; return () => { voiceValidationMountedRef.current = false; }; }, []);
 
   // Resume via /wizard?resume=<requestId> — reconstrói o wizard com a letra já gerada
   useEffect(() => {
@@ -732,6 +739,8 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
                 voiceSampleBase64: voiceStr,
                 voiceSampleFilename: voiceName,
                 voiceSampleMimeType: voiceType,
+                voiceValidationTaskId: validationTaskId,
+                voiceValidationPhrase: validationPhrase,
                 eventIds: {
                   initiateCheckout: checkoutEventId,
                   addPaymentInfo: addPaymentEventId,
@@ -807,6 +816,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      const wasPhraseActive = validationPhrase !== null;
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -820,12 +830,26 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           showToast('Nenhum áudio captado. Tente novamente com o microfone ligado.', 'error');
           setClonedVoiceFile(null);
           setHasRecorded(false);
+          if (!wasPhraseActive) {
+            setValidationPhrase(null);
+            setValidationTaskId(null);
+            setValidationError('');
+            setPhraseRecorded(false);
+          }
           stream.getTracks().forEach(track => track.stop());
           return;
         }
         const file = new File([audioBlob], 'sample_vocal.wav', { type: 'audio/wav' });
         setClonedVoiceFile(file);
         setHasRecorded(true);
+        if (wasPhraseActive) {
+          setPhraseRecorded(true);
+        } else {
+          setValidationPhrase(null);
+          setValidationTaskId(null);
+          setValidationError('');
+          setPhraseRecorded(false);
+        }
         stream.getTracks().forEach(track => track.stop());
       };
 
@@ -844,6 +868,57 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
+  };
+
+  const generateValidationPhrase = async () => {
+    if (!clonedVoiceFile) {
+      showToast('Grave primeiro a amostra de voz.', 'error');
+      return;
+    }
+    setValidationLoading(true);
+    setValidationError('');
+    setValidationPhrase(null);
+    setValidationTaskId(null);
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      if (!voiceValidationMountedRef.current) { setValidationLoading(false); return; }
+      const voiceBase64 = reader.result as string;
+      try {
+        const res = await fetch('/api/song/voice/validation-phrase', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            voiceSampleBase64: voiceBase64,
+            voiceSampleFilename: clonedVoiceFile.name,
+            voiceSampleMimeType: clonedVoiceFile.type || 'audio/wav',
+            language: formData.language || 'Português'
+          })
+        });
+        const data = await res.json();
+        if (!voiceValidationMountedRef.current) return;
+        if (res.ok && data.success && data.data?.phrase && data.data?.validationTaskId) {
+          setValidationPhrase(data.data.phrase);
+          setValidationTaskId(data.data.validationTaskId);
+          setPhraseRecorded(false);
+        } else {
+          setValidationError(data.error || 'Não foi possível gerar a frase de validação. Tenta novamente.');
+        }
+      } catch {
+        if (voiceValidationMountedRef.current) {
+          setValidationError('Não foi possível contactar o servidor. Verifica a ligação e tenta novamente.');
+        }
+      } finally {
+        if (voiceValidationMountedRef.current) setValidationLoading(false);
+      }
+    };
+    reader.onerror = () => {
+      if (voiceValidationMountedRef.current) {
+        setValidationError('Erro ao ler o ficheiro de áudio.');
+        setValidationLoading(false);
+      }
+    };
+    reader.readAsDataURL(clonedVoiceFile);
   };
 
   
@@ -2095,7 +2170,7 @@ const ROTATING_MESSAGES = [
                 </div>
               </div>
               <p className="text-[10px] text-stone-500 flex items-center gap-1">
-                <Check className="w-3 h-3 text-purple-400 shrink-0" /> Inclui: voz clonada, dueto, carta narrada, entrega imediata
+                <Check className="w-3 h-3 text-purple-400 shrink-0" /> Inclui: voz personalizada, dueto e entrega imediata
               </p>
               <p className="text-[10px] text-stone-500 text-center pt-1">
                 <button
@@ -2156,9 +2231,10 @@ const ROTATING_MESSAGES = [
         {/* -------------------- ECRÃ 3: UPSELL INLINE (VOZ CLONADA) -------------------- */}
         {!isSubmitting && generationStatus === 'lyrics_ready' && !isDone && !showVoiceCloningScreen && showUpsellModal && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="max-w-lg mx-auto w-full space-y-6 py-6"
+            initial={{ opacity: 0, y: 14, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+            className="max-w-md mx-auto w-full space-y-4 py-4 sm:py-6"
           >
             {/* Back link */}
             <button
@@ -2171,64 +2247,82 @@ const ROTATING_MESSAGES = [
 
             {/* Badge */}
             <div className="flex justify-center">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-mono font-bold uppercase rounded-full tracking-wider shadow-sm">
-                <Sparkles className="w-3 h-3 animate-pulse" /> UPGRADE EXCLUSIVO
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/25 text-amber-400 text-[10px] font-mono font-bold uppercase rounded-full tracking-wider shadow-sm">
+                <Sparkles className="w-3 h-3 animate-pulse" /> Upgrade emocional
               </span>
             </div>
 
             {/* Title */}
-            <div className="text-center space-y-2">
-              <h3 className="font-serif text-2xl md:text-3xl font-black text-stone-100 tracking-tight">
-                Queres ir mais longe? 🎙️
+            <div className="text-center space-y-2 px-1">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.12, duration: 0.32 }}
+                className="mx-auto w-14 h-14 rounded-full bg-gradient-to-br from-amber-400 to-rose-600 shadow-lg shadow-amber-500/20 flex items-center justify-center relative"
+              >
+                <Mic className="w-6 h-6 text-stone-950" />
+                <span className="absolute inset-0 rounded-full border border-amber-300/70 animate-ping" />
+              </motion.div>
+              <h3 className="font-serif text-2xl sm:text-3xl font-black text-stone-100 tracking-tight leading-tight">
+                Ela vai reconhecer a tua voz.
               </h3>
-              <p className="text-stone-400 text-xs md:text-sm max-w-sm mx-auto leading-relaxed">
-                A <strong className="text-amber-400">{formData.recipientName}</strong> vai ouvir a <strong className="text-stone-200">tua voz</strong> a cantar para ela. Lágrima garantida.
+              <p className="text-stone-400 text-xs sm:text-sm max-w-xs mx-auto leading-relaxed">
+                Não será só uma música bonita. Será <strong className="text-amber-400">a tua voz</strong> a cantar para <strong className="text-stone-200">{formData.recipientName || 'ela'}</strong>.
               </p>
             </div>
 
             {/* Voice comparison */}
-            <div className="bg-stone-950/80 p-4 rounded-2xl border border-stone-850 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-stone-900/50 p-3 rounded-xl border border-stone-800">
-                  <span className="text-[10px] text-stone-500 font-mono">OPÇÃO PADRÃO</span>
-                  <span className="text-xxs text-stone-500 font-sans italic bg-stone-950 px-1.5 py-0.5 rounded border border-stone-900 ml-1.5">Incluído</span>
-                  <h4 className="text-xs font-semibold text-stone-300 mt-1">Voz Inteligente</h4>
-                  <p className="text-[10px] text-stone-500 leading-snug">Timbre estúdio predefinido de alta qualidade.</p>
-                </div>
-                <div className="bg-amber-500/[0.04] p-3 rounded-xl border-2 border-amber-500/50 relative overflow-hidden">
-                  <span className="text-[10px] text-amber-400 font-mono font-bold">RECOMENDADO</span>
-                  <div className="absolute top-0 right-0 w-8 h-8 bg-amber-500/10 rounded-bl-full flex items-center justify-center">
-                    <Check className="w-3.5 h-3.5 text-amber-400" />
-                  </div>
-                  <h4 className="text-xs font-bold text-amber-300 mt-1">Sua Voz de Estúdio</h4>
-                  <p className="text-[10px] text-amber-400 leading-snug">Usa o seu tom e expressão de verdade.</p>
-                </div>
+            <div className="bg-stone-950/80 p-4 rounded-2xl border border-amber-500/20 space-y-4 shadow-2xl shadow-amber-950/20 overflow-hidden relative">
+              <motion.div
+                aria-hidden="true"
+                initial={{ x: '-80%', opacity: 0 }}
+                animate={{ x: '120%', opacity: [0, 0.28, 0] }}
+                transition={{ delay: 0.2, duration: 1.5, ease: 'easeOut' }}
+                className="absolute top-0 h-px w-2/3 bg-gradient-to-r from-transparent via-amber-300 to-transparent"
+              />
+
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  ['A tua voz', 'na música'],
+                  ['Mais emoção', 'e impacto'],
+                  ['Grava rápido', 'cerca de 1 min']
+                ].map(([title, subtitle], index) => (
+                  <motion.div
+                    key={title}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.18 + index * 0.08, duration: 0.28 }}
+                    className="min-h-20 bg-stone-900/60 p-2.5 rounded-xl border border-stone-800 flex flex-col items-center justify-center text-center"
+                  >
+                    <Check className="w-4 h-4 text-emerald-400 mb-1.5 shrink-0" />
+                    <span className="text-[10px] font-black text-stone-200 leading-tight">{title}</span>
+                    <span className="text-[9px] text-stone-500 leading-tight">{subtitle}</span>
+                  </motion.div>
+                ))}
               </div>
 
-              <span className="text-[9px] text-stone-500 font-mono tracking-widest uppercase block border-b border-stone-900 pb-1.5">PORQUE ADICIONAR ESTE UPGRADE?</span>
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-stone-400 font-medium">
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Fator surpresa inigualável</li>
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Garantia de fortes lágrimas</li>
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Grave em 20 seg pelo telefone</li>
-                <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Carta narrada incluída</li>
-              </ul>
-
-              <div className="flex items-center justify-between p-3 bg-amber-500/5 rounded-xl border border-amber-500/20">
-                <div className="text-left">
-                  <span className="text-xs text-stone-400 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Total com Voz Clonada:
+              <div className="grid grid-cols-[1fr_auto] gap-3 items-center p-3 bg-amber-500/5 rounded-xl border border-amber-500/20">
+                <div className="text-left min-w-0">
+                  <span className="text-xs text-stone-300 font-bold flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Voz personalizada
                   </span>
-                  <span className="text-[10px] text-stone-500 font-mono block">{selectedPlanID === 'standard' ? 'Standard 7.900 + Voz 5.000' : 'Express 9.900 + Voz 5.000'}</span>
+                  <span className="text-[10px] text-stone-500 font-mono block truncate">
+                    {selectedPlanID === 'standard' ? '+7.000 Kz sobre Standard' : '+5.000 Kz sobre Express'}
+                  </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-lg font-black text-amber-400 font-mono block">14.900 Kz</span>
-                  <span className="text-[9px] text-stone-500 font-mono uppercase">Kwanza Angola</span>
+                  <span className="text-lg font-black text-amber-400 font-mono block leading-none">14.900 Kz</span>
+                  <span className="text-[9px] text-stone-500 font-mono uppercase">total</span>
                 </div>
               </div>
+
+              <p className="text-center text-[10px] text-stone-500 leading-relaxed">
+                Leva cerca de 1 minuto: gravas uma amostra curta e uma frase de validação.
+              </p>
             </div>
 
             {/* Actions */}
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <button
                 id="upsell-accept-btn"
                 onClick={() => {
@@ -2238,10 +2332,10 @@ const ROTATING_MESSAGES = [
                   setShowVoiceCloningScreen(true);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="w-full py-4 bg-gradient-to-r from-amber-500 via-amber-400 to-rose-600 text-stone-950 font-black text-xs md:text-sm rounded-2xl hover:opacity-95 active:scale-[0.98] transition-all cursor-pointer uppercase tracking-wider shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+                className="w-full min-h-14 px-4 py-4 bg-gradient-to-r from-amber-500 via-amber-400 to-rose-600 text-stone-950 font-black text-xs sm:text-sm rounded-2xl hover:opacity-95 active:scale-[0.98] transition-all cursor-pointer uppercase tracking-wide shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
               >
                 <Mic className="w-4 h-4" />
-                <span>Quero a Música Cantada pela Minha Voz — 14.900 Kz</span>
+                <span>Sim, quero a minha voz</span>
               </button>
 
               <button
@@ -2252,14 +2346,14 @@ const ROTATING_MESSAGES = [
                   setIsDone(true);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="w-full py-3 text-stone-500 hover:text-stone-300 font-semibold text-xs rounded-xl hover:bg-stone-900/40 transition-colors cursor-pointer"
+                className="w-full min-h-11 px-4 py-3 text-stone-500 hover:text-stone-300 font-semibold text-xs rounded-xl hover:bg-stone-900/40 transition-colors cursor-pointer"
               >
-                Não obrigado, usar {selectedPlanID === 'standard' ? 'Standard' : 'Express'} sem voz clonada
+                Continuar sem voz personalizada
               </button>
             </div>
 
             <div className="text-[9px] text-stone-600 font-mono tracking-wide text-center">
-              <Lock className="w-3 h-3 inline" /> Seguro & Protegido · Devolução 100% caso não goste do resultado
+              <Lock className="w-3 h-3 inline" /> Seguro · Satisfação ou reembolso
             </div>
           </motion.div>
         )}
@@ -2299,9 +2393,10 @@ const ROTATING_MESSAGES = [
 
             {/* Instruction Cue / Calibration text block */}
             <div className="bg-stone-950 p-5 rounded-2xl border border-stone-850 text-left space-y-3">
-              <span className="text-[9px] text-amber-500 font-mono uppercase tracking-wider block">TEXTO DE CALIBRAÇÃO (LEIA EM VOZ ALTA):</span>
+              <span className="text-[9px] text-amber-500 font-mono uppercase tracking-wider block">PASSO 1 · GRAVE LIVREMENTE (20 SEGUNDOS):</span>
               <p className="text-stone-100 text-xs md:text-sm leading-relaxed italic border-l-2 border-amber-500 pl-3 font-medium py-1">
-                "Eu, <strong className="text-white text-sans underline decoration-amber-500/60 font-bold">{formData.email ? formData.email.split('@')[0] : 'Artista'}</strong>, dou autorização ao estúdio SeuBeat para usar a gravação do meu timbre de voz de modo a criar esta canção de amor e emoção dedicada a <strong className="text-amber-400">{formData.recipientName || 'alguém especial'}</strong>."
+                Fale de forma calma e natural durante 20 segundos — qualquer frase ou trecho serve.
+                No passo seguinte vamos pedir-te para <strong className="text-amber-400">gravar uma frase específica</strong> (de preferência a cantar) para validarmos o teu timbre.
               </p>
               <span className="text-[9.5px] text-stone-500 font-mono block">Dica: Fale de forma calma, clara e natural, mantendo o telefone ou microfone próximo.</span>
             </div>
@@ -2345,7 +2440,7 @@ const ROTATING_MESSAGES = [
                       <span>GRAVAÇÃO EM CURSO • 0:{(recordingSeconds < 10 ? '0' : '') + recordingSeconds}s</span>
                     </div>
                   ) : hasRecorded ? (
-                    <span className="text-emerald-500 text-xs font-bold">🎙️ AMOSTRA GRAVADA COM SUCESSO! (0:{recordingSeconds}s)</span>
+                    <span className="text-emerald-500 text-xs font-bold">{validationPhrase && phraseRecorded ? '🎙️ FRASE DE VALIDAÇÃO GRAVADA!' : validationPhrase ? '🎙️ FRASE GERADA — GRAVE-A AGORA!' : '🎙️ AMOSTRA GRAVADA COM SUCESSO!'} (0:{recordingSeconds}s)</span>
                   ) : (
                     <span className="text-stone-500 text-xs">Microfone de Gravação Pronto</span>
                   )}
@@ -2384,12 +2479,12 @@ const ROTATING_MESSAGES = [
                       className="px-5 py-3 bg-stone-950 border border-stone-850 hover:bg-stone-900 text-stone-400 hover:text-stone-250 font-semibold text-xs rounded-xl flex items-center gap-2 justify-center transition-all cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5 animate-[spin_3s_linear_infinite]" />
-                      <span>Gravar Novamente</span>
+                      <span>{validationPhrase ? 'Gravar Frase de Validação' : 'Gravar Novamente'}</span>
                     </button>
 
                     <div className="bg-stone-950/80 px-4 py-2.5 rounded-xl border border-stone-850 flex items-center gap-2 justify-center text-xs font-mono text-emerald-400">
                       <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                      <span>amostra_vocal_clonada.wav</span>
+                      <span>{validationPhrase ? 'frase_de_validacao.wav' : 'amostra_vocal_clonada.wav'}</span>
                     </div>
                   </div>
                 )}
@@ -2415,6 +2510,10 @@ const ROTATING_MESSAGES = [
                           setClonedVoiceFile(file);
                           setHasRecorded(true);
                           setRecordingSeconds(18);
+                          setValidationPhrase(null);
+                          setValidationTaskId(null);
+                          setValidationError('');
+                          setPhraseRecorded(false);
                         }
                       }}
                     />
@@ -2430,6 +2529,86 @@ const ROTATING_MESSAGES = [
 
             </div>
 
+            {/* Validação de voz — frase gerada pelo servidor para o cliente ler */}
+            <div className="bg-stone-950 p-5 rounded-2xl border border-amber-900/30 text-left space-y-3">
+              <span className="text-[9px] text-amber-500 font-mono uppercase tracking-wider block">PASSO 2 · VALIDAÇÃO DA VOZ</span>
+
+              {!validationPhrase && !validationLoading && (
+                <>
+                  <p className="text-stone-400 text-xs leading-relaxed">
+                    Vamos gerar uma <strong className="text-stone-200">frase de validação</strong> a partir da tua amostra.
+                    Depois terás de gravar <strong className="text-stone-200">essa mesma frase</strong> (de preferência a cantar)
+                    para confirmarmos que o timbre é teu.
+                  </p>
+                  <button
+                    id="generate-phrase-btn"
+                    onClick={generateValidationPhrase}
+                    disabled={!hasRecorded || validationLoading}
+                    className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                      hasRecorded
+                        ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30'
+                        : 'bg-stone-850 border border-stone-800 text-stone-500 opacity-60 cursor-not-allowed'
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Gerar Frase de Validação</span>
+                  </button>
+                </>
+              )}
+
+              {validationLoading && (
+                <div className="text-stone-400 text-xs flex items-center gap-2 font-mono">
+                  <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
+                  <span>A gerar a frase de validação... (pode demorar até 30 segundos)</span>
+                </div>
+              )}
+
+              {validationError && (
+                <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 space-y-2">
+                  <p className="text-rose-300 text-xs leading-relaxed">{validationError}</p>
+                  <button
+                    onClick={() => { setValidationError(''); setValidationPhrase(null); setValidationTaskId(null); setPhraseRecorded(false); }}
+                    className="text-[10px] text-rose-400 underline font-mono cursor-pointer"
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
+              )}
+
+              {validationPhrase && (
+                <div className="space-y-3">
+                  {phraseRecorded ? (
+                    <p className="text-stone-400 text-xs leading-relaxed">
+                      <strong className="text-emerald-400">Boa!</strong> Gravaste a frase de validação. A tua voz será clonada a partir desta gravação.
+                    </p>
+                  ) : (
+                    <p className="text-stone-400 text-xs leading-relaxed">
+                      Agora <strong className="text-amber-400">grava a frase abaixo</strong> com a tua voz
+                      (de preferência a cantar). Usa o botão <strong className="text-stone-200">Gravar Frase de Validação</strong> acima
+                      para fazeres a nova gravação da frase.
+                    </p>
+                  )}
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center">
+                    <p className="text-[9px] text-amber-500 font-mono uppercase tracking-wider pb-2">FRASE DE VALIDAÇÃO — LEIA EM VOZ ALTA</p>
+                    <p className="text-stone-100 text-sm md:text-base italic leading-relaxed font-medium">
+                      “{validationPhrase}”
+                    </p>
+                  </div>
+                  {phraseRecorded ? (
+                    <div className="flex items-center gap-2 text-[10px] font-mono text-emerald-400">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Frase gravada com sucesso. A tua voz vai ser clonada!</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 text-[10px] font-mono text-amber-400">
+                      <Mic className="w-3.5 h-3.5" />
+                      <span>Grava agora a frase acima para ativar a tua voz.</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Direct Proceed Trigger Block */}
             <div className="pt-2">
               <button
@@ -2439,13 +2618,21 @@ const ROTATING_MESSAGES = [
                     alert('Por favor, faça uma gravação curta de calibração ou carregue um arquivo de áudio de amostra (mínimo de 10 segundos) antes de prosseguir.');
                     return;
                   }
+                  if (!validationTaskId) {
+                    alert('Gera primeiro a frase de validação antes de prosseguir.');
+                    return;
+                  }
+                  if (!phraseRecorded) {
+                    alert('Grava agora a frase de validação com a tua voz (botão "Gravar Frase de Validação") antes de prosseguir.');
+                    return;
+                  }
                   setShowVoiceCloningScreen(false);
                   setIsDone(true);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
                 className={`w-full py-4 rounded-2xl font-black text-xs md:text-sm uppercase tracking-wider transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer ${
-                  hasRecorded 
-                    ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-rose-600 text-stone-950 shadow-lg shadow-amber-500/20 hover:opacity-95' 
+                  hasRecorded && validationTaskId && phraseRecorded
+                    ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-rose-600 text-stone-950 shadow-lg shadow-amber-500/20 hover:opacity-95'
                     : 'bg-stone-850 border border-stone-800 text-stone-500 opacity-60'
                 }`}
               >
