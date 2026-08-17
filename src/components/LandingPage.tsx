@@ -171,7 +171,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   }, []);
 
   return (
-    <div id="landing-page-root" className="relative min-h-screen bg-[#151210] text-stone-100 selection:bg-amber-500/30 selection:text-amber-200">
+    <div id="landing-page-root" className="relative min-h-screen overflow-x-clip bg-[#151210] text-stone-100 selection:bg-amber-500/30 selection:text-amber-200">
       <style>{`
         details > summary { list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
@@ -196,8 +196,8 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
       {/* Ambient Background */}
       <div className="absolute top-0 inset-x-0 h-[600px] bg-gradient-to-b from-amber-950/15 via-rose-950/10 to-transparent pointer-events-none" />
-      <div className="absolute top-[20%] right-[-10%] w-[500px] h-[500px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[20%] left-[-15%] w-[600px] h-[600px] bg-rose-600/5 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-[20%] right-[-10%] w-[320px] h-[320px] md:w-[500px] md:h-[500px] bg-amber-500/5 rounded-full blur-[90px] md:blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[20%] left-[-15%] w-[360px] h-[360px] md:w-[600px] md:h-[600px] bg-rose-600/5 rounded-full blur-[100px] md:blur-[140px] pointer-events-none" />
 
       {/* ─── NAV ─── */}
       <header className="max-w-7xl mx-auto px-4 md:px-8 py-5 flex items-center justify-between sticky top-0 bg-stone-950/80 backdrop-blur-md z-40 border-b border-stone-900/40">
@@ -271,11 +271,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       </header>
 
       {/* ─── 1. HERO — SPLIT LAYOUT ─── */}
-      <section className="relative max-w-7xl mx-auto px-4 md:px-8 pt-8 md:pt-14 pb-20">
+      <section className="relative max-w-7xl mx-auto px-4 md:px-8 pt-8 md:pt-14 pb-14 md:pb-20">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10 lg:gap-12 items-center">
 
           {/* Intro + Headline */}
-          <div className="space-y-6 md:space-y-8 text-left lg:col-start-1">
+          <div className="space-y-5 md:space-y-8 text-left lg:col-start-1">
             <div className="inline-flex items-center gap-3 rounded-2xl border border-stone-800/80 bg-stone-900/35 px-4 py-3 shadow-lg shadow-black/20">
               <LogoIcon size={44} className="shrink-0" />
               <div>
@@ -417,8 +417,8 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       </section>
 
       {/* ─── 2. HOW IT WORKS — ROMAN NUMERALS ─── */}
-      <section id="how-it-works-section" className="py-20 border-t border-stone-900/60 bg-stone-950/40 relative z-10 text-center">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 space-y-12">
+      <section id="how-it-works-section" className="py-14 md:py-20 border-t border-stone-900/60 bg-stone-950/40 relative z-10 text-center">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 space-y-9 md:space-y-12">
           <div className="max-w-2xl mx-auto space-y-3">
             <span className="text-amber-500 text-xs font-sans font-bold uppercase tracking-[0.2em] block">Estúdio SeuBeat</span>
             <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
@@ -429,7 +429,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 lg:gap-10">
             {[
               { step: 'I', title: 'Conte a sua história', desc: 'Abra o estúdio e responda a perguntas simples e românticas. Conte alcunhas, piadas privadas e aquela viagem inesquecível ao Cabo Ledo.', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
               { step: 'II', title: 'O Estúdio cria a música', desc: 'A nossa tecnologia transforma as tuas respostas numa letra emocionante com vozes naturais e instrumentação profissional — no ritmo de Kizomba, Semba ou Pop favorito.', color: 'text-rose-400 bg-rose-500/10 border-rose-500/20' },
@@ -437,11 +437,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             ].map((item, idx) => (
               <motion.div
                 key={idx}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 1, y: 0 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-50px' }}
                 transition={{ duration: 0.4, delay: idx * 0.12, ease: 'easeOut' }}
-                className="bg-stone-900/20 border border-stone-850 p-6 md:p-8 rounded-2xl space-y-4 text-left relative overflow-hidden group hover:border-stone-800 transition-colors"
+                className="bg-stone-900/20 border border-stone-850 p-5 md:p-8 rounded-2xl space-y-3 md:space-y-4 text-left relative overflow-hidden group hover:border-stone-800 transition-colors"
               >
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-serif font-bold text-2xl border ${item.color}`}>
                   {item.step}
@@ -472,8 +472,8 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       </div>
 
       {/* ─── 3. OCCASIONS GRID ─── */}
-      <section id="occasions-section" className="py-20 border-t border-stone-900/60 px-4 md:px-8">
-        <div className="max-w-7xl mx-auto space-y-12">
+      <section id="occasions-section" className="py-14 md:py-20 border-t border-stone-900/60 px-4 md:px-8">
+        <div className="max-w-7xl mx-auto space-y-9 md:space-y-12">
           <div className="max-w-2xl mx-auto text-center space-y-3">
             <span className="text-amber-500 text-xs font-sans font-bold uppercase tracking-[0.2em] block">Para Cada Momento</span>
             <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
@@ -494,7 +494,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                     setSelectedOccasion(occ.label);
                     document.getElementById('occasions-section')?.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className={`group rounded-2xl p-5 flex flex-col items-center text-center space-y-3 transition-all cursor-pointer ${
+                  className={`group rounded-2xl p-4 sm:p-5 flex flex-col items-center text-center space-y-2.5 sm:space-y-3 transition-all cursor-pointer ${
                     isSelected
                       ? 'bg-amber-500/15 border-2 border-amber-500 shadow-lg shadow-amber-500/10 -translate-y-1'
                       : selectedOccasion
@@ -549,7 +549,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       </section>
 
       {/* ─── 4. AUDIO DEMO ─── */}
-      <section id="audio-demo-section" className="py-20 border-t border-stone-900/60 max-w-7xl mx-auto px-4 md:px-8">
+      <section id="audio-demo-section" className="py-14 md:py-20 border-t border-stone-900/60 max-w-7xl mx-auto px-4 md:px-8">
         <AudioDemo onStartWizard={onStartWizard} />
       </section>
 
@@ -557,8 +557,8 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       <VideoTestimonial onStartWizard={onStartWizard} />
 
       {/* ─── 6. PRICING ─── */}
-      <section id="pricing-section" className="py-20 border-t border-stone-900/60 bg-stone-950 px-4 md:px-8 relative text-center">
-        <div className="max-w-7xl mx-auto space-y-14">
+      <section id="pricing-section" className="py-14 md:py-20 border-t border-stone-900/60 bg-stone-950 px-4 md:px-8 relative text-center">
+        <div className="max-w-7xl mx-auto space-y-10 md:space-y-14">
           <div className="max-w-2xl mx-auto space-y-3">
             <span className="text-amber-500 text-xs font-sans font-bold uppercase tracking-[0.2em] block">Sem Subscrições Secretas</span>
             <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
@@ -569,7 +569,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-10 items-stretch max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8 lg:gap-10 items-stretch max-w-5xl mx-auto">
             {PRICING_PLANS.map((plan, idx) => {
               const orderClass =
                 plan.id === 'express'
@@ -583,11 +583,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               <motion.div
                 id={`pricing-card-${plan.id}`}
                 key={plan.id}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 1, y: 0 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-50px' }}
                 transition={{ duration: 0.4, delay: idx * 0.15, ease: 'easeOut' }}
-                className={`rounded-3xl p-6 md:p-8 flex flex-col justify-between relative transition-all duration-300 ${orderClass} ${
+                className={`rounded-2xl md:rounded-3xl p-5 md:p-8 flex flex-col justify-between relative transition-all duration-300 ${orderClass} ${
                   plan.popular
                     ? 'bg-gradient-to-b from-amber-950/40 via-stone-900/60 to-stone-900/30 border-2 border-amber-500 shadow-xl shadow-amber-500/5 md:scale-[1.03] z-10'
                     : 'bg-stone-900/30 border border-stone-850 hover:border-stone-800'
@@ -599,7 +599,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                   </span>
                 )}
 
-                <div className="space-y-5 text-left">
+                <div className="space-y-4 md:space-y-5 text-left">
                   <div>
                     <h3 className="font-serif text-lg md:text-xl font-bold text-stone-200">{plan.name}</h3>
                     <p className="text-[11px] text-stone-500 mt-1 leading-relaxed">{plan.subtitle}</p>
@@ -633,7 +633,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                   )}
                 </div>
 
-                <div className="pt-8">
+                <div className="pt-6 md:pt-8">
                   <button
                     id={`pricing-cta-btn-${plan.id}`}
                     onClick={() => {
@@ -665,11 +665,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
       {/* ─── 7. TESTIMONIALS ─── */}
       <motion.section
-        initial={{ opacity: 0, x: -30 }}
+        initial={{ opacity: 1, x: 0 }}
         whileInView={{ opacity: 1, x: 0 }}
         viewport={{ once: true, margin: '-50px' }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="py-20 border-t border-stone-900/60 max-w-7xl mx-auto px-4 md:px-8 text-center space-y-14"
+        className="py-14 md:py-20 border-t border-stone-900/60 max-w-7xl mx-auto px-4 md:px-8 text-center space-y-10 md:space-y-14"
       >
         <div className="max-w-2xl mx-auto space-y-3">
           <span className="text-amber-500 text-xs font-sans font-bold uppercase tracking-[0.2em] block">Corações Conquistados</span>
@@ -697,7 +697,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       </motion.section>
 
       {/* ─── 8. FAQ ─── */}
-      <section id="faq-section" className="py-20 border-t border-stone-900/60 bg-stone-950 px-4 md:px-8 text-center space-y-12">
+      <section id="faq-section" className="py-14 md:py-20 border-t border-stone-900/60 bg-stone-950 px-4 md:px-8 text-center space-y-9 md:space-y-12">
         <div className="max-w-2xl mx-auto space-y-3">
           <span className="text-amber-500 text-xs font-sans font-bold uppercase tracking-[0.2em] block">Centro de Ajuda</span>
           <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
@@ -727,11 +727,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
       {/* ─── 9. CTA FINAL ─── */}
       <motion.section
-        initial={{ opacity: 0, scale: 0.95 }}
+        initial={{ opacity: 1, scale: 1 }}
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true, margin: '-50px' }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="py-24 px-4 md:px-8 relative border-t border-stone-900/60"
+        className="py-16 md:py-24 px-4 md:px-8 relative border-t border-stone-900/60"
       >
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-amber-950/10 to-transparent pointer-events-none" />
         <div className="max-w-2xl mx-auto text-center space-y-8 relative z-10">
