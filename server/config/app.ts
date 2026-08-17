@@ -12,6 +12,7 @@ import adminRouter from '../routes/admin';
 import publicRouter from '../routes/public';
 import webhookRouter from '../routes/webhook';
 import { hasDeepSeekApiKey } from '../services/deepseekConfig';
+import { checkDeepSeekCredits, checkGeminiCredits } from '../services/aiHealth';
 
 const sentryDsn = getEnv('SENTRY_DSN');
 
@@ -47,6 +48,13 @@ export async function createApp(): Promise<express.Application> {
       checks.supabase = `erro: ${e instanceof Error ? e.message : 'desconhecido'}`;
     }
 
+    const [deepseek, gemini] = await Promise.all([
+      checkDeepSeekCredits(),
+      checkGeminiCredits(),
+    ]);
+    checks.deepseek = deepseek.ok ? 'ok' : `erro: ${String(deepseek.error || 'desconhecido')}`;
+    checks.gemini = gemini.ok ? 'ok' : `erro: ${String(gemini.error || 'desconhecido')}`;
+
     const mem = process.memoryUsage();
     const isCi = process.env.CI === 'true';
     const allOk = checks.supabase === 'ok' || isCi;
@@ -57,6 +65,7 @@ export async function createApp(): Promise<express.Application> {
       responseTime: `${Date.now() - startTime}ms`,
       ci: isCi || undefined,
       checks,
+      ai: { deepseek, gemini },
       memory: {
         rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
         heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`,

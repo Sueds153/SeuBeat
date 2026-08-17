@@ -30,7 +30,7 @@ vi.mock('../services/workflow', () => ({
 }));
 
 import { getAdminSupabase } from '../services/supabase';
-import { sendPaymentRejectionEmail, sendConfirmationEmail } from '../services/email';
+import { sendPaymentRejectionEmail, sendConfirmationEmail, sendPersonalizedEmail } from '../services/email';
 import { sendPurchaseEvent } from '../services/metaPixelCapi';
 import adminRouter from '../routes/admin';
 
@@ -238,6 +238,84 @@ describe('POST /api/admin/payment/:id/reject', () => {
 
     expect(res.status).toBe(409);
     expect(sendPaymentRejectionEmail).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/admin/request/:id/force-status', () => {
+  it('preenche delivered_at quando força song_requests para delivered', async () => {
+    const base = await startServer();
+    const songRequestsUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({
+            data: { id: REQUEST_ID, status: 'lyrics_ready' },
+            error: null,
+          }),
+        }),
+      }),
+    });
+    const songRequestSelect = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({
+          data: {
+            id: REQUEST_ID,
+            recipient_name: 'Ana',
+            users: { email: 'ze@z.pt' },
+            songs: [{ id: SONG_ID, title: 'T', letter_text: 'Carta' }],
+          },
+          error: null,
+        }),
+      }),
+    });
+    const from = vi.fn((table: string) => {
+      if (table === 'song_requests') {
+        return { update: songRequestsUpdate, select: songRequestSelect };
+      }
+      return { update: vi.fn().mockResolvedValue({ error: null }) };
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue({ from });
+
+    const res = await fetch(`${base}/api/admin/request/${REQUEST_ID}/force-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+      body: JSON.stringify({ table: 'song_requests', status: 'delivered' }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+
+    const updateCall = songRequestsUpdate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(updateCall.status).toBe('delivered');
+    expect(updateCall.delivered_at).toBeTruthy();
+    expect(sendPersonalizedEmail).toHaveBeenCalledWith('ze@z.pt', 'Ana', expect.stringContaining('/song/'), 'Carta');
+  });
+
+  it('não toca em delivered_at quando força para outro status', async () => {
+    const base = await startServer();
+    const songRequestsUpdate = vi.fn().mockReturnValue({
+      eq: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          single: vi.fn().mockResolvedValue({ data: { id: REQUEST_ID, status: 'lyrics_ready' }, error: null }),
+        }),
+      }),
+    });
+    const from = vi.fn((table: string) => {
+      if (table === 'song_requests') return { update: songRequestsUpdate, select: vi.fn().mockReturnValue({ eq: vi.fn().mockReturnThis(), single: vi.fn().mockResolvedValue({ data: null, error: null }) }) };
+      return { update: vi.fn().mockResolvedValue({ error: null }) };
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue({ from });
+
+    const res = await fetch(`${base}/api/admin/request/${REQUEST_ID}/force-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+      body: JSON.stringify({ table: 'song_requests', status: 'failed' }),
+    });
+
+    expect(res.status).toBe(200);
+    const updateCall = songRequestsUpdate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(updateCall.status).toBe('failed');
+    expect(updateCall.delivered_at).toBeUndefined();
   });
 });
 
