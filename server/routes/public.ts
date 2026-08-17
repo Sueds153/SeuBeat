@@ -16,7 +16,7 @@ function sanitize(str: string): string {
   return DOMPurify.sanitize(str.trim().slice(0, 5000));
 }
 import { setProgress, updateRequestStatus } from '../services/workflow';
-import { publicErrorMessage, getAppUrl, logRouteError } from '../utils/helpers';
+import { publicErrorMessage, getAppUrl, logRouteError, kzToUsd } from '../utils/helpers';
 import { allFailuresTransient, LYRIC_GENERATION_QUEUED_MESSAGE } from '../utils/aiFailure';
 import { 
   GenerateLyricsSchema, 
@@ -1048,8 +1048,8 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       eventId: eventIds?.initiateCheckout || generateServerEventId(songRequestId, 'InitiateCheckout'),
       email: userEmail,
       phone: phone || undefined,
-      value: parsedAmount,
-      currency: 'AOA',
+      value: kzToUsd(parsedAmount),
+      currency: 'USD',
       contentName: plan,
       eventSourceUrl: (req.headers.referer as string) || undefined,
       clientIp: req.ip || req.socket.remoteAddress || undefined,
@@ -1063,8 +1063,8 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       eventId: eventIds?.addPaymentInfo || generateServerEventId(songRequestId, 'AddPaymentInfo'),
       email: userEmail,
       phone: phone || undefined,
-      value: parsedAmount,
-      currency: 'AOA',
+      value: kzToUsd(parsedAmount),
+      currency: 'USD',
       contentName: plan,
       eventSourceUrl: (req.headers.referer as string) || undefined,
       clientIp: req.ip || req.socket.remoteAddress || undefined,
@@ -1078,8 +1078,8 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       eventId: eventIds?.submitApplication || generateServerEventId(songRequestId, 'SubmitApplication'),
       email: userEmail,
       phone: phone || undefined,
-      value: parsedAmount,
-      currency: 'AOA',
+      value: kzToUsd(parsedAmount),
+      currency: 'USD',
       contentName: plan,
       eventSourceUrl: (req.headers.referer as string) || undefined,
       clientIp: req.ip || req.socket.remoteAddress || undefined,

@@ -189,6 +189,38 @@ describe('metaPixel with VITE_META_PIXEL_ID set', () => {
   });
 });
 
+describe('generateEventId (dedup cliente ⇄ servidor)', () => {
+  it('gera o mesmo eventId que o generateServerEventId do CAPI', async () => {
+    const { generateEventId } = await import('../lib/metaPixel');
+    // Replica a implementação do servidor (server/services/metaPixelCapi.ts)
+    // para garantir que o browser e o CAPI des-duplicam o mesmo pedido.
+    const serverGenerateServerEventId = (requestId: string, eventName: string): string => {
+      let hash = 0;
+      const str = `${eventName}:${requestId}`;
+      for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+      }
+      return Math.abs(hash).toString(16).padStart(16, '0');
+    };
+
+    const requestId = 'e3f2a1c4-9d8b-4f7a-8c2d-1b2e3f4a5b6c';
+    expect(generateEventId(requestId, 'Lead')).toBe(serverGenerateServerEventId(requestId, 'Lead'));
+    expect(generateEventId(requestId, 'InitiateCheckout')).toBe(serverGenerateServerEventId(requestId, 'InitiateCheckout'));
+    expect(generateEventId(requestId, 'AddPaymentInfo')).toBe(serverGenerateServerEventId(requestId, 'AddPaymentInfo'));
+    expect(generateEventId(requestId, 'SubmitApplication')).toBe(serverGenerateServerEventId(requestId, 'SubmitApplication'));
+    expect(generateEventId(requestId, 'Purchase')).toBe(serverGenerateServerEventId(requestId, 'Purchase'));
+  });
+
+  it('é determinístico e estável entre chamadas', async () => {
+    const { generateEventId } = await import('../lib/metaPixel');
+    const id = generateEventId('abc-123', 'Lead');
+    expect(generateEventId('abc-123', 'Lead')).toBe(id);
+    expect(id).toMatch(/^[0-9a-f]{16}$/);
+  });
+});
+
 describe('metaPixel without VITE_META_PIXEL_ID', () => {
   beforeEach(() => {
     vi.stubEnv('VITE_META_PIXEL_ID', '');

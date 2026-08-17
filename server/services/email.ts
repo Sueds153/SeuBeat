@@ -274,6 +274,25 @@ export async function sendAbandonedFourthReminder(userEmail: string, recipientNa
   `);
 }
 
+export async function sendAbandonedFifthReminder(userEmail: string, recipientName: string, requestId: string) {
+  const resumeUrl = `${getAppUrl()}/api/song/${requestId}/resume-link`;
+  return sendWithRetry(userEmail, 'A sua música ainda está à sua espera 🎵', `
+    <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">🎵</span></div>
+      <h2 style="color:#f59e0b;text-align:center;">Não deixe esta história ficar por contar</h2>
+      <p>Olá${safeStr(recipientName) ? ' ' + safeStr(recipientName) : ''},</p>
+      <p>Já passou uma semana e a sua música personalizada continua guardada à sua espera. Cada dia sem a enviar é um dia em que esse momento especial espera por ser eternizado.</p>
+      <p>Ainda vai a tempo — a letra está pronta e basta confirmar o plano para receber a música completa.</p>
+      <div style="text-align:center;margin:24px 0;">
+        <a href="${resumeUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#d97706,#db2777);color:#fff;font-weight:bold;font-size:14px;text-decoration:none;padding:14px 32px;border-radius:12px;">
+          Finalizar a Minha Música
+        </a>
+      </div>
+      <p style="color:#78716c;font-size:12px;text-align:center;">SeuBeat Estúdio Angola — Eternizando momentos com melodias inesquecíveis.</p>
+    </div>
+  `);
+}
+
 export async function sendFollowUp7d(userEmail: string, songUrl: string) {
   return sendWithRetry(userEmail, 'Como foi a reacção? 💝', `
     <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">

@@ -1,17 +1,14 @@
 import ReactGA from 'react-ga4';
 import { CURRENCY } from '../constants/currency';
 import { safeUUID } from './uuid';
+import { getStoredUtm } from './utm';
 
 const MEASUREMENT_ID = import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined;
 const IS_ENABLED = Boolean(MEASUREMENT_ID);
 let initialized = false;
 
 function getUtm(): Record<string, string> {
-  try {
-    const raw = sessionStorage.getItem('seubeat_utm_params');
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return {};
+  return getStoredUtm();
 }
 
 export function initGA(): void {

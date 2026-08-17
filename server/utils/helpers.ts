@@ -1,5 +1,6 @@
 import { Request } from 'express';
 import { logError } from './logger';
+import { ENV } from '../config/env';
 
 export function logRouteError(req: Request | undefined, err: unknown, extra?: Record<string, unknown>): void {
   const method = req?.method || '?';
@@ -97,4 +98,8 @@ export function getAppUrl(req?: Request): string {
     }
   }
   return process.env.APP_URL || 'https://seubeat.onrender.com';
+}
+
+export function kzToUsd(kz: number): number {
+  return Math.round((kz / ENV.USD_TO_KZ_RATE) * 100) / 100;
 }

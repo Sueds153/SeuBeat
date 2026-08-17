@@ -30,6 +30,7 @@ vi.mock('../services/workflow', () => ({
 }));
 
 import { getAdminSupabase } from '../services/supabase';
+import { sendInitiateCheckoutEvent, sendAddPaymentInfoEvent, sendSubmitApplicationEvent } from '../services/metaPixelCapi';
 import publicRouter from '../routes/public';
 
 let server: http.Server | null = null;
@@ -193,6 +194,11 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     expect(sb.updateCalls).toHaveLength(1);
     expect(sb.updateCalls[0].payload).toMatchObject({ status: 'payment_submitted' });
     expect(sb.insertCalls).toHaveLength(1);
+
+    const usdValue = 6.58;
+    expect(sendInitiateCheckoutEvent).toHaveBeenCalledWith(expect.objectContaining({ value: usdValue, currency: 'USD' }));
+    expect(sendAddPaymentInfoEvent).toHaveBeenCalledWith(expect.objectContaining({ value: usdValue, currency: 'USD' }));
+    expect(sendSubmitApplicationEvent).toHaveBeenCalledWith(expect.objectContaining({ value: usdValue, currency: 'USD' }));
   });
 
   it('faz rollback do status para o estado anterior quando o insert do pagamento falha', async () => {

@@ -12,7 +12,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
 import { logInfo, logError, logWarn } from '../utils/logger';
-import { publicErrorMessage, getAppUrl, logRouteError } from '../utils/helpers';
+import { publicErrorMessage, getAppUrl, logRouteError, kzToUsd } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
 import { sendPurchaseEvent, generateServerEventId } from '../services/metaPixelCapi';
 import { adminLimiter, whatsappBulkLimiter } from '../middleware/rateLimiter';
@@ -46,8 +46,7 @@ function mapRelated<T = any>(value: T | T[] | null | undefined, mapper: (item: T
 }
 
 function parseMoneyAmount(value: unknown): number {
-  if (typeof value === 'number') return value;
-  return parseInt(String(value || '0').replace(/\D/g, ''), 10) / 100;
+  return parseInt(String(value ?? '0').replace(/\D/g, ''), 10) || 0;
 }
 
 function isoDateOnly(date: Date): string {
@@ -133,12 +132,7 @@ router.get('/stats', adminAuth, async (req, res) => {
     const approvedPayments = payments.filter(p => p.status === 'approved').length;
     const totalRevenue = payments
       .filter(p => p.status === 'approved')
-      .reduce((sum, p) => {
-        const num = typeof p.amount === 'number'
-          ? p.amount
-          : parseInt(String(p.amount || '0').replace(/\D/g, ''), 10) / 100;
-        return sum + num;
-      }, 0);
+      .reduce((sum, p) => sum + parseMoneyAmount(p.amount), 0);
 
     const songs = songsRes.data || [];
     const musicGenerated = songs.filter(s => s.audio_url).length;
@@ -270,8 +264,8 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
         eventId: generateServerEventId(id, 'Purchase'),
         email: payment.user_email || userEmail || '',
         phone: userPhone || undefined,
-        value: numericAmount,
-        currency: 'AOA',
+        value: kzToUsd(numericAmount),
+        currency: 'USD',
         contentName: planName,
         eventSourceUrl: (req.headers.referer as string) || undefined,
         clientIp: req.ip || req.socket.remoteAddress || undefined,
@@ -1352,7 +1346,8 @@ router.get('/metrics', adminAuth, async (req, res) => {
     const since = firstActivityAt ? isoDateOnly(new Date(firstActivityAt)) : isoDateOnly(new Date());
     const until = isoDateOnly(new Date());
     const metaAds = await getMetaAdsSpend({ since, until });
-    const usdToKz = Number(process.env.USD_TO_KZ_RATE) || 900;
+    const { ENV: MetricsEnv } = await import('../config/env');
+    const usdToKz = MetricsEnv.USD_TO_KZ_RATE;
 
     // Conversion rate
     const totalRequests = requests.length;
@@ -1448,7 +1443,7 @@ router.get('/profitability', adminAuth, async (req, res) => {
     const deepseekCostPerGenUSD = Number(process.env.DEEPSEEK_COST_PER_GENERATION_USD) || 0.0005;
     const claudeCostPerGenUSD = ENV.CLAUDE_COST_PER_GENERATION_USD;
     const monthlyFixedUSD = ENV.MONTHLY_FIXED_COST_USD;
-    const usdToKz = Number(process.env.USD_TO_KZ_RATE) || 900;
+    const usdToKz = ENV.USD_TO_KZ_RATE;
 
     const [paymentsRes, songsRes] = await Promise.all([
       supabase.from('payments').select('amount, plan, created_at, approved_at').eq('status', 'approved'),
@@ -1459,7 +1454,7 @@ router.get('/profitability', adminAuth, async (req, res) => {
     const songsGenerated = songsRes.data || [];
     const songCount = songsGenerated.length;
 
-    // Revenue (convert from Kz cents to USD using rate)
+    // Revenue (convert from Kz to USD using rate)
     const totalRevenueKz = approvedPayments.reduce((sum, p) => {
       return sum + parseMoneyAmount(p.amount);
     }, 0);
@@ -1773,8 +1768,7 @@ router.get('/utm-stats', adminAuth, async (req, res) => {
       if (row.status === 'approved' || row.status === 'delivered') {
         existing.converted++;
         const paymentArr = (row as any).payments as { amount: string | number }[] | undefined;
-        const raw = paymentArr?.[0]?.amount;
-        const amount = typeof raw === 'number' ? raw : parseInt(String(raw || '0').replace(/\D/g, ''), 10) / 100;
+        const amount = parseMoneyAmount(paymentArr?.[0]?.amount);
         if (!isNaN(amount)) existing.revenue += amount;
       }
       if (row.status === 'delivered') existing.delivered++;
@@ -1813,7 +1807,7 @@ router.get('/abandoned', adminAuth, async (req, res) => {
     const { data, error } = await supabase
       .from('song_requests')
       .select(
-        'id, email, phone, recipient_name, created_at, status, abandoned_30min_sent_at, abandoned_24h_sent_at, abandoned_48h_sent_at, abandoned_72h_sent_at, whatsapp_30min_sent_at, whatsapp_24h_sent_at, whatsapp_48h_sent_at, whatsapp_72h_sent_at, manual_contacted_at, users(name, phone)'
+        'id, email, phone, recipient_name, created_at, status, abandoned_30min_sent_at, abandoned_24h_sent_at, abandoned_48h_sent_at, abandoned_72h_sent_at, abandoned_7d_sent_at, whatsapp_30min_sent_at, whatsapp_24h_sent_at, whatsapp_48h_sent_at, whatsapp_72h_sent_at, manual_contacted_at, users(name, phone)'
       )
       .in('status', ['lyrics_ready', 'lyrics_generating'])
       .is('deleted_at', null)
@@ -1851,6 +1845,7 @@ router.get('/abandoned', adminAuth, async (req, res) => {
           row.abandoned_24h_sent_at ? '24h' : null,
           row.abandoned_48h_sent_at ? '48h' : null,
           row.abandoned_72h_sent_at ? '72h' : null,
+          row.abandoned_7d_sent_at ? '7d' : null,
         ].filter((r): r is string => Boolean(r)),
         whatsappSent: [
           row.whatsapp_30min_sent_at ? '30min' : null,

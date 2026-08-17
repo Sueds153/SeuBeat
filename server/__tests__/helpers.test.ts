@@ -1,5 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { publicErrorMessage } from '../utils/helpers';
+
+beforeEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe('publicErrorMessage', () => {
   it('prioritizes transient/traffic over credits when both present', () => {
@@ -32,5 +36,23 @@ describe('publicErrorMessage', () => {
     expect(publicErrorMessage(new Error('something weird'))).toBe(
       'Não foi possível concluir esta etapa. Tente novamente em instantes.'
     );
+  });
+});
+
+describe('kzToUsd', () => {
+  it('converts Kz amounts to USD using default rate 1200', async () => {
+    vi.resetModules();
+    const { kzToUsd } = await import('../utils/helpers');
+    expect(kzToUsd(7900)).toBe(6.58);
+    expect(kzToUsd(9900)).toBe(8.25);
+    expect(kzToUsd(14900)).toBe(12.42);
+  });
+
+  it('respects USD_TO_KZ_RATE env var', async () => {
+    vi.stubEnv('USD_TO_KZ_RATE', '900');
+    vi.resetModules();
+    const { kzToUsd } = await import('../utils/helpers');
+    expect(kzToUsd(900)).toBe(1);
+    expect(kzToUsd(14900)).toBe(16.56);
   });
 });

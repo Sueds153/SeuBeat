@@ -1,5 +1,5 @@
 import { getAdminSupabase } from './supabase';
-import { sendAbandonedFirstReminder, sendAbandonedSecondReminder, sendAbandonedThirdReminder, sendAbandonedFourthReminder } from './email';
+import { sendAbandonedFirstReminder, sendAbandonedSecondReminder, sendAbandonedThirdReminder, sendAbandonedFourthReminder, sendAbandonedFifthReminder } from './email';
 import { sendAbandonedWhatsApp } from '../services/whatsappSender';
 import { enabledWhatsAppBuckets, templateForBucket } from './whatsappTemplates';
 import { bucketForElapsed } from './abandonedMessages';
@@ -25,7 +25,7 @@ export async function processAbandonedRecovery(): Promise<void> {
 
   const { data: abandoned, error } = await supabase
     .from('song_requests')
-    .select('id, email, recipient_name, phone, created_at, abandoned_30min_sent_at, abandoned_24h_sent_at, abandoned_48h_sent_at, abandoned_72h_sent_at, whatsapp_30min_sent_at, whatsapp_24h_sent_at, whatsapp_48h_sent_at, whatsapp_72h_sent_at, user_id, users(phone)')
+    .select('id, email, recipient_name, phone, created_at, abandoned_30min_sent_at, abandoned_24h_sent_at, abandoned_48h_sent_at, abandoned_72h_sent_at, abandoned_7d_sent_at, whatsapp_30min_sent_at, whatsapp_24h_sent_at, whatsapp_48h_sent_at, whatsapp_72h_sent_at, user_id, users(phone)')
     .in('status', ['lyrics_ready', 'lyrics_generating'])
     .is('deleted_at', null)
     .not('email', 'is', null);
@@ -49,7 +49,13 @@ export async function processAbandonedRecovery(): Promise<void> {
       const bucket = bucketForElapsed(diffMs);
 
       // Envia email para todos os buckets (comportamento existente)
-      if (diffMs >= 72 * 60 * 60 * 1000 && !req.abandoned_72h_sent_at) {
+      // O lembrete de 7 dias vem primeiro — os leads >72h que nunca receberam
+      // o 4º lembrete (ou já o receberam há dias) são reativados agora.
+      if (diffMs >= 7 * 24 * 60 * 60 * 1000 && !req.abandoned_7d_sent_at) {
+        await sendAbandonedFifthReminder(req.email, req.recipient_name || '', req.id);
+        await supabase.from('song_requests').update({ abandoned_7d_sent_at: now }).eq('id', req.id);
+        logInfo('[AbandonedRecovery] Quinto lembrete enviado (7 dias) por email', { requestId: req.id, email: req.email });
+      } else if (diffMs >= 72 * 60 * 60 * 1000 && !req.abandoned_72h_sent_at) {
         await sendAbandonedFourthReminder(req.email, req.recipient_name || '', req.id);
         await supabase.from('song_requests').update({ abandoned_72h_sent_at: now }).eq('id', req.id);
         logInfo('[AbandonedRecovery] Quarto lembrete enviado (72h) por email', { requestId: req.id, email: req.email });

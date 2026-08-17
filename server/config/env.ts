@@ -57,4 +57,5 @@ export const ENV = {
   OPENAI_COST_PER_GENERATION_USD: Number(process.env.OPENAI_COST_PER_GENERATION_USD) || 0.01,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
   MONTHLY_FIXED_COST_USD: Number(process.env.MONTHLY_FIXED_COST_USD) || 0,
+  USD_TO_KZ_RATE: Number(process.env.USD_TO_KZ_RATE) || 1200,
 };

@@ -167,6 +167,9 @@ describe('POST /api/admin/payment/:id/approve', () => {
     expect(updateCall.final_mixed_audio_url).toBe('https://audio.full.mp3');
     expect(sendConfirmationEmail).toHaveBeenCalledWith('ze@z.pt', 'Ana', REQUEST_ID, 'standard_approved');
     expect(sendPurchaseEvent).toHaveBeenCalledTimes(1);
+    expect(sendPurchaseEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ value: 4.17, currency: 'USD' })
+    );
   });
 
   it('Express com áudio pronto: entrega imediata (delivered + delivered_at)', async () => {

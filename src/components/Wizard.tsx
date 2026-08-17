@@ -24,6 +24,7 @@ import {
   gaViewContent, gaLead, gaCompleteRegistration, gaAddPaymentInfo, gaSubmitApplication, gaWizardStep, gaPageView 
 } from '../lib/analytics';
 import { DEMO_SONGS } from '../constants/demoSongs';
+import { getStoredUtm } from '../lib/utm';
 import { useUtm } from '../hooks/useUtm';
 import { useSocialProof, formatMinutesAgo } from '../lib/socialProof';
 import { CURRENCY } from '../constants/currency';
@@ -1137,9 +1138,9 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           if (!payload.unforgettableMemory) payload.unforgettableMemory = undefined;
           if (!payload.whereItHappened) payload.whereItHappened = undefined;
           if (!payload.messageFromTheHeart) payload.messageFromTheHeart = undefined;
-          const rawUtm = sessionStorage.getItem('seubeat_utm_params');
-          if (rawUtm) {
-            try { Object.assign(payload, JSON.parse(rawUtm)); } catch { /* ignore */ }
+          const storedUtm = getStoredUtm();
+          if (storedUtm && Object.keys(storedUtm).length > 0) {
+            Object.assign(payload, storedUtm);
           }
           const res = await fetch('/api/generate-lyrics', {
             method: 'POST',
@@ -1180,7 +1181,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           setDbSongId(data.dbSongId);
           setDbSongRequestId(data.dbSongRequestId);
           fbSetUserData(formData.email, formData.phone);
-          fbLead('lyrics_generated', data.dbSongRequestId);
+          fbLead('lyrics_generated', generateEventId(data.dbSongRequestId, 'Lead'));
           gaLead(data.dbSongRequestId);
 
           setGenerationStatus('lyrics_ready');

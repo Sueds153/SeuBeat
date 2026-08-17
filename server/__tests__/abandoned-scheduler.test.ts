@@ -12,6 +12,7 @@ vi.mock('../services/email', () => ({
   sendAbandonedSecondReminder: vi.fn().mockResolvedValue(undefined),
   sendAbandonedThirdReminder: vi.fn().mockResolvedValue(undefined),
   sendAbandonedFourthReminder: vi.fn().mockResolvedValue(undefined),
+  sendAbandonedFifthReminder: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('../services/whatsappSender', () => ({
@@ -26,7 +27,6 @@ import { checkPaymentStatus, processAbandonedRecovery } from '../services/abando
 const mockedGetAdminSupabase = getAdminSupabase as ReturnType<typeof vi.fn>;
 const mockedSendWhatsApp = sendAbandonedWhatsApp as ReturnType<typeof vi.fn>;
 const mockedEmail30 = sendAbandonedFirstReminder as ReturnType<typeof vi.fn>;
-
 function buildSupabaseMock(opts: {
   requests?: unknown[];
   paymentStatus?: string | null;
@@ -101,6 +101,7 @@ describe('processAbandonedRecovery (WhatsApp)', () => {
     abandoned_24h_sent_at: null,
     abandoned_48h_sent_at: null,
     abandoned_72h_sent_at: null,
+    abandoned_7d_sent_at: null,
     whatsapp_30min_sent_at: null,
     whatsapp_24h_sent_at: null,
     whatsapp_48h_sent_at: null,
@@ -173,5 +174,43 @@ describe('processAbandonedRecovery (WhatsApp)', () => {
     expect(mockedSendWhatsApp).toHaveBeenCalledTimes(1);
     // email não é reenviado
     expect(mockedEmail30).not.toHaveBeenCalled();
+  });
+
+  it('envia o 5º lembrete (7 dias) por email para leads >7 dias sem flag', async () => {
+    const { sendAbandonedFifthReminder } = await import('../services/email');
+    const mockedEmail7d = sendAbandonedFifthReminder as ReturnType<typeof vi.fn>;
+    const query = buildSupabaseMock({
+      requests: [request({ created_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString() })],
+      paymentStatus: null,
+    });
+
+    await processAbandonedRecovery();
+
+    expect(mockedEmail7d).toHaveBeenCalledTimes(1);
+    expect(mockedEmail7d.mock.calls[0][0]).toBe('cliente@teste.com');
+    expect(query.update).toHaveBeenCalled();
+  });
+
+  it('NÃO reenvia o 5º lembrete quando abandoned_7d_sent_at já está marcada', async () => {
+    const { sendAbandonedFifthReminder } = await import('../services/email');
+    const mockedEmail7d = sendAbandonedFifthReminder as ReturnType<typeof vi.fn>;
+    const marked = new Date().toISOString();
+    buildSupabaseMock({
+      requests: [
+        request({
+          created_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+          abandoned_30min_sent_at: marked,
+          abandoned_24h_sent_at: marked,
+          abandoned_48h_sent_at: marked,
+          abandoned_72h_sent_at: marked,
+          abandoned_7d_sent_at: marked,
+        }),
+      ],
+      paymentStatus: null,
+    });
+
+    await processAbandonedRecovery();
+
+    expect(mockedEmail7d).not.toHaveBeenCalled();
   });
 });
