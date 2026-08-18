@@ -211,7 +211,8 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
     } catch {}
     return INITIAL_WIZARD_DATA;
   });
-  const [paymentDetails, setPaymentDetails] = useState({ entidade: '10116', referencia: '929423278' });
+  const [paymentDetails, setPaymentDetails] = useState({ entidade: '10116', referencia: '929423278', expressPhone: '929423278' });
+  const [paymentMethod, setPaymentMethod] = useState<'express' | 'reference'>('express');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingStage, setProcessingStage] = useState(0);
   const [rotatingMsgIndex, setRotatingMsgIndex] = useState(0);
@@ -234,7 +235,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     socialProof.paidTotal > 0 ? `✅ ${socialProof.paidTotal} compras concluídas` : null,
     socialProof.deliveredTotal > 0 ? `🎧 ${socialProof.deliveredTotal} músicas já entregues` : null,
   ].filter((x): x is string => Boolean(x));
-  const activeProof = paymentProofs.length > 0 ? paymentProofs[paymentSocialIdx % paymentProofs.length] : '⏳ Pagamento por referência Multicaixa';
+  const activeProof = paymentProofs.length > 0 ? paymentProofs[paymentSocialIdx % paymentProofs.length] : '⏳ Multicaixa · 2 minutos e a música é tua';
   const liveActivity = socialProof.lastActivity
     ? {
         text: `"A última música foi criada para ${socialProof.lastActivity.firstName || 'alguém especial'}"`,
@@ -279,7 +280,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   const [phraseRecorded, setPhraseRecorded] = useState(false);
   const [validationLoading, setValidationLoading] = useState(false);
   const [validationError, setValidationError] = useState('');
-  const [copiedText, setCopiedText] = useState<'entidade' | 'referencia' | 'link' | null>(null);
+  const [copiedText, setCopiedText] = useState<'entidade' | 'referencia' | 'express' | 'link' | null>(null);
   const [isDone, setIsDone] = useState(() => {
     try {
       const saved = localStorage.getItem('seubeat_wizard_progress');
@@ -577,8 +578,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   useEffect(() => {
     fetch('/api/payment-details')
       .then(r => r.json())
-      .then(d => { if (d.entidade && d.referencia) setPaymentDetails(d); })
-      .catch(() => {});
+      .then(d => { if (d.entidade && d.referencia) setPaymentDetails(d); })      .catch(() => {});
   }, []);
 
   // Identificar utilizador no Sentry quando o email é preenchido
@@ -734,6 +734,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
                 phone: formData.phone,
                 plan: selectedPlanID || 'standard',
                 amount: getPrice(),
+                paymentMethod,
                 proofBase64: proofStr,
                 proofFilename: proofFile.name,
                 proofMimeType: proofFile.type,
@@ -2723,56 +2724,121 @@ const ROTATING_MESSAGES = [
                 </AnimatePresence>
               </div>
 
-              {/* Reference Payment Details */}
+              {/* Payment Method Selection */}
               <div className="space-y-4 pt-2">
                 <div className="flex items-center gap-1.5 text-[10px] font-mono text-amber-500 uppercase tracking-widest border-b border-stone-900 pb-2">
-                  <span>MÉTODO ÚNICO: PAGAMENTO POR REFERÊNCIA (MULTICAIXA)</span>
+                  <span>ESCOLHE COMO QUERES PAGAR</span>
                 </div>
 
-                <div className="bg-stone-950 p-5 rounded-2xl border border-stone-850 space-y-3">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-stone-550 font-mono text-[10px] uppercase">Entidade</span>
-                    <div className="flex items-center gap-1.5 font-mono">
-                      <strong className="text-white text-sm font-bold tracking-wider">{paymentDetails.entidade}</strong>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(paymentDetails.entidade);
-                          setCopiedText('entidade');
-                          setTimeout(() => setCopiedText(null), 2000);
-                        }}
-                        className="p-1 text-stone-500 hover:text-amber-400 hover:bg-stone-900 rounded transition-colors cursor-pointer"
-                        title="Copiar Entidade"
-                      >
-                        {copiedText === 'entidade' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
+                {/* Selector: Express (default) vs Referência */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('express')}
+                    className={`text-left rounded-2xl border p-4 transition-all cursor-pointer ${
+                      paymentMethod === 'express'
+                        ? 'border-amber-500/70 bg-amber-500/5 shadow-[0_0_0_1px_rgba(245,158,11,0.4)]'
+                        : 'border-stone-850 bg-stone-950 hover:border-stone-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-lg leading-none">⚡</span>
+                      <span className={`text-[9px] font-black font-mono tracking-widest px-1.5 py-0.5 rounded ${paymentMethod === 'express' ? 'bg-amber-500 text-stone-950' : 'bg-stone-800 text-amber-500'}`}>MAIS RÁPIDO</span>
                     </div>
-                  </div>
+                    <p className={`mt-2.5 text-sm font-black tracking-wide ${paymentMethod === 'express' ? 'text-amber-400' : 'text-stone-200'}`}>Multicaixa Express</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-stone-400">Transfere só com o teu número de telemóvel. Sem fila, sem cartão, sem entidade. 2 minutos.</p>
+                  </button>
 
-                  <div className="flex justify-between items-center text-xs border-t border-stone-900/60 pt-2.5">
-                    <span className="text-stone-555 font-mono text-[10px] uppercase">Referência</span>
-                    <div className="flex items-center gap-1.5 font-mono">
-                      <strong className="text-amber-400 text-sm font-bold tracking-wider">{paymentDetails.referencia}</strong>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(paymentDetails.referencia);
-                          setCopiedText('referencia');
-                          setTimeout(() => setCopiedText(null), 2000);
-                        }}
-                        className="p-1 text-stone-500 hover:text-amber-400 hover:bg-stone-900 rounded transition-colors cursor-pointer"
-                        title="Copiar Referência"
-                      >
-                        {copiedText === 'referencia' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                      </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('reference')}
+                    className={`text-left rounded-2xl border p-4 transition-all cursor-pointer ${
+                      paymentMethod === 'reference'
+                        ? 'border-amber-500/70 bg-amber-500/5 shadow-[0_0_0_1px_rgba(245,158,11,0.4)]'
+                        : 'border-stone-850 bg-stone-950 hover:border-stone-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-lg leading-none">🏧</span>
+                      <span className={`text-[9px] font-black font-mono tracking-widest px-1.5 py-0.5 rounded ${paymentMethod === 'reference' ? 'bg-amber-500 text-stone-950' : 'bg-stone-800 text-stone-400'}`}>ATM / APP</span>
                     </div>
-                  </div>
-
-                  <div className="flex justify-between items-center text-xs border-t border-stone-900/60 pt-2.5">
-                    <span className="text-stone-550 font-mono text-[10px] uppercase">Valor Total</span>
-                    <strong className="text-white text-sm font-mono font-bold tracking-wider">{getPrice()}</strong>
-                  </div>
+                    <p className={`mt-2.5 text-sm font-black tracking-wide ${paymentMethod === 'reference' ? 'text-amber-400' : 'text-stone-200'}`}>Referência Multicaixa</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-stone-400">Entidade + Referência, como pagas as tuas contas. No ATM ou no app do teu banco.</p>
+                  </button>
                 </div>
+
+                {paymentMethod === 'express' ? (
+                  <div className="bg-stone-950 p-5 rounded-2xl border border-stone-850 space-y-3">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-stone-550 font-mono text-[10px] uppercase">Nº Multicaixa Express</span>
+                      <div className="flex items-center gap-1.5 font-mono">
+                        <strong className="text-amber-400 text-sm font-bold tracking-wider">{paymentDetails.expressPhone}</strong>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(paymentDetails.expressPhone);
+                            setCopiedText('express');
+                            setTimeout(() => setCopiedText(null), 2000);
+                          }}
+                          className="p-1 text-stone-500 hover:text-amber-400 hover:bg-stone-900 rounded transition-colors cursor-pointer"
+                          title="Copiar Número"
+                        >
+                          {copiedText === 'express' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center text-xs border-t border-stone-900/60 pt-2.5">
+                      <span className="text-stone-550 font-mono text-[10px] uppercase">Valor Total</span>
+                      <strong className="text-white text-sm font-mono font-bold tracking-wider">{getPrice()}</strong>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-stone-950 p-5 rounded-2xl border border-stone-850 space-y-3">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-stone-550 font-mono text-[10px] uppercase">Entidade</span>
+                      <div className="flex items-center gap-1.5 font-mono">
+                        <strong className="text-white text-sm font-bold tracking-wider">{paymentDetails.entidade}</strong>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(paymentDetails.entidade);
+                            setCopiedText('entidade');
+                            setTimeout(() => setCopiedText(null), 2000);
+                          }}
+                          className="p-1 text-stone-500 hover:text-amber-400 hover:bg-stone-900 rounded transition-colors cursor-pointer"
+                          title="Copiar Entidade"
+                        >
+                          {copiedText === 'entidade' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center text-xs border-t border-stone-900/60 pt-2.5">
+                      <span className="text-stone-555 font-mono text-[10px] uppercase">Referência</span>
+                      <div className="flex items-center gap-1.5 font-mono">
+                        <strong className="text-amber-400 text-sm font-bold tracking-wider">{paymentDetails.referencia}</strong>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(paymentDetails.referencia);
+                            setCopiedText('referencia');
+                            setTimeout(() => setCopiedText(null), 2000);
+                          }}
+                          className="p-1 text-stone-500 hover:text-amber-400 hover:bg-stone-900 rounded transition-colors cursor-pointer"
+                          title="Copiar Referência"
+                        >
+                          {copiedText === 'referencia' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center text-xs border-t border-stone-900/60 pt-2.5">
+                      <span className="text-stone-550 font-mono text-[10px] uppercase">Valor Total</span>
+                      <strong className="text-white text-sm font-mono font-bold tracking-wider">{getPrice()}</strong>
+                    </div>
+                  </div>
+                )}
 
                 {/* Instruções — collapsible */}
                 <div className="space-y-3 text-left pt-2">
@@ -2786,18 +2852,37 @@ const ROTATING_MESSAGES = [
                   </button>
                   {instructionsOpen && (
                     <div className="space-y-2 text-xs text-stone-400">
-                      <div className="flex items-start gap-2.5">
-                        <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">1</div>
-                        <p>Abre o Multicaixa (app ou ATM) → <strong className="text-stone-200">Pagamentos</strong> → <strong className="text-stone-200">Pagamento de Serviços</strong></p>
-                      </div>
-                      <div className="flex items-start gap-2.5">
-                        <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">2</div>
-                        <p>Digita: <strong className="text-white">Entidade {paymentDetails.entidade}</strong> · <strong className="text-white">Ref. {paymentDetails.referencia}</strong> · <strong className="text-amber-400">Valor {getPrice()}</strong></p>
-                      </div>
-                      <div className="flex items-start gap-2.5">
-                        <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">3</div>
-                        <p>Confirma, faz <strong className="text-stone-200">printscreen</strong> do comprovativo e carrega abaixo 📸</p>
-                      </div>
+                      {paymentMethod === 'express' ? (
+                        <>
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">1</div>
+                            <p>Abre o <strong className="text-stone-200">Multicaixa Express</strong> (no telemóvel ou app) → <strong className="text-stone-200">Transferir</strong></p>
+                          </div>
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">2</div>
+                            <p>Digita o número: <strong className="text-white">{paymentDetails.expressPhone}</strong> · <strong className="text-amber-400">Valor {getPrice()}</strong></p>
+                          </div>
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">3</div>
+                            <p>Confirma, faz <strong className="text-stone-200">printscreen</strong> do comprovativo e carrega abaixo 📸</p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">1</div>
+                            <p>Abre o Multicaixa (app ou ATM) → <strong className="text-stone-200">Pagamentos</strong> → <strong className="text-stone-200">Pagamento de Serviços</strong></p>
+                          </div>
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">2</div>
+                            <p>Digita: <strong className="text-white">Entidade {paymentDetails.entidade}</strong> · <strong className="text-white">Ref. {paymentDetails.referencia}</strong> · <strong className="text-amber-400">Valor {getPrice()}</strong></p>
+                          </div>
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">3</div>
+                            <p>Confirma, faz <strong className="text-stone-200">printscreen</strong> do comprovativo e carrega abaixo 📸</p>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

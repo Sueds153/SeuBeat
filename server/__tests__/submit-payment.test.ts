@@ -316,4 +316,89 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     const requestUpdate = sb.updateCalls.find((u) => u.table === 'song_requests');
     expect((requestUpdate!.payload as Record<string, unknown>).elevenlabs_voice_id).toBeUndefined();
   });
+
+  it('grava payment_method=express no INSERT quando escolhido Express', async () => {
+    const base = await startServer();
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: { status: 'lyrics_ready' },
+      updateError: null,
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), paymentMethod: 'express' }),
+    });
+
+    expect(res.status).toBe(200);
+    const insertedRow = (sb.insertCalls[0] as Array<Record<string, unknown>>)[0];
+    expect(insertedRow.payment_method).toBe('express');
+  });
+
+  it('usa payment_method=reference por omissão quando não é enviado (retrocompatibilidade)', async () => {
+    const base = await startServer();
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: { status: 'lyrics_ready' },
+      updateError: null,
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(validBody()),
+    });
+
+    expect(res.status).toBe(200);
+    const insertedRow = (sb.insertCalls[0] as Array<Record<string, unknown>>)[0];
+    expect(insertedRow.payment_method).toBe('reference');
+  });
+
+  it('rejeita paymentMethod inválido com 400', async () => {
+    const base = await startServer();
+    const sb = buildSupabaseMock({});
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), paymentMethod: 'bitcoin' }),
+    });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('Método de pagamento');
+    expect(sb.insertCalls).toHaveLength(0);
+  });
+
+  it('grava payment_method no UPDATE de reenvio pós-rejeição', async () => {
+    const base = await startServer();
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      rejectedPayment: { id: 'pay-rej' },
+      requestRow: { status: 'payment_rejected' },
+      updateError: null,
+      insertResult: { data: { id: 'pay-rej' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), paymentMethod: 'express' }),
+    });
+
+    expect(res.status).toBe(200);
+    const paymentUpdate = sb.updateCalls.find((u) => u.table === 'payments');
+    expect(paymentUpdate).toBeDefined();
+    expect((paymentUpdate!.payload as Record<string, unknown>).payment_method).toBe('express');
+  });
 });

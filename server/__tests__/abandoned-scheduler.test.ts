@@ -108,6 +108,7 @@ describe('processAbandonedRecovery (WhatsApp)', () => {
     whatsapp_72h_sent_at: null,
     user_id: null,
     users: [],
+    songs: [],
     ...over,
   });
 
@@ -212,5 +213,49 @@ describe('processAbandonedRecovery (WhatsApp)', () => {
     await processAbandonedRecovery();
 
     expect(mockedEmail7d).not.toHaveBeenCalled();
+  });
+
+  it('passa título e snippet da letra (songs) ao lembrete por email', async () => {
+    const { sendAbandonedFirstReminder } = await import('../services/email');
+    const mockedEmail = sendAbandonedFirstReminder as ReturnType<typeof vi.fn>;
+    buildSupabaseMock({
+      requests: [
+        request({
+          created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+          songs: [{ title: 'Canção para a Maria', lyrics_snippet: 'No silêncio da noite, o teu nome é melodia…' }],
+        }),
+      ],
+      paymentStatus: null,
+    });
+
+    await processAbandonedRecovery();
+
+    expect(mockedEmail).toHaveBeenCalledTimes(1);
+    const args = mockedEmail.mock.calls[0];
+    expect(args[0]).toBe('cliente@teste.com');
+    expect(args[1]).toBe('Rui');
+    expect(args[3]).toBe('Canção para a Maria');
+    expect(args[4]).toBe('No silêncio da noite, o teu nome é melodia…');
+  });
+
+  it('passa snippet vazio ao email quando o pedido não tem música (sem quebrar)', async () => {
+    const { sendAbandonedFirstReminder } = await import('../services/email');
+    const mockedEmail = sendAbandonedFirstReminder as ReturnType<typeof vi.fn>;
+    buildSupabaseMock({
+      requests: [
+        request({
+          created_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+          songs: [],
+        }),
+      ],
+      paymentStatus: null,
+    });
+
+    await processAbandonedRecovery();
+
+    expect(mockedEmail).toHaveBeenCalledTimes(1);
+    const args = mockedEmail.mock.calls[0];
+    expect(args[3]).toBe('');
+    expect(args[4]).toBe('');
   });
 });

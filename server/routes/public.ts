@@ -908,6 +908,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       proofBase64, proofFilename, proofMimeType, 
       voiceSampleBase64, voiceSampleFilename, voiceSampleMimeType,
       voiceValidationTaskId, voiceValidationPhrase,
+      paymentMethod,
       eventIds 
     } = req.body;
     const supabase = getAdminSupabase();
@@ -916,6 +917,8 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
     if (!userEmail) return res.status(400).json({ success: false, error: 'Email do cliente em falta.' });
     if (typeof userEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) return res.status(400).json({ success: false, error: 'Email inválido.' });
     if (!['standard', 'express', 'premium'].includes(plan)) return res.status(400).json({ success: false, error: 'Plano invalido.' });
+    const resolvedPaymentMethod = paymentMethod || 'reference';
+    if (!['express', 'reference'].includes(resolvedPaymentMethod)) return res.status(400).json({ success: false, error: 'Método de pagamento inválido.' });
 
     const parsedAmount = typeof amount === 'string' ? parseAngolanAmount(amount) : typeof amount === 'number' && !isNaN(amount) ? amount : 0;
     const ALLOWED_AMOUNTS: Record<string, number[]> = {
@@ -1030,6 +1033,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       user_email: userEmail,
       plan,
       amount: parsedAmount,
+      payment_method: resolvedPaymentMethod,
       proof_url: proofPath ? `storage:${proofPath}` : null,
       proof_path: proofPath,
       proof_filename: proofFilename || proofPath?.split('/').pop() || null,
@@ -1426,9 +1430,11 @@ router.get('/social-proof', async (_req, res) => {
 
 // Payment details endpoint (dados Multicaixa)
 router.get('/payment-details', (_req, res) => {
+  const referencia = process.env.MULTICAIXA_REFERENCIA || '929423278';
   res.json({
     entidade: process.env.MULTICAIXA_ENTIDADE || '10116',
-    referencia: process.env.MULTICAIXA_REFERENCIA || '929423278',
+    referencia,
+    expressPhone: process.env.MULTICAIXA_EXPRESS_PHONE || referencia,
   });
 });
 

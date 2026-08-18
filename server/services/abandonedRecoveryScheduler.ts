@@ -25,7 +25,7 @@ export async function processAbandonedRecovery(): Promise<void> {
 
   const { data: abandoned, error } = await supabase
     .from('song_requests')
-    .select('id, email, recipient_name, phone, created_at, abandoned_30min_sent_at, abandoned_24h_sent_at, abandoned_48h_sent_at, abandoned_72h_sent_at, abandoned_7d_sent_at, whatsapp_30min_sent_at, whatsapp_24h_sent_at, whatsapp_48h_sent_at, whatsapp_72h_sent_at, user_id, users(phone)')
+    .select('id, email, recipient_name, phone, created_at, abandoned_30min_sent_at, abandoned_24h_sent_at, abandoned_48h_sent_at, abandoned_72h_sent_at, abandoned_7d_sent_at, whatsapp_30min_sent_at, whatsapp_24h_sent_at, whatsapp_48h_sent_at, whatsapp_72h_sent_at, user_id, users(phone), songs(title, lyrics_snippet)')
     .in('status', ['lyrics_ready', 'lyrics_generating'])
     .is('deleted_at', null)
     .not('email', 'is', null);
@@ -40,6 +40,15 @@ export async function processAbandonedRecovery(): Promise<void> {
   const nowDate = new Date();
   const now = Date.now();
 
+  function songTeaser(req: { songs?: unknown }): { songTitle: string; lyricsSnippet: string } {
+    const songs = Array.isArray(req.songs) ? req.songs : req.songs ? [req.songs] : [];
+    const song = (songs[0] ?? {}) as { title?: string | null; lyrics_snippet?: string | null };
+    return {
+      songTitle: song?.title || '',
+      lyricsSnippet: song?.lyrics_snippet || '',
+    };
+  }
+
   for (const req of abandoned) {
     const createdAt = new Date(req.created_at);
     const diffMs = nowDate.getTime() - createdAt.getTime();
@@ -47,28 +56,29 @@ export async function processAbandonedRecovery(): Promise<void> {
     try {
       // Determina o bucket baseado no tempo decorrido
       const bucket = bucketForElapsed(diffMs);
+      const { songTitle, lyricsSnippet } = songTeaser(req);
 
       // Envia email para todos os buckets (comportamento existente)
       // O lembrete de 7 dias vem primeiro — os leads >72h que nunca receberam
       // o 4º lembrete (ou já o receberam há dias) são reativados agora.
       if (diffMs >= 7 * 24 * 60 * 60 * 1000 && !req.abandoned_7d_sent_at) {
-        await sendAbandonedFifthReminder(req.email, req.recipient_name || '', req.id);
+        await sendAbandonedFifthReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
         await supabase.from('song_requests').update({ abandoned_7d_sent_at: now }).eq('id', req.id);
         logInfo('[AbandonedRecovery] Quinto lembrete enviado (7 dias) por email', { requestId: req.id, email: req.email });
       } else if (diffMs >= 72 * 60 * 60 * 1000 && !req.abandoned_72h_sent_at) {
-        await sendAbandonedFourthReminder(req.email, req.recipient_name || '', req.id);
+        await sendAbandonedFourthReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
         await supabase.from('song_requests').update({ abandoned_72h_sent_at: now }).eq('id', req.id);
         logInfo('[AbandonedRecovery] Quarto lembrete enviado (72h) por email', { requestId: req.id, email: req.email });
       } else if (diffMs >= 48 * 60 * 60 * 1000 && !req.abandoned_48h_sent_at) {
-        await sendAbandonedThirdReminder(req.email, req.recipient_name || '', req.id);
+        await sendAbandonedThirdReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
         await supabase.from('song_requests').update({ abandoned_48h_sent_at: now }).eq('id', req.id);
         logInfo('[AbandonedRecovery] Terceiro lembrete enviado (48h) por email', { requestId: req.id, email: req.email });
       } else if (diffMs >= 24 * 60 * 60 * 1000 && !req.abandoned_24h_sent_at) {
-        await sendAbandonedSecondReminder(req.email, req.recipient_name || '', req.id);
+        await sendAbandonedSecondReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
         await supabase.from('song_requests').update({ abandoned_24h_sent_at: now }).eq('id', req.id);
         logInfo('[AbandonedRecovery] Segundo lembrete enviado (24h) por email', { requestId: req.id, email: req.email });
       } else if (diffMs >= 30 * 60 * 1000 && !req.abandoned_30min_sent_at) {
-        await sendAbandonedFirstReminder(req.email, req.recipient_name || '', req.id);
+        await sendAbandonedFirstReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
         await supabase.from('song_requests').update({ abandoned_30min_sent_at: now }).eq('id', req.id);
         logInfo('[AbandonedRecovery] Primeiro lembrete enviado (30min) por email', { requestId: req.id, email: req.email });
       }
