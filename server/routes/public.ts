@@ -960,6 +960,13 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       });
     }
 
+    const { data: rejectedPayment } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('request_id', songRequestId)
+      .eq('status', 'rejected')
+      .maybeSingle();
+
     let proofPath: string | null = null;
     if (proofBase64) {
       const resolvedMime = proofMimeType || 'image/jpeg';
@@ -1018,7 +1025,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
 
     const previousStatus = requestGuard?.status || 'lyrics_ready';
 
-    const { data: paymentRecord, error: paymentError } = await supabase.from('payments').insert([{
+    const paymentFields = {
       request_id: songRequestId,
       user_email: userEmail,
       plan,
@@ -1026,8 +1033,27 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       proof_url: proofPath ? `storage:${proofPath}` : null,
       proof_path: proofPath,
       proof_filename: proofFilename || proofPath?.split('/').pop() || null,
-      status: 'pending_verification'
-    }]).select('id').single();
+      status: 'pending_verification',
+    };
+
+    let paymentRecord: { id?: string } | null = null;
+    let paymentError: unknown = null;
+    if (rejectedPayment) {
+      const { error: rejectedUpdateError } = await supabase
+        .from('payments')
+        .update({ ...paymentFields, notes: null, approved_at: null })
+        .eq('id', rejectedPayment.id);
+      paymentError = rejectedUpdateError;
+      paymentRecord = { id: rejectedPayment.id };
+    } else {
+      const { data: insertedPayment, error: insertErr } = await supabase
+        .from('payments')
+        .insert([paymentFields])
+        .select('id')
+        .single();
+      paymentRecord = insertedPayment;
+      paymentError = insertErr;
+    }
     if (paymentError) {
       logError('[API] Falha ao gravar pagamento — a reverter estado do pedido', paymentError, {
         songRequestId,

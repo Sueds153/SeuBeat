@@ -59,6 +59,7 @@ beforeEach(() => {
 interface SupabaseMockOpts {
   pendingPayment?: unknown;
   approvedPayment?: unknown;
+  rejectedPayment?: unknown;
   requestRow?: unknown;
   updateError?: unknown;
   insertResult?: { data: unknown; error: unknown };
@@ -75,6 +76,7 @@ function buildSupabaseMock(opts: SupabaseMockOpts) {
       if (table === 'payments') {
         if (filters.includes('status=pending_verification')) return { data: opts.pendingPayment ?? null, error: null };
         if (filters.includes('status=approved')) return { data: opts.approvedPayment ?? null, error: null };
+        if (filters.includes('status=rejected')) return { data: opts.rejectedPayment ?? null, error: null };
       }
       if (table === 'song_requests') return { data: opts.requestRow ?? null, error: null };
       return { data: null, error: null };
@@ -223,6 +225,41 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     expect(updates).toHaveLength(2);
     expect(updates[0].payload).toMatchObject({ status: 'payment_submitted' });
     expect(updates[1].payload).toMatchObject({ status: 'lyrics_ready' });
+  });
+
+  it('re-envia comprovativo após rejeição fazendo UPDATE em vez de INSERT (UNIQUE request_id)', async () => {
+    const base = await startServer();
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      rejectedPayment: { id: 'pay-rej' },
+      requestRow: { status: 'payment_rejected' },
+      updateError: null,
+      insertResult: { data: { id: 'pay-rej' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(validBody()),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.paymentId).toBe('pay-rej');
+    expect(sb.insertCalls).toHaveLength(0);
+    const paymentUpdate = sb.updateCalls.find((u) => u.table === 'payments');
+    expect(paymentUpdate).toBeDefined();
+    expect((paymentUpdate!.payload as Record<string, unknown>)).toMatchObject({
+      request_id: 'req-1',
+      status: 'pending_verification',
+      notes: null,
+      approved_at: null,
+    });
+    const requestUpdate = sb.updateCalls.find((u) => u.table === 'song_requests');
+    expect(requestUpdate!.payload).toMatchObject({ status: 'payment_submitted' });
   });
 
   it('guarda o validation_task_id da voz no pedido quando há amostra + task', async () => {
