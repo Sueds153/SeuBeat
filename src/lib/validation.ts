@@ -16,7 +16,11 @@ const Step3Schema = z.object({
 });
 
 const Step4Schema = z.object({
-  whatMakesSpecial: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
+  whatMakesSpecial: z.string()
+    .trim()
+    .min(3, 'Por favor, conta-nos uma recordação ou toca numa pílula abaixo.')
+    .max(1000, 'Máximo 1000 caracteres'),
+  whereItHappened: z.string().max(500, 'Máximo 500 caracteres').optional(),
   messageFromTheHeart: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
 });
 

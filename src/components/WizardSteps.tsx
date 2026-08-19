@@ -240,46 +240,53 @@ export function Step4Story({
   return (
     <div className="space-y-4 pt-2">
       <div className="space-y-2">
-        <label className="text-xs font-mono text-stone-400 block font-semibold">
-          Conta-nos a vossa história <span className="text-stone-600 font-normal">(Opcional)</span>
+        <label className="text-xs font-mono text-stone-300 block font-semibold flex items-center justify-between">
+          <span>Momentos & Recordações Inesquecíveis</span>
+          <span className="text-amber-400 font-mono text-[10px] uppercase font-bold tracking-wider">Obrigatório</span>
         </label>
         <textarea
           id="makes-special-textarea"
           rows={4}
           maxLength={1000}
-          placeholder="Ex: O que mais amas nessa pessoa, uma memória inesquecível, um momento único que só os dois conhecem... É essa a matéria-prima da canção."
+          placeholder="Ex: Conta-nos um momento marcante, uma gargalhada ou o que torna esta pessoa única... É essa a matéria-prima da canção."
           value={formData.whatMakesSpecial}
           onChange={(e) => setFormData(prev => ({ ...prev, whatMakesSpecial: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
-        />{/* max 1000 */}
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {[
-            { label: 'Doce e Carinhosa', append: 'É uma pessoa extremamente doce e carinhosa, com um coração gigante que acolhe todos à sua volta.' },
-            { label: 'Forte e Inspiradora', append: 'É uma fonte inesgotável de força e inspiração, supera cada desafio com um sorriso que ilumina.' },
-            { label: 'Divertida e Alegre', append: 'Traz alegria a cada momento com o seu sentido de humor único e gargalhada contagiante.' },
-            { label: 'Sábia e Conselheira', append: 'Tem sempre a palavra certa na hora certa, uma sabedoria que admiro profundamente.' },
-            { label: 'Memória Inesquecível', append: 'Guardo com carinho o momento em que tudo começou, uma memória que aquece o coração e nunca mais esqueci.' },
-            { label: 'Primeiro Encontro', append: 'No primeiro encontro percebi que era especial — os olhares cruzaram-se e tudo à nossa volta desapareceu.' },
-            { label: 'Passeio à Beira-Mar', append: 'Aquele passeio à beira-mar sob o luar, partilhando segredos embalados pelo som das ondas.' },
-            { label: 'Cozinhando Juntos', append: 'Quando cozinhámos juntos e o prato correu mal, mas acabámos a rir no chão com boa disposição.' },
-          ].map((pill, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => appendStory(pill.append)}
-              className="px-2.5 py-1 bg-stone-950 hover:bg-stone-850 border border-stone-850 hover:border-stone-700 text-[10px] text-stone-300 rounded-full font-medium transition-colors cursor-pointer"
-            >
-              {pill.label}
-            </button>
-          ))}
+        />
+        <div className="space-y-1 pt-0.5">
+          <p className="text-[10px] text-stone-500 font-mono">Toque para adicionar ideias prontas em 1 segundo:</p>
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { label: '✨ Doce e Carinhosa', append: 'É uma pessoa extremamente doce e carinhosa, com um coração gigante que acolhe todos à sua volta.' },
+              { label: '🔥 Forte e Inspiradora', append: 'É uma fonte inesgotável de força e inspiração, supera cada desafio com um sorriso que ilumina.' },
+              { label: '😂 Divertida e Alegre', append: 'Traz alegria a cada momento com o seu sentido de humor único e gargalhada contagiante.' },
+              { label: '🕊️ Sábia e Conselheira', append: 'Tem sempre a palavra certa na hora certa, uma sabedoria que admiro profundamente.' },
+              { label: '💖 Memória Inesquecível', append: 'Guardo com carinho o momento em que tudo começou, uma memória que aquece o coração e nunca mais esqueci.' },
+              { label: '👀 Primeiro Encontro', append: 'No primeiro encontro percebi que era especial — os olhares cruzaram-se e tudo à nossa volta desapareceu.' },
+              { label: '🌊 Passeio à Beira-Mar', append: 'Aquele passeio à beira-mar sob o luar, partilhando segredos embalados pelo som das ondas.' },
+              { label: '🍳 Cozinhando Juntos', append: 'Quando cozinhámos juntos e o prato correu mal, mas acabámos a rir no chão com boa disposição.' },
+            ].map((pill, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => appendStory(pill.append)}
+                className="px-2.5 py-1 bg-stone-950 hover:bg-stone-850 border border-stone-800 hover:border-amber-500/50 text-[10px] text-stone-300 rounded-full font-medium transition-all cursor-pointer active:scale-95"
+              >
+                {pill.label}
+              </button>
+            ))}
+          </div>
         </div>
         {fieldErrors?.whatMakesSpecial && (
-          <p className="text-red-400 text-xs mt-1">{fieldErrors.whatMakesSpecial}</p>
+          <p className="text-red-400 text-xs mt-1 font-semibold">{fieldErrors.whatMakesSpecial}</p>
         )}
       </div>
 
       <div className="space-y-2 pt-3 border-t border-stone-900">
-        <label className="text-xs font-mono text-stone-400 block font-semibold">Onde aconteceu? <span className="text-stone-600 font-normal">(Opcional)</span></label>
+        <label className="text-xs font-mono text-stone-300 block font-semibold flex items-center justify-between">
+          <span>O Nosso Lugar Especial</span>
+          <span className="text-stone-500 font-mono text-[10px] font-normal">(Opcional)</span>
+        </label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-500">
             <MapPin className="w-4 h-4 text-amber-500" />
@@ -288,7 +295,7 @@ export function Step4Story({
             id="where-it-happened-input"
             type="text"
             maxLength={500}
-            placeholder="Escreva a cidade, província ou local (Ex: Luanda, Benguela, Cabo Ledo...)"
+            placeholder="A cidade, praia ou local onde o vosso mundo parou (Ex: Luanda, Benguela, Cabo Ledo...)"
             value={formData.whereItHappened}
             onChange={(e) => setFormData(prev => ({ ...prev, whereItHappened: e.target.value }))}
             className="w-full pl-10 pr-4 py-3.5 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700"
@@ -298,19 +305,20 @@ export function Step4Story({
           )}
         </div>
         <p className="text-xxs text-stone-500 italic mt-1 font-mono">
-          "Lugares reais ajudam-nos a criar letras mais emocionantes."
+          "Lugares reais ajudam a criar uma letra que toca a alma."
         </p>
       </div>
 
       <div className="space-y-2 pt-3 border-t border-stone-900">
-        <label className="text-xs font-mono text-stone-400 block font-semibold">
-          O que gostarias que esta pessoa nunca esquecesse? <span className="text-stone-600 font-normal">(Opcional)</span>
+        <label className="text-xs font-mono text-stone-300 block font-semibold flex items-center justify-between">
+          <span>Mensagem do Coração</span>
+          <span className="text-stone-500 font-mono text-[10px] font-normal">(Opcional)</span>
         </label>
         <textarea
           id="deep-message-textarea"
-          rows={4}
+          rows={3}
           maxLength={1000}
-          placeholder="Ex: Que sempre estarei ao seu lado, custe o que custar, e que essa pessoa mudou completamente as cores da minha vida..."
+          placeholder="Se só pudesses dizer mais uma frase do fundo do coração antes da música tocar, qual seria?"
           value={formData.messageFromTheHeart}
           onChange={(e) => setFormData(prev => ({ ...prev, messageFromTheHeart: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
@@ -318,8 +326,8 @@ export function Step4Story({
         {fieldErrors?.messageFromTheHeart && (
           <p className="text-red-400 text-xs mt-1">{fieldErrors.messageFromTheHeart}</p>
         )}
-        <p className="text-xxs text-amber-500 italic mt-1 font-mono">
-          "Escreva como se fosse uma carta de amor."
+        <p className="text-xxs text-amber-400/80 italic mt-1 font-mono">
+          "Esta mensagem inspirará a estrofe mais marcante da canção."
         </p>
       </div>
 
