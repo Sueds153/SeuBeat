@@ -1337,6 +1337,73 @@ export default function AdminPanel() {
         )}
       </AnimatePresence>
 
+      {/* WhatsApp test modal */}
+      <AnimatePresence>
+        {waTestModal.open && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-stone-950/90 backdrop-blur flex items-center justify-center p-4"
+            onClick={() => setWaTestModal(prev => ({ ...prev, open: false }))}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 10 }}
+              className="max-w-md w-full bg-stone-900 rounded-2xl overflow-hidden border border-stone-800 p-6 space-y-4"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-stone-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <Send className="w-4 h-4 text-emerald-400" />
+                  <span className="font-mono text-xs text-stone-200 uppercase tracking-wider font-bold">Testar Envio Meta WhatsApp API</span>
+                </div>
+                <button onClick={() => setWaTestModal(prev => ({ ...prev, open: false }))} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer">✕</button>
+              </div>
+
+              <p className="text-xs text-stone-400 leading-relaxed">
+                Insere o teu número de telefone (com indicativo) para enviar uma mensagem real de teste via Cloud API.
+              </p>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-mono text-stone-400 block uppercase">Número de Destino (Formato E.164)</label>
+                <input
+                  type="text"
+                  value={waTestModal.phone}
+                  onChange={e => setWaTestModal(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder="+244922058136"
+                  className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2.5 text-xs text-stone-100 font-mono focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              {waTestModal.result && (
+                <div className={`p-3 rounded-xl text-xs font-mono ${waTestModal.result.ok ? 'bg-emerald-950/60 border border-emerald-800/50 text-emerald-300' : 'bg-rose-950/60 border border-rose-800/50 text-rose-300'}`}>
+                  {waTestModal.result.message}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  onClick={() => setWaTestModal(prev => ({ ...prev, open: false }))}
+                  className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs rounded-xl font-mono cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => sendWhatsAppTest(waTestModal.phone)}
+                  disabled={waTestModal.loading || !waTestModal.phone.trim()}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl font-mono cursor-pointer flex items-center gap-2"
+                >
+                  {waTestModal.loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  {waTestModal.loading ? 'A enviar...' : 'Enviar Teste'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Proof image modal */}
       <AnimatePresence>
         {proofModal && (

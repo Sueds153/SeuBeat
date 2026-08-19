@@ -35,11 +35,11 @@ function safeMessage(err: unknown): string {
   return publicErrorMessage(err);
 }
 
-function firstRelated<T = any>(value: T | T[] | null | undefined): T | undefined {
+function firstRelated<T>(value: T | T[] | null | undefined): T | undefined {
   return Array.isArray(value) ? value[0] : value || undefined;
 }
 
-function mapRelated<T = any>(value: T | T[] | null | undefined, mapper: (item: T) => T): T | T[] | null | undefined {
+function mapRelated<T>(value: T | T[] | null | undefined, mapper: (item: T) => T): T | T[] | null | undefined {
   if (Array.isArray(value)) return value.map(mapper);
   if (value) return mapper(value);
   return value;
