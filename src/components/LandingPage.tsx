@@ -1,4 +1,4 @@
-import { ArrowRight, Sparkles, Check, Play, MessageCircle, Menu, X, Shield, Flame, Music2, Crown, Headphones, Trophy, Mic, Gem, Heart, Cake, HandHeart, HeartHandshake, Feather } from 'lucide-react';
+import { ArrowRight, Sparkles, Check, Play, MessageCircle, Menu, X, Shield, Flame, Music2, Crown, Headphones, Trophy, Mic, Gem, Heart, Cake, HandHeart, HeartHandshake, Feather, Zap } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import LogoIcon from './LogoIcon';
@@ -380,8 +380,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               </div>
 
               {/* Floating badge top-right */}
-              <div className="absolute -top-4 right-4 md:-right-2 bg-gradient-to-br from-amber-500 to-rose-600 text-stone-950 rounded-2xl px-4 py-2 text-xs font-black shadow-xl shadow-amber-500/30 rotate-0 md:rotate-3">
-                <span className="inline-flex items-center gap-1"><Music2 className="w-3.5 h-3.5" /> Entrega em 24h</span>
+              <div className="absolute -top-3.5 right-3 md:-right-2 bg-gradient-to-r from-amber-400 via-rose-500 to-amber-500 text-stone-950 rounded-full px-3.5 py-1.5 text-xs font-black shadow-xl shadow-amber-500/30 border border-amber-300/40 rotate-0 md:rotate-3 backdrop-blur-sm">
+                <span className="inline-flex items-center gap-1.5 uppercase tracking-wider text-[11px] font-extrabold">
+                  <Zap className="w-3.5 h-3.5 fill-stone-950 text-stone-950 animate-pulse shrink-0" />
+                  Entrega Imediata
+                </span>
               </div>
             </div>
           </div>
