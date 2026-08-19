@@ -407,15 +407,16 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
         .upload(filename, buffer, { contentType: uploadContentType });
 
       if (uploadError || !uploadData) {
-        logError('[API] Falha ao carregar foto', uploadError, {
+        logWarn('[API] Falha ao carregar foto no storage (continua sem foto)', {
           mime: photoMimeType,
-          bytes: buffer.length
+          bytes: buffer.length,
+          error: uploadError?.message
         });
-        throw new Error('Nao foi possivel carregar a foto. Tente novamente.');
+        photoUrl = null;
+      } else {
+        photoStoragePath = uploadData.path;
+        photoUrl = publicUrlForStoragePath(supabase, 'photos', uploadData.path);
       }
-
-      photoStoragePath = uploadData.path;
-      photoUrl = publicUrlForStoragePath(supabase, 'photos', uploadData.path);
     }
 
     if (!email) {

@@ -1072,16 +1072,11 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
           const { photoFile: _pf, photoUrl: _pu, ...formBody } = formData;
           const payload: Record<string, unknown> = { ...formBody };
-          if (!payload.email) delete payload.email;
-          if (!payload.userNick) payload.userNick = undefined;
-          if (!payload.recipientNick) payload.recipientNick = undefined;
-          if (!payload.referenceArtist) payload.referenceArtist = undefined;
-          if (!payload.whyCreatedToday) payload.whyCreatedToday = undefined;
-          if (!payload.whatMakesSpecial) payload.whatMakesSpecial = undefined;
-          if (!payload.onlySheDoes) payload.onlySheDoes = undefined;
-          if (!payload.unforgettableMemory) payload.unforgettableMemory = undefined;
-          if (!payload.whereItHappened) payload.whereItHappened = undefined;
-          if (!payload.messageFromTheHeart) payload.messageFromTheHeart = undefined;
+          for (const key of Object.keys(payload)) {
+            if (payload[key] === '' || payload[key] === null || payload[key] === undefined) {
+              delete payload[key];
+            }
+          }
           const storedUtm = getStoredUtm();
           if (storedUtm && Object.keys(storedUtm).length > 0) {
             Object.assign(payload, storedUtm);
