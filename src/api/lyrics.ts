@@ -22,10 +22,13 @@ const GENERATE_TIMEOUT = 180000;
 function buildGeneratePayload(formData: Record<string, unknown>, photoBase64?: string, photoFilename?: string, photoMimeType?: string) {
   const { photoFile: _pf, photoUrl: _pu, ...formBody } = formData;
   const payload: Record<string, unknown> = { ...formBody };
-  if (!payload.email) delete payload.email;
-  if (!payload.recipientNick) payload.recipientNick = undefined;
-  if (!payload.referenceArtist) payload.referenceArtist = undefined;
-  if (!payload.whyCreatedToday) payload.whyCreatedToday = undefined;
+
+  // Remove campos vazios para não causarem falha de validação no servidor
+  for (const key of Object.keys(payload)) {
+    if (payload[key] === '' || payload[key] === null || payload[key] === undefined) {
+      delete payload[key];
+    }
+  }
 
   Object.assign(payload, getStoredUtm());
 

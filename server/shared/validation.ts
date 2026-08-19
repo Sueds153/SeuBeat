@@ -49,15 +49,15 @@ export const GenerateLyricsSchema = z.object({
   phone: z.string().regex(/^\+?[\d\s()-]{7,18}$/, 'Telefone inválido'),
 
   recipientName: z.string().min(1, 'Nome do destinatário requerido').max(100).trim(),
-  recipientGender: z.preprocess(lower, z.enum(GENDERS)),
+  recipientGender: z.preprocess(lower, z.enum(GENDERS).catch('feminino')),
   recipientRelation: z.preprocess(lower, z.enum(RECIPIENT_RELATIONS).catch('outro')),
   recipientNick: z.string().max(50).trim().optional(),
 
-  occasion: z.preprocess(lower, z.enum(OCCASIONS)),
+  occasion: z.preprocess(lower, z.enum(OCCASIONS).catch('declaração')),
   whyCreatedToday: z.string().max(500).trim().optional(),
-  musicStyle: z.preprocess(lower, z.enum(MUSIC_STYLES)),
+  musicStyle: z.preprocess(lower, z.enum(MUSIC_STYLES).catch('kizomba')),
   referenceArtist: z.string().max(100).trim().optional(),
-  voiceType: z.preprocess(lower, z.enum(VOICE_TYPES)),
+  voiceType: z.preprocess(lower, z.enum(VOICE_TYPES).catch('sem preferência')),
 
   whatMakesSpecial: z.string().max(1000).trim().optional(),
   onlySheDoes: z.string().max(500).trim().optional(),
@@ -65,8 +65,14 @@ export const GenerateLyricsSchema = z.object({
   whereItHappened: z.string().max(500).trim().optional(),
   messageFromTheHeart: z.string().max(1000).trim().optional(),
   hookPhrase: z.string().max(200).trim().optional(),
-  desiredEmotion: z.preprocess(lower, z.enum(EMOTIONS).optional()),
-  language: z.preprocess(lower, z.enum(LANGUAGES)).default('português'),
+  desiredEmotion: z.preprocess(
+    v => (!v || typeof v !== 'string' || v.trim() === '' ? undefined : v.toLowerCase()),
+    z.string().max(50).optional()
+  ),
+  language: z.preprocess(
+    v => (!v || typeof v !== 'string' || v.trim() === '' ? 'português' : v.toLowerCase()),
+    z.string().max(50)
+  ).default('português'),
 
   photoBase64: z.string().max(10 * 1024 * 1024, 'Foto muito grande (max 10MB)').optional().nullable(),
   photoFilename: z.string().max(255).trim().optional().nullable(),

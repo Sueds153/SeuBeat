@@ -1,4 +1,5 @@
-const PIXEL_ID = import.meta.env.VITE_META_PIXEL_ID as string | undefined;
+const RAW_PIXEL_ID = import.meta.env.VITE_META_PIXEL_ID as string | undefined;
+const PIXEL_ID = RAW_PIXEL_ID ? RAW_PIXEL_ID.replace(/['"]/g, '').trim() : undefined;
 const IS_ENABLED = Boolean(PIXEL_ID);
 let initialized = false;
 

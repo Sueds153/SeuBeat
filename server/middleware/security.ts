@@ -42,6 +42,8 @@ export function helmetMiddleware() {
           'https://*.capi.graph.facebook.com'
         ],
         workerSrc: ["'self'", 'blob:'],
+        frameSrc: ["'self'", 'https://www.facebook.com', 'https://web.facebook.com'],
+        formAction: ["'self'", 'https://www.facebook.com'],
         frameAncestors: ["'none'"],
       },
     } : false,

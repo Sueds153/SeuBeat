@@ -56,9 +56,9 @@ describe('GenerateLyricsSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('fails with invalid music style', () => {
-    const result = GenerateLyricsSchema.safeParse({ ...validData, musicStyle: 'invalid' });
-    expect(result.success).toBe(false);
+  it('fallbacks to default on invalid music style', () => {
+    const result = GenerateLyricsSchema.parse({ ...validData, musicStyle: 'invalid' });
+    expect(result.musicStyle).toBe('kizomba');
   });
 
   it('accepts all valid music styles', () => {
@@ -69,9 +69,9 @@ describe('GenerateLyricsSchema', () => {
     }
   });
 
-  it('fails with invalid voice type', () => {
-    const result = GenerateLyricsSchema.safeParse({ ...validData, voiceType: 'alien' });
-    expect(result.success).toBe(false);
+  it('fallbacks to default on invalid voice type', () => {
+    const result = GenerateLyricsSchema.parse({ ...validData, voiceType: 'alien' });
+    expect(result.voiceType).toBe('sem preferência');
   });
 
   it('accepts all valid voice types', () => {
@@ -82,9 +82,9 @@ describe('GenerateLyricsSchema', () => {
     }
   });
 
-  it('fails with invalid emotion', () => {
-    const result = GenerateLyricsSchema.safeParse({ ...validData, desiredEmotion: 'raiva' });
-    expect(result.success).toBe(false);
+  it('accepts custom emotion string', () => {
+    const result = GenerateLyricsSchema.parse({ ...validData, desiredEmotion: 'raiva' });
+    expect(result.desiredEmotion).toBe('raiva');
   });
 
   it('fails without phone', () => {
