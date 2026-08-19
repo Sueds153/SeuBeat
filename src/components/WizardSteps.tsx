@@ -233,7 +233,7 @@ export function Step4Story({
   const appendStory = (text: string) => {
     setFormData(prev => {
       const next = prev.whatMakesSpecial ? `${prev.whatMakesSpecial} ${text}` : text;
-      return { ...prev, whatMakesSpecial: next.slice(0, 1000) };
+      return { ...prev, whatMakesSpecial: next.slice(0, 4000) };
     });
   };
 
@@ -246,9 +246,9 @@ export function Step4Story({
         </label>
         <textarea
           id="makes-special-textarea"
-          rows={4}
-          maxLength={1000}
-          placeholder="Ex: Conta-nos um momento marcante, uma gargalhada ou o que torna esta pessoa única... É essa a matéria-prima da canção."
+          rows={5}
+          maxLength={4000}
+          placeholder="Ex: Conta-nos um momento marcante, uma gargalhada ou o que torna esta pessoa única... Escreve à vontade, quanto mais detalhes contares, mais emocionante fica a canção."
           value={formData.whatMakesSpecial}
           onChange={(e) => setFormData(prev => ({ ...prev, whatMakesSpecial: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
@@ -294,7 +294,7 @@ export function Step4Story({
           <input
             id="where-it-happened-input"
             type="text"
-            maxLength={500}
+            maxLength={1000}
             placeholder="A cidade, praia ou local onde o vosso mundo parou (Ex: Luanda, Benguela, Cabo Ledo...)"
             value={formData.whereItHappened}
             onChange={(e) => setFormData(prev => ({ ...prev, whereItHappened: e.target.value }))}
@@ -316,8 +316,8 @@ export function Step4Story({
         </label>
         <textarea
           id="deep-message-textarea"
-          rows={3}
-          maxLength={1000}
+          rows={4}
+          maxLength={4000}
           placeholder="Se só pudesses dizer mais uma frase do fundo do coração antes da música tocar, qual seria?"
           value={formData.messageFromTheHeart}
           onChange={(e) => setFormData(prev => ({ ...prev, messageFromTheHeart: e.target.value }))}

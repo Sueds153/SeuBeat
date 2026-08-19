@@ -19,9 +19,9 @@ const Step4Schema = z.object({
   whatMakesSpecial: z.string()
     .trim()
     .min(3, 'Por favor, conta-nos uma recordação ou toca numa pílula abaixo.')
-    .max(1000, 'Máximo 1000 caracteres'),
-  whereItHappened: z.string().max(500, 'Máximo 500 caracteres').optional(),
-  messageFromTheHeart: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
+    .max(4000, 'Máximo 4000 caracteres'),
+  whereItHappened: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
+  messageFromTheHeart: z.string().max(4000, 'Máximo 4000 caracteres').optional(),
 });
 
 export const Step5Schema = z.object({

@@ -59,11 +59,11 @@ export const GenerateLyricsSchema = z.object({
   referenceArtist: z.string().max(100).trim().optional(),
   voiceType: z.preprocess(lower, z.enum(VOICE_TYPES).catch('sem preferência')),
 
-  whatMakesSpecial: z.string().max(1000).trim().optional(),
-  onlySheDoes: z.string().max(500).trim().optional(),
-  unforgettableMemory: z.string().max(1000).trim().optional(),
-  whereItHappened: z.string().max(500).trim().optional(),
-  messageFromTheHeart: z.string().max(1000).trim().optional(),
+  whatMakesSpecial: z.string().max(4000).trim().optional(),
+  onlySheDoes: z.string().max(1000).trim().optional(),
+  unforgettableMemory: z.string().max(4000).trim().optional(),
+  whereItHappened: z.string().max(1000).trim().optional(),
+  messageFromTheHeart: z.string().max(4000).trim().optional(),
   hookPhrase: z.string().max(200).trim().optional(),
   desiredEmotion: z.preprocess(
     v => (!v || typeof v !== 'string' || v.trim() === '' ? undefined : v.toLowerCase()),
