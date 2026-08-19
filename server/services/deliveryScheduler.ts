@@ -28,10 +28,13 @@ async function deliverWithRetry(req: PendingRequest, now: string, attempt = 0): 
   const supabase = getAdminSupabase();
   if (!supabase) return;
 
-  const songData = Array.isArray(req.songs) ? req.songs[0] : null;
+  const songData = req.songs ? (Array.isArray(req.songs) ? req.songs[0] : req.songs) : null;
   const letterText = songData?.letter_text || 'Preparámos uma dedicatória especial para si.';
   const slug = makeSlug(req.recipient_name || 'especial');
   const songId = songData?.id;
+
+  logInfo('[DeliveryScheduler] DEBUG songData', { requestId: req.id, songData });
+  logInfo('[DeliveryScheduler] DEBUG songId', { requestId: req.id, songId });
 
   if (!songId) {
     logWarn('[DeliveryScheduler] songId em falta', { requestId: req.id });
@@ -48,7 +51,7 @@ async function deliverWithRetry(req: PendingRequest, now: string, attempt = 0): 
   }
 
   try {
-    const { error: updateError } = await supabase
+    const { error: updateError, data: updateData } = await supabase
       .from('song_requests')
       .update({
         status: 'delivered',
@@ -60,11 +63,21 @@ async function deliverWithRetry(req: PendingRequest, now: string, attempt = 0): 
 
     if (updateError) throw updateError;
 
+    if (!updateData) {
+      logInfo('[DeliveryScheduler] Música já entregue ou processada anteriormente', {
+        requestId: req.id,
+        songId,
+      });
+      return;
+    }
+
     logInfo('[DeliveryScheduler] Musica entregue com sucesso', {
       requestId: req.id,
       email: req.email,
       songId,
     });
+
+    logInfo('[DeliveryScheduler] DEBUG about to send email', { requestId: req.id, hasEmail: !!req.email });
 
     if (req.email) {
       await sendPersonalizedEmail(
@@ -73,8 +86,10 @@ async function deliverWithRetry(req: PendingRequest, now: string, attempt = 0): 
         personalizedUrl,
         letterText
       );
+      logInfo('[DeliveryScheduler] Email enviado com sucesso', { requestId: req.id });
     }
   } catch (err) {
+    logError('[DeliveryScheduler] Catch error', { requestId: req.id, error: err instanceof Error ? err.message : String(err) });
     if (attempt < MAX_RETRIES) {
       const delay = RETRY_DELAYS[attempt] || RETRY_DELAYS[RETRY_DELAYS.length - 1];
       logWarn(`[DeliveryScheduler] Tentativa ${attempt + 1}/${MAX_RETRIES + 1} falhou, retentativa em ${delay}ms`, {
@@ -106,6 +121,12 @@ async function deliverPendingSongs(): Promise<void> {
     .eq('status', 'approved')
     .lte('deliver_at', now)
     .not('deliver_at', 'is', null);
+
+  logInfo('[DeliveryScheduler] DEBUG pending raw', { 
+    requestCount: pending?.length, 
+    firstReqId: pending?.[0]?.id, 
+    firstReqSongs: pending?.[0]?.songs 
+  });
 
   if (error) {
     logError('[DeliveryScheduler] Erro ao consultar pedidos pendentes', error);

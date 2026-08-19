@@ -299,7 +299,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 <span>Lançamento Exclusivo em Angola</span>
               </div>
               <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl text-stone-100 tracking-tight leading-[1.3]">
-                Flores murcham. Chocolate acaba.
+                Flores murcham. Chocolates acabam.
               </h1>
               <p className="font-serif text-2xl sm:text-3xl md:text-4xl text-amber-400 tracking-tight leading-[1.3]">
                 Uma música<span className="text-stone-100"> dura para sempre!</span>
