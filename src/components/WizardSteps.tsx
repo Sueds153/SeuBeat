@@ -1,10 +1,9 @@
 import React from 'react';
 import {
-  Upload, MapPin, Sparkles, Mail, Phone
+  Upload, MapPin, Mail, Phone
 } from 'lucide-react';
-import { motion } from 'motion/react';
 import {
-  RecipientType, OccasionType, MusicStyleType, VoiceType, EmotionType, WizardData, RecipientGender
+  RecipientType, OccasionType, MusicStyleType, VoiceType, WizardData, RecipientGender
 } from '../types';
 import { formatPhoneNumber } from '../lib/validation';
 
@@ -15,13 +14,9 @@ interface StepProps {
   relationshipCards: readonly { type: string; label: string; icon: string }[];
   occasionCards: readonly { type: string; label: string; icon: string }[];
   musicStyleCards: readonly { style: string; label: string; desc: string; icon: string }[];
-  artistCards: readonly { name: string; style: string }[];
   voiceCards: readonly { type: string; label: string; desc: string }[];
-  emotionCards: readonly { type: string; icon: string; label: string }[];
   photoFileRef: React.RefObject<HTMLInputElement | null>;
   handlePhotoChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  suggestTab: 'viagem' | 'romance' | 'divertido' | 'quotidiano';
-  setSuggestTab: React.Dispatch<React.SetStateAction<'viagem' | 'romance' | 'divertido' | 'quotidiano'>>;
   todayCount: number;
 }
 
@@ -100,48 +95,6 @@ export function Step1Relation({
             <p className="text-red-400 text-xs mt-1">{fieldErrors.recipientGender}</p>
           )}
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-mono text-stone-400 block mb-1.5 font-semibold">
-              Que apelido carinhoso essa pessoa te chama? <span className="text-stone-600 font-normal">(Opcional)</span>
-            </label>
-            <input
-              id="user-nick-input"
-              type="text"
-              placeholder="Fofinho, Amor, Campeão, Filho..."
-              maxLength={50}
-              value={formData.userNick}
-              onChange={(e) => setFormData(prev => ({ ...prev, userNick: e.target.value }))}
-              className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300"
-            />
-            {fieldErrors?.userNick && (
-              <p className="text-red-400 text-xs mt-1">{fieldErrors.userNick}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="text-xs font-mono text-stone-400 block mb-1.5 font-semibold">
-              E tu, que apelido usas para essa pessoa? <span className="text-stone-600 font-normal">(Opcional)</span>
-            </label>
-            <input
-              id="recipient-nick-input"
-              type="text"
-              placeholder="Amor, Princesa, Meu Rei, Vida..."
-              maxLength={50}
-              value={formData.recipientNick}
-              onChange={(e) => setFormData(prev => ({ ...prev, recipientNick: e.target.value }))}
-              className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300"
-            />
-            {fieldErrors?.recipientNick && (
-              <p className="text-red-400 text-xs mt-1">{fieldErrors.recipientNick}</p>
-            )}
-          </div>
-        </div>
-
-        <p className="text-xxs text-amber-500 italic mt-1 font-mono">
-          "Apelidos carinhosos tornam a letra ainda mais emocionante — mas não são obrigatórios."
-        </p>
       </div>
       <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
         {formData.recipientRelation === 'Mãe' ? `+${todayCount} já fizeram para uma mãe` :
@@ -184,27 +137,6 @@ export function Step2Occasion({
       {fieldErrors?.occasion && (
         <p className="text-red-400 text-xs mt-1">{fieldErrors.occasion}</p>
       )}
-
-      <div className="space-y-2 pt-3 border-t border-stone-900">
-        <label className="text-xs font-mono text-stone-400 block font-semibold">
-          O que aconteceu para esta música ser criada hoje?
-        </label>
-        <textarea
-          id="why-created-today-textarea"
-          rows={4}
-          maxLength={500}
-          placeholder="Ex: Ela faz anos amanhã e quero surpreendê-la..."
-          value={formData.whyCreatedToday}
-          onChange={(e) => setFormData(prev => ({ ...prev, whyCreatedToday: e.target.value }))}
-          className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
-        />
-        {fieldErrors?.whyCreatedToday && (
-          <p className="text-red-400 text-xs mt-1">{fieldErrors.whyCreatedToday}</p>
-        )}
-        <p className="text-xxs text-stone-500 italic mt-1 font-mono">
-          "Explique rapidamente porque decidiu criar esta música."
-        </p>
-      </div>
       <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
         {formData.occasion === 'Declaração' ? 'Sabia que 9 em cada 10 pessoas que fizeram uma declaração em música receberam um "sim"? A sua pode ser a próxima.' :
          formData.occasion === 'Aniversário' ? 'Mais de 300 músicas de aniversário já foram entregues — um presente que não se esquece.' :
@@ -216,9 +148,9 @@ export function Step2Occasion({
   );
 }
 
-export function Step3Style({
-  formData, setFormData, musicStyleCards, artistCards, fieldErrors, todayCount
-}: Pick<StepProps, 'formData' | 'setFormData' | 'musicStyleCards' | 'artistCards' | 'fieldErrors' | 'todayCount'>) {
+export function Step3StyleVoice({
+  formData, setFormData, musicStyleCards, voiceCards, fieldErrors, todayCount
+}: Pick<StepProps, 'formData' | 'setFormData' | 'musicStyleCards' | 'voiceCards' | 'fieldErrors' | 'todayCount'>) {
   return (
     <div className="space-y-4 pt-2">
       <div>
@@ -253,100 +185,69 @@ export function Step3Style({
       </div>
 
       <div className="pt-3 border-t border-stone-900 space-y-2">
-        <label className="text-xs font-mono text-stone-400 block font-semibold">
-          Escolha um Artista de Referência <span className="text-stone-600 font-normal">(Opcional)</span>
-        </label>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {artistCards.map((artist) => {
-            const isSelected = formData.referenceArtist === artist.name;
+        <label className="text-xs font-mono text-stone-400 block font-semibold">Quem deve cantar?</label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {voiceCards.map((card) => {
+            const isSelected = formData.voiceType === card.type;
             return (
               <button
-                id={`artist-btn-${artist.name.replace(/\s+/g, '-')}`}
-                key={artist.name}
+                id={`voice-btn-${card.type.replace(/\s+/g, '-')}`}
+                key={card.type}
                 type="button"
-                onClick={() => setFormData(prev => ({ ...prev, referenceArtist: artist.name }))}
-                className={`px-2 py-2 text-center rounded-xl border transition-all cursor-pointer ${
+                onClick={() => setFormData(prev => ({ ...prev, voiceType: card.type as VoiceType }))}
+                className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between h-full cursor-pointer ${
                   isSelected
                     ? 'bg-amber-500/10 border-amber-500 text-amber-300 ring-2 ring-amber-500/15'
-                    : 'bg-stone-950/40 border-stone-850 text-stone-400 hover:text-stone-300'
+                    : 'bg-stone-950/40 border-stone-850 text-stone-400 hover:text-stone-200 hover:border-stone-750'
                 }`}
               >
-                <span className="text-xs font-semibold leading-tight block">{artist.name}</span>
-                <span className="text-[10px] text-stone-550 leading-tight block font-mono">{artist.style}</span>
+                <div>
+                  <h4 className="font-semibold text-stone-200 text-xs sm:text-sm">{card.label}</h4>
+                  <p className="text-xxs text-stone-500 mt-1 leading-relaxed">{card.desc}</p>
+                </div>
               </button>
             );
           })}
         </div>
-        <p className="text-xxs text-stone-500 italic pt-1 font-mono">
-          O artista de referência ajuda a acertar o tom.
+        {fieldErrors?.voiceType && (
+          <p className="text-red-400 text-xs mt-1">{fieldErrors.voiceType}</p>
+        )}
+        <p className="text-xxs text-stone-500 italic mt-1 font-mono">
+          "A voz certa transforma a emoção da letra."
         </p>
       </div>
+
       <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
         {formData.musicStyle === 'Kizomba' ? 'A Kizomba é o estilo mais escolhido — perfeito para histórias de amor.' :
          formData.musicStyle === 'Semba' ? 'O Semba é a alma musical de Angola — uma escolha cheia de tradição.' :
          formData.musicStyle === 'Gospel' ? `Gospel: +${todayCount} músicas criadas` :
-         'No próximo passo: escolher quem vai cantar esta história'}
+         'No próximo passo: contar a vossa história'}
       </p>
     </div>
   );
 }
 
-export function Step4Voice({
-  formData, setFormData, voiceCards, fieldErrors
-}: Pick<StepProps, 'formData' | 'setFormData' | 'voiceCards' | 'fieldErrors'>) {
-  return (
-    <div className="space-y-4 pt-2">
-      <label className="text-xs font-mono text-stone-400 block font-semibold">Quem deve cantar?</label>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {voiceCards.map((card) => {
-          const isSelected = formData.voiceType === card.type;
-          return (
-            <button
-              id={`voice-btn-${card.type.replace(/\s+/g, '-')}`}
-              key={card.type}
-              type="button"
-              onClick={() => setFormData(prev => ({ ...prev, voiceType: card.type as VoiceType }))}
-              className={`p-4 rounded-xl border text-left transition-all flex flex-col justify-between h-full cursor-pointer ${
-                isSelected
-                  ? 'bg-amber-500/10 border-amber-500 text-amber-300 ring-2 ring-amber-500/15'
-                  : 'bg-stone-950/40 border-stone-850 text-stone-400 hover:text-stone-200 hover:border-stone-750'
-              }`}
-            >
-              <div>
-                <h4 className="font-semibold text-stone-200 text-xs sm:text-sm">{card.label}</h4>
-                <p className="text-xxs text-stone-500 mt-1 leading-relaxed">{card.desc}</p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-      {fieldErrors?.voiceType && (
-        <p className="text-red-400 text-xs mt-1">{fieldErrors.voiceType}</p>
-      )}
-      <p className="text-xxs text-stone-500 italic mt-1 font-mono">
-        "A voz certa transforma a emoção da letra."
-      </p>
-      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        Já ajudámos centenas de pessoas a eternizar momentos especiais — os detalhes que partilhar tornam a letra única
-      </p>
-    </div>
-  );
-}
-
-export function Step5Traits({
+export function Step4Story({
   formData, setFormData, fieldErrors
 }: Pick<StepProps, 'formData' | 'setFormData' | 'fieldErrors'>) {
+  const appendStory = (text: string) => {
+    setFormData(prev => {
+      const next = prev.whatMakesSpecial ? `${prev.whatMakesSpecial} ${text}` : text;
+      return { ...prev, whatMakesSpecial: next.slice(0, 1000) };
+    });
+  };
+
   return (
     <div className="space-y-4 pt-2">
       <div className="space-y-2">
         <label className="text-xs font-mono text-stone-400 block font-semibold">
-          O que mais amas nessa pessoa? <span className="text-stone-600 font-normal">(Opcional)</span>
+          Conta-nos a vossa história <span className="text-stone-600 font-normal">(Opcional)</span>
         </label>
-<textarea
+        <textarea
           id="makes-special-textarea"
           rows={4}
           maxLength={1000}
-          placeholder="Ex: É uma pessoa extremamente doce e presente, adora caminhar ao fim da tarde... Tem um sorriso contagiante..."
+          placeholder="Ex: O que mais amas nessa pessoa, uma memória inesquecível, um momento único que só os dois conhecem... É essa a matéria-prima da canção."
           value={formData.whatMakesSpecial}
           onChange={(e) => setFormData(prev => ({ ...prev, whatMakesSpecial: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
@@ -357,14 +258,15 @@ export function Step5Traits({
             { label: 'Forte e Inspiradora', append: 'É uma fonte inesgotável de força e inspiração, supera cada desafio com um sorriso que ilumina.' },
             { label: 'Divertida e Alegre', append: 'Traz alegria a cada momento com o seu sentido de humor único e gargalhada contagiante.' },
             { label: 'Sábia e Conselheira', append: 'Tem sempre a palavra certa na hora certa, uma sabedoria que admiro profundamente.' },
+            { label: 'Memória Inesquecível', append: 'Guardo com carinho o momento em que tudo começou, uma memória que aquece o coração e nunca mais esqueci.' },
+            { label: 'Primeiro Encontro', append: 'No primeiro encontro percebi que era especial — os olhares cruzaram-se e tudo à nossa volta desapareceu.' },
+            { label: 'Passeio à Beira-Mar', append: 'Aquele passeio à beira-mar sob o luar, partilhando segredos embalados pelo som das ondas.' },
+            { label: 'Cozinhando Juntos', append: 'Quando cozinhámos juntos e o prato correu mal, mas acabámos a rir no chão com boa disposição.' },
           ].map((pill, i) => (
             <button
               key={i}
               type="button"
-              onClick={() => setFormData(prev => {
-                const next = prev.whatMakesSpecial ? `${prev.whatMakesSpecial} ${pill.append}` : pill.append;
-                return { ...prev, whatMakesSpecial: next.slice(0, 1000) };
-              })}
+              onClick={() => appendStory(pill.append)}
               className="px-2.5 py-1 bg-stone-950 hover:bg-stone-850 border border-stone-850 hover:border-stone-700 text-[10px] text-stone-300 rounded-full font-medium transition-colors cursor-pointer"
             >
               {pill.label}
@@ -376,298 +278,8 @@ export function Step5Traits({
         )}
       </div>
 
-      <div className="space-y-2 pt-2 border-t border-stone-900">
-        <label className="text-xs font-mono text-stone-400 block font-semibold">
-          O que ela faz que ninguém mais faz?
-        </label>
-        <textarea
-          id="only-she-does-textarea"
-          rows={4}
-          maxLength={500}
-          placeholder="Ex: Fecha os olhos com força quando dá uma ruidosa gargalhada, canta desafinado no banho, encolhe os ombros quando tem frio..."
-          value={formData.onlySheDoes}
-          onChange={(e) => setFormData(prev => ({ ...prev, onlySheDoes: e.target.value }))}
-          className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
-        />
-        <div className="flex flex-wrap gap-1.5 pt-1">
-          {[
-            { label: 'Sorriso Contagiante', append: 'tem um sorriso contagiante que ilumina qualquer divisão onde entra' },
-            { label: 'Olhar Penetrante', append: 'olha nos olhos de uma forma que faz esquecer o mundo à volta' },
-            { label: 'Cozinha Divinal', append: 'faz uma comida que aquece a alma, cada refeição é um abraço' },
-            { label: 'Abraço de Apertar', append: 'abraça com tanta força e verdade que todos os problemas desaparecem' },
-            { label: 'Gargalhada Única', append: 'dá uma gargalhada tão genuína e alta que é impossível não rir junto' },
-          ].map((pill, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => setFormData(prev => {
-                const next = prev.onlySheDoes ? `${prev.onlySheDoes} ${pill.append}` : pill.append;
-                return { ...prev, onlySheDoes: next.slice(0, 500) };
-              })}
-              className="px-2.5 py-1 bg-stone-950 hover:bg-stone-850 border border-stone-850 hover:border-stone-700 text-[10px] text-stone-300 rounded-full font-medium transition-colors cursor-pointer"
-            >
-              {pill.label}
-            </button>
-          ))}
-        </div>
-        {fieldErrors?.onlySheDoes && (
-          <p className="text-red-400 text-xs mt-1">{fieldErrors.onlySheDoes}</p>
-        )}
-        <p className="text-xxs text-amber-500 italic mt-1 font-mono">
-          "Pequenos detalhes tornam a música única."
-        </p>
-      </div>
-      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        A seguir: partilhe uma memória inesquecível — são estes detalhes que fazem a letra parecer escrita por alguém que conhece bem essa pessoa
-      </p>
-    </div>
-  );
-}
-
-export function Step6Memory({
-  formData, setFormData, suggestTab, setSuggestTab, fieldErrors
-}: Pick<StepProps, 'formData' | 'setFormData' | 'suggestTab' | 'setSuggestTab' | 'fieldErrors'>) {
-  return (
-    <div className="space-y-4 pt-2">
-      <div className="space-y-2">
-        <label className="text-xs font-mono text-stone-400 block font-semibold flex justify-between items-center">
-          <span>Memória Engraçada / Momento Único</span>
-          <span className="text-[10px] text-amber-500 font-mono">Dica: Seja específico!</span>
-        </label>
-        <textarea
-          id="unforgettable-memory-textarea"
-          rows={4}
-          maxLength={1000}
-          placeholder="Ex: Aquele fim de semana fantástico na praia de Cabo Ledo, onde comemos churrasquinho sob o luar e rimos imenso sob as estrelas..."
-          value={formData.unforgettableMemory}
-          onChange={(e) => setFormData(prev => ({ ...prev, unforgettableMemory: e.target.value }))}
-          className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
-        />
-        {fieldErrors?.unforgettableMemory && (
-          <p className="text-red-400 text-xs mt-1">{fieldErrors.unforgettableMemory}</p>
-        )}
-      </div>
-
-      <div className="bg-stone-900 border border-stone-850 rounded-xl p-3.5 space-y-3.5">
-        <div className="flex items-center justify-between pb-2 border-b border-stone-850 flex-wrap gap-1">
-          <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase font-extrabold tracking-wider text-amber-400">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-            <span>Ideias de Composição & Detalhes Reais</span>
-          </div>
-          <span className="text-[10px] text-stone-500 font-mono hidden sm:inline">Toque para preencher ou anexar</span>
-        </div>
-
-        <div className="flex flex-wrap gap-1">
-          {(['viagem', 'romance', 'divertido', 'quotidiano'] as const).map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setSuggestTab(cat)}
-              className={`px-2.5 py-1 text-[10px] font-mono tracking-tight rounded-md border transition-all uppercase cursor-pointer ${
-                suggestTab === cat
-                  ? 'bg-amber-500/10 border-amber-500/40 text-amber-400'
-                  : 'bg-stone-950 border-stone-800 text-stone-400 hover:text-stone-200'
-              }`}
-            >
-              {cat === 'viagem' && 'Viagens'}
-              {cat === 'romance' && 'Romance'}
-              {cat === 'divertido' && 'Divertido'}
-              {cat === 'quotidiano' && 'Quotidiano'}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-left">
-          {suggestTab === 'viagem' && (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  const text = "Aquele luar inesquecível na praia de Cabo Ledo, sob a brisa fresca, em que partilhámos segredos embalados pelo eco das ondas e comemos mufete à beira-mar.";
-                  setFormData(prev => {
-                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
-                    return {
-                      ...prev,
-                      unforgettableMemory: next.slice(0, 1000),
-                      whereItHappened: prev.whereItHappened || "Praia de Cabo Ledo"
-                    };
-                  });
-                }}
-                className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
-              >
-                <span className="font-sans font-bold text-[11px] text-amber-400 block group-hover:text-amber-300">Passeio em Cabo Ledo</span>
-                <span className="text-[10px] text-stone-400 line-clamp-2 mt-1 italic font-serif leading-relaxed">
-                  "Aquele luar inesquecível na praia de Cabo Ledo, sob a brisa fresca, em que partilhámos segredos..."
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const text = "O domingo maravilhoso na Ilha de Luanda, em que passeámos descalços pela areia molhada, rimos das ondas fortes e dividimos um gelado de coco delicioso.";
-                  setFormData(prev => {
-                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
-                    return {
-                      ...prev,
-                      unforgettableMemory: next.slice(0, 1000),
-                      whereItHappened: prev.whereItHappened || "Ilha de Luanda"
-                    };
-                  });
-                }}
-                className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
-              >
-                <span className="font-sans font-bold text-[11px] text-amber-400 block group-hover:text-amber-300">Domingo na Ilha de Luanda</span>
-                <span className="text-[10px] text-stone-400 line-clamp-2 mt-1 italic font-serif leading-relaxed">
-                  "O domingo maravilhoso na Ilha de Luanda, em que passeámos descalços pela areia molhada..."
-                </span>
-              </button>
-            </>
-          )}
-
-          {suggestTab === 'romance' && (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  const text = "O nosso primeiro encontro em Luanda, quando os nossos olhares se cruzaram e um nervosismo fofo tomou conta de nós, sabendo naquele segundo que era amor.";
-                  setFormData(prev => {
-                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
-                    return { ...prev, unforgettableMemory: next.slice(0, 1000) };
-                  });
-                }}
-                className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
-              >
-                <span className="font-sans font-bold text-[11px] text-amber-400 block group-hover:text-amber-300">Primeiro Olhar do Encontro</span>
-                <span className="text-[10px] text-stone-400 line-clamp-2 mt-1 italic font-serif leading-relaxed">
-                  "O nosso primeiro encontro em Luanda, quando os nossos olhares se cruzaram e o coração bateu..."
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const text = "Aquele jantar em que a chama de uma vela iluminava o teu rosto de forma mágica, seguraste-me na mão e confessámos tudo o que sentíamos.";
-                  setFormData(prev => {
-                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
-                    return { ...prev, unforgettableMemory: next.slice(0, 1000) };
-                  });
-                }}
-                className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
-              >
-                <span className="font-sans font-bold text-[11px] text-amber-400 block group-hover:text-amber-300">Jantar Romântico</span>
-                <span className="text-[10px] text-stone-400 line-clamp-2 mt-1 italic font-serif leading-relaxed">
-                  "Aquele jantar em que a chama de uma vela iluminava o teu rosto de forma mágica..."
-                </span>
-              </button>
-            </>
-          )}
-
-          {suggestTab === 'divertido' && (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  const text = "Aquele dia em que fomos surpreendidos por um temporal no meio de Luanda e corremos rindo alto, ensopados até aos ossos, até encontrar um abrigo.";
-                  setFormData(prev => {
-                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
-                    return {
-                      ...prev,
-                      unforgettableMemory: next.slice(0, 1000),
-                      whereItHappened: prev.whereItHappened || "Luanda"
-                    };
-                  });
-                }}
-                className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
-              >
-                <span className="font-sans font-bold text-[11px] text-amber-400 block group-hover:text-amber-300">Chuva Inesperada</span>
-                <span className="text-[10px] text-stone-400 line-clamp-2 mt-1 italic font-serif leading-relaxed">
-                  "Aquele dia em que fomos surpreendidos por um temporal no meio de Luanda e corremos rindo alto..."
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const text = "A piada estúpida no carro em que começámos a rir com tanta intensidade que tivemos de parar na berma com lágrimas nos olhos de tanta cumplicidade.";
-                  setFormData(prev => {
-                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
-                    return { ...prev, unforgettableMemory: next.slice(0, 1000) };
-                  });
-                }}
-                className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
-              >
-                <span className="font-sans font-bold text-[11px] text-amber-400 block group-hover:text-amber-300">Gargalhadas no Carro</span>
-                <span className="text-[10px] text-stone-400 line-clamp-2 mt-1 italic font-serif leading-relaxed">
-                  "A piada estúpida no carro em que começámos a rir com tanta intensidade..."
-                </span>
-              </button>
-            </>
-          )}
-
-          {suggestTab === 'quotidiano' && (
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  const text = "Os domingos calmos em que entraste de mansinho no quarto com duas chávenas de café quente e ficámos apenas deitados abraçados.";
-                  setFormData(prev => {
-                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
-                    return { ...prev, unforgettableMemory: next.slice(0, 1000) };
-                  });
-                }}
-                className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
-              >
-                <span className="font-sans font-bold text-[11px] text-amber-400 block group-hover:text-amber-300">Pequeno-almoço na Cama</span>
-                <span className="text-[10px] text-stone-400 line-clamp-2 mt-1 italic font-serif leading-relaxed">
-                  "Os domingos calmos em que entraste de mansinho no quarto com duas chávenas de café quente..."
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const text = "A primeira vez que decidimos cozinhar juntos e o prato principal acabou completamente queimado. Acabámos a comer pão com boa disposição no chão.";
-                  setFormData(prev => {
-                    const next = prev.unforgettableMemory ? `${prev.unforgettableMemory} ${text}` : text;
-                    return { ...prev, unforgettableMemory: next.slice(0, 1000) };
-                  });
-                }}
-                className="p-2.5 bg-stone-950 hover:bg-stone-900 border border-stone-850 hover:border-stone-700 rounded-lg text-left transition-all duration-300 group cursor-pointer"
-              >
-                <span className="font-sans font-bold text-[11px] text-amber-400 block group-hover:text-amber-300">Cozinhando Juntos</span>
-                <span className="text-[10px] text-stone-400 line-clamp-2 mt-1 italic font-serif leading-relaxed">
-                  "A primeira vez que decidimos cozinhar juntos e o prato principal acabou completamente queimado..."
-                </span>
-              </button>
-            </>
-          )}
-        </div>
-
-        <div className="space-y-1.5 pt-2 border-t border-stone-850/60">
-          <span className="text-[10px] font-mono text-stone-400 font-bold tracking-wide uppercase block">Adicione Pormenores Sensoriais:</span>
-          <div className="flex flex-wrap gap-1.5 pt-0.5">
-            {[
-              { label: "+ Brisa do mar", append: " com a brisa maravilhosa do mar a acariciar o rosto e o embalo das ondas" },
-              { label: "+ Luar de Luanda", append: " sob o clarão do luar de Luanda, reluzindo nas águas escuras da baía" },
-              { label: "+ Música suave", append: " enquanto ao longe tocava um Semba ou Kizomba suave que parecia guiar os nossos passos" },
-              { label: "+ Calor e Arrepio", append: " com aquele calor acolhedor no peito e um arrepio doce que nos congelou no tempo" }
-            ].map((pill, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => {
-                  setFormData(prev => ({
-                    ...prev,
-                    unforgettableMemory: prev.unforgettableMemory ? `${prev.unforgettableMemory}${pill.append}` : pill.append.trim()
-                  }));
-                }}
-                className="px-2 py-0.5 bg-stone-950 hover:bg-stone-850 border border-stone-850 hover:border-stone-700 text-[10px] text-stone-300 rounded-full font-medium transition-colors cursor-pointer"
-              >
-                {pill.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
       <div className="space-y-2 pt-3 border-t border-stone-900">
-        <label className="text-xs font-mono text-stone-400 block font-semibold">Onde aconteceu?</label>
+        <label className="text-xs font-mono text-stone-400 block font-semibold">Onde aconteceu? <span className="text-stone-600 font-normal">(Opcional)</span></label>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-500">
             <MapPin className="w-4 h-4 text-amber-500" />
@@ -689,21 +301,10 @@ export function Step6Memory({
           "Lugares reais ajudam-nos a criar letras mais emocionantes."
         </p>
       </div>
-      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        As memórias mais simples são as que geram as letras mais emocionantes — os nossos compositores já transformaram centenas de histórias reais em canções inesquecíveis
-      </p>
-    </div>
-  );
-}
 
-export function Step7Message({
-  formData, setFormData, emotionCards, fieldErrors
-}: Pick<StepProps, 'formData' | 'setFormData' | 'emotionCards' | 'fieldErrors'>) {
-  return (
-    <div className="space-y-4 pt-2">
-      <div className="space-y-2">
+      <div className="space-y-2 pt-3 border-t border-stone-900">
         <label className="text-xs font-mono text-stone-400 block font-semibold">
-          O que gostarias que esta pessoa nunca esquecesse?
+          O que gostarias que esta pessoa nunca esquecesse? <span className="text-stone-600 font-normal">(Opcional)</span>
         </label>
         <textarea
           id="deep-message-textarea"
@@ -722,125 +323,74 @@ export function Step7Message({
         </p>
       </div>
 
-      <div className="space-y-2 pt-3 border-t border-stone-900">
+      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
+        Os detalhes mais simples são os que geram as letras mais emocionantes — já transformámos centenas de histórias reais em canções inesquecíveis
+      </p>
+    </div>
+  );
+}
+
+export function Step5Finalize({
+  formData, setFormData, photoFileRef, handlePhotoChange, fieldErrors
+}: Pick<StepProps, 'formData' | 'setFormData' | 'photoFileRef' | 'handlePhotoChange' | 'fieldErrors'>) {
+  return (
+    <div className="space-y-4 pt-2">
+      <div className="space-y-2">
         <label className="text-xs font-mono text-stone-400 block font-semibold">
-          Qual a frase principal que queres que fique na cabeça dela? <span className="text-stone-600 font-normal">(Opcional)</span>
+          Fotografia marcante do casal <span className="text-stone-600 font-normal">(Opcional)</span>
         </label>
-        <input
-          id="hook-phrase-input"
-          type="text"
-          maxLength={200}
-          placeholder='Ex: "és o meu sol", "nunca estás sozinha", "amo-te mais que ontem"...'
-          value={formData.hookPhrase}
-          onChange={(e) => setFormData(prev => ({ ...prev, hookPhrase: e.target.value }))}
-          className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700"
-        />
-        <p className="text-xxs text-amber-500 italic mt-1 font-mono">
-          "O refrão será construído à volta desta frase."
+        <div
+          onClick={() => photoFileRef.current?.click()}
+          className={`border-2 border-dashed rounded-2xl p-5 sm:p-8 text-center transition-all cursor-pointer bg-stone-950/40 relative min-h-[160px] sm:min-h-[180px] flex flex-col justify-center items-center ${
+            formData.photoUrl
+              ? 'border-green-500/30 bg-stone-900'
+              : 'border-stone-800 hover:border-stone-700'
+          }`}
+        >
+          <input
+            ref={photoFileRef}
+            type="file"
+            accept="image/*"
+            onChange={handlePhotoChange}
+            className="hidden"
+          />
+
+          {formData.photoUrl ? (
+            <div className="space-y-4 max-w-xs text-center">
+              <div className="w-36 h-36 mx-auto rounded-xl overflow-hidden shadow-xl border border-stone-700 relative group">
+                <img
+                  src={formData.photoUrl}
+                  alt="Dedicatória Casal"
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+                <div className="absolute inset-0 bg-black/45 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span className="text-xxs text-stone-300 font-semibold font-sans">Mudar imagem</span>
+                </div>
+              </div>
+              <p className="text-xs text-green-400 font-medium">Foto idealizada carregada com sucesso!</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="w-14 h-14 bg-stone-900 rounded-full flex items-center justify-center border border-stone-850 text-amber-500 mx-auto">
+                <Upload className="w-6 h-6" />
+              </div>
+              <p className="text-sm font-medium text-stone-255">Carregue ou arraste uma foto especial</p>
+              <p className="text-xxs text-stone-500 max-w-sm mx-auto leading-relaxed">
+                Formatos aceitáveis: JPG, PNG, JPEG. A foto ilustrará de fundo a dedicatória de reprodução da canção.
+              </p>
+            </div>
+          )}
+        </div>
+        {fieldErrors?.photoUrl && (
+          <p className="text-red-400 text-xs mt-1 text-center">{fieldErrors.photoUrl}</p>
+        )}
+        <p className="text-xxs text-stone-400 italic text-center font-mono">
+          "Esta foto será exibida na página personalizada da música."
         </p>
       </div>
 
-      <div className="space-y-2 pt-3 border-t border-stone-900">
-        <label className="text-xs font-mono text-stone-400 block font-semibold">Escolha as emoções dominantes:</label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {emotionCards.map((card) => {
-            const isSelected = formData.desiredEmotion === card.type;
-            return (
-              <button
-                id={`emotion-btn-${card.type}`}
-                key={card.type}
-                type="button"
-                onClick={() => setFormData(prev => ({ ...prev, desiredEmotion: card.type as EmotionType }))}
-                className={`px-3 py-3 rounded-xl border text-center transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  isSelected
-                    ? 'bg-amber-500/10 border-amber-500 text-amber-300 ring-2 ring-amber-500/15 shadow'
-                    : 'bg-stone-950/40 border-stone-850 text-stone-400 hover:text-stone-150 hover:border-stone-750'
-                }`}
-              >
-                <span className="text-xs sm:text-sm shrink-0">{card.icon}</span>
-                <span className="text-xxs sm:text-xs font-medium leading-tight">{card.label}</span>
-              </button>
-            );
-          })}
-        </div>
-        {fieldErrors?.desiredEmotion && (
-          <p className="text-red-400 text-xs mt-1">{fieldErrors.desiredEmotion}</p>
-        )}
-      </div>
-      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        Mais de 800 mensagens do coração já foram imortalizadas em canções. Escreva como se fosse uma carta de amor — é isso que torna a música única para sempre.
-      </p>
-    </div>
-  );
-}
-
-export function Step8Photo({
-  formData, photoFileRef, handlePhotoChange, fieldErrors
-}: Pick<StepProps, 'formData' | 'photoFileRef' | 'handlePhotoChange' | 'fieldErrors'>) {
-  return (
-    <div className="space-y-4 pt-2">
-      <div
-        onClick={() => photoFileRef.current?.click()}
-        className={`border-2 border-dashed rounded-2xl p-5 sm:p-8 text-center transition-all cursor-pointer bg-stone-950/40 relative min-h-[160px] sm:min-h-[220px] flex flex-col justify-center items-center ${
-          formData.photoUrl
-            ? 'border-green-500/30 bg-stone-900'
-            : 'border-stone-800 hover:border-stone-700'
-        }`}
-      >
-        <input
-          ref={photoFileRef}
-          type="file"
-          accept="image/*"
-          onChange={handlePhotoChange}
-          className="hidden"
-        />
-
-        {formData.photoUrl ? (
-          <div className="space-y-4 max-w-xs text-center">
-            <div className="w-36 h-36 mx-auto rounded-xl overflow-hidden shadow-xl border border-stone-700 relative group">
-              <img
-                src={formData.photoUrl}
-                alt="Dedicatória Casal"
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-black/45 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-xxs text-stone-300 font-semibold font-sans">Mudar imagem</span>
-              </div>
-            </div>
-            <p className="text-xs text-green-400 font-medium">Foto idealizada carregada com sucesso!</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="w-14 h-14 bg-stone-900 rounded-full flex items-center justify-center border border-stone-850 text-amber-500 mx-auto">
-              <Upload className="w-6 h-6" />
-            </div>
-            <p className="text-sm font-medium text-stone-255">Carregue ou arraste uma foto especial</p>
-            <p className="text-xxs text-stone-500 max-w-sm mx-auto leading-relaxed">
-              Formatos aceitáveis: JPG, PNG, JPEG. A foto ilustrará de fundo a dedicatória de reprodução da canção.
-            </p>
-          </div>
-        )}
-      </div>
-      {fieldErrors?.photoUrl && (
-        <p className="text-red-400 text-xs mt-1 text-center">{fieldErrors.photoUrl}</p>
-      )}
-      <p className="text-xxs text-stone-400 italic text-center font-mono">
-        "Esta foto será exibida na página personalizada da música."
-      </p>
-      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        9 em cada 10 pessoas que carregam uma foto dizem que a dedicatória ficou ainda mais especial — é o toque final que torna a página única
-      </p>
-    </div>
-  );
-}
-
-export function Step9Contact({
-  formData, setFormData, fieldErrors
-}: Pick<StepProps, 'formData' | 'setFormData' | 'fieldErrors'>) {
-  return (
-    <div className="space-y-4 pt-2">
-      <div className="space-y-4 max-w-md">
+      <div className="space-y-4 max-w-md pt-2 border-t border-stone-900">
         <div className="space-y-1.5">
           <label className="text-xs font-mono text-stone-400 tracking-wider font-semibold">Idioma da Letra</label>
           <select

@@ -77,56 +77,33 @@ test('completes wizard -> selects plan -> submits payment', async ({ page }) => 
   await page.locator('#relation-btn-Namorado').click();
   await page.fill('#recipient-name-input', 'Maria');
   await page.locator('#gender-btn-Feminino').click();
-  await page.fill('#user-nick-input', 'João');
-  await page.fill('#recipient-nick-input', 'Meu Amor');
   await page.locator('#wizard-advance-btn').click();
   await expect(page.getByText(/PASSO 2/)).toBeVisible({ timeout: 15000 });
 
   // STEP 2: Occasion
   await page.locator('#occasion-btn-Declaração').click();
-  await page.fill('#why-created-today-textarea', 'Quero declarar todo o meu amor');
   await page.locator('#wizard-advance-btn').click();
   await expect(page.getByText(/PASSO 3/)).toBeVisible({ timeout: 15000 });
 
-  // STEP 3: Music Style
+  // STEP 3: Music Style + Voice
   await page.locator('#style-btn-Kizomba').click();
+  await page.locator('#voice-btn-Masculina').click();
   await page.locator('#wizard-advance-btn').click();
   await expect(page.getByText(/PASSO 4/)).toBeVisible({ timeout: 15000 });
 
-  // STEP 4: Voice
-  await page.locator('#voice-btn-Masculina').click();
+  // STEP 4: Story
+  await page.fill('#makes-special-textarea', 'É uma pessoa incrível, carinhosa e única');
+  await page.fill('#where-it-happened-input', 'Luanda');
+  await page.fill('#deep-message-textarea', 'Quero que saibas que sempre estarei ao teu lado');
   await page.locator('#wizard-advance-btn').click();
   await expect(page.getByText(/PASSO 5/)).toBeVisible({ timeout: 15000 });
 
-  // STEP 5: Traits
-  await page.fill('#makes-special-textarea', 'É uma pessoa incrível, carinhosa e única');
-  await page.fill('#only-she-does-textarea', 'Ela ri de forma contagiante e ilumina qualquer sala');
-  await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 6/)).toBeVisible({ timeout: 15000 });
-
-  // STEP 6: Memory
-  await page.fill('#unforgettable-memory-textarea', 'Aquele dia inesquecível na praia de Cabo Ledo');
-  await page.fill('#where-it-happened-input', 'Luanda');
-  await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 7/)).toBeVisible({ timeout: 15000 });
-
-  // STEP 7: Message
-  await page.fill('#deep-message-textarea', 'Quero que saibas que sempre estarei ao teu lado');
-  await page.fill('#hook-phrase-input', 'és o meu sol');
-  await page.locator('#emotion-btn-Amor').click();
-  await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 8/)).toBeVisible({ timeout: 15000 });
-
-  // STEP 8: Photo
+  // STEP 5: Photo + Finalize
   const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });
   await page.getByText('Carregue ou arraste uma foto especial').click();
   const fileChooser = await fileChooserPromise;
   await fileChooser.setFiles(TEST_IMAGE);
   await page.waitForTimeout(1500);
-  await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 9/)).toBeVisible({ timeout: 15000 });
-
-  // STEP 9: Contact
   await page.selectOption('select', 'Português');
   await page.fill('#user-email-input', 'test@example.com');
   await page.fill('#user-phone-input', '+244922000000');
@@ -155,7 +132,7 @@ test('completes wizard -> selects plan -> submits payment', async ({ page }) => 
   await page.waitForTimeout(1000);
 
   // Submit payment
-  await page.locator('button:has-text("Confirmar e Enviar Comprovativo")').click();
+  await page.locator('button:has-text("Enviar Comprovativo e Libertar a Música")').click();
 
   // Wait for approval success
   await expect(page.getByText(/Ver dedicatória/i)).toBeVisible({ timeout: 30000 });

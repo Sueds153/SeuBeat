@@ -8,11 +8,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import StepErrorBoundary from './StepErrorBoundary';
 import { 
   WizardData, INITIAL_WIZARD_DATA, RecipientType, OccasionType, 
-  MusicStyleType, VoiceType, EmotionType 
+  MusicStyleType, VoiceType 
 } from '../types';
 import {
-  Step1Relation, Step2Occasion, Step3Style, Step4Voice,
-  Step5Traits, Step6Memory, Step7Message, Step8Photo, Step9Contact
+  Step1Relation, Step2Occasion, Step3StyleVoice, Step4Story, Step5Finalize
 } from './WizardSteps';
 import { validateStep as zodValidateStep, FieldErrors } from '../lib/validation';
 import WhatsAppHelp from './WhatsAppHelp';
@@ -55,53 +54,29 @@ const STEP_META = [
     title: 'Qual é a ocasião especial?',
     subtitle: 'O compasso e ritmo assentam na festa pretendida.',
     example: 'Exemplo: "Aniversário de Casamento", ou "Uma declaração sem motivo".',
-    tip: 'Passo 2  • Conte-nos brevemente as razões da surpresa de hoje.'
+    tip: 'Passo 2  • A seguir vai escolher o ritmo perfeito.'
   },
   {
-    title: 'Qual é o estilo e artista de inspiração?',
-    subtitle: 'Navegue pelos sons angolanos ou uma balada emocionante.',
-    example: 'Exemplo: Kizomba ao estilo de Anselmo Ralph ou Chelsea Dinorath.',
+    title: 'Qual é o ritmo e a voz ideais?',
+    subtitle: 'Navegue pelos sons angolanos e escolha quem canta esta história.',
+    example: 'Exemplo: Kizomba com voz feminina celestial.',
     tip: 'Passo 3  • Isto ajuda a modelar com mais precisão a vibração ideal.'
   },
   {
-    title: 'Quem deve cantar esta homenagem?',
-    subtitle: 'A voz transmite sentimentos inesquecíveis.',
-    example: 'Exemplo: Voz Feminina celestial ou Dueto Romântico expressivo.',
-    tip: 'Passo 4  • Note: A sua própria voz poderá ser personalizada na fase seguinte!'
+    title: 'Conta-nos a vossa história',
+    subtitle: 'Detalhes reais tornam a letra única e emocionante.',
+    example: 'Exemplo: "Aquele luar na praia de Cabo Ledo, em que rimos imenso sob as estrelas."',
+    tip: 'Passo 4  • Escreva como se fosse uma carta de amor.'
   },
   {
-    title: 'O que torna esta pessoa especial?',
-    subtitle: 'Escreva sobre os seus superpoderes e mimos diários.',
-    example: 'Exemplo: "É uma pessoa muito atenciosa e canta sempre no banho de manhã."',
-    tip: 'Passo 5  • Detalhes engraçados convertem-se no presente perfeito.'
-  },
-  {
-    title: 'Onde e qual é a vossa memória forte?',
-    subtitle: 'O local e os momentos formam a lírica narrativa.',
-    example: 'Exemplo: "Amamos passear em Luanda, e rimos imenso quando a tenda caiu no Cabo Ledo."',
-    tip: 'Passo 6  • Locais e datas criam um ambiente imersivo fantástico.'
-  },
-  {
-    title: 'O que gostaria de nunca esquecer?',
-    subtitle: 'A mensagem pura do seu peito que compõe o marcante refrão.',
-    example: 'Exemplo: "Que essa pessoa mudou a minha vida e que estarei sempre ao seu lado."',
-    tip: 'Passo 7  • Escreva com verdade crua para derreter corações.'
-  },
-  {
-    title: 'Fotografia marcante do casal',
-    subtitle: 'Esta foto preencherá o ecrã do player digital da dedicatória.',
-    example: 'Exemplo: Um lindo retrato do aniversário passado juntos.',
-    tip: 'Passo 8  • Acompanha o correio eletrónico nas capas de estúdio.'
-  },
-  {
-    title: 'Contacto de segurança do autor',
-    subtitle: 'Preencha o correio eletrónico para o seu link privado de escuta.',
-    example: 'Exemplo: Receba o ficheiro WAV directamente no WhatsApp.',
-    tip: 'Passo 9  • Estamos quase prontos para criar a melodia!'
+    title: 'Finalizar a dedicatória',
+    subtitle: 'Foto, idioma e o contacto para receber a música.',
+    example: 'Exemplo: Receba o ficheiro directamente no WhatsApp.',
+    tip: 'Passo 5  • Estamos quase prontos para criar a melodia!'
   }
 ];
 
-const WIZARD_BUILD = '20260716_1';
+const WIZARD_BUILD = '20260819_1';
 
 const RELATIONSHIP_CARDS = [
   { type: 'Mãe', label: 'Mãe', icon: '❤️' },
@@ -152,40 +127,11 @@ const MUSIC_STYLE_CARDS = [
   { style: 'Hino', label: 'Hino', desc: 'Épico e solene, ideal para hinos corporativos e institucionais.', icon: '🏛️' }
 ];
 
-const ARTIST_CARDS = [
-  { name: 'Anselmo Ralph', style: 'R&B / Kizomba' },
-  { name: 'Matias Damásio', style: 'Semba / Romântico' },
-  { name: 'Gerilson Insrael', style: 'Afro Pop / Kizomba' },
-  { name: 'Chelsea Dinorath', style: 'Neo-kizomba / R&B' },
-  { name: 'Ary', style: 'Semba / Soul' },
-  { name: 'Cef', style: 'Ghetto Zouk' },
-  { name: 'Nelson Freitas', style: 'Zouk / R&B' },
-  { name: 'Outro', style: 'Estilo Próprio' }
-];
-
 const VOICE_CARDS = [
   { type: 'Masculina', label: '👨 Masculina', desc: 'Voz quente, aveludada e profunda.' },
   { type: 'Feminina', label: '👩 Feminina', desc: 'Voz expressiva, meiga, meiga e angelical.' },
   { type: 'Dueto', label: '👩‍❤️‍👨 Dueto', desc: 'Harmonização perfeita de tom masculino e feminino de estúdio.' },
   { type: 'Sem preferência', label: '✨ Sem preferência', desc: 'A nossa equipa seleciona o timbre que melhor se adequa à letra criada.' }
-];
-
-const LOCATION_CARDS = [
-  { name: 'Luanda', icon: '📍' },
-  { name: 'Benguela', icon: '📍' },
-  { name: 'Huambo', icon: '📍' },
-  { name: 'Lubango', icon: '📍' },
-  { name: 'Namibe', icon: '📍' },
-  { name: 'Outro', icon: '➕' }
-];
-
-const EMOTION_CARDS = [
-  { type: 'Amor', icon: '❤️', label: 'Amor' },
-  { type: 'Emoção', icon: '🥹', label: 'Emoção' },
-  { type: 'Gratidão', icon: '🙏', label: 'Gratidão' },
-  { type: 'Carinho', icon: '💕', label: 'Carinho' },
-  { type: 'Saudade', icon: '😢', label: 'Saudade' },
-  { type: 'Inspiração', icon: '✨', label: 'Inspiração' }
 ];
 
 export default function Wizard({ onBackToLanding }: WizardProps) {
@@ -429,7 +375,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const saved = localStorage.getItem('seubeat_wizard_progress');
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (parsed?.dbSongId || parsed?.isDone || parsed?.paymentSubmitted) {
+          if (parsed?.dbSongId || parsed?.isDone || parsed?.paymentSubmitted || parsed?.step > 5) {
             localStorage.removeItem('seubeat_wizard_progress');
             window.location.reload();
             return;
@@ -801,9 +747,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   };
 
   const [instructionsOpen, setInstructionsOpen] = useState(false);
-
-  // Memory writing suggestions UI tab state
-  const [suggestTab, setSuggestTab] = useState<'viagem' | 'romance' | 'divertido' | 'quotidiano'>('viagem');
 
   const photoFileRef = useRef<HTMLInputElement>(null);
   const submissionStartedRef = useRef(false);
@@ -1366,20 +1309,12 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
                formData.recipientGender !== '' &&
                formData.recipientName.trim().length >= 2;
       case 2:
-        return formData.occasion !== '' && formData.whyCreatedToday.trim().length >= 5;
+        return formData.occasion !== '';
       case 3:
-        return formData.musicStyle !== '';
+        return formData.musicStyle !== '' && formData.voiceType !== '';
       case 4:
-        return formData.voiceType !== '';
+        return true;
       case 5:
-        return true;
-      case 6:
-        return true;
-      case 7:
-        return formData.desiredEmotion !== '';
-      case 8:
-        return true;
-      case 9:
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) && formData.phone.trim().length >= 7;
       default:
         return true;
@@ -1391,7 +1326,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0) return;
 
-    if (step < 9) {
+    if (step < 5) {
       const nextStepNum = step + 1;
       setStep(nextStepNum);
       fbWizardStep(`step_${nextStepNum}`, nextStepNum, safeUUID());
@@ -1692,12 +1627,12 @@ const ROTATING_MESSAGES = [
 
             <div className="flex items-center gap-2 sm:gap-4 text-right">
               <span className="hidden sm:inline text-xs text-stone-400 font-mono">
-                🎵 <span className="text-amber-400 font-bold">+{todayCount}</span> hoje · PASSO <span className="text-amber-400 font-bold">{step}</span> · {Math.round((step / 9) * 100)}%
+                🎵 <span className="text-amber-400 font-bold">+{todayCount}</span> hoje · PASSO <span className="text-amber-400 font-bold">{step}</span> · {Math.round((step / 5) * 100)}%
               </span>
               <div className="w-20 sm:w-24 md:w-36 h-2 bg-stone-900 rounded-full overflow-hidden relative">
                 <motion.div 
                   className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full"
-                  animate={{ width: `${(step / 9) * 100}%` }}
+                  animate={{ width: `${(step / 5) * 100}%` }}
                   transition={{ duration: 0.3 }}
                 />
               </div>
@@ -2667,11 +2602,8 @@ const ROTATING_MESSAGES = [
               <h3 className="font-serif text-2xl md:text-3xl text-stone-100 font-bold tracking-tight">
                 Que lindo gesto, {formData.recipientName.split(' ')[0]} vai adorar! ❤️
               </h3>
-              <p className="text-stone-400 text-xs md:text-sm max-w-md mx-auto leading-relaxed">
-                A história e o briefing foram registados com sucesso na central SeuBeat. Prepare-se para ver lágrima e emoção genuína ao presentear.
-              </p>
-              <p className="text-[11px] font-mono text-amber-400/80 text-center max-w-sm mx-auto">
-                A música está pronta. Assim que confirmarmos o pagamento, {formData.recipientGender === 'Masculino' ? 'ele' : 'ela'} recebe o link.
+              <p className="text-amber-400/90 text-sm md:text-base max-w-md mx-auto leading-relaxed font-medium">
+                Faltam só 2 minutos para {formData.recipientName.split(' ')[0]} ouvir a música que fizeste só para {formData.recipientGender === 'Masculino' ? 'ele' : 'ela'}. 🎶
               </p>
               <p className="text-stone-400 text-xs font-serif italic max-w-md mx-auto">
                 Daqui a 10 anos, esta música ainda vai tocar. E tu vais estar nela.
@@ -2746,7 +2678,7 @@ const ROTATING_MESSAGES = [
                       <span className={`text-[9px] font-black font-mono tracking-widest px-1.5 py-0.5 rounded ${paymentMethod === 'express' ? 'bg-amber-500 text-stone-950' : 'bg-stone-800 text-amber-500'}`}>MAIS RÁPIDO</span>
                     </div>
                     <p className={`mt-2.5 text-sm font-black tracking-wide ${paymentMethod === 'express' ? 'text-amber-400' : 'text-stone-200'}`}>Multicaixa Express</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-stone-400">Transfere só com o teu número de telemóvel. Sem fila, sem cartão, sem entidade. 2 minutos.</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-stone-400">Sem fila, sem cartão. Transfere só com o teu número.</p>
                   </button>
 
                   <button
@@ -2763,7 +2695,7 @@ const ROTATING_MESSAGES = [
                       <span className={`text-[9px] font-black font-mono tracking-widest px-1.5 py-0.5 rounded ${paymentMethod === 'reference' ? 'bg-amber-500 text-stone-950' : 'bg-stone-800 text-stone-400'}`}>ATM / APP</span>
                     </div>
                     <p className={`mt-2.5 text-sm font-black tracking-wide ${paymentMethod === 'reference' ? 'text-amber-400' : 'text-stone-200'}`}>Referência Multicaixa</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-stone-400">Entidade + Referência, como pagas as tuas contas. No ATM ou no app do teu banco.</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-stone-400">Como pagas as tuas contas. No ATM ou na app do banco.</p>
                   </button>
                 </div>
 
@@ -2890,9 +2822,9 @@ const ROTATING_MESSAGES = [
                 {/* Upload Section */}
                 <div className="border-t border-stone-850 pt-4 space-y-4">
                   <div className="space-y-1 text-left">
-                    <span className="text-[10px] text-amber-500 font-mono uppercase tracking-wider block font-bold">SUBMETA O COMPROVATIVO</span>
+                    <span className="text-[10px] text-amber-500 font-mono uppercase tracking-wider block font-bold">PAGA E ENVIA O COMPROVATIVO 📸</span>
                     <p className="text-stone-400 text-xs font-sans">
-                      Carregue o comprovativo da operação (PDF ou Imagem) para que o nosso sistema possa iniciar a verificação.
+                      Só falta isto. Em 2 minutos, {formData.recipientName.split(' ')[0]} pode ouvir a tua música hoje.
                     </p>
                   </div>
 
@@ -2942,7 +2874,7 @@ const ROTATING_MESSAGES = [
                                   className="py-2.5 px-3 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-95 text-stone-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 tracking-wide uppercase cursor-pointer disabled:opacity-50"
                                 >
                                   <Send className="w-3.5 h-3.5" />
-                                  Confirmar e Enviar Comprovativo
+                                  Enviar Comprovativo e Libertar a Música
                                 </button>
                               </div>
                             </div>
@@ -3305,12 +3237,12 @@ const ROTATING_MESSAGES = [
                   )}
 
                   {step === 3 && (
-                    <StepErrorBoundary stepName="Estilo Musical">
-                      <Step3Style
+                    <StepErrorBoundary stepName="Estilo e Voz">
+                      <Step3StyleVoice
                         formData={formData}
                         setFormData={wrappedSetFormData}
                         musicStyleCards={MUSIC_STYLE_CARDS}
-                        artistCards={ARTIST_CARDS}
+                        voiceCards={VOICE_CARDS}
                         fieldErrors={fieldErrors}
                         todayCount={todayCount}
                       />
@@ -3318,65 +3250,22 @@ const ROTATING_MESSAGES = [
                   )}
 
                   {step === 4 && (
-                    <StepErrorBoundary stepName="Voz">
-                      <Step4Voice
+                    <StepErrorBoundary stepName="História">
+                      <Step4Story
                         formData={formData}
                         setFormData={wrappedSetFormData}
-                        voiceCards={VOICE_CARDS}
                         fieldErrors={fieldErrors}
                       />
                     </StepErrorBoundary>
                   )}
 
                   {step === 5 && (
-                    <StepErrorBoundary stepName="Qualidades">
-                      <Step5Traits
+                    <StepErrorBoundary stepName="Finalizar">
+                      <Step5Finalize
                         formData={formData}
                         setFormData={wrappedSetFormData}
-                        fieldErrors={fieldErrors}
-                      />
-                    </StepErrorBoundary>
-                  )}
-
-                  {step === 6 && (
-                    <StepErrorBoundary stepName="Memória">
-                      <Step6Memory
-                        formData={formData}
-                        setFormData={wrappedSetFormData}
-                        suggestTab={suggestTab}
-                        setSuggestTab={setSuggestTab}
-                        fieldErrors={fieldErrors}
-                      />
-                    </StepErrorBoundary>
-                  )}
-
-                  {step === 7 && (
-                    <StepErrorBoundary stepName="Mensagem">
-                      <Step7Message
-                        formData={formData}
-                        setFormData={wrappedSetFormData}
-                        emotionCards={EMOTION_CARDS}
-                        fieldErrors={fieldErrors}
-                      />
-                    </StepErrorBoundary>
-                  )}
-
-                  {step === 8 && (
-                    <StepErrorBoundary stepName="Foto">
-                      <Step8Photo
-                        formData={formData}
                         photoFileRef={photoFileRef}
                         handlePhotoChange={handlePhotoChange}
-                        fieldErrors={fieldErrors}
-                      />
-                    </StepErrorBoundary>
-                  )}
-
-                  {step === 9 && (
-                    <StepErrorBoundary stepName="Contacto">
-                      <Step9Contact
-                        formData={formData}
-                        setFormData={wrappedSetFormData}
                         fieldErrors={fieldErrors}
                       />
                     </StepErrorBoundary>
@@ -3410,7 +3299,7 @@ const ROTATING_MESSAGES = [
                       : 'bg-stone-850 text-stone-500 cursor-not-allowed border border-stone-800/80'
                   }`}
                 >
-                  <span>{step === 9 ? 'Concluir Declaração' : 'Avançar'}</span>
+                  <span>{step === 5 ? 'Concluir Declaração' : 'Avançar'}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -3460,23 +3349,23 @@ const ROTATING_MESSAGES = [
               {/* Connected details live cards */}
               <div className="bg-stone-950/80 p-4 rounded-xl border border-stone-900 space-y-2.5 text-xxs leading-relaxed font-mono text-stone-450">
                 <div>
-                  <span className="text-stone-605 block text-[9px] uppercase tracking-wider">Como deseja que se sinta:</span>
+                  <span className="text-stone-605 block text-[9px] uppercase tracking-wider">Voz escolhida:</span>
                   <span className="font-semibold text-stone-200">
-                    {formData.desiredEmotion ? `${formData.desiredEmotion} ✨` : 'Pendente de escolha...'}
+                    {formData.voiceType ? `${formData.voiceType} 🎤` : 'Pendente de escolha...'}
                   </span>
                 </div>
 
                 <div>
-                  <span className="text-stone-605 block text-[9px] uppercase tracking-wider font-mono">Rítmo de Fundo:</span>
+                  <span className="text-stone-605 block text-[9px] uppercase tracking-wider font-mono">Ritmo de Fundo:</span>
                   <span className="font-semibold text-stone-200">
-                    {formData.musicStyle ? `${formData.musicStyle} (${formData.referenceArtist || 'Geral'})` : 'Pendente...'}
+                    {formData.musicStyle || 'Pendente de escolha...'}
                   </span>
                 </div>
 
                 <div>
-                  <span className="text-stone-605 block text-[9px] uppercase tracking-wider font-mono">Apelidos Carinhosos:</span>
-                  <span className="font-semibold text-stone-200">
-                    {formData.recipientNick ? `"${formData.recipientNick}" de ${formData.userNick || 'mim'}` : 'Ainda não configurado...'}
+                  <span className="text-stone-605 block text-[9px] uppercase tracking-wider font-mono">História da Relação:</span>
+                  <span className="font-semibold text-stone-200 line-clamp-2">
+                    {formData.whatMakesSpecial ? `"${formData.whatMakesSpecial.slice(0, 60)}${formData.whatMakesSpecial.length > 60 ? '…' : ''}"` : 'Ainda não contada...'}
                   </span>
                 </div>
               </div>

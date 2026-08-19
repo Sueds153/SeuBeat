@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateStep, Step1Schema, Step9Schema, formatPhoneNumber } from '../lib/validation';
+import { validateStep, Step1Schema, Step5Schema, formatPhoneNumber } from '../lib/validation';
 
 describe('Step1Schema (Relation)', () => {
   it('passes with valid data', () => {
@@ -7,8 +7,6 @@ describe('Step1Schema (Relation)', () => {
       recipientRelation: 'esposa',
       recipientName: 'Maria',
       recipientGender: 'Feminino',
-      userNick: 'Amor',
-      recipientNick: 'Princesa',
     });
     expect(result.success).toBe(true);
   });
@@ -18,8 +16,6 @@ describe('Step1Schema (Relation)', () => {
       recipientRelation: '',
       recipientName: 'Maria',
       recipientGender: 'Feminino',
-      userNick: 'Amor',
-      recipientNick: 'Princesa',
     });
     expect(result.success).toBe(false);
   });
@@ -29,46 +25,55 @@ describe('Step1Schema (Relation)', () => {
       recipientRelation: 'esposa',
       recipientName: 'A',
       recipientGender: 'Feminino',
-      userNick: 'Amor',
-      recipientNick: 'Princesa',
     });
     expect(result.success).toBe(false);
   });
+
+  it('ignores extra fields (nicknames no longer in the wizard)', () => {
+    const result = Step1Schema.safeParse({
+      recipientRelation: 'esposa',
+      recipientName: 'Maria',
+      recipientGender: 'Feminino',
+      userNick: 'Amor',
+      recipientNick: 'Princesa',
+    });
+    expect(result.success).toBe(true);
+  });
 });
 
-describe('Step9Schema (Email + Phone)', () => {
+describe('Step5Schema (Email + Phone)', () => {
   it('passes with valid email and phone', () => {
-    const result = Step9Schema.safeParse({ email: 'teste@exemplo.com', phone: '+244 922 000 000' });
+    const result = Step5Schema.safeParse({ email: 'teste@exemplo.com', phone: '+244 922 000 000' });
     expect(result.success).toBe(true);
   });
 
   it('passes with email containing dots and plus', () => {
-    const result = Step9Schema.safeParse({ email: 'test.name+tag@dominio.co.ao', phone: '922000000' });
+    const result = Step5Schema.safeParse({ email: 'test.name+tag@dominio.co.ao', phone: '922000000' });
     expect(result.success).toBe(true);
   });
 
   it('fails with invalid email', () => {
-    const result = Step9Schema.safeParse({ email: 'invalido', phone: '+244 922 000 000' });
+    const result = Step5Schema.safeParse({ email: 'invalido', phone: '+244 922 000 000' });
     expect(result.success).toBe(false);
   });
 
   it('fails with empty email', () => {
-    const result = Step9Schema.safeParse({ email: '', phone: '+244 922 000 000' });
+    const result = Step5Schema.safeParse({ email: '', phone: '+244 922 000 000' });
     expect(result.success).toBe(false);
   });
 
   it('fails with empty phone', () => {
-    const result = Step9Schema.safeParse({ email: 'teste@exemplo.com', phone: '' });
+    const result = Step5Schema.safeParse({ email: 'teste@exemplo.com', phone: '' });
     expect(result.success).toBe(false);
   });
 
   it('fails with phone too short', () => {
-    const result = Step9Schema.safeParse({ email: 'teste@exemplo.com', phone: '123' });
+    const result = Step5Schema.safeParse({ email: 'teste@exemplo.com', phone: '123' });
     expect(result.success).toBe(false);
   });
 
   it('fails without phone', () => {
-    const result = Step9Schema.safeParse({ email: 'teste@exemplo.com' });
+    const result = Step5Schema.safeParse({ email: 'teste@exemplo.com' });
     expect(result.success).toBe(false);
   });
 });
@@ -101,8 +106,6 @@ describe('validateStep helper', () => {
       recipientRelation: 'mãe',
       recipientName: 'Maria',
       recipientGender: 'Feminino',
-      userNick: 'Filho',
-      recipientNick: 'Mamã',
     });
     expect(Object.keys(errors)).toHaveLength(0);
   });
@@ -112,8 +115,6 @@ describe('validateStep helper', () => {
       recipientRelation: '',
       recipientName: 'Maria',
       recipientGender: 'Feminino',
-      userNick: 'Filho',
-      recipientNick: 'Mamã',
     });
     expect(errors.recipientRelation).toBeTruthy();
   });
@@ -123,13 +124,13 @@ describe('validateStep helper', () => {
     expect(Object.keys(errors)).toHaveLength(0);
   });
 
-  it('returns errors for invalid step 9', () => {
-    const errors = validateStep(9, { email: 'bad', phone: '+244 922 000 000' });
+  it('returns errors for invalid step 5', () => {
+    const errors = validateStep(5, { email: 'bad', phone: '+244 922 000 000' });
     expect(errors.email).toBeTruthy();
   });
 
-  it('returns errors for step 9 without phone', () => {
-    const errors = validateStep(9, { email: 'teste@exemplo.com', phone: '' });
+  it('returns errors for step 5 without phone', () => {
+    const errors = validateStep(5, { email: 'teste@exemplo.com', phone: '' });
     expect(errors.phone).toBeTruthy();
   });
 });

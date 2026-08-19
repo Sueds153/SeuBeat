@@ -24,8 +24,7 @@ test('fills step 1 and advances', async () => {
   await expect(page.getByText(/PASSO 1/)).toBeVisible({ timeout: 15000 });
   await page.locator('#relation-btn-Namorado').click();
   await page.fill('#recipient-name-input', 'Maria');
-  await page.fill('#user-nick-input', 'João');
-  await page.fill('#recipient-nick-input', 'Meu Amor');
+  await page.locator('#gender-btn-Feminino').click();
   await expect(page.locator('#wizard-advance-btn')).toBeEnabled();
   await page.locator('#wizard-advance-btn').click();
   await expect(page.getByText(/PASSO 2/)).toBeVisible({ timeout: 15000 });

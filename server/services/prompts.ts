@@ -140,14 +140,11 @@ function buildFormContext(formData: WizardFormData) {
       ['Ocasião Especial', c(formData.occasion)],
       ['Motivo da criação hoje', c(formData.whyCreatedToday)],
       ['Estilo Musical', c(formData.musicStyle)],
-      ['Artista de Referência', c(formData.referenceArtist)],
       ['Tipo de Voz', c(formData.voiceType)],
     ]},
-    { title: 'DETALHES EMOCIONAIS', items: [
+    { title: 'HISTÓRIA DA RELAÇÃO', items: [
       ['O que torna a pessoa especial', c(formData.whatMakesSpecial)],
       ['Algo que só essa pessoa faz', c(formData.onlySheDoes)],
-    ]},
-    { title: 'MEMÓRIA BASE', items: [
       ['Memória inesquecível', c(formData.unforgettableMemory)],
       ['Local da memória', c(formData.whereItHappened)],
     ]},
