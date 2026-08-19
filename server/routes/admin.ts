@@ -1937,6 +1937,49 @@ router.get('/whatsapp/config-status', adminAuth, async (req, res) => {
   }
 });
 
+// POST /whatsapp/test-send — envia uma mensagem de teste real à Meta API para validar
+// que WHATSAPP_API_TOKEN + PHONE_NUMBER_ID estão corretos e o número consegue enviar.
+router.post('/whatsapp/test-send', adminAuth, async (req, res) => {
+  try {
+    const { phone } = req.body as { phone?: string };
+    if (!phone || typeof phone !== 'string' || !phone.trim()) {
+      return res.status(400).json({ success: false, error: 'Indica o número de destino para o teste (campo "phone").' });
+    }
+
+    const wa = await import('../services/whatsappSender');
+    if (!wa.isConfigured()) {
+      return res.status(400).json({
+        success: false,
+        error: 'WhatsApp API não configurada. Define WHATSAPP_API_TOKEN e WHATSAPP_PHONE_NUMBER_ID no ambiente.'
+      });
+    }
+
+    const { normalizePhoneToE164: normalize } = await import('../services/abandonedMessages');
+    const normalized = normalize(phone.trim());
+    if (!normalized) {
+      return res.status(400).json({ success: false, error: `Número inválido: "${phone}". Usa formato E.164 (ex: +244922058136).` });
+    }
+
+    // Usa o template do bucket 30min ou hello_world como fallback universal.
+    const { templateForBucket: tpl } = await import('../services/whatsappTemplates');
+    const testTemplate = tpl('30min')?.name || 'hello_world';
+
+    logInfo('[WhatsApp] Envio de teste iniciado', { phone: normalized, template: testTemplate });
+    const result = await wa.sendTemplate(normalized, testTemplate, ['Teste', 'https://seubeat.com']);
+
+    if (result.ok) {
+      logInfo('[WhatsApp] Teste de envio bem-sucedido', { phone: normalized, messageId: result.messageId });
+      return res.json({ success: true, messageId: result.messageId, phone: normalized, template: testTemplate });
+    } else {
+      logWarn('[WhatsApp] Teste de envio falhou', { phone: normalized, error: result.error, code: result.code });
+      return res.status(422).json({ success: false, error: result.error, code: result.code, phone: normalized });
+    }
+  } catch (err: unknown) {
+    logRouteError(req, err);
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
 router.post('/abandoned/send-bulk', adminAuth, whatsappBulkLimiter, async (req, res) => {
   try {
     const { requestIds } = req.body || {};

@@ -413,6 +413,7 @@ export default function AdminPanel() {
   const [waLinked, setWaLinked] = useState<boolean | null>(null);
   const [waVerifiedPhone, setWaVerifiedPhone] = useState<string | null>(null);
   const [waConfigLoading, setWaConfigLoading] = useState(false);
+  const [waTestModal, setWaTestModal] = useState<{ open: boolean; phone: string; loading: boolean; result: { ok: boolean; message: string } | null }>({ open: false, phone: '', loading: false, result: null });
   const [abandonedRange, setAbandonedRange] = useState<string>('all');
   const [sendProgress, setSendProgress] = useState<SendProgress | null>(null);
   const [sendButtonLoading, setSendButtonLoading] = useState(false);
@@ -680,6 +681,26 @@ export default function AdminPanel() {
       setWaVerifiedPhone(null);
     }
     setWaConfigLoading(false);
+  }, [adminToken, apiFetch]);
+
+  const sendWhatsAppTest = useCallback(async (phone: string) => {
+    if (!adminToken) return;
+    setWaTestModal(prev => ({ ...prev, loading: true, result: null }));
+    const data = await apiFetch('/api/admin/whatsapp/test-send', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    });
+    if (data?.success) {
+      setWaTestModal(prev => ({
+        ...prev, loading: false,
+        result: { ok: true, message: `✅ Enviado! ID: ${data.messageId || '—'} · Para: ${data.phone} · Template: ${data.template}` },
+      }));
+    } else {
+      setWaTestModal(prev => ({
+        ...prev, loading: false,
+        result: { ok: false, message: data?.error || 'Falha no envio de teste.' },
+      }));
+    }
   }, [adminToken, apiFetch]);
 
   const fetchSendProgress = useCallback(async () => {
@@ -2818,6 +2839,13 @@ export default function AdminPanel() {
                         title="Verifica a configuração da WhatsApp Business API"
                       >
                         <RefreshCw className={`w-3.5 h-3.5 ${waConfigLoading ? 'animate-spin' : ''}`} /> {waConfigLoading ? 'A verificar...' : 'Verificar configuração'}
+                      </button>
+                      <button
+                        onClick={() => setWaTestModal({ open: true, phone: '', loading: false, result: null })}
+                        className="flex items-center gap-2 text-xs text-stone-300 hover:text-emerald-400 bg-emerald-900/20 border border-emerald-700/30 px-3 py-2 rounded-xl transition-colors cursor-pointer"
+                        title="Envia uma mensagem WhatsApp real para testar a ligação à Meta API"
+                      >
+                        <Send className="w-3.5 h-3.5" /> Testar envio
                       </button>
                     </div>
                   </div>

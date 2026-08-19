@@ -65,7 +65,7 @@ export const GenerateLyricsSchema = z.object({
   whereItHappened: z.string().max(500).trim().optional(),
   messageFromTheHeart: z.string().max(1000).trim().optional(),
   hookPhrase: z.string().max(200).trim().optional(),
-  desiredEmotion: z.preprocess(lower, z.enum(EMOTIONS)),
+  desiredEmotion: z.preprocess(lower, z.enum(EMOTIONS).optional()),
   language: z.preprocess(lower, z.enum(LANGUAGES)).default('português'),
 
   photoBase64: z.string().max(10 * 1024 * 1024, 'Foto muito grande (max 10MB)').optional().nullable(),
