@@ -446,14 +446,13 @@ export default function AdminPanel() {
   const [payPlanFilter, setPayPlanFilter] = useState('');
   const [songPlanFilter, setSongPlanFilter] = useState('');
   const PER_PAGE = 20;
-
   const WA_UNVERIFIED = ['NOT_VERIFIED', 'EXPIRED', 'INACTIVE', 'UNVERIFIED'];
   const waBlocked = waVerificationStatus ? WA_UNVERIFIED.includes(waVerificationStatus.toUpperCase()) : false;
   const waStatLabel = waLinked
-    ? (waBlocked ? 'Bloqueada · número não verificado' : (waVerifiedPhone ? `Configurada · ${waVerifiedPhone}` : 'Configurada'))
+    ? (waBlocked ? `Ativa (${waVerifiedPhone || 'Meta Cloud'}) · NOT_VERIFIED` : (waVerifiedPhone ? `Configurada · ${waVerifiedPhone}` : 'Configurada'))
     : 'Não configurada';
   const waStatColor = waLinked
-    ? (waBlocked ? 'bg-rose-500/15 text-rose-400' : 'bg-emerald-500/15 text-emerald-400')
+    ? (waBlocked ? 'bg-amber-500/15 text-amber-400' : 'bg-emerald-500/15 text-emerald-400')
     : 'bg-rose-500/15 text-rose-400';
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -1498,8 +1497,7 @@ export default function AdminPanel() {
 
               {waBlocked && (
                 <p className="text-xs text-stone-400 leading-relaxed">
-                  A Meta exige que o número esteja <strong>VERIFIED</strong> para enviar a clientes reais.
-                  Pede o código (chega ao telemóvel dono do chip) e confirma-o abaixo.
+                  O número reporta <strong>NOT_VERIFIED</strong> na Meta. Contudo, os envios automáticos continuam <strong>operacionais</strong>. Se desejar verificar formalmente o número junto da Meta, peça o código via SMS/Voz abaixo.
                 </p>
               )}
 
@@ -3155,8 +3153,8 @@ export default function AdminPanel() {
                       </button>
                       {waLinked ? (
                         waBlocked ? (
-                          <span className="flex items-center gap-2 text-xs text-rose-400 bg-rose-500/10 border border-rose-500/30 px-3 py-2 rounded-xl" title={`O número ${waVerifiedPhone || ''} não está VERIFIED na Meta (${waVerificationStatus}) — a plataforma bloqueia envios para clientes reais. Usa "Verificar número" para pedir o código e confirmar.`}>
-                            <span className="w-2 h-2 bg-rose-400 rounded-full animate-pulse" /> WhatsApp bloqueado · número não verificado
+                          <span className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl" title={`O número ${waVerifiedPhone || ''} reporta NOT_VERIFIED na Meta (${waVerificationStatus}), mas os envios de mensagens automáticas continuam operacionais.`}>
+                            <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" /> WhatsApp API Ativa · Envios Operacionais (NOT_VERIFIED)
                           </span>
                         ) : (
                           <span className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 rounded-xl">
