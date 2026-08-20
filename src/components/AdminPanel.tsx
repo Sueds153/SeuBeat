@@ -3079,6 +3079,72 @@ export default function AdminPanel() {
                         <StatCard icon={TrendingUp} label="Após Anúncios" value={`${(metrics.metaAds?.netAfterAdsKz ?? metrics.totalRevenue ?? 0).toLocaleString('pt')} Kz`} color={(metrics.metaAds?.netAfterAdsKz ?? 0) >= 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'} subtitle="Receita - gasto Meta" />
                       </div>
 
+                      {/* Funil de Conversão */}
+                      {metrics.funnel && (
+                        <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h3 className="text-sm font-mono text-stone-300 uppercase tracking-wider">🎯 Funil de Conversão do Cliente</h3>
+                              <p className="text-xs text-stone-500 mt-0.5">Estatísticas de passagem entre etapas do Wizard até ao pagamento</p>
+                            </div>
+                            <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
+                              Tx. Global: {metrics.funnel.overallConversionPct}%
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+                            <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-mono text-stone-500 uppercase">1. Criados</span>
+                                <span className="text-[10px] font-mono text-purple-400 font-bold">100%</span>
+                              </div>
+                              <p className="text-2xl font-bold text-stone-100">{metrics.funnel.totalRequests}</p>
+                              <p className="text-[10px] font-mono text-stone-500 mt-1">Total de pedidos</p>
+                              <div className="w-full bg-stone-800 rounded-full h-1.5 mt-3 overflow-hidden">
+                                <div className="h-full bg-purple-500 rounded-full" style={{ width: '100%' }} />
+                              </div>
+                            </div>
+
+                            <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-mono text-stone-500 uppercase">2. Letras Prontas</span>
+                                <span className="text-[10px] font-mono text-cyan-400 font-bold">{metrics.funnel.step1To2Pct}%</span>
+                              </div>
+                              <p className="text-2xl font-bold text-cyan-300">{metrics.funnel.lyricsReady}</p>
+                              <p className="text-[10px] font-mono text-stone-500 mt-1">Avançaram p/ o plano</p>
+                              <div className="w-full bg-stone-800 rounded-full h-1.5 mt-3 overflow-hidden">
+                                <div className="h-full bg-cyan-500 rounded-full" style={{ width: `${metrics.funnel.step1To2Pct}%` }} />
+                              </div>
+                            </div>
+
+                            <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-mono text-stone-500 uppercase">3. Comprovativo</span>
+                                <span className="text-[10px] font-mono text-amber-400 font-bold">{metrics.funnel.step2To3Pct}%</span>
+                              </div>
+                              <p className="text-2xl font-bold text-amber-300">{metrics.funnel.paymentSubmitted}</p>
+                              <p className="text-[10px] font-mono text-stone-500 mt-1">Pagamento submetido</p>
+                              <div className="w-full bg-stone-800 rounded-full h-1.5 mt-3 overflow-hidden">
+                                <div className="h-full bg-amber-500 rounded-full" style={{ width: `${metrics.funnel.step2To3Pct}%` }} />
+                              </div>
+                            </div>
+
+                            <div className="bg-stone-950 rounded-xl p-4 border border-stone-800">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-mono text-stone-500 uppercase">4. Concluídos</span>
+                                <span className="text-[10px] font-mono text-emerald-400 font-bold">{metrics.funnel.step3To4Pct}%</span>
+                              </div>
+                              <p className="text-2xl font-bold text-emerald-400">{metrics.funnel.completed}</p>
+                              <p className="text-[10px] font-mono text-stone-500 mt-1">Vendas aprovadas</p>
+                              <div className="w-full bg-stone-800 rounded-full h-1.5 mt-3 overflow-hidden">
+                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${metrics.funnel.step3To4Pct}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+
                       {/* Popular Styles */}
                       <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5">
                         <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4">🎵 Estilos Musicais Populares</h3>

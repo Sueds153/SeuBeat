@@ -29,6 +29,7 @@ import { useSocialProof, formatMinutesAgo } from '../lib/socialProof';
 import { CURRENCY } from '../constants/currency';
 import { safeUUID } from '../lib/uuid';
 import { buildTeaser, loadTeaserEdits, saveTeaserEdits, clearTeaserEdits, isTeaserEnabled, resetTeaserEnabledCache } from '../lib/lyricsTeaser';
+import { compressImage } from '../lib/imageCompression';
 import LyricsTeaserPreview from './LyricsTeaserPreview';
 
 interface WizardProps {
@@ -526,6 +527,20 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       .then(r => r.json())
       .then(d => { if (d.entidade && d.referencia) setPaymentDetails(d); })      .catch(() => {});
   }, []);
+
+  // Interceptar botão de retroceder do browser no ecrã de pagamento
+  useEffect(() => {
+    if (!isDone) return;
+    const handlePopState = () => {
+      if (isDone && (!paymentSubmitted || paymentStatus === 'rejected')) {
+        setIsDone(false);
+        setConversionStep('plans');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isDone, paymentSubmitted, paymentStatus]);
 
   // Identificar utilizador no Sentry quando o email é preenchido
   useEffect(() => {
@@ -1238,34 +1253,37 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   }, [isDone, dbSongId]);
 
   // Handlers
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 5 * 1024 * 1024) {
-        showToast('A foto excede 5MB. Comprima a imagem ou escolha outra.', 'error');
+      const originalFile = e.target.files[0];
+      if (originalFile.size > 10 * 1024 * 1024) {
+        showToast('A foto excede 10MB. Escolha uma imagem menor.', 'error');
         e.target.value = '';
         return;
       }
-      const url = URL.createObjectURL(file);
-      wrappedSetFormData(prev => {
-        if (prev.photoUrl?.startsWith('blob:')) URL.revokeObjectURL(prev.photoUrl);
-        return { ...prev, photoFile: file, photoUrl: url };
-      });
-      const reader = new FileReader();
-      reader.onloadend = () => {
+      try {
+        const { file: compressedFile, base64 } = await compressImage(originalFile, 1000, 0.8);
+        const url = URL.createObjectURL(compressedFile);
+        wrappedSetFormData(prev => {
+          if (prev.photoUrl?.startsWith('blob:')) URL.revokeObjectURL(prev.photoUrl);
+          return { ...prev, photoFile: compressedFile, photoUrl: url };
+        });
         try {
-          sessionStorage.setItem('seubeat_photo_base64', reader.result as string);
-        } catch {
-          // Foto demasiado grande para sessionStorage (quota excedida) — ignora
+          sessionStorage.setItem('seubeat_photo_base64', base64);
+          localStorage.setItem('seubeat_photo_base64', base64);
+        } catch (storageErr) {
+          console.warn('Could not save photo to storage:', storageErr);
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Photo compression failed:', err);
+        showToast('Erro ao processar a foto. Tente novamente.', 'error');
+      }
     }
   };
 
   const blobUrlRef = useRef<string | null>(null);
   useEffect(() => {
-    const savedBase64 = sessionStorage.getItem('seubeat_photo_base64');
+    const savedBase64 = sessionStorage.getItem('seubeat_photo_base64') || localStorage.getItem('seubeat_photo_base64');
     if (savedBase64 && (!formData.photoUrl || formData.photoUrl.startsWith('blob:'))) {
       try {
         const byteString = atob(savedBase64.split(',')[1]);
@@ -1274,13 +1292,14 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const ia = new Uint8Array(ab);
         for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
         const blob = new Blob([ab], { type: mimeString });
-        const file = new File([blob], 'foto.' + (mimeString.split('/')[1] || 'jpg'), { type: mimeString });
+        const file = new File([blob], 'foto.jpg', { type: mimeString });
         const url = URL.createObjectURL(file);
         if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
         blobUrlRef.current = url;
         wrappedSetFormData(prev => ({ ...prev, photoFile: file, photoUrl: url }));
       } catch (e) {
         sessionStorage.removeItem('seubeat_photo_base64');
+        localStorage.removeItem('seubeat_photo_base64');
       }
     } else if (!savedBase64 && formData.photoUrl?.startsWith('blob:')) {
       wrappedSetFormData(prev => ({ ...prev, photoUrl: '' }));
@@ -1293,6 +1312,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   useEffect(() => {
     if (prevPhotoUrlRef.current && !formData.photoUrl) {
       sessionStorage.removeItem('seubeat_photo_base64');
+      localStorage.removeItem('seubeat_photo_base64');
     }
     prevPhotoUrlRef.current = formData.photoUrl;
   }, [formData.photoUrl]);
@@ -2136,6 +2156,7 @@ const ROTATING_MESSAGES = [
                 onClick={() => {
                   localStorage.removeItem('seubeat_wizard_progress');
                   sessionStorage.removeItem('seubeat_photo_base64');
+                  localStorage.removeItem('seubeat_photo_base64');
                   wrappedSetFormData(INITIAL_WIZARD_DATA);
                   setStep(1);
                   setIsSubmitting(false);
@@ -2302,11 +2323,23 @@ const ROTATING_MESSAGES = [
             <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-80 h-80 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
 
             <div className="flex justify-between items-center pb-4 border-b border-stone-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowVoiceCloningScreen(false);
+                  setConversionStep('plans');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-amber-400 transition-colors cursor-pointer group"
+              >
+                <ArrowLeft className="w-4 h-4 text-amber-400 group-hover:-translate-x-0.5 transition-transform" />
+                <span>Voltar aos planos</span>
+              </button>
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-gradient-to-tr from-amber-500 to-rose-600 rounded-lg flex items-center justify-center text-stone-950 font-black text-xs shadow-md">
                   SB
                 </div>
-                <span className="text-xs text-stone-400 font-mono tracking-wider uppercase font-bold">Estúdio de Sintonia Vocal</span>
+                <span className="text-xs text-stone-400 font-mono tracking-wider uppercase font-bold hidden sm:inline">Estúdio de Sintonia Vocal</span>
               </div>
               <span className="text-[10px] text-amber-400 font-mono bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">UPGRADE EXCLUSIVO</span>
             </div>
@@ -2581,11 +2614,35 @@ const ROTATING_MESSAGES = [
 
         {/* -------------------- ORDER SUMMARY AND SECURE payment SCREEN -------------------- */}
         {isDone && (
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="max-w-2xl mx-auto w-full bg-stone-900/40 rounded-3xl p-6 md:p-10 border border-amber-900/15 shadow-2xl backdrop-blur text-center space-y-8 relative overflow-hidden"
-          >
+          <div className="max-w-2xl mx-auto w-full space-y-3">
+            {(!paymentSubmitted || paymentStatus === 'rejected') && (
+              <div className="flex items-center justify-between px-1">
+                <button
+                  id="payment-header-back-btn"
+                  type="button"
+                  onClick={() => {
+                    setIsDone(false);
+                    setConversionStep('plans');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="flex items-center gap-2 text-xs font-semibold text-stone-300 hover:text-amber-400 bg-stone-900/80 hover:bg-stone-900 border border-stone-800 px-3.5 py-2 rounded-xl backdrop-blur transition-all cursor-pointer shadow-md group"
+                >
+                  <ArrowLeft className="w-4 h-4 text-amber-400 group-hover:-translate-x-0.5 transition-transform" />
+                  <span>Voltar aos planos</span>
+                </button>
+
+                <div className="flex items-center gap-1.5 text-[10px] font-mono text-stone-400 bg-stone-900/60 px-3 py-1.5 rounded-xl border border-stone-800">
+                  <Lock className="w-3 h-3 text-emerald-400" />
+                  <span>Pagamento Seguro</span>
+                </div>
+              </div>
+            )}
+
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="w-full bg-stone-900/40 rounded-3xl p-6 md:p-10 border border-amber-900/15 shadow-2xl backdrop-blur text-center space-y-8 relative overflow-hidden"
+            >
             <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-500 to-rose-500" />
             <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl" />
 
@@ -3137,6 +3194,21 @@ const ROTATING_MESSAGES = [
             )}
 
             <div className="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
+              {(!paymentSubmitted || paymentStatus === 'rejected') && (
+                <button
+                  id="payment-bottom-back-btn"
+                  type="button"
+                  onClick={() => {
+                    setIsDone(false);
+                    setConversionStep('plans');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="px-5 py-2.5 bg-stone-900 hover:bg-stone-850 border border-stone-800 text-stone-300 hover:text-amber-400 rounded-xl text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Alterar Plano / Voltar</span>
+                </button>
+              )}
               <button
                 id="back-home-success-btn"
                 onClick={onBackToLanding}
@@ -3149,6 +3221,7 @@ const ROTATING_MESSAGES = [
                   onClick={() => {
                     localStorage.removeItem('seubeat_wizard_progress');
                     sessionStorage.removeItem('seubeat_photo_base64');
+                    localStorage.removeItem('seubeat_photo_base64');
                     wrappedSetFormData(INITIAL_WIZARD_DATA);
                     setStep(1);
                     setIsSubmitting(false);
@@ -3175,6 +3248,7 @@ const ROTATING_MESSAGES = [
               <span>A sua história está totalmente encriptada de forma segura.</span>
             </div>
           </motion.div>
+          </div>
         )}
 
         {/* -------------------- FORM CONTAINER (THE 9 STEPS DESCRIPTIONS MAP) -------------------- */}

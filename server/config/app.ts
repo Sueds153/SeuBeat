@@ -53,7 +53,11 @@ export async function createApp(): Promise<express.Application> {
       checkGeminiCredits(),
     ]);
     checks.deepseek = deepseek.ok ? 'ok' : `erro: ${String(deepseek.error || 'desconhecido')}`;
-    checks.gemini = gemini.ok ? 'ok' : `erro: ${String(gemini.error || 'desconhecido')}`;
+    checks.gemini = (gemini as { quota_exceeded?: boolean; ok?: boolean; error?: unknown }).quota_exceeded
+      ? 'quota excedida (429/403)'
+      : gemini.ok
+      ? 'ok'
+      : `erro: ${String(gemini.error || 'desconhecido')}`;
 
     const mem = process.memoryUsage();
     const isCi = process.env.CI === 'true';
@@ -107,7 +111,6 @@ export async function createApp(): Promise<express.Application> {
 export async function startServer(app: express.Application): Promise<import('http').Server> {
   if (ENV.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
-    const path = await import('path');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
@@ -187,8 +190,6 @@ export async function startServer(app: express.Application): Promise<import('htt
   return new Promise((resolve) => {
     const server = app.listen(ENV.PORT, '0.0.0.0', () => {
       logInfo(`Servidor iniciado na porta ${ENV.PORT}`);
-      // Timeout do servidor deve ser SEMPRE superior ao timeout do cliente (180s no Wizard)
-      // para nunca matar a resposta que o cliente ainda está a aguardar.
       server.setTimeout(300000);
       server.keepAliveTimeout = 300000;
       resolve(server);

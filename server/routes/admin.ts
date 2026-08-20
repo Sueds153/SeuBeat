@@ -1409,6 +1409,24 @@ router.get('/metrics', adminAuth, async (req, res) => {
     const netAfterAdsKz = +(totalRevenue - adSpendKz).toFixed(0);
     const roas = metaAds.spendUSD > 0 ? +((totalRevenue / usdToKz) / metaAds.spendUSD).toFixed(2) : null;
 
+    // Conversion Funnel breakdown
+    const lyricsReadyCount = requests.filter(r => ['lyrics_ready', 'payment_submitted', 'approved', 'delivered'].includes(r.status)).length;
+    const paymentSubmittedCount = requests.filter(r => ['payment_submitted', 'approved', 'delivered'].includes(r.status)).length;
+    const completedCount = requests.filter(r => ['approved', 'delivered'].includes(r.status)).length;
+    const failedCount = requests.filter(r => r.status === 'failed').length;
+
+    const funnel = {
+      totalRequests,
+      lyricsReady: lyricsReadyCount,
+      paymentSubmitted: paymentSubmittedCount,
+      completed: completedCount,
+      failed: failedCount,
+      step1To2Pct: totalRequests > 0 ? Number(((lyricsReadyCount / totalRequests) * 100).toFixed(1)) : 0,
+      step2To3Pct: lyricsReadyCount > 0 ? Number(((paymentSubmittedCount / lyricsReadyCount) * 100).toFixed(1)) : 0,
+      step3To4Pct: paymentSubmittedCount > 0 ? Number(((completedCount / paymentSubmittedCount) * 100).toFixed(1)) : 0,
+      overallConversionPct: Number(conversionRate),
+    };
+
     res.json({
       totalRequests,
       paidRequests,
@@ -1419,12 +1437,13 @@ router.get('/metrics', adminAuth, async (req, res) => {
       revenueByPlan,
       pendingCount,
       totalRevenue,
+      funnel,
       metaAds: {
         ...metaAds,
         spendKz: adSpendKz,
         netAfterAdsKz,
         roas,
-      }
+      },
     });
   } catch (err: unknown) {
     logRouteError(req, err);
