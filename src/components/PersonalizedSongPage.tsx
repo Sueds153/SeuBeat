@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import {
-  Heart, Sparkles, Upload, Image as ImageIcon, ArrowLeft, Music, PartyPopper
+  Heart, Sparkles, Upload, Image as ImageIcon, ArrowLeft, Music, PartyPopper, Video
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSong } from '../hooks/useSong';
@@ -238,6 +238,44 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
             </button>
           </div>
         </section>
+
+        {/* ── UPSELL BANNER (Only when approved/delivered) ── */}
+        {isFullUnlocked && (
+          <section className="mb-10 animate-fadeIn">
+            <div className="bg-gradient-to-r from-stone-900 via-stone-900 to-stone-950 p-5 md:p-6 rounded-3xl border border-amber-500/20 shadow-xl relative overflow-hidden flex flex-col sm:flex-row items-center gap-6 group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-2xl pointer-events-none transition-all group-hover:bg-amber-500/10" />
+              
+              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-black/50 border border-amber-500/30 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg relative z-10 backdrop-blur-sm">
+                 <Video className="w-8 h-8 text-amber-400" />
+                 <Sparkles className="w-4 h-4 text-rose-400 absolute -top-1.5 -right-1.5 animate-pulse" />
+              </div>
+              
+              <div className="flex-1 text-center sm:text-left relative z-10">
+                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest block mb-1">
+                  NOVIDADE: ETERNIZE O MOMENTO
+                </span>
+                <h3 className="text-xl font-serif font-bold text-stone-100 mb-2 leading-tight">
+                  Quer um Videoclipe Emocional?
+                </h3>
+                <p className="text-xs text-stone-400 max-w-xl">
+                  Transforme esta música num vídeo inesquecível! Criamos um slideshow dinâmico com as vossas melhores fotos e vídeos. O presente definitivo (Apenas <strong className="text-amber-400 font-mono text-[11px]">2.900 Kz</strong>).
+                </p>
+              </div>
+              
+              <div className="flex-shrink-0 relative z-10 w-full sm:w-auto">
+                <a
+                  href={`https://wa.me/244922058136?text=${encodeURIComponent(`Olá! Gostaria de transformar a minha música "${songDetails.songTitle || songDetails.recipientName}" num Videoclipe Emocional com fotos por 2.900 Kz. Como podemos avançar?`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full px-6 py-3.5 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs md:text-sm rounded-xl transition-all shadow-lg shadow-amber-500/20 cursor-pointer"
+                >
+                  <Video className="w-4 h-4" />
+                  <span>Pedir Vídeo no WhatsApp</span>
+                </a>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* ── PLAYER ── */}
         <SongPlayer
