@@ -604,7 +604,7 @@ export async function handleDeliveryWebhook(payload: unknown): Promise<void> {
           status: dbStatus,
           error: err?.message ? err.message : null,
         };
-        if (typeof st?.message?.id === 'string') update.message_id = st.message.id;
+        if (typeof st?.id === 'string') update.message_id = st.id;
 
         try {
           const { data: rows } = await supabase
@@ -625,3 +625,35 @@ export async function handleDeliveryWebhook(payload: unknown): Promise<void> {
     }
   }
 }
+
+export async function sendDeliveryWhatsApp(client: {
+  requestId: string;
+  phone?: string | null;
+  recipientName?: string | null;
+  songUrl: string;
+}): Promise<'sent' | 'skipped' | 'failed' | 'unconfigured'> {
+  if (!isConfigured()) return 'unconfigured';
+  const phone = normalizePhoneToE164(client.phone || '');
+  if (!phone) return 'skipped';
+
+  const templateName = process.env.WHATSAPP_DELIVERY_TEMPLATE || 'seubeat_abandono_30min_v6';
+  const params = [client.recipientName || 'Destinatário', client.songUrl];
+  const res = await sendTemplate(phone, templateName, params);
+
+  if (res.ok) {
+    await markContacted(client.requestId);
+    await insertSendLog({
+      requestId: client.requestId,
+      phone,
+      status: 'sent',
+      messageId: res.messageId || undefined,
+      templateName,
+    });
+    logInfo('[WhatsApp] Notificação de entrega enviada', { phone, requestId: client.requestId });
+    return 'sent';
+  }
+
+  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', error: res.error });
+  return 'failed';
+}
+

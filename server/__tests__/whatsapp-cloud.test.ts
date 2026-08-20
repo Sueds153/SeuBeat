@@ -456,7 +456,7 @@ describe('whatsappSender (Cloud API)', () => {
             {
               value: {
                 statuses: [
-                  { status: 'delivered', recipient_id: '244900000001', message: { id: 'wamid.99' } },
+                  { id: 'wamid.99', status: 'delivered', recipient_id: '244900000001' },
                 ],
               },
             },
