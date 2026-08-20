@@ -23,6 +23,7 @@ import { startDeliveryScheduler } from './server/services/deliveryScheduler';
 import { startAbandonedRecoveryScheduler } from './server/services/abandonedRecoveryScheduler';
 import { startFollowUpScheduler } from './server/services/followUpScheduler';
 import { startFailedLyricsRecoveryScheduler } from './server/services/failedLyricsRecoveryScheduler';
+import { startStuckMusicRecoveryScheduler } from './server/services/stuckMusicRecoveryScheduler';
 
 const app = await createApp();
 
@@ -33,6 +34,7 @@ try {
   startAbandonedRecoveryScheduler();
   startFollowUpScheduler();
   startFailedLyricsRecoveryScheduler();
+  startStuckMusicRecoveryScheduler();
 } catch (err) {
   logFatal('Erro fatal ao iniciar servidor', err);
   process.exit(1);

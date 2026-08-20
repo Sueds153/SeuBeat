@@ -10,6 +10,7 @@ export {
   sendFollowUp7d, sendFollowUp30d, sendWorkflowFailedEmail, sendLyricsRecoveredEmail,
 } from './email';
 export { startFollowUpScheduler } from './followUpScheduler';
+export { startStuckMusicRecoveryScheduler } from './stuckMusicRecoveryScheduler';
 export { generateLyricsWithGemini } from './gemini';
 export {
   sendPurchaseEvent, sendSubmitApplicationEvent,
