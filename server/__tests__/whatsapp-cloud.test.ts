@@ -317,6 +317,133 @@ describe('whatsappSender (Cloud API)', () => {
     expect(res).toBe('unconfigured');
   });
 
+  it('sendAbandonedWhatsApp devolve blocked-not-verified quando o número não está verificado (cache)', async () => {
+    const wa = await importSender();
+    wa.setCachedVerificationStatus('NOT_VERIFIED');
+    const res = await wa.sendAbandonedWhatsApp({
+      requestId: 'r1', phone: '244900000001', bucket: '30min', params: ['Rui', 'https://x'],
+    });
+    expect(res).toBe('blocked-not-verified');
+    expect(fetchMock).not.toHaveBeenCalled();
+    const insertRow = supabaseState.query.insert.mock.calls[0][0];
+    expect(insertRow.status).toBe('skipped');
+    expect(insertRow.error).toContain('não verificado');
+  });
+
+  it('sendAbandonedWhatsApp envia quando o número está VERIFIED (cache)', async () => {
+    const wa = await importSender();
+    wa.setCachedVerificationStatus('VERIFIED');
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ messages: [{ id: 'wamid.88' }] }),
+    });
+    const res = await wa.sendAbandonedWhatsApp({
+      requestId: 'r1', phone: '244900000001', bucket: '30min', params: ['Rui', 'https://x'],
+    });
+    expect(res).toBe('sent');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('getPhoneNumberVerificationStatus lê code_verification_status e atualiza a cache', async () => {
+    const wa = await importSender();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        code_verification_status: 'VERIFIED',
+        display_phone_number: '+244 922 058 136',
+        verified_name: 'SeuBeat',
+        quality_rating: 'HIGH',
+      }),
+    });
+    const info = await wa.getPhoneNumberVerificationStatus();
+    expect(info.status).toBe('VERIFIED');
+    expect(info.verifiedName).toBe('SeuBeat');
+    expect(wa.getCachedVerificationStatus()).toBe('VERIFIED');
+    const [url] = fetchMock.mock.calls[0] as [string];
+    expect(url).toContain('code_verification_status');
+    expect(url).toContain('graph.facebook.com');
+  });
+
+  it('getPhoneNumberVerificationStatus devolve status null e não rebenta sem resposta da API', async () => {
+    const wa = await importSender();
+    const info = await wa.getPhoneNumberVerificationStatus();
+    expect(info.status).toBeNull();
+  });
+
+  it('requestVerificationCode faz POST ao endpoint request_code', async () => {
+    const wa = await importSender();
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true }) });
+    const r = await wa.requestVerificationCode('SMS', 'en_US');
+    expect(r.ok).toBe(true);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/request_code');
+    expect(url).toContain('code_method=SMS');
+    expect(url).toContain('language=en_US');
+    expect(init.method).toBe('POST');
+  });
+
+  it('submitVerificationCode valida e faz POST ao endpoint verify_code', async () => {
+    const wa = await importSender();
+    fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ success: true }) });
+    const r = await wa.submitVerificationCode('123456');
+    expect(r.ok).toBe(true);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/verify_code');
+    expect(JSON.parse(String(init.body))).toEqual({ code: '123456' });
+  });
+
+  it('submitVerificationCode rejeita código inválido sem chamar a API', async () => {
+    const wa = await importSender();
+    const r = await wa.submitVerificationCode('abc');
+    expect(r.ok).toBe(false);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('isWhatsAppVerificationOk reflete o estado do número (cache e API)', async () => {
+    const wa = await importSender();
+    wa.setCachedVerificationStatus('NOT_VERIFIED');
+    expect(await wa.isWhatsAppVerificationOk()).toBe(false);
+    wa.setCachedVerificationStatus('VERIFIED');
+    expect(await wa.isWhatsAppVerificationOk()).toBe(true);
+    wa.setCachedVerificationStatus(null);
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ code_verification_status: 'VERIFIED' }),
+    });
+    expect(await wa.isWhatsAppVerificationOk()).toBe(true);
+  });
+
+  it('isWhatsAppVerificationOk devolve true sem config (sem rede desnecessária)', async () => {
+    const wa = await importUnconfigured();
+    expect(await wa.isWhatsAppVerificationOk()).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('isVerificationBlocked sinaliza estados que bloqueiam envios', async () => {
+    const wa = await importSender();
+    expect(wa.isVerificationBlocked('NOT_VERIFIED')).toBe(true);
+    expect(wa.isVerificationBlocked('EXPIRED')).toBe(true);
+    expect(wa.isVerificationBlocked('INACTIVE')).toBe(true);
+    expect(wa.isVerificationBlocked('VERIFIED')).toBe(false);
+    expect(wa.isVerificationBlocked(null)).toBe(false);
+    expect(wa.isVerificationBlocked(undefined)).toBe(false);
+  });
+
+  it('getConfigStatus inclui codeVerificationStatus', async () => {
+    const wa = await importSender();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ code_verification_status: 'NOT_VERIFIED' }),
+    });
+    const st = await wa.getConfigStatus();
+    expect(st.configured).toBe(true);
+    expect(st.codeVerificationStatus).toBe('NOT_VERIFIED');
+  });
+
   it('handleDeliveryWebhook atualiza o log mais recente com delivered', async () => {
     supabaseState.query = buildSupabaseMock({ data: [{ id: 'log-1' }] });
     const wa = await importSender();

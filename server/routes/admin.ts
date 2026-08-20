@@ -1892,11 +1892,13 @@ router.get('/abandoned', adminAuth, async (req, res) => {
 
     let linked = false;
     let waPhone: string | null = null;
+    let codeVerificationStatus: string | null = null;
     try {
       const wa = await import('../services/whatsappSender');
       const st = await wa.getLinkStatus();
       linked = !!st.linked;
       waPhone = typeof st.phone === 'string' ? st.phone : null;
+      codeVerificationStatus = wa.getCachedVerificationStatus() || (await wa.getPhoneNumberVerificationStatus()).status || null;
     } catch {
       linked = false;
     }
@@ -1908,6 +1910,7 @@ router.get('/abandoned', adminAuth, async (req, res) => {
       notContacted: bucketedRows.filter((r) => !r.manual_contacted_at).length,
       linked,
       phone: waPhone,
+      codeVerificationStatus,
     });
   } catch (err: unknown) {
     logRouteError(req, err);
@@ -1993,6 +1996,65 @@ router.post('/whatsapp/test-send', adminAuth, async (req, res) => {
       logWarn('[WhatsApp] Teste de envio falhou', { phone: normalized, error: result.error, code: result.code });
       return res.status(422).json({ success: false, error: result.error, code: result.code, phone: normalized });
     }
+  } catch (err: unknown) {
+    logRouteError(req, err);
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+router.get('/whatsapp/verification-status', adminAuth, async (req, res) => {
+  try {
+    const wa = await import('../services/whatsappSender');
+    if (!wa.isConfigured()) {
+      return res.status(400).json({ success: false, error: 'WhatsApp API não configurada. Define WHATSAPP_API_TOKEN e WHATSAPP_PHONE_NUMBER_ID no ambiente.' });
+    }
+    const info = await wa.getPhoneNumberVerificationStatus();
+    res.json({ success: true, ...info, cached: wa.getCachedVerificationStatus() });
+  } catch (err: unknown) {
+    logRouteError(req, err);
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+// POST /whatsapp/request-code — pede o código de verificação (SMS/chamada) da Meta
+// para o dono do número. Sem `code_verification_status: VERIFIED` a Cloud API
+// bloqueia envios a clientes reais (#100 Invalid parameter).
+router.post('/whatsapp/request-code', adminAuth, whatsappBulkLimiter, async (req, res) => {
+  try {
+    const { method, language } = (req.body || {}) as { method?: string; language?: string };
+    const wa = await import('../services/whatsappSender');
+    if (!wa.isConfigured()) {
+      return res.status(400).json({ success: false, error: 'WhatsApp API não configurada. Define WHATSAPP_API_TOKEN e WHATSAPP_PHONE_NUMBER_ID no ambiente.' });
+    }
+    const m: 'SMS' | 'VOICE' = method === 'VOICE' ? 'VOICE' : 'SMS';
+    const lang = typeof language === 'string' && language ? language : 'en_US';
+    const result = await wa.requestVerificationCode(m, lang);
+    if (!result.ok) return res.status(422).json({ success: false, error: result.error });
+    logInfo('[WhatsApp] Código de verificação pedido pelo admin', { method: m, language: lang });
+    res.json({ success: true, method: m, language: lang });
+  } catch (err: unknown) {
+    logRouteError(req, err);
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+// POST /whatsapp/verify-code — confirma o código recebido pelo dono do número.
+router.post('/whatsapp/verify-code', adminAuth, whatsappBulkLimiter, async (req, res) => {
+  try {
+    const { code } = (req.body || {}) as { code?: string };
+    if (!code || typeof code !== 'string' || !code.trim()) {
+      return res.status(400).json({ success: false, error: 'Indica o código de verificação recebido (campo "code").' });
+    }
+    const wa = await import('../services/whatsappSender');
+    if (!wa.isConfigured()) {
+      return res.status(400).json({ success: false, error: 'WhatsApp API não configurada. Define WHATSAPP_API_TOKEN e WHATSAPP_PHONE_NUMBER_ID no ambiente.' });
+    }
+    const result = await wa.submitVerificationCode(code.trim());
+    if (!result.ok) return res.status(422).json({ success: false, error: result.error });
+    // Relê o estado para confirmar VERIFIED e atualizar a cache.
+    const info = await wa.getPhoneNumberVerificationStatus();
+    logInfo('[WhatsApp] Código de verificação confirmado pelo admin', { codeVerificationStatus: info.status });
+    res.json({ success: true, codeVerificationStatus: info.status });
   } catch (err: unknown) {
     logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });

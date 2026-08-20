@@ -17,6 +17,7 @@ vi.mock('../services/email', () => ({
 
 vi.mock('../services/whatsappSender', () => ({
   sendAbandonedWhatsApp: vi.fn(),
+  isWhatsAppVerificationOk: vi.fn().mockResolvedValue(true),
 }));
 
 import { getAdminSupabase } from '../services/supabase';
@@ -125,6 +126,20 @@ describe('processAbandonedRecovery (WhatsApp)', () => {
     expect(arg.templateName).toBe('seubeat_abandono_30min_v6');
     expect(arg.params[0]).toBe('Rui');
     expect(arg.params[1]).toContain('/wizard?resume=req-1');
+  });
+
+  it('NÃO envia WhatsApp quando o número não está verificado na Meta (NOT_VERIFIED)', async () => {
+    const { isWhatsAppVerificationOk } = await import('../services/whatsappSender');
+    (isWhatsAppVerificationOk as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+    mockedSendWhatsApp.mockResolvedValue('sent');
+    buildSupabaseMock({ requests: [request({})], paymentStatus: null });
+
+    await processAbandonedRecovery();
+
+    expect(mockedSendWhatsApp).not.toHaveBeenCalled();
+
+    // repõe o default (beforeEach só faz clearAllMocks, não restaura implementações)
+    (isWhatsAppVerificationOk as ReturnType<typeof vi.fn>).mockResolvedValue(true);
   });
 
   it('NÃO envia WhatsApp quando o cliente já pagou (approved)', async () => {

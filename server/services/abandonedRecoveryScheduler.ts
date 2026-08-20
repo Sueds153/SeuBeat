@@ -1,6 +1,6 @@
 import { getAdminSupabase } from './supabase';
 import { sendAbandonedFirstReminder, sendAbandonedSecondReminder, sendAbandonedThirdReminder, sendAbandonedFourthReminder, sendAbandonedFifthReminder } from './email';
-import { sendAbandonedWhatsApp } from '../services/whatsappSender';
+import { sendAbandonedWhatsApp, isWhatsAppVerificationOk } from '../services/whatsappSender';
 import { enabledWhatsAppBuckets, templateForBucket } from './whatsappTemplates';
 import { bucketForElapsed } from './abandonedMessages';
 import { logInfo, logError, logWarn } from '../utils/logger';
@@ -39,6 +39,18 @@ export async function processAbandonedRecovery(): Promise<void> {
 
   const nowDate = new Date();
   const now = Date.now();
+
+  // Estado de verificação do número na Meta (lido UMA vez por run; se o número
+  // não estiver VERIFIED, a Cloud API bloqueia envios a clientes reais).
+  let waVerified = true;
+  try {
+    waVerified = await isWhatsAppVerificationOk();
+  } catch {
+    waVerified = true; // estado desconhecido → deixa a API decidir
+  }
+  if (!waVerified) {
+    logWarn('[AbandonedRecovery] Número WhatsApp não verificado na Meta — a saltar WhatsApp neste ciclo');
+  }
 
   function songTeaser(req: { songs?: unknown }): { songTitle: string; lyricsSnippet: string } {
     const songs = Array.isArray(req.songs) ? req.songs : req.songs ? [req.songs] : [];
@@ -86,7 +98,7 @@ export async function processAbandonedRecovery(): Promise<void> {
       // --- WhatsApp para clientes não pagantes nos buckets habilitados ---
       const whatsappBuckets = enabledWhatsAppBuckets();
       const whatsappFlagKey = WHATSAPP_FLAG_BY_BUCKET[bucket as string];
-      if (bucket && whatsappBuckets.includes(bucket as any) && diffMs >= 30 * 60 * 1000 && whatsappFlagKey && !req[whatsappFlagKey as keyof typeof req]) {
+      if (waVerified && bucket && whatsappBuckets.includes(bucket as any) && diffMs >= 30 * 60 * 1000 && whatsappFlagKey && !req[whatsappFlagKey as keyof typeof req]) {
         const templateDef = templateForBucket(bucket!);
         if (templateDef?.name) {
           // Verifica se o cliente ainda não pagou (consulta payments table)
