@@ -21,6 +21,7 @@ import {
   normalizePhoneToE164, ABANDONED_BUCKET_ORDER,
   isAbandonedTimeRange, elapsedInRange,
 } from '../services/abandonedMessages';
+import { sendDeliveryWhatsApp } from '../services/whatsappSender';
 import type { BulkClient } from '../services/whatsappSender';
 import { templateForBucket, enabledWhatsAppBuckets } from '../services/whatsappTemplates';
 import { getMetaAdsSpend } from '../services/metaAds';
@@ -777,6 +778,16 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
         const url = `${getAppUrl(req)}/song/${slug}?id=${song.id}`;
         sendPersonalizedEmail(songRequest.users.email, songRequest.recipient_name, url, song.letter_text || 'Dedicatória.')
           .catch(err => logWarn('[Admin] Falha ao enviar email após force-status delivered', { error: err?.message }));
+
+        const clientPhone = songRequest.phone || songRequest.users?.phone;
+        if (clientPhone) {
+          sendDeliveryWhatsApp({
+            requestId: songRequest.id,
+            phone: clientPhone,
+            recipientName: songRequest.recipient_name,
+            songUrl: url,
+          }).catch(err => logWarn('[Admin] Falha ao enviar WhatsApp de entrega', { error: String(err) }));
+        }
       }
     }
 

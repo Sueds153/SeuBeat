@@ -160,6 +160,8 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   });
   const [paymentDetails, setPaymentDetails] = useState({ entidade: '10116', referencia: '929423278', expressPhone: '929423278' });
   const [paymentMethod, setPaymentMethod] = useState<'express' | 'reference'>('express');
+  const [addonSecondStyle, setAddonSecondStyle] = useState(false);
+  const [addonPrintableCover, setAddonPrintableCover] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingStage, setProcessingStage] = useState(0);
   const [rotatingMsgIndex, setRotatingMsgIndex] = useState(0);
@@ -1422,18 +1424,19 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     }
   };
 
-  const getPrice = () => {
-    if (voiceUpsellApplied) return '14.900 Kz';
-    if (selectedPlanID === 'express') return '9.900 Kz';
-    if (selectedPlanID === 'premium') return '14.900 Kz';
-    return '7.900 Kz'; // standard
+  const getPriceNumber = (): number => {
+    let base = 7900;
+    if (voiceUpsellApplied || selectedPlanID === 'premium') base = 14900;
+    else if (selectedPlanID === 'express') base = 9900;
+
+    if (addonSecondStyle) base += 2500;
+    if (addonPrintableCover) base += 1500;
+    return base;
   };
 
-  const getPriceNumber = (): number => {
-    if (voiceUpsellApplied) return 14900;
-    if (selectedPlanID === 'express') return 9900;
-    if (selectedPlanID === 'premium') return 14900;
-    return 7900;
+  const getPrice = () => {
+    const num = getPriceNumber();
+    return `${num.toLocaleString('pt-PT')} Kz`;
   };
 
   const handleSaveLyrics = async () => {
@@ -2706,6 +2709,41 @@ const ROTATING_MESSAGES = [
                     {activeProof}
                   </motion.p>
                 </AnimatePresence>
+              </div>
+
+              {/* Extras Opcionais (Upsell) */}
+              <div className="space-y-3 p-4 bg-stone-950/80 rounded-2xl border border-stone-850">
+                <div className="flex items-center gap-1.5 text-[10px] font-mono text-amber-500 uppercase tracking-widest">
+                  <span>✨ EXTRAS OPCIONAIS RECOMENDADOS</span>
+                </div>
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={addonSecondStyle}
+                    onChange={(e) => setAddonSecondStyle(e.target.checked)}
+                    className="mt-1 w-4 h-4 rounded border-stone-700 bg-stone-900 text-amber-500 focus:ring-amber-500/20"
+                  />
+                  <div className="flex-1 text-xs">
+                    <span className="text-stone-200 font-bold group-hover:text-amber-400 transition-colors">
+                      🎷 2ª Versão da Música num Estilo Diferente (+2.500 Kz)
+                    </span>
+                    <p className="text-[11px] text-stone-400">Receba a mesma letra interpretada num 2º ritmo (ex: Semba + Kizomba ou R&B).</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer group pt-2.5 border-t border-stone-900">
+                  <input
+                    type="checkbox"
+                    checked={addonPrintableCover}
+                    onChange={(e) => setAddonPrintableCover(e.target.checked)}
+                    className="mt-1 w-4 h-4 rounded border-stone-700 bg-stone-900 text-amber-500 focus:ring-amber-500/20"
+                  />
+                  <div className="flex-1 text-xs">
+                    <span className="text-stone-200 font-bold group-hover:text-amber-400 transition-colors">
+                      🎨 Capa de CD em Alta Resolução (+1.500 Kz)
+                    </span>
+                    <p className="text-[11px] text-stone-400">Arte gráfica personalizada com a capa da música pronta a imprimir ou emoldurar.</p>
+                  </div>
+                </label>
               </div>
 
               {/* Payment Method Selection */}

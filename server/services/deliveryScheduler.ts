@@ -11,9 +11,13 @@ let intervalHandle: ReturnType<typeof setInterval> | null = null;
 interface PendingRequest {
   id: string;
   email?: string | null;
+  phone?: string | null;
   recipient_name?: string | null;
   songs?: Array<{ id?: string | null; letter_text?: string | null; title?: string | null }> | null;
 }
+
+import { sendDeliveryWhatsApp } from './whatsappSender';
+
 
 function makeSlug(name: string): string {
   return name
@@ -88,6 +92,15 @@ async function deliverWithRetry(req: PendingRequest, now: string, attempt = 0): 
       );
       logInfo('[DeliveryScheduler] Email enviado com sucesso', { requestId: req.id });
     }
+
+    if (req.phone) {
+      await sendDeliveryWhatsApp({
+        requestId: req.id,
+        phone: req.phone,
+        recipientName: req.recipient_name,
+        songUrl: personalizedUrl,
+      }).catch(err => logWarn('[DeliveryScheduler] Falha ao enviar WhatsApp de entrega', { requestId: req.id, error: String(err) }));
+    }
   } catch (err) {
     logError('[DeliveryScheduler] Catch error', { requestId: req.id, error: err instanceof Error ? err.message : String(err) });
     if (attempt < MAX_RETRIES) {
@@ -117,7 +130,7 @@ async function deliverPendingSongs(): Promise<void> {
 
   const { data: pending, error } = await supabase
     .from('song_requests')
-    .select('id, recipient_name, status, deliver_at, email, final_mixed_audio_url, songs(id, title, letter_text)')
+    .select('id, recipient_name, status, deliver_at, email, phone, final_mixed_audio_url, songs(id, title, letter_text)')
     .eq('status', 'approved')
     .lte('deliver_at', now)
     .not('deliver_at', 'is', null);

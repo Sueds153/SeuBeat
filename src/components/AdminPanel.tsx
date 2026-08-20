@@ -1713,6 +1713,32 @@ export default function AdminPanel() {
                     <p className="text-stone-500 text-sm mt-1">Visão geral do negócio SeuBeat</p>
                   </div>
 
+                  {/* AI Credit Health Warning Banner */}
+                  {credits && (credits.suno.low || credits.deepseek?.low || credits.claude?.quota_exceeded || credits.suno.credits < 50) && (
+                    <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 animate-fadeIn">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
+                          <AlertTriangle className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-amber-300">Alerta de Créditos de IA</h4>
+                          <p className="text-xs text-stone-300">
+                            {credits.suno.low || credits.suno.credits < 50 ? `Suno: ${credits.suno.credits} créditos (~${credits.usage?.estimatedSongsRemaining || 0} músicas). ` : ''}
+                            {credits.deepseek?.low ? `DeepSeek: Saldo baixo (${credits.deepseek.currency || 'USD'} ${credits.deepseek.total_balance?.toFixed(2) || '0'}). ` : ''}
+                            {credits.claude?.quota_exceeded ? 'Claude: Quota excedida. ' : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setActiveView('credits')}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs rounded-xl transition-all cursor-pointer shadow-lg shadow-amber-500/20 whitespace-nowrap self-start md:self-auto"
+                      >
+                        Ver Créditos
+                      </button>
+                    </div>
+                  )}
+
+
                   {stats ? (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       <StatCard icon={Users} label="Total Clientes" value={stats.totalUsers} color="bg-blue-500/15 text-blue-400" onClick={() => setActiveView('clients')} />
