@@ -349,6 +349,29 @@ async function markContacted(requestId: string) {
   }
 }
 
+const WHATSAPP_FLAG_BY_BUCKET: Record<string, string> = {
+  '30min': 'whatsapp_30min_sent_at',
+  '24h': 'whatsapp_24h_sent_at',
+  '48h': 'whatsapp_48h_sent_at',
+  '72h': 'whatsapp_72h_sent_at',
+};
+
+/** Marca a flag WhatsApp do bucket (dedupe do scheduler) após envio com sucesso. */
+async function markBucketSent(requestId: string, bucket: string | undefined) {
+  const flag = WHATSAPP_FLAG_BY_BUCKET[bucket as string];
+  if (!flag) return;
+  const supabase = getAdminSupabase();
+  if (!supabase) return;
+  try {
+    await supabase
+      .from('song_requests')
+      .update({ [flag]: new Date().toISOString() })
+      .eq('id', requestId);
+  } catch (err) {
+    logError('[WhatsApp] Erro ao marcar flag de envio', err instanceof Error ? err : new Error(String(err)));
+  }
+}
+
 async function getDailySentCount(): Promise<number> {
   const supabase = getAdminSupabase();
   if (!supabase) return 0;
@@ -408,13 +431,6 @@ export async function runSendBulk(clients: BulkClient[], _options?: BulkOptions)
 }
 
 async function sendBulk(clients: BulkClient[]) {
-  const cachedStatus = getCachedVerificationStatus();
-  if (isVerificationBlocked(cachedStatus)) {
-    progress.error = `Número WhatsApp não verificado na Meta (${cachedStatus}) — envio bloqueado. Verifica o número no painel.`;
-    progress.processed = progress.total;
-    return;
-  }
-
   const hour = new Date().getHours();
   if (hour < START_HOUR || hour >= END_HOUR) {
     progress.error = `Janela de envio WhatsApp fechada (${START_HOUR}h–${END_HOUR}h).`;
@@ -452,14 +468,6 @@ async function sendBulk(clients: BulkClient[]) {
 }
 
 async function sendOne(client: BulkClient, phone: string): Promise<'sent' | 'skipped' | 'failed'> {
-  const cachedStatus = getCachedVerificationStatus();
-  if (isVerificationBlocked(cachedStatus)) {
-    progress.skippedNoWhatsApp++;
-    progress.processed++;
-    await insertSendLog({ requestId: client.requestId, phone, status: 'skipped', error: `Número não verificado na Meta (${cachedStatus}).` });
-    return 'skipped';
-  }
-
   const def = templateForBucket(client.bucket);
   const templateName = client.templateName || def?.name || '';
   if (!templateName) {
@@ -505,8 +513,7 @@ export type AbandonedSendResult =
   | 'failed'
   | 'window-closed'
   | 'cap-reached'
-  | 'unconfigured'
-  | 'blocked-not-verified';
+  | 'unconfigured';
 
 /**
  * Envia um template de abandono para um cliente com todas as proteções da
@@ -517,12 +524,6 @@ export type AbandonedSendResult =
 export async function sendAbandonedWhatsApp(client: BulkClient): Promise<AbandonedSendResult> {
   if (!isConfigured()) {
     return 'unconfigured';
-  }
-
-  const cachedStatus = getCachedVerificationStatus();
-  if (isVerificationBlocked(cachedStatus)) {
-    await insertSendLog({ requestId: client.requestId, phone: client.phone || '', status: 'skipped', error: `Número não verificado na Meta (${cachedStatus}).` });
-    return 'blocked-not-verified';
   }
 
   const hour = new Date().getHours();
@@ -555,6 +556,7 @@ export async function sendAbandonedWhatsApp(client: BulkClient): Promise<Abandon
 
   if (result.ok) {
     await markContacted(client.requestId);
+    await markBucketSent(client.requestId, client.bucket);
     await insertSendLog({
       requestId: client.requestId,
       phone,

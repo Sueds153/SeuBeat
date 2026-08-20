@@ -317,17 +317,19 @@ describe('whatsappSender (Cloud API)', () => {
     expect(res).toBe('unconfigured');
   });
 
-  it('sendAbandonedWhatsApp devolve blocked-not-verified quando o número não está verificado (cache)', async () => {
+  it('sendAbandonedWhatsApp envia mesmo com número não verificado na Meta (guarda log-only)', async () => {
     const wa = await importSender();
     wa.setCachedVerificationStatus('NOT_VERIFIED');
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ messages: [{ id: 'wamid.99' }] }),
+    });
     const res = await wa.sendAbandonedWhatsApp({
       requestId: 'r1', phone: '244900000001', bucket: '30min', params: ['Rui', 'https://x'],
     });
-    expect(res).toBe('blocked-not-verified');
-    expect(fetchMock).not.toHaveBeenCalled();
-    const insertRow = supabaseState.query.insert.mock.calls[0][0];
-    expect(insertRow.status).toBe('skipped');
-    expect(insertRow.error).toContain('não verificado');
+    expect(res).toBe('sent');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('sendAbandonedWhatsApp envia quando o número está VERIFIED (cache)', async () => {
