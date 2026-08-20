@@ -162,6 +162,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [paymentMethod, setPaymentMethod] = useState<'express' | 'reference'>('express');
   const [addonSecondStyle, setAddonSecondStyle] = useState(false);
   const [addonPrintableCover, setAddonPrintableCover] = useState(false);
+  const [countdownDisplay, setCountdownDisplay] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingStage, setProcessingStage] = useState(0);
   const [rotatingMsgIndex, setRotatingMsgIndex] = useState(0);
@@ -909,6 +910,26 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     }, 5000);
     return () => clearInterval(interval);
   }, [isDone, paymentProofs.length]);
+
+  // Countdown timer — mostra tempo restante desde a geração da letra (urgência)
+  useEffect(() => {
+    if (!isDone && conversionStep !== 'plans' && conversionStep !== 'preview') return;
+    // A letra "expira" em 24h após a geração — calculamos a partir do dbSongRequestId
+    // mas sem fetch extra: usamos a hora em que entrou no conversionStep como proxy
+    const startMs = Date.now();
+    const EXPIRE_MS = 24 * 60 * 60 * 1000; // 24h
+    const tick = () => {
+      const elapsed = Date.now() - startMs;
+      const remaining = Math.max(0, EXPIRE_MS - elapsed);
+      const h = Math.floor(remaining / 3600000);
+      const m = Math.floor((remaining % 3600000) / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      setCountdownDisplay(`${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`);
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [isDone, conversionStep]);
 
   // Meta: registar quando o ecrã de pagamento é visto (uma vez por pedido)
   const paymentScreenTrackedRef = useRef(false);
@@ -2044,6 +2065,14 @@ const ROTATING_MESSAGES = [
             <p className="text-[10px] font-mono text-amber-400/80 text-center">
               🎵 Música para <strong className="text-stone-200">{formData.recipientName || 'alguém especial'}</strong>
             </p>
+
+            {/* Countdown urgency banner */}
+            {countdownDisplay && (
+              <div className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-950/40 border border-rose-800/40 text-center">
+                <span className="text-xs text-rose-300 font-mono">⏳ Letra reservada por:</span>
+                <span className="text-sm font-bold font-mono text-rose-200 tabular-nums tracking-widest">{countdownDisplay}</span>
+              </div>
+            )}
 
             <h3 className="text-center font-serif text-xl font-bold tracking-tight text-stone-200">
               Escolhe como queres receber

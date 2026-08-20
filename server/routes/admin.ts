@@ -26,6 +26,7 @@ import type { BulkClient } from '../services/whatsappSender';
 import { templateForBucket, enabledWhatsAppBuckets } from '../services/whatsappTemplates';
 import { getMetaAdsSpend } from '../services/metaAds';
 import { getDeepSeekApiKey } from '../services/deepseekConfig';
+import { logAnalyticsEvent } from '../services/analytics';
 
 const router = express.Router();
 
@@ -159,6 +160,82 @@ router.get('/stats', adminAuth, async (req, res) => {
   }
 });
 
+// A2. Funnel metrics
+router.get('/funnel', adminAuth, async (req, res) => {
+  try {
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
+
+    const now = new Date();
+    const today = isoDateOnly(now);
+    const weekAgo = isoDateOnly(new Date(now.getTime() - 7 * 86400000));
+    const monthAgo = isoDateOnly(new Date(now.getTime() - 30 * 86400000));
+
+    const [requestsRes, paymentsRes, deliveredRes, revenueByDayRes] = await Promise.all([
+      supabase.from('song_requests').select('id, status, created_at'),
+      supabase.from('payments').select('id, status, amount, plan, created_at'),
+      supabase.from('song_requests').select('id', { count: 'exact' }).eq('status', 'delivered'),
+      supabase.from('payments')
+        .select('amount, created_at')
+        .eq('status', 'approved')
+        .gte('created_at', monthAgo)
+        .order('created_at', { ascending: true }),
+    ]);
+
+    const requests = requestsRes.data || [];
+    const payments = paymentsRes.data || [];
+    const approvedPayments = payments.filter(p => p.status === 'approved');
+    const lyricsGenerated = requests.filter(r => !['lyrics_generating'].includes(r.status)).length;
+    const paymentSubmitted = payments.length;
+    const paymentApproved = approvedPayments.length;
+    const conversionRate = lyricsGenerated > 0 ? ((paymentApproved / lyricsGenerated) * 100).toFixed(1) : '0';
+
+    const totalRevenue = approvedPayments.reduce((s, p) => s + parseMoneyAmount(p.amount), 0);
+    const revenueToday = approvedPayments
+      .filter(p => p.created_at?.startsWith(today))
+      .reduce((s, p) => s + parseMoneyAmount(p.amount), 0);
+    const revenueWeek = approvedPayments
+      .filter(p => (p.created_at || '') >= weekAgo)
+      .reduce((s, p) => s + parseMoneyAmount(p.amount), 0);
+    const revenueMonth = approvedPayments
+      .filter(p => (p.created_at || '') >= monthAgo)
+      .reduce((s, p) => s + parseMoneyAmount(p.amount), 0);
+    const aov = paymentApproved > 0 ? Math.round(totalRevenue / paymentApproved) : 0;
+
+    // Revenue by day for chart (last 30 days)
+    const revenueByDay: Record<string, number> = {};
+    for (const p of revenueByDayRes.data || []) {
+      const day = (p.created_at || '').slice(0, 10);
+      if (day) revenueByDay[day] = (revenueByDay[day] || 0) + parseMoneyAmount(p.amount);
+    }
+    const revenueChart = Object.entries(revenueByDay)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([day, amount]) => ({ day, amount }));
+
+    res.json({
+      funnel: {
+        lyricsGenerated,
+        paymentSubmitted,
+        paymentApproved,
+        delivered: deliveredRes.count || 0,
+        conversionRate: `${conversionRate}%`,
+      },
+      revenue: {
+        total: totalRevenue,
+        today: revenueToday,
+        week: revenueWeek,
+        month: revenueMonth,
+        aov,
+        chart: revenueChart,
+      },
+    });
+  } catch (err: unknown) {
+    logRouteError(req, err);
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+
 // B. Admin list payments
 router.get('/payments', adminAuth, async (req, res) => {
   try {
@@ -248,10 +325,11 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Dados da música em falta.' });
     }
 
-    logAdminAction({ action: 'approve', entityType: 'payment', entityId: id, notes: notes || undefined });
-
     const numericAmount = parseInt(String(payment.amount || '0').replace(/[^0-9]/g, ''), 10) || 0;
     const planName = (payment.plan || songRequest?.plan || 'standard') as string;
+
+    logAdminAction({ action: 'approve', entityType: 'payment', entityId: id, notes: notes || undefined });
+    logAnalyticsEvent('payment_approved', { requestId: requestId || undefined, metadata: { plan: planName, amount: numericAmount } }).catch(() => {});
 
     const userPhone = songRequest?.phone || null;
     const userFullName = songRequest?.users?.name || '';

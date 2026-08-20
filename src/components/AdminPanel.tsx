@@ -388,6 +388,8 @@ export default function AdminPanel() {
   const [expandedRequest, setExpandedRequest] = useState<string | null>(null);
   const [editingSong, setEditingSong] = useState<{ id: string; title: string; lyrics: string; letterText: string } | null>(null);
   const [uploadingSongId, setUploadingSongId] = useState<string | null>(null);
+  const [funnel, setFunnel] = useState<any>(null);
+  const [funnelLoading, setFunnelLoading] = useState(false);
   const progressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const viewPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -649,6 +651,14 @@ export default function AdminPanel() {
     setMetricsLoading(false);
   }, [adminToken, apiFetch]);
 
+  const fetchFunnel = useCallback(async () => {
+    if (!adminToken) return;
+    setFunnelLoading(true);
+    const data = await apiFetch('/api/admin/funnel');
+    if (data) setFunnel(data);
+    setFunnelLoading(false);
+  }, [adminToken, apiFetch]);
+
   const fetchProfitability = useCallback(async () => {
     if (!adminToken) return;
     setProfitLoading(true);
@@ -887,8 +897,8 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (!authenticated) return;
-    fetchStats();
-    if (activeView === 'payments') fetchPayments();
+    if (activeView === 'dashboard') { fetchStats(); fetchFunnel(); }
+    else if (activeView === 'payments') fetchPayments();
     else if (activeView === 'requests') { fetchRequests(); fetchProgress(); }
     else if (activeView === 'songs') fetchSongs();
     else if (activeView === 'credits') fetchCredits();
@@ -1766,6 +1776,81 @@ export default function AdminPanel() {
                         ))}
                       </div>
                     </div>
+                  )}
+
+                  {/* Funil de Conversão & Receita */}
+                  {funnel ? (
+                    <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider">Funil de Conversão & Receita</h3>
+                        <button onClick={fetchFunnel} className="text-[10px] text-stone-600 hover:text-amber-400 font-mono transition-colors cursor-pointer flex items-center gap-1">
+                          <RefreshCw className={`w-3 h-3 ${funnelLoading ? 'animate-spin' : ''}`} /> Atualizar
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                          <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">Letras Geradas</p>
+                          <p className="text-2xl font-bold font-mono text-blue-400 mt-1">{funnel.funnel?.lyricsGenerated ?? '—'}</p>
+                        </div>
+                        <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                          <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">Comprov. Enviados</p>
+                          <p className="text-2xl font-bold font-mono text-amber-400 mt-1">{funnel.funnel?.paymentSubmitted ?? '—'}</p>
+                        </div>
+                        <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                          <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">Aprovados</p>
+                          <p className="text-2xl font-bold font-mono text-emerald-400 mt-1">{funnel.funnel?.paymentApproved ?? '—'}</p>
+                        </div>
+                        <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                          <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">Tx. Conversão</p>
+                          <p className="text-2xl font-bold font-mono text-rose-400 mt-1">{funnel.funnel?.conversionRate ?? '—'}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-2 border-t border-stone-800">
+                        <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                          <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">Receita Hoje</p>
+                          <p className="text-lg font-bold font-mono text-stone-100 mt-1">{funnel.revenue?.today != null ? `${funnel.revenue.today.toLocaleString('pt')} Kz` : '—'}</p>
+                        </div>
+                        <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                          <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">Receita 7 Dias</p>
+                          <p className="text-lg font-bold font-mono text-stone-100 mt-1">{funnel.revenue?.week != null ? `${funnel.revenue.week.toLocaleString('pt')} Kz` : '—'}</p>
+                        </div>
+                        <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                          <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">Receita Mês</p>
+                          <p className="text-lg font-bold font-mono text-stone-100 mt-1">{funnel.revenue?.month != null ? `${funnel.revenue.month.toLocaleString('pt')} Kz` : '—'}</p>
+                        </div>
+                        <div className="bg-stone-950 rounded-xl p-3 border border-stone-800">
+                          <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">Valor Médio (AOV)</p>
+                          <p className="text-lg font-bold font-mono text-amber-400 mt-1">{funnel.revenue?.aov != null ? `${funnel.revenue.aov.toLocaleString('pt')} Kz` : '—'}</p>
+                        </div>
+                      </div>
+                      {Array.isArray(funnel.revenue?.chart) && funnel.revenue.chart.length > 0 && (
+                        <div className="pt-2">
+                          <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider mb-2">Receita Diária (30 dias)</p>
+                          <div className="flex items-end gap-0.5 h-16">
+                            {funnel.revenue.chart.map((d: { day: string; amount: number }, i: number) => {
+                              const max = Math.max(...funnel.revenue.chart.map((x: { day: string; amount: number }) => x.amount), 1);
+                              const pct = Math.round((d.amount / max) * 100);
+                              return (
+                                <div key={i} className="flex-1 flex flex-col items-center justify-end group relative">
+                                  <div
+                                    style={{ height: `${Math.max(pct, 4)}%` }}
+                                    className="w-full bg-amber-500/40 group-hover:bg-amber-500/70 rounded-sm transition-colors"
+                                    title={`${d.day}: ${d.amount.toLocaleString('pt')} Kz`}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={fetchFunnel}
+                      className="w-full py-4 rounded-2xl bg-stone-900/50 border border-stone-800 text-stone-500 text-xs font-mono hover:border-amber-500/20 hover:text-amber-400 transition-colors cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      {funnelLoading ? <RefreshCw className="w-4 h-4 animate-spin text-amber-400" /> : '📈 Carregar Funil de Conversão & Receita'}
+                    </button>
                   )}
                 </div>
               )}
