@@ -412,6 +412,8 @@ export default function AdminPanel() {
   const [abandonedLoading, setAbandonedLoading] = useState(false);
   const [waLinked, setWaLinked] = useState<boolean | null>(null);
   const [waVerifiedPhone, setWaVerifiedPhone] = useState<string | null>(null);
+  const [waDailyCap, setWaDailyCap] = useState<number | null>(null);
+  const [waSentToday, setWaSentToday] = useState<number | null>(null);
   const [waConfigLoading, setWaConfigLoading] = useState(false);
   const [waTestModal, setWaTestModal] = useState<{ open: boolean; phone: string; loading: boolean; result: { ok: boolean; message: string } | null }>({ open: false, phone: '', loading: false, result: null });
   const [abandonedRange, setAbandonedRange] = useState<string>('all');
@@ -675,10 +677,14 @@ export default function AdminPanel() {
       if (data) {
         setWaLinked(data.configured === true);
         setWaVerifiedPhone(data.phone || null);
+        if (typeof data.dailyCap === 'number') setWaDailyCap(data.dailyCap);
+        if (typeof data.sentToday === 'number') setWaSentToday(data.sentToday);
       }
     } catch {
       setWaLinked(false);
       setWaVerifiedPhone(null);
+      setWaDailyCap(null);
+      setWaSentToday(null);
     }
     setWaConfigLoading(false);
   }, [adminToken, apiFetch]);
@@ -2956,7 +2962,11 @@ export default function AdminPanel() {
                         >
                           <Send className="w-3.5 h-3.5" /> {sendButtonLoading ? 'A iniciar...' : 'Enviar WhatsApp a todos por contactar'}
                         </button>
-                        <span className="text-xs text-stone-500">Respeita o limite diário e o horário configurado (default 9h–20h, máx 30/dia)</span>
+                        <span className="text-xs text-stone-500">
+                          {waDailyCap !== null && waSentToday !== null
+                            ? `Cap Diário: ${waSentToday}/${waDailyCap} enviadas hoje (horário 9h–20h)`
+                            : 'Respeita o limite diário e o horário configurado (default 9h–20h)'}
+                        </span>
                       </div>
 
                       {/* Time filter */}

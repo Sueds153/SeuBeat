@@ -76,11 +76,13 @@ export async function getLinkStatus() {
 }
 
 export async function getConfigStatus() {
+  const sentToday = await getDailySentCount();
   return {
     configured: isConfigured(),
     phone: WHATSAPP_PHONE,
     phoneNumberId: isConfigured() ? PHONE_NUMBER_ID : null,
     dailyCap: DAILY_CAP,
+    sentToday,
     startHour: START_HOUR,
     endHour: END_HOUR,
     templates: listTemplates(),
