@@ -4,7 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { getAdminSupabase, getPublicSupabase, uploadToSupabase } from '../services/supabase';
-import { uploadFileToStorage } from '../services/storage';
+import { uploadFileToStorage, createSignedStorageUrl, deleteStorageFile } from '../services/storage';
 import { convertToWav } from '../services/audio';
 import { getValidationPhrase } from '../services/suno-voice';
 import { generateLyrics } from '../services/ai';
@@ -595,8 +595,8 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
       }
     }
 
-    if (photoStoragePath && supabase && !dbSongRequestId) {
-      supabase.storage.from('photos').remove([photoStoragePath]).catch(() => {});
+    if (photoStoragePath && !dbSongRequestId) {
+      deleteStorageFile('photos', photoStoragePath).catch(() => {});
     }
 
     logError('[API] /generate-lyrics falhou', err, {
@@ -675,8 +675,8 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
           if (fullUrl) {
             const match = fullUrl.match(/full-audio\/(.+)/);
             if (match) {
-              const { data } = await adminSupabase.storage.from('full-audio').createSignedUrl(match[1], 604800);
-              audioUrl = data?.signedUrl || fullUrl;
+              const signedUrl = await createSignedStorageUrl('full-audio', match[1], 604800);
+              audioUrl = signedUrl || fullUrl;
             } else {
               audioUrl = fullUrl;
             }
@@ -690,9 +690,9 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       const fullUrl = sr?.final_mixed_audio_url || songData.full_song_url || songData.audio_url;
       if (fullUrl && fullUrl !== audioUrl) {
         const match = fullUrl.match(/full-audio\/(.+)/);
-        if (match && adminSupabase) {
-          const { data } = await adminSupabase.storage.from('full-audio').createSignedUrl(match[1], 604800);
-          audioUrl = data?.signedUrl || fullUrl;
+        if (match) {
+          const signedUrl = await createSignedStorageUrl('full-audio', match[1], 604800);
+          audioUrl = signedUrl || fullUrl;
         } else {
           audioUrl = fullUrl;
         }

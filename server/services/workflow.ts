@@ -2,7 +2,7 @@ import path from 'path';
 import fs from 'fs';
 import os from 'os';
 import { getAdminSupabase } from './supabase';
-import { uploadFileToStorage } from './storage';
+import { uploadFileToStorage, createSignedStorageUrl } from './storage';
 import { downloadFile, createPreviewAudio, applyFades, convertToWav, getAudioDuration } from './audio';
 import { querySunoTask, generateFullSong } from './suno';
 import { generateValidationPhrase, waitForValidationPhrase, createCustomVoice, waitForVoiceId, checkVoiceAvailability } from './suno-voice';
@@ -575,12 +575,12 @@ function normalizePhrase(phrase: string): string {
   return phrase.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
-async function resolveVoiceSampleUrl(supabase: NonNullable<ReturnType<typeof getAdminSupabase>>, urlOrPath: string): Promise<string> {
+async function resolveVoiceSampleUrl(_supabase: NonNullable<ReturnType<typeof getAdminSupabase>>, urlOrPath: string): Promise<string> {
   if (urlOrPath.startsWith('http')) return urlOrPath;
-  // É um path de storage — gerar signed URL para download
-  const { data } = await supabase.storage.from('voice-samples').createSignedUrl(urlOrPath, 604800);
-  if (!data?.signedUrl) throw new Error('Não foi possível gerar URL para a amostra de voz.');
-  return data.signedUrl;
+  // É um path de storage — gerar signed URL para download (via storage.ts → R2 ou Supabase)
+  const signedUrl = await createSignedStorageUrl('voice-samples', urlOrPath, 604800);
+  if (!signedUrl) throw new Error('Não foi possível gerar URL para a amostra de voz.');
+  return signedUrl;
 }
 
 export async function processSunoVoice(

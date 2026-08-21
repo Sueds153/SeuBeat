@@ -1,4 +1,4 @@
-import { logWarn } from '../utils/logger';
+import { logWarn, logError } from '../utils/logger';
 
 const SUNO_TIMEOUT_MS = Number(process.env.SUNO_TIMEOUT_MS || 60000);
 
