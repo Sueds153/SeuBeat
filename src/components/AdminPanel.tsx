@@ -2444,7 +2444,7 @@ export default function AdminPanel() {
                                               handleGenerateMusic(song.id, true);
                                             }
                                           }}
-                                          disabled={!!actionLoading || song.mureka_status === 'generating' || song.mureka_status === 'processing'}
+                                          disabled={actionLoading === song.id + '_music'}
                                           className="flex items-center gap-1.5 px-3 py-2 bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs rounded-xl hover:bg-purple-500/20 disabled:opacity-50 cursor-pointer font-mono transition-colors"
                                         >
                                           {actionLoading === song.id + '_music' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Regenerar Música
@@ -2617,7 +2617,7 @@ export default function AdminPanel() {
                                         handleGenerateMusic(song.id, true);
                                       }
                                     }}
-                                    disabled={actionLoading === song.id + '_music' || song.mureka_status === 'generating' || song.mureka_status === 'processing'}
+                                    disabled={actionLoading === song.id + '_music'}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs rounded-xl hover:bg-amber-500/25 transition-colors disabled:opacity-50 cursor-pointer font-mono"
                                   >
                                     {actionLoading === song.id + '_music' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Regenerar Suno
@@ -2625,9 +2625,10 @@ export default function AdminPanel() {
                                 </>
                               ) : (
                                 <button onClick={() => handleGenerateMusic(song.id)}
-                                  disabled={actionLoading === song.id + '_music' || song.mureka_status === 'generating' || song.mureka_status === 'processing'}
+                                  disabled={actionLoading === song.id + '_music'}
                                   className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs rounded-xl hover:bg-amber-500/25 transition-colors disabled:opacity-50 cursor-pointer font-mono">
-                                  {actionLoading === song.id + '_music' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Gerar Suno
+                                  {actionLoading === song.id + '_music' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                  {song.mureka_task_id && !song.audio_url ? ' Verificar Task' : ' Gerar Suno'}
                                 </button>
                               )}
                             </div>
