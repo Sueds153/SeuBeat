@@ -1069,7 +1069,7 @@ router.post('/song/:id/edit-lyrics', adminAuth, async (req, res) => {
     const { title, lyrics, letterText } = req.body;
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
-    const lyricsArray = Array.isArray(lyrics) ? lyrics : typeof lyrics === 'string' ? lyrics.split('\n').filter((l: string) => l.trim().length > 0) : [];
+    const lyricsArray = normalizeLyricsArray(lyrics);
     const { data, error } = await supabase.from('songs').update({ title, lyrics: lyricsArray, letter_text: letterText || null }).eq('id', id).select().single();
     if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
     res.json({ success: true, song: data });
