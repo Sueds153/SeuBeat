@@ -1,12 +1,50 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import fs from 'fs';
 import { uploadToSupabase } from './supabase';
 import { logInfo, logError, logWarn } from '../utils/logger';
 
-let s3ClientInstance: S3Client | null = null;
+interface AwsSdkModules {
+  S3Client: typeof import('@aws-sdk/client-s3').S3Client;
+  PutObjectCommand: typeof import('@aws-sdk/client-s3').PutObjectCommand;
+  DeleteObjectCommand: typeof import('@aws-sdk/client-s3').DeleteObjectCommand;
+  DeleteObjectsCommand: typeof import('@aws-sdk/client-s3').DeleteObjectsCommand;
+  GetObjectCommand: typeof import('@aws-sdk/client-s3').GetObjectCommand;
+  ListObjectsV2Command: typeof import('@aws-sdk/client-s3').ListObjectsV2Command;
+  getSignedUrl: typeof import('@aws-sdk/s3-request-presigner').getSignedUrl;
+}
 
-function getR2Client(): S3Client | null {
+let awsSdkModule: AwsSdkModules | null = null;
+let awsSdkLoadAttempted = false;
+
+async function loadAwsSdk(): Promise<AwsSdkModules | null> {
+  if (awsSdkModule) return awsSdkModule;
+  if (awsSdkLoadAttempted) return null;
+  awsSdkLoadAttempted = true;
+
+  try {
+    const s3 = await import('@aws-sdk/client-s3');
+    const presigner = await import('@aws-sdk/s3-request-presigner');
+    awsSdkModule = {
+      S3Client: s3.S3Client,
+      PutObjectCommand: s3.PutObjectCommand,
+      DeleteObjectCommand: s3.DeleteObjectCommand,
+      DeleteObjectsCommand: s3.DeleteObjectsCommand,
+      GetObjectCommand: s3.GetObjectCommand,
+      ListObjectsV2Command: s3.ListObjectsV2Command,
+      getSignedUrl: presigner.getSignedUrl,
+    };
+    return awsSdkModule;
+  } catch (err) {
+    logWarn('[Storage] Módulos AWS S3 SDK não disponíveis no ambiente, a usar Supabase Storage como fallback:', err);
+    return null;
+  }
+}
+
+let s3ClientInstance: unknown = null;
+
+async function getR2Client(): Promise<{ client: unknown; sdk: AwsSdkModules } | null> {
+  const isTestEnv = process.env.NODE_ENV === 'test' || !!process.env.VITEST;
+  if (isTestEnv) return null;
+
   const accountId = process.env.R2_ACCOUNT_ID;
   const accessKeyId = process.env.R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
@@ -15,8 +53,11 @@ function getR2Client(): S3Client | null {
     return null;
   }
 
+  const sdk = await loadAwsSdk();
+  if (!sdk) return null;
+
   if (!s3ClientInstance) {
-    s3ClientInstance = new S3Client({
+    s3ClientInstance = new sdk.S3Client({
       region: 'auto',
       endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
       credentials: {
@@ -25,7 +66,7 @@ function getR2Client(): S3Client | null {
       },
     });
   }
-  return s3ClientInstance;
+  return { client: s3ClientInstance, sdk };
 }
 
 function getR2Config() {
@@ -47,8 +88,11 @@ export async function uploadFileToStorage(
   filePathOrBuffer: string | Buffer,
   mimeType: string
 ): Promise<string> {
-  const isTestEnvironment = Boolean(process.env.VITEST || process.env.NODE_ENV === 'test');
-  if (!isTestEnvironment && provider === 'r2' && r2Client && bucketName && publicDomain) {
+  const provider = (process.env.STORAGE_PROVIDER || 'r2').toLowerCase();
+  const r2 = await getR2Client();
+  const { bucketName, publicDomain } = getR2Config();
+
+  if (provider === 'r2' && r2 && bucketName && publicDomain) {
     try {
       const fileBuffer = typeof filePathOrBuffer === 'string'
         ? await fs.promises.readFile(filePathOrBuffer)
@@ -56,7 +100,8 @@ export async function uploadFileToStorage(
 
       const objectKey = `${bucket}/${filename}`;
 
-      await r2Client.send(new PutObjectCommand({
+      const client = r2.client as import('@aws-sdk/client-s3').S3Client;
+      await client.send(new r2.sdk.PutObjectCommand({
         Bucket: bucketName,
         Key: objectKey,
         Body: fileBuffer,
@@ -95,14 +140,15 @@ export async function createSignedStorageUrl(
   expiresInSeconds: number = 3600
 ): Promise<string | null> {
   const provider = (process.env.STORAGE_PROVIDER || 'r2').toLowerCase();
-  const r2Client = getR2Client();
+  const r2 = await getR2Client();
   const { bucketName } = getR2Config();
 
-  if (provider === 'r2' && r2Client && bucketName) {
+  if (provider === 'r2' && r2 && bucketName) {
     try {
       const objectKey = `${bucket}/${filename}`;
-      const command = new GetObjectCommand({ Bucket: bucketName, Key: objectKey });
-      const signedUrl = await getSignedUrl(r2Client, command, { expiresIn: expiresInSeconds });
+      const command = new r2.sdk.GetObjectCommand({ Bucket: bucketName, Key: objectKey });
+      const client = r2.client as import('@aws-sdk/client-s3').S3Client;
+      const signedUrl = await r2.sdk.getSignedUrl(client, command, { expiresIn: expiresInSeconds });
       logInfo('[Storage] URL assinada gerada para R2', { bucket, filename });
       return signedUrl;
     } catch (err) {
@@ -134,13 +180,14 @@ export async function createSignedStorageUrl(
  */
 export async function deleteStorageFiles(bucket: string, filenames: string[]): Promise<void> {
   const provider = (process.env.STORAGE_PROVIDER || 'r2').toLowerCase();
-  const r2Client = getR2Client();
+  const r2 = await getR2Client();
   const { bucketName } = getR2Config();
 
-  if (provider === 'r2' && r2Client && bucketName && filenames.length > 0) {
+  if (provider === 'r2' && r2 && bucketName && filenames.length > 0) {
     try {
       const objects = filenames.map(f => ({ Key: `${bucket}/${f}` }));
-      await r2Client.send(new DeleteObjectsCommand({
+      const client = r2.client as import('@aws-sdk/client-s3').S3Client;
+      await client.send(new r2.sdk.DeleteObjectsCommand({
         Bucket: bucketName,
         Delete: { Objects: objects },
       }));
@@ -179,16 +226,17 @@ export async function deleteStorageFile(bucket: string, filename: string): Promi
  */
 export async function listStorageFiles(bucket: string, prefix: string = ''): Promise<Array<{ name: string; size: number; lastModified: Date }>> {
   const provider = (process.env.STORAGE_PROVIDER || 'r2').toLowerCase();
-  const r2Client = getR2Client();
+  const r2 = await getR2Client();
   const { bucketName } = getR2Config();
 
-  if (provider === 'r2' && r2Client && bucketName) {
+  if (provider === 'r2' && r2 && bucketName) {
     try {
-      const command = new ListObjectsV2Command({
+      const command = new r2.sdk.ListObjectsV2Command({
         Bucket: bucketName,
         Prefix: `${bucket}/${prefix}`,
       });
-      const response = await r2Client.send(command);
+      const client = r2.client as import('@aws-sdk/client-s3').S3Client;
+      const response = await client.send(command);
       if (response.Contents) {
         return response.Contents.map(obj => ({
           name: obj.Key?.replace(`${bucket}/`, '') || '',
