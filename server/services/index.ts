@@ -35,7 +35,14 @@ export {
 export type { BulkClient, BulkOptions, AbandonedSendResult } from './whatsappSender';
 export { extractAudioUrl, querySunoTask, generateFullSong } from './suno';
 export { getAdminSupabase, getPublicSupabase, uploadToSupabase } from './supabase';
-export { uploadFileToStorage } from './storage';
+export {
+  uploadFileToStorage,
+  createSignedStorageUrl,
+  deleteStorageFile,
+  deleteStorageFiles,
+  listStorageFiles,
+  getPublicStorageUrl,
+} from './storage';
 export {
   requestProgressMap, setProgress, updateRequestStatus,
   resumeSunoTaskWorkflow, runBackgroundSunoWorkflow, processSunoVoice,

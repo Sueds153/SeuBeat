@@ -6,6 +6,14 @@ vi.mock('../services/supabase', () => ({
   getAdminSupabase: vi.fn(),
   getPublicSupabase: vi.fn(),
 }));
+vi.mock('../services/storage', () => ({
+  uploadFileToStorage: vi.fn().mockResolvedValue('https://r2.example.com/voice-samples/test.wav'),
+  createSignedStorageUrl: vi.fn().mockResolvedValue('https://r2.example.com/signed-url'),
+  deleteStorageFile: vi.fn().mockResolvedValue(undefined),
+  deleteStorageFiles: vi.fn().mockResolvedValue(undefined),
+  listStorageFiles: vi.fn().mockResolvedValue([]),
+  getPublicStorageUrl: vi.fn().mockResolvedValue('https://r2.example.com/public-url'),
+}));
 vi.mock('../services/metaPixelCapi', () => ({
   generateServerEventId: vi.fn(() => 'evt-test'),
   sendInitiateCheckoutEvent: vi.fn().mockResolvedValue(true),

@@ -455,36 +455,34 @@ async function rollbackStorageForSong(
   requestId: string,
   voiceSampleUrl?: string | null
 ) {
+  const { deleteStorageFiles, listStorageFiles } = await import('./storage');
+  
   // full-audio: songs/{songId}_original.{ext}
   try {
-    const { data: files } = await supabase.storage.from('full-audio').list('songs');
-    if (files) {
-      const matches = files.filter(f => f.name.startsWith(songId)).map(f => `songs/${f.name}`);
-      if (matches.length > 0) {
-        await supabase.storage.from('full-audio').remove(matches);
-        logInfo(`[Rollback] Storage limpo: ${matches.length} ficheiro(s) em full-audio`, { songId });
-      }
+    const files = await listStorageFiles('full-audio', 'songs/');
+    const matches = files.filter(f => f.name.startsWith(`${songId}`)).map(f => `songs/${f.name}`);
+    if (matches.length > 0) {
+      await deleteStorageFiles('full-audio', matches);
+      logInfo(`[Rollback] Storage limpo: ${matches.length} ficheiro(s) em full-audio`, { songId });
     }
   } catch {}
   // preview: previews/{songId}_preview.mp3
   try {
-    await supabase.storage.from('preview').remove([`previews/${songId}_preview.mp3`]);
+    await deleteStorageFiles('preview', [`previews/${songId}_preview.mp3`]);
   } catch {}
   // preview: sunovoice/{requestId}_*
   try {
-    const { data: voiceFiles } = await supabase.storage.from('preview').list('sunovoice');
-    if (voiceFiles) {
-      const matches = voiceFiles.filter(f => f.name.startsWith(requestId)).map(f => `sunovoice/${f.name}`);
-      if (matches.length > 0) {
-        await supabase.storage.from('preview').remove(matches);
-        logInfo(`[Rollback] Storage limpo: ${matches.length} ficheiro(s) de voz em preview`, { requestId });
-      }
+    const voiceFiles = await listStorageFiles('preview', 'sunovoice/');
+    const matches = voiceFiles.filter(f => f.name.startsWith(requestId)).map(f => `sunovoice/${f.name}`);
+    if (matches.length > 0) {
+      await deleteStorageFiles('preview', matches);
+      logInfo(`[Rollback] Storage limpo: ${matches.length} ficheiro(s) de voz em preview`, { requestId });
     }
   } catch {}
   // voice-samples: original sample (apenas se for path, nao URL externo)
   if (voiceSampleUrl && !voiceSampleUrl.startsWith('http')) {
     try {
-      await supabase.storage.from('voice-samples').remove([voiceSampleUrl]);
+      await deleteStorageFiles('voice-samples', [voiceSampleUrl]);
     } catch {}
   }
 }

@@ -10,11 +10,20 @@ const mocks = vi.hoisted(() => ({
   logInfo: vi.fn(),
   logWarn: vi.fn(),
   logError: vi.fn(),
+  deleteStorageFiles: vi.fn(),
+  listStorageFiles: vi.fn(),
+  deleteStorageFile: vi.fn(),
 }));
 
 vi.mock('../services/supabase', () => ({
   getAdminSupabase: () => mocks.getAdminSupabase(),
   uploadToSupabase: (...args: unknown[]) => mocks.uploadToSupabase(...args),
+}));
+
+vi.mock('../services/storage', () => ({
+  deleteStorageFiles: (...args: unknown[]) => mocks.deleteStorageFiles(...args),
+  listStorageFiles: (...args: unknown[]) => mocks.listStorageFiles(...args),
+  deleteStorageFile: (...args: unknown[]) => mocks.deleteStorageFile(...args),
 }));
 
 vi.mock('../services/audio', () => ({
@@ -216,28 +225,32 @@ describe('rollbackSunoWorkflow', () => {
   });
 
   it('limpa ficheiros órfãos do storage', async () => {
-    const { client, getBucket } = createSupabaseMock((ctx) => {
+    const { client } = createSupabaseMock((ctx) => {
       if (ctx.from === 'song_requests' && ctx.maybeSingle) {
         return { data: { voice_sample_url: 'voice-samples/abc.wav' }, error: null };
       }
       return defaultHandler(ctx);
     });
-    getBucket('full-audio').list.mockResolvedValue({ data: [{ name: `${SONG_ID}_original.mp3` }, { name: 'other.mp3' }], error: null });
-    getBucket('preview').list.mockResolvedValue({ data: [{ name: `${REQ_ID}_1.wav` }], error: null });
+    
+    mocks.listStorageFiles
+      .mockResolvedValueOnce([
+        { name: `${SONG_ID}_original.mp3`, size: 100, lastModified: new Date() },
+        { name: 'other.mp3', size: 100, lastModified: new Date() }
+      ])
+      .mockResolvedValueOnce([
+        { name: `${REQ_ID}_1.wav`, size: 100, lastModified: new Date() }
+      ]);
 
     await rollbackSunoWorkflow(client as never, REQ_ID, SONG_ID, new Error('boom'));
 
-    const fullAudio = getBucket('full-audio');
-    expect(fullAudio.list).toHaveBeenCalledWith('songs');
-    expect(fullAudio.remove).toHaveBeenCalledWith([`songs/${SONG_ID}_original.mp3`]);
+    expect(mocks.listStorageFiles).toHaveBeenCalledWith('full-audio', 'songs/');
+    expect(mocks.deleteStorageFiles).toHaveBeenCalledWith('full-audio', [`songs/${SONG_ID}_original.mp3`]);
 
-    const preview = getBucket('preview');
-    expect(preview.list).toHaveBeenCalledWith('sunovoice');
-    expect(preview.remove).toHaveBeenCalledWith([`previews/${SONG_ID}_preview.mp3`]);
-    expect(preview.remove).toHaveBeenCalledWith([`sunovoice/${REQ_ID}_1.wav`]);
+    expect(mocks.listStorageFiles).toHaveBeenCalledWith('preview', 'sunovoice/');
+    expect(mocks.deleteStorageFiles).toHaveBeenCalledWith('preview', [`previews/${SONG_ID}_preview.mp3`]);
+    expect(mocks.deleteStorageFiles).toHaveBeenCalledWith('preview', [`sunovoice/${REQ_ID}_1.wav`]);
 
-    const voiceSamples = getBucket('voice-samples');
-    expect(voiceSamples.remove).toHaveBeenCalledWith(['voice-samples/abc.wav']);
+    expect(mocks.deleteStorageFiles).toHaveBeenCalledWith('voice-samples', ['voice-samples/abc.wav']);
   });
 
   it('não rebenta quando a consulta de cliente falha e continua o rollback', async () => {

@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import fs from 'fs';
+import { uploadFileToStorage } from './storage';
 
 let adminClient: SupabaseClient | null = null;
 let publicClient: SupabaseClient | null = null;
@@ -30,26 +31,11 @@ export function getPublicSupabase(): SupabaseClient | null {
   return publicClient;
 }
 
+/**
+ * Envia ficheiro para o storage (R2 se configurado, senão Supabase).
+ * Mantém compatibilidade com a API existente.
+ */
 export async function uploadToSupabase(bucket: string, filename: string, filePath: string, mimeType: string): Promise<string> {
-  const supabase = getAdminSupabase();
-  if (!supabase) throw new Error("Supabase client não inicializado.");
-
   const fileBuffer = await fs.promises.readFile(filePath);
-  const { data, error } = await supabase.storage
-    .from(bucket)
-    .upload(filename, fileBuffer, {
-      contentType: mimeType,
-      upsert: true
-    });
-
-  if (error) {
-    throw new Error(`Erro ao enviar ficheiro para o storage (${bucket}/${filename}): ${error.message}`);
-  }
-
-  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filename);
-  if (!urlData || !urlData.publicUrl) {
-    throw new Error(`Não foi possível obter a URL pública para o ficheiro ${filename}`);
-  }
-
-  return urlData.publicUrl;
+  return uploadFileToStorage(bucket, filename, fileBuffer, mimeType);
 }

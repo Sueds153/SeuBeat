@@ -403,20 +403,17 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
       const uploadContentType = isHeicOrHeif ? 'image/jpeg' : (photoMimeType || 'image/jpeg');
 
       const filename = `photos/${Date.now()}_${String(photoFilename || 'foto.jpg').replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('photos')
-        .upload(filename, buffer, { contentType: uploadContentType });
-
-      if (uploadError || !uploadData) {
+      try {
+        const photoUrlResult = await uploadFileToStorage('photos', filename, buffer, uploadContentType);
+        photoUrl = photoUrlResult;
+        photoStoragePath = `${filename}`;
+      } catch (err) {
         logWarn('[API] Falha ao carregar foto no storage (continua sem foto)', {
           mime: photoMimeType,
           bytes: buffer.length,
-          error: uploadError?.message
+          error: err instanceof Error ? err.message : String(err)
         });
         photoUrl = null;
-      } else {
-        photoStoragePath = uploadData.path;
-        photoUrl = publicUrlForStoragePath(supabase, 'photos', uploadData.path);
       }
     }
 
@@ -996,11 +993,12 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       if (proofBuffer.length > 10 * 1024 * 1024) throw new Error('Comprovativo demasiado grande. Máx. 10MB.');
       const sanitizedProofFilename = String(proofFilename || 'proof.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
       const filename = `proofs/${Date.now()}_${sanitizedProofFilename}`;
-      const { data, error } = await supabase.storage
-        .from('payment-proofs')
-        .upload(filename, proofBuffer, { contentType: resolvedMime });
-      if (error || !data) throw new Error(`Upload do comprovativo falhou: ${error?.message || 'sem dados'}`);
-      proofPath = data.path;
+      try {
+        await uploadFileToStorage('payment-proofs', filename, proofBuffer, resolvedMime);
+        proofPath = `${filename}`;
+      } catch (err) {
+        throw new Error(`Upload do comprovativo falhou: ${err instanceof Error ? err.message : 'sem dados'}`);
+      }
     }
 
     let voiceSampleUrl = null;
@@ -1015,12 +1013,12 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       if (voiceBuffer.length < 1024) throw new Error('Amostra de voz demasiado pequena. Grava pelo menos 3 segundos.');
       const sanitizedVoiceFilename = String(voiceSampleFilename || 'sample.wav').replace(/[^a-zA-Z0-9._-]/g, '_');
       const filename = `voices/${Date.now()}_${sanitizedVoiceFilename}`;
-      const { data, error } = await supabase.storage
-        .from('voice-samples')
-        .upload(filename, voiceBuffer, { contentType: resolvedVoiceMime });
-      if (error || !data) throw new Error(`Upload da amostra de voz falhou: ${error?.message || 'sem dados'}`);
-      // Guarda o path em vez de public URL (bucket voice-samples é privado)
-      voiceSampleUrl = data.path;
+      try {
+        await uploadFileToStorage('voice-samples', filename, voiceBuffer, resolvedVoiceMime);
+        voiceSampleUrl = `${filename}`; // Guarda o path em vez de public URL (bucket voice-samples é privado)
+      } catch (err) {
+        throw new Error(`Upload da amostra de voz falhou: ${err instanceof Error ? err.message : 'sem dados'}`);
+      }
     }
 
     const updateData: Record<string, unknown> = { status: 'payment_submitted' };

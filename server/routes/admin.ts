@@ -1,5 +1,12 @@
 import express from 'express';
 import { getAdminSupabase } from '../services/supabase';
+import { 
+  createSignedStorageUrl, 
+  deleteStorageFile, 
+  deleteStorageFiles,
+  uploadFileToStorage,
+  getPublicStorageUrl 
+} from '../services/storage';
 import { adminAuth, adminLogin } from '../middleware/auth';
 import { 
   requestProgressMap, 
@@ -278,13 +285,11 @@ router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
 
     if (!path) return res.status(404).json({ success: false, error: 'Comprovativo não encontrado.' });
 
-    const { data: signedData } = await supabase.storage
-      .from('payment-proofs')
-      .createSignedUrl(path, 3600);
+    const signedUrl = await createSignedStorageUrl('payment-proofs', path, 3600);
 
-    if (!signedData?.signedUrl) return res.status(500).json({ success: false, error: 'Não foi possível gerar URL do comprovativo.' });
+    if (!signedUrl) return res.status(500).json({ success: false, error: 'Não foi possível gerar URL do comprovativo.' });
 
-    res.json({ url: signedData.signedUrl });
+    res.json({ url: signedUrl });
   } catch (err: unknown) {
     logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
@@ -1100,12 +1105,10 @@ router.get('/song/:id/audio-url', adminAuth, async (req, res) => {
     if (fullPath) {
       const downloadName = safeAudioFilename(song.title);
       const options = req.query.download === '1' ? { download: downloadName } : undefined;
-      const { data, error: signedError } = await supabase.storage
-        .from('full-audio')
-        .createSignedUrl(fullPath, 3600, options);
+      const signedUrl = await createSignedStorageUrl('full-audio', fullPath, 3600);
 
-      if (signedError || !data?.signedUrl) return res.status(500).json({ success: false, error: 'Não foi possível gerar link seguro da música completa.' });
-      return res.json({ success: true, url: data.signedUrl, filename: downloadName, source: 'full-audio' });
+      if (!signedUrl) return res.status(500).json({ success: false, error: 'Não foi possível gerar link seguro da música completa.' });
+      return res.json({ success: true, url: signedUrl, filename: downloadName, source: 'full-audio' });
     }
 
     const fallbackUrl = fullUrl || song.preview_url;
@@ -1132,9 +1135,7 @@ router.post('/song/:id/upload-audio', adminAuth, async (req, res) => {
     const sanitizedAudioFilename = String(audioFilename || 'manual_audio.mp3').replace(/[^a-zA-Z0-9._-]/g, '_');
     const filename = `songs/${Date.now()}_${sanitizedAudioFilename}`;
 
-    await supabase.storage.from('full-audio').upload(filename, buffer, { contentType: audioMimeType || 'audio/mpeg', upsert: true });
-    const { data: urlData } = supabase.storage.from('full-audio').getPublicUrl(filename);
-    const fullAudioUrl = urlData?.publicUrl || '';
+    const fullAudioUrl = await uploadFileToStorage('full-audio', filename, buffer, audioMimeType || 'audio/mpeg');
 
     const previewFilename = `previews/${id}_preview.mp3`;
     let previewUrl: string | null = null;
@@ -1149,14 +1150,9 @@ router.post('/song/:id/upload-audio', adminAuth, async (req, res) => {
       await fs.promises.writeFile(tempInput, buffer);
       await createPreviewAudio(tempInput, tempPreview);
       const previewBuffer = await fs.promises.readFile(tempPreview);
-      await supabase.storage.from('preview').upload(previewFilename, previewBuffer, { contentType: 'audio/mpeg', upsert: true });
-      const { data: previewUrlData } = supabase.storage.from('preview').getPublicUrl(previewFilename);
-      previewUrl = previewUrlData?.publicUrl || null;
+      previewUrl = await uploadFileToStorage('preview', previewFilename, previewBuffer, 'audio/mpeg');
     } catch (previewErr: unknown) {
       logWarn('[Admin] Preview de 30s falhou no upload manual; áudio completo não será exposto como preview', { songId: id, error: previewErr instanceof Error ? previewErr.message : String(previewErr) });
-    } finally {
-      try { await fs.promises.unlink(tempInput); } catch {}
-      try { await fs.promises.unlink(tempPreview); } catch {}
     }
 
     await supabase.from('songs').update({ audio_url: fullAudioUrl, full_song_url: fullAudioUrl, mureka_status: 'completed', preview_url: previewUrl }).eq('id', id);
@@ -1803,12 +1799,8 @@ router.delete('/request/:id', adminAuth, async (req, res) => {
         const uniquePaths = Array.from(new Set(paths.filter(Boolean)));
         if (uniquePaths.length === 0) return;
         try {
-          const { error } = await supabase.storage.from(bucket).remove(uniquePaths);
-          if (error) {
-            logWarn(`[Admin Delete] Falha ao remover ficheiros do bucket "${bucket}"`, { error: error.message, paths: uniquePaths });
-          } else {
-            logInfo(`[Admin Delete] Ficheiros removidos do bucket "${bucket}" com sucesso`, { paths: uniquePaths });
-          }
+          await deleteStorageFiles(bucket, uniquePaths);
+          logInfo(`[Admin Delete] Ficheiros removidos do bucket "${bucket}" com sucesso`, { paths: uniquePaths });
         } catch (err: unknown) {
           logWarn(`[Admin Delete] Excepção ao remover do bucket "${bucket}"`, { error: err instanceof Error ? err.message : String(err) });
         }
