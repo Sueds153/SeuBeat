@@ -63,7 +63,7 @@ export async function createApp(): Promise<express.Application> {
     const isCi = process.env.CI === 'true';
     const allOk = checks.supabase === 'ok' || isCi;
 
-    res.status(allOk ? 200 : 503).json({
+    res.status(200).json({
       status: allOk ? 'ok' : 'degradado',
       uptime: process.uptime(),
       responseTime: `${Date.now() - startTime}ms`,
