@@ -83,7 +83,7 @@ export async function updateRequestStatus(requestId: string, status: string, err
   throw error;
 }
 
-async function persistGeneratedSunoAudio(songId: string, taskId: string, audioUrl: string) {
+export async function persistGeneratedSunoAudio(songId: string, taskId: string, audioUrl: string) {
   const fileInfo = getAudioFileInfo(audioUrl);
   const tempSunoPath = path.join(os.tmpdir(), `${songId}_suno.${fileInfo.ext}`);
   const tempFadedPath = path.join(os.tmpdir(), `${songId}_faded.${fileInfo.ext}`);

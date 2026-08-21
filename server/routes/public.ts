@@ -1044,12 +1044,14 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
     const paymentFields = {
       request_id: songRequestId,
       user_email: userEmail,
-      plan,
+      plan_type: plan,
+      amount_kz: parsedAmount,
       amount: parsedAmount,
       payment_method: resolvedPaymentMethod,
       proof_url: proofPath ? `storage:${proofPath}` : null,
       proof_path: proofPath,
       proof_filename: proofFilename || proofPath?.split('/').pop() || null,
+      proof_mime_type: proofMimeType || null,
       status: 'pending_verification',
     };
 
