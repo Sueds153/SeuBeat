@@ -1,6 +1,6 @@
 import { getAdminSupabase } from './supabase';
 import { runBackgroundSunoWorkflow, resumeSunoTaskWorkflow } from './workflow';
-import { querySunoTask } from './suno';
+import { querySunoTask, normalizeLyricsArray } from './suno';
 import { logInfo, logWarn, logError } from '../utils/logger';
 
 const INTERVAL_MS = 5 * 60 * 1000;
@@ -105,7 +105,7 @@ async function recoverStuckSong(
     songId,
     String(req.music_style || 'Kizomba'),
     String(row.title || 'Música SeuBeat'),
-    asStringArray(row.lyrics),
+    normalizeLyricsArray(row.lyrics),
     {
       voiceType: String(req.voice_type || '') || undefined,
       desiredEmotion: String(req.desired_emotion || '') || undefined,
