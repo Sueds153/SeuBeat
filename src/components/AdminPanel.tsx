@@ -275,6 +275,19 @@ function normalizeSong(song: RawSong): Song {
   };
 }
 
+function normalizeLyricsArray(lyrics: any): string[] {
+  if (!lyrics) return [];
+  if (Array.isArray(lyrics)) return lyrics.map(item => typeof item === 'string' ? item : String(item || ''));
+  if (typeof lyrics === 'string') {
+    try {
+      const parsed = JSON.parse(lyrics);
+      if (Array.isArray(parsed)) return parsed.map(item => typeof item === 'string' ? item : String(item || ''));
+    } catch {}
+    return lyrics.trim() ? lyrics.split('\n') : [];
+  }
+  return [];
+}
+
 const VALID_STATUSES_FRONTEND: Record<string, { label: string; value: string }[]> = {
   song_requests: [
     { label: '📝 A gerar letra', value: 'lyrics_generating' },
@@ -2331,19 +2344,19 @@ export default function AdminPanel() {
                                           <StatusBadge status={song.mureka_status || 'not_started'} />
                                         </div>
 
-                                        {(song.lyrics?.length || song.letter_text) && (
+                                        {(normalizeLyricsArray(song.lyrics).length > 0 || song.letter_text) && (
                                           <div className="mb-2">
                                             <p className="text-stone-500 text-[9px] uppercase mb-1">Letra</p>
                                             <div className="bg-stone-950/50 rounded-lg p-2.5 border border-stone-800/50 max-h-32 overflow-y-auto">
                                               <p className="text-stone-400 text-[10px] leading-relaxed whitespace-pre-wrap font-mono">
-                                                {song.lyrics?.length ? song.lyrics.join('\n') : song.letter_text || '—'}
+                                                {normalizeLyricsArray(song.lyrics).join('\n') || song.letter_text || '—'}
                                               </p>
                                             </div>
                                           </div>
                                         )}
 
                                         <div className="flex items-center gap-2 mt-2 pt-2 border-t border-stone-800">
-                                          <button onClick={() => setPreviewLyrics({ title: song.title, lyrics: song.lyrics || [], letterText: song.letter_text })} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-blue-400 transition-colors cursor-pointer font-mono">
+                                          <button onClick={() => setPreviewLyrics({ title: song.title, lyrics: normalizeLyricsArray(song.lyrics), letterText: song.letter_text || undefined })} className="flex items-center gap-1.5 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-blue-400 transition-colors cursor-pointer font-mono">
                                             <Eye className="w-3 h-3" /> Ver Letra
                                           </button>
                                           <a
@@ -2551,7 +2564,7 @@ export default function AdminPanel() {
                             </div>
                             <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                               <StatusBadge status={song.mureka_status || 'not_started'} />
-                              <button onClick={() => setEditingSong({ id: song.id, title: song.title, lyrics: (song.lyrics || []).join('\n'), letterText: song.letter_text || '' })}
+                              <button onClick={() => setEditingSong({ id: song.id, title: song.title, lyrics: normalizeLyricsArray(song.lyrics).join('\n'), letterText: song.letter_text || '' })}
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-amber-400 hover:border-amber-500/30 transition-colors cursor-pointer font-mono">
                                 <Pencil className="w-3 h-3" /> Editar
                               </button>
@@ -2574,8 +2587,8 @@ export default function AdminPanel() {
                                   <ExternalLink className="w-3 h-3" /> Ver
                                 </a>
                               )}
-                              {song.lyrics && song.lyrics.length > 0 && (
-                                <button onClick={() => setPreviewLyrics({ title: song.title, lyrics: song.lyrics || [], letterText: song.letter_text || '' })} className="flex items-center gap-1 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-blue-400 hover:border-blue-500/30 transition-colors cursor-pointer font-mono">
+                              {normalizeLyricsArray(song.lyrics).length > 0 && (
+                                <button onClick={() => setPreviewLyrics({ title: song.title, lyrics: normalizeLyricsArray(song.lyrics), letterText: song.letter_text || '' })} className="flex items-center gap-1 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-blue-400 hover:border-blue-500/30 transition-colors cursor-pointer font-mono">
                                   <FileText className="w-3 h-3" /> Letra
                                 </button>
                               )}
@@ -3882,11 +3895,15 @@ export default function AdminPanel() {
               </div>
 
               <div className="bg-stone-950 rounded-xl p-4 border border-stone-800 space-y-3">
-                {previewLyrics.lyrics.map((line, i) => (
-                  <p key={i} className={`text-sm font-mono leading-relaxed ${line.startsWith('[') ? 'text-amber-400 font-bold mt-4' : 'text-stone-300'}`}>
-                    {line}
-                  </p>
-                ))}
+                {normalizeLyricsArray(previewLyrics.lyrics).map((line, i) => {
+                  const lineStr = String(line || '');
+                  const isHeader = lineStr.trim().startsWith('[');
+                  return (
+                    <p key={i} className={`text-sm font-mono leading-relaxed ${isHeader ? 'text-amber-400 font-bold mt-4' : 'text-stone-300'}`}>
+                      {lineStr}
+                    </p>
+                  );
+                })}
               </div>
 
               {previewLyrics.letterText && (
