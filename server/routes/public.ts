@@ -700,14 +700,27 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
     }
 
     const song_requests = songData.song_requests;
+
+    // Normalise lyrics: pode ser string JSON ou array direto (supabase jsonb vs text)
+    let lyricsArray: string[] = [];
+    const rawLyrics = songData.lyrics;
+    if (Array.isArray(rawLyrics)) {
+      lyricsArray = rawLyrics;
+    } else if (typeof rawLyrics === 'string' && rawLyrics.trim().startsWith('[')) {
+      try { lyricsArray = JSON.parse(rawLyrics); } catch { lyricsArray = rawLyrics.split('\n').filter((l: string) => l.trim()); }
+    } else if (typeof rawLyrics === 'string' && rawLyrics.length > 0) {
+      lyricsArray = rawLyrics.split('\n').filter((l: string) => l.trim());
+    }
+
     const publicData = {
       id: songData.id,
       request_id: songData.request_id,
       title: songData.title,
-      lyrics: songData.lyrics,
+      lyrics: lyricsArray,
       lyrics_snippet: songData.lyrics_snippet,
       regeneration_count: songData.regeneration_count,
       letter_text: songData.letter_text,
+
 
       duration: songData.duration,
       created_at: songData.created_at,
