@@ -13,12 +13,11 @@ try {
     });
   }
 } catch (err) {
-  console.error('[FATAL] Erro ao inicializar Sentry:', err);
-  process.exit(1);
+  console.warn('[WARN] Erro ao inicializar Sentry (ignorando para manter o servidor ativo):', err);
 }
 
 import { createApp, startServer } from './server/config/app';
-import { logInfo, logWarn, logFatal } from './server/utils/logger';
+import { logInfo, logWarn, logError } from './server/utils/logger';
 import { startDeliveryScheduler } from './server/services/deliveryScheduler';
 import { startAbandonedRecoveryScheduler } from './server/services/abandonedRecoveryScheduler';
 import { startFollowUpScheduler } from './server/services/followUpScheduler';
@@ -30,14 +29,17 @@ const app = await createApp();
 let server: import('http').Server | undefined;
 try {
   server = await startServer(app);
-  startDeliveryScheduler();
-  startAbandonedRecoveryScheduler();
-  startFollowUpScheduler();
-  startFailedLyricsRecoveryScheduler();
-  startStuckMusicRecoveryScheduler();
+  try {
+    startDeliveryScheduler();
+    startAbandonedRecoveryScheduler();
+    startFollowUpScheduler();
+    startFailedLyricsRecoveryScheduler();
+    startStuckMusicRecoveryScheduler();
+  } catch (schedErr) {
+    logError('Aviso: falha ao iniciar schedulers em segundo plano', schedErr);
+  }
 } catch (err) {
-  logFatal('Erro fatal ao iniciar servidor', err);
-  process.exit(1);
+  logError('Erro ao iniciar servidor HTTP', err);
 }
 
 async function gracefulShutdown(signal: string) {

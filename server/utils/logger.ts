@@ -61,8 +61,23 @@ const consoleTransport = new winston.transports.Console({
   )
 });
 
-// File transports (só em produção ou se DEBUG ativo)
-const fileTransports = process.env.NODE_ENV === 'production' || process.env.DEBUG
+import fs from 'fs';
+import path from 'path';
+
+// Garantir que a pasta de logs existe sem rebentar o arranque em ambientes como o Render
+const logsDir = path.join(process.cwd(), 'logs');
+let canWriteLogs = false;
+try {
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
+  canWriteLogs = true;
+} catch {
+  canWriteLogs = false;
+}
+
+// File transports (apenas se a pasta de logs for gravável)
+const fileTransports = ((process.env.NODE_ENV === 'production' || process.env.DEBUG) && canWriteLogs)
   ? [
       new winston.transports.File({
         filename: 'logs/error.log',
@@ -92,18 +107,18 @@ const logger = winston.createLogger({
   format,
   defaultMeta: { service: 'seubeat' },
   transports: [consoleTransport, ...fileTransports],
-  exceptionHandlers: [
+  exceptionHandlers: canWriteLogs ? [
     new winston.transports.File({
       filename: 'logs/exceptions.log',
       format: winston.format.uncolorize()
     })
-  ],
-  rejectionHandlers: [
+  ] : undefined,
+  rejectionHandlers: canWriteLogs ? [
     new winston.transports.File({
       filename: 'logs/rejections.log',
       format: winston.format.uncolorize()
     })
-  ]
+  ] : undefined
 });
 
 let sentryModule: unknown = null;
