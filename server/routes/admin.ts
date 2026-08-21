@@ -582,25 +582,32 @@ router.get('/songs', adminAuth, async (req, res) => {
 router.post('/song/:id/generate-music', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const { forceNew } = req.body || {};
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
 
     const { data: songData, error } = await supabase
       .from('songs')
-      .select('*, song_requests(music_style)')
+      .select('*, song_requests(music_style, voice_type, desired_emotion)')
       .eq('id', id)
       .single();
 
     if (error || !songData) return res.status(404).json({ success: false, error: 'Música não encontrada' });
 
-    if (songData.request_id && songData.mureka_task_id && !songData.audio_url) {
+    if (!forceNew && songData.request_id && songData.mureka_task_id && !songData.audio_url) {
       resumeSunoTaskWorkflow(songData.request_id, id, songData.mureka_task_id).catch(err => logError('[Admin] Resume Suno task falhou', err, { songId: id }));
       return res.json({ success: true, message: 'Verificação da task Suno existente iniciada.' });
     }
 
     if (!songData.request_id) return res.status(400).json({ success: false, error: 'Musica sem pedido associado.' });
 
-    await supabase.from('songs').update({ mureka_status: 'generating' }).eq('id', id);
+    await supabase.from('songs').update({
+      mureka_status: 'generating',
+      mureka_task_id: null,
+      audio_url: forceNew ? null : songData.audio_url,
+      full_song_url: forceNew ? null : songData.full_song_url,
+      preview_url: forceNew ? null : songData.preview_url
+    }).eq('id', id);
     await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', songData.request_id);
 
     const sr = (songData.song_requests as any) || {};

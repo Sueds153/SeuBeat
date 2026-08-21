@@ -1032,17 +1032,19 @@ export default function AdminPanel() {
     setActionLoading(null);
   };
 
-  const handleGenerateMusic = async (songId: string) => {
+  const handleGenerateMusic = async (songId: string, forceNew = false) => {
     setActionLoading(songId + '_music');
     try {
       const res = await fetch(`/api/admin/song/${songId}/generate-music`, {
         method: 'POST',
-        headers: apiHeaders
+        headers: apiHeaders,
+        body: JSON.stringify({ forceNew })
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(data.message || 'Geracao Mureka iniciada em background.');
+        showToast(data.message || 'Geração Suno iniciada em background.');
         fetchSongs();
+        fetchRequests();
         fetchProgress();
         resetViewPoll();
       } else {
@@ -2422,6 +2424,19 @@ export default function AdminPanel() {
                                       <button onClick={() => handleRegenerateLyrics(req.id)} disabled={!!actionLoading} className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs rounded-xl hover:bg-amber-500/20 disabled:opacity-50 cursor-pointer font-mono transition-colors">
                                         {actionLoading === req.id + '_reg' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />} Regenerar Letra
                                       </button>
+                                      {song?.id && (
+                                        <button
+                                          onClick={() => {
+                                            if (!song.audio_url || window.confirm('Tem a certeza que deseja regenerar a música Suno para este pedido? A geração anterior será substituída.')) {
+                                              handleGenerateMusic(song.id, true);
+                                            }
+                                          }}
+                                          disabled={!!actionLoading || song.mureka_status === 'generating' || song.mureka_status === 'processing'}
+                                          className="flex items-center gap-1.5 px-3 py-2 bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs rounded-xl hover:bg-purple-500/20 disabled:opacity-50 cursor-pointer font-mono transition-colors"
+                                        >
+                                          {actionLoading === song.id + '_music' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Regenerar Música
+                                        </button>
+                                      )}
                                       <button onClick={() => fetchLogs(req.id)} className="flex items-center gap-1.5 px-3 py-2 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-stone-300 transition-colors cursor-pointer font-mono">
                                         <List className="w-3 h-3" /> Logs
                                       </button>
@@ -2581,6 +2596,18 @@ export default function AdminPanel() {
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/20 border border-blue-600/30 text-blue-400 text-xs rounded-xl hover:bg-blue-600/30 transition-colors font-mono disabled:opacity-50 cursor-pointer"
                                   >
                                     {actionLoading === song.id + '_download_audio' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />} Baixar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (window.confirm('Tem a certeza que deseja regenerar a música Suno? A música atual será substituída por uma nova geração.')) {
+                                        handleGenerateMusic(song.id, true);
+                                      }
+                                    }}
+                                    disabled={actionLoading === song.id + '_music' || song.mureka_status === 'generating' || song.mureka_status === 'processing'}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs rounded-xl hover:bg-amber-500/25 transition-colors disabled:opacity-50 cursor-pointer font-mono"
+                                  >
+                                    {actionLoading === song.id + '_music' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Regenerar Suno
                                   </button>
                                 </>
                               ) : (

@@ -177,3 +177,59 @@ describe('POST /api/admin/request/:id/regenerate-lyrics', () => {
     expect(generateLyrics).not.toHaveBeenCalled();
   });
 });
+
+describe('POST /api/admin/song/:id/generate-music', () => {
+  it('com forceNew=true limpa task_id e audio_url para forçar nova geração Suno', async () => {
+    const base = await startServer();
+    const songId = 'song-123';
+    const updateSongFn = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+    const updateRequestFn = vi.fn().mockReturnValue({ eq: vi.fn().mockResolvedValue({ error: null }) });
+
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue({
+      from: (table: string) => {
+        if (table === 'songs') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: () => Promise.resolve({
+                  data: {
+                    id: songId,
+                    request_id: REQUEST_ID,
+                    mureka_task_id: 'old-task-456',
+                    audio_url: 'https://storage/old.mp3',
+                    title: 'Old Song',
+                    lyrics: ['verse 1'],
+                    song_requests: { music_style: 'Kizomba', voice_type: 'masculina' }
+                  },
+                  error: null
+                })
+              })
+            }),
+            update: updateSongFn
+          };
+        }
+        return {
+          update: updateRequestFn
+        };
+      }
+    });
+
+    const res = await fetch(`${base}/api/admin/song/${songId}/generate-music`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+      body: JSON.stringify({ forceNew: true })
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.message).toContain('Geração Suno iniciada em background');
+    expect(updateSongFn).toHaveBeenCalledWith(expect.objectContaining({
+      mureka_status: 'generating',
+      mureka_task_id: null,
+      audio_url: null,
+      full_song_url: null,
+      preview_url: null
+    }));
+  });
+});
