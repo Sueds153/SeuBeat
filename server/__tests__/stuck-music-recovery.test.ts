@@ -19,9 +19,13 @@ vi.mock('../services/workflow', () => ({
   resumeSunoTaskWorkflow: (...args: unknown[]) => mocks.resumeSunoTaskWorkflow(...args),
 }));
 
-vi.mock('../services/suno', () => ({
-  querySunoTask: (...args: unknown[]) => mocks.querySunoTask(...args),
-}));
+vi.mock('../services/suno', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/suno')>();
+  return {
+    ...actual,
+    querySunoTask: (...args: unknown[]) => mocks.querySunoTask(...args),
+  };
+});
 
 vi.mock('../utils/logger', () => ({
   logInfo: (...args: unknown[]) => mocks.logInfo(...args),
