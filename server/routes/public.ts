@@ -16,7 +16,7 @@ import DOMPurify from 'isomorphic-dompurify';
 function sanitize(str: string): string {
   return DOMPurify.sanitize(str.trim().slice(0, 5000));
 }
-import { setProgress, updateRequestStatus } from '../services/workflow';
+import { setProgress, updateRequestStatus, runBackgroundSunoWorkflow } from '../services/workflow';
 import { publicErrorMessage, getAppUrl, logRouteError, kzToUsd } from '../utils/helpers';
 import { allFailuresTransient, LYRIC_GENERATION_QUEUED_MESSAGE } from '../utils/aiFailure';
 import { 
@@ -884,6 +884,61 @@ router.post('/song/:id/regenerate-lyrics', generateLyricsLimiter, async (req, re
     });
   } catch (err: unknown) {
     logError('[API] Falha ao regenerar letra', err instanceof Error ? err : new Error(String(err)), { songId: req.params.id });
+    res.status(500).json({ success: false, error: publicErrorMessage(err) });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/song/:id/rebuild-audio — Forçar regeneração do áudio Suno com letras atuais
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/song/:id/rebuild-audio', globalLimiter, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!UUID_REGEX.test(id)) return res.status(400).json({ success: false, error: 'ID inválido.' });
+
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponível.' });
+
+    const { data: songsData } = await supabase
+      .from('songs')
+      .select('*, song_requests!inner(*)')
+      .or(`id.eq.${id},request_id.eq.${id}`)
+      .limit(1);
+
+    const song = songsData && songsData.length > 0 ? songsData[0] : null;
+    if (!song) return res.status(404).json({ success: false, error: 'Música não encontrada.' });
+
+    const sr = song.song_requests;
+    const requestId = song.request_id;
+    const songId = song.id;
+
+    // Reset áudio para forçar nova geração no Suno
+    await supabase.from('songs').update({
+      mureka_task_id: null,
+      audio_url: null,
+      preview_url: null,
+      full_song_url: null,
+      mureka_status: 'generating',
+      updated_at: new Date().toISOString()
+    }).eq('id', songId);
+
+    await supabase.from('song_requests').update({
+      status: 'music_processing',
+      final_mixed_audio_url: null
+    }).eq('id', requestId);
+
+    runBackgroundSunoWorkflow(
+      requestId,
+      songId,
+      sr.music_style || 'Kizomba',
+      song.title || 'Música SeuBeat',
+      song.lyrics || [],
+      { voiceType: sr.voice_type || undefined, desiredEmotion: sr.desired_emotion || undefined }
+    ).catch(err => logError('[API] Rebuild audio background workflow failed', err, { songId, requestId }));
+
+    res.json({ success: true, message: 'Regeneração de áudio iniciada no Suno com as letras atuais.', songId, requestId });
+  } catch (err: unknown) {
+    logError('[API] Falha ao solicitar regeneração de áudio', err instanceof Error ? err : new Error(String(err)), { songId: req.params.id });
     res.status(500).json({ success: false, error: publicErrorMessage(err) });
   }
 });
