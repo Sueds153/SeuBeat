@@ -263,7 +263,7 @@ export async function runBackgroundSunoWorkflow(
   songId: string,
   musicStyle: string,
   songTitle: string,
-  lyrics: string[],
+  lyrics: string[] | string,
   extraParams?: { voiceType?: string; desiredEmotion?: string; referenceArtist?: string }
 ) {
   const supabase = getAdminSupabase();

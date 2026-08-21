@@ -12,6 +12,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
 import { logInfo, logError, logWarn } from '../utils/logger';
+import { normalizeLyricsArray } from '../services/suno';
 import { publicErrorMessage, getAppUrl, logRouteError, kzToUsd } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
 import { sendPurchaseEvent, generateServerEventId } from '../services/metaPixelCapi';
@@ -616,7 +617,7 @@ router.post('/song/:id/generate-music', adminAuth, async (req, res) => {
       id,
       sr?.music_style || 'Kizomba',
       songData.title || 'Musica SeuBeat',
-      songData.lyrics || [],
+      normalizeLyricsArray(songData.lyrics),
       { voiceType: sr?.voice_type || undefined, desiredEmotion: sr?.desired_emotion || undefined }
     ).catch(err => logError('[Admin] Background Suno falhou apos iniciar', err, { songId: id }));
 

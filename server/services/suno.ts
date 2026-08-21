@@ -288,11 +288,33 @@ export async function querySunoTask(taskId: string): Promise<SunoResult> {
   });
 }
 
-async function startSunoMusic(lyrics: string[], musicStyle: string, songTitle: string, personaId?: string, extraParams?: { voiceType?: string; desiredEmotion?: string; referenceArtist?: string }): Promise<SunoResult> {
+export function normalizeLyricsArray(lyrics: unknown): string[] {
+  if (!lyrics) return [];
+  if (Array.isArray(lyrics)) {
+    return lyrics.map(item => (typeof item === 'string' ? item : String(item || ''))).filter(Boolean);
+  }
+  if (typeof lyrics === 'string') {
+    const trimmed = lyrics.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map(item => (typeof item === 'string' ? item : String(item || ''))).filter(Boolean);
+        }
+      } catch {}
+    }
+    return trimmed.split('\n').filter(Boolean);
+  }
+  return [];
+}
+
+async function startSunoMusic(lyrics: string[] | string, musicStyle: string, songTitle: string, personaId?: string, extraParams?: { voiceType?: string; desiredEmotion?: string; referenceArtist?: string }): Promise<SunoResult> {
   const apiKey = process.env.SUNO_API_KEY;
   if (!apiKey) throw new Error('SUNO_API_KEY nao configurada.');
 
-  const lyricsText = lyrics.filter(Boolean).join('\n').trim();
+  const lyricsArray = normalizeLyricsArray(lyrics);
+  const lyricsText = lyricsArray.join('\n').trim();
   if (!lyricsText) throw new Error('Letra em falta para gerar musica no Suno.');
 
   // Verificação rápida de créditos (não bloqueante)
@@ -434,7 +456,7 @@ async function pollSunoTask(taskId: string, _immediateAudioUrl: string | null, l
   throw new Error(`${label} generation timed out after ${(maxAttempts * 10) / 60} minutes.`);
 }
 
-export async function generateFullSong(lyrics: string[], musicStyle: string, songTitle: string, personaId?: string, extraParams?: { voiceType?: string; desiredEmotion?: string; referenceArtist?: string }): Promise<SunoResult> {
+export async function generateFullSong(lyrics: string[] | string, musicStyle: string, songTitle: string, personaId?: string, extraParams?: { voiceType?: string; desiredEmotion?: string; referenceArtist?: string }): Promise<SunoResult> {
   return sunoBreaker.exec(async () => {
     // O endpoint /api/v1/generate já devolve a música completa (2 pistas, ~2-3 min).
     // O fluxo anterior de "extend" (continueSunoMusic) usava um endpoint que já não
