@@ -1,7 +1,8 @@
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import { getAdminSupabase, uploadToSupabase } from './supabase';
+import { getAdminSupabase } from './supabase';
+import { uploadFileToStorage } from './storage';
 import { downloadFile, createPreviewAudio, applyFades, convertToWav, getAudioDuration } from './audio';
 import { querySunoTask, generateFullSong } from './suno';
 import { generateValidationPhrase, waitForValidationPhrase, createCustomVoice, waitForVoiceId, checkVoiceAvailability } from './suno-voice';
@@ -112,13 +113,13 @@ async function persistGeneratedSunoAudio(songId: string, taskId: string, audioUr
     const uploadSource = fadedFileExists ? tempFadedPath : tempSunoPath;
 
     const originalFilename = `songs/${songId}_original.${fileInfo.ext}`;
-    const fullAudioUrl = await uploadToSupabase('full-audio', originalFilename, uploadSource, fileInfo.mimeType);
+    const fullAudioUrl = await uploadFileToStorage('full-audio', originalFilename, uploadSource, fileInfo.mimeType);
 
     const previewFilename = `previews/${songId}_preview.mp3`;
     let publicPreviewUrl: string | null = null;
     try {
       await createPreviewAudio(uploadSource, tempPreviewPath);
-      publicPreviewUrl = await uploadToSupabase('preview', previewFilename, tempPreviewPath, 'audio/mpeg');
+      publicPreviewUrl = await uploadFileToStorage('preview', previewFilename, tempPreviewPath, 'audio/mpeg');
     } catch (err) {
       logWarn('[Workflow] Preview de 30s falhou; áudio completo não será usado como preview', err instanceof Error ? err : undefined);
     }
@@ -617,9 +618,9 @@ export async function processSunoVoice(
     await convertToWav(tempSamplePath, tempWavPath);
     try { fs.unlinkSync(tempSamplePath); } catch {}
 
-    // Upload para bucket público (preview) para a API Suno Voice conseguir aceder
+    // Upload para storage (R2/Supabase) para a API Suno Voice conseguir aceder
     const publicFilename = `sunovoice/${requestId}_${Date.now()}.wav`;
-    const publicVoiceUrl = await uploadToSupabase('preview', publicFilename, tempWavPath, 'audio/wav');
+    const publicVoiceUrl = await uploadFileToStorage('preview', publicFilename, tempWavPath, 'audio/wav');
 
     try { fs.unlinkSync(tempWavPath); } catch {}
 

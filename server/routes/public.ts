@@ -4,6 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { getAdminSupabase, getPublicSupabase, uploadToSupabase } from '../services/supabase';
+import { uploadFileToStorage } from '../services/storage';
 import { convertToWav } from '../services/audio';
 import { getValidationPhrase } from '../services/suno-voice';
 import { generateLyrics } from '../services/ai';
@@ -1199,7 +1200,7 @@ router.post('/song/voice/validation-phrase', voiceValidationLimiter, async (req,
     await convertToWav(tempSamplePath, tempWavPath);
 
     const publicFilename = `sunovoice/phrase_${token}.wav`;
-    const publicVoiceUrl = await uploadToSupabase('preview', publicFilename, tempWavPath, 'audio/wav');
+    const publicVoiceUrl = await uploadFileToStorage('preview', publicFilename, tempWavPath, 'audio/wav');
     if (!publicVoiceUrl) {
       throw new Error('Falha ao publicar a amostra de voz para validação.');
     }
