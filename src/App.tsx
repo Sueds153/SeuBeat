@@ -32,7 +32,7 @@ export default function App() {
     if (window.location.pathname === '/wizard') {
       return 'wizard';
     }
-    if (window.location.pathname.includes('/song/')) {
+    if (window.location.pathname.includes('/song/') || window.location.pathname.includes('/dedicatoria/')) {
       return 'song';
     }
     if (window.location.pathname === '/terms') {
@@ -68,7 +68,7 @@ export default function App() {
         setCurrentView('admin');
       } else if (path === '/wizard') {
         setCurrentView('wizard');
-      } else if (path.includes('/song/')) {
+      } else if (path.includes('/song/') || path.includes('/dedicatoria/')) {
         setCurrentView('song');
       } else if (path === '/terms') {
         setCurrentView('terms');

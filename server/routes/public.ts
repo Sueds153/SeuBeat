@@ -628,11 +628,13 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
 
     logDebug('Fetching song', { songId: id });
 
-    const { data: songData, error } = await publicSupabase
+    const { data: songsData, error } = await publicSupabase
       .from('songs')
       .select('*, song_requests!inner(id, recipient_name, status, email, photo_url, final_mixed_audio_url, elevenlabs_voice_id, music_style, memory, deliver_at, occasion, relationship, desired_emotion, voice_type, recipient_gender, users(name))')
-      .eq('id', req.params.id)
-      .single();
+      .or(`id.eq.${id},request_id.eq.${id}`)
+      .limit(1);
+
+    const songData = songsData && songsData.length > 0 ? songsData[0] : null;
 
     if (error || !songData) {
       logWarn('[API] Musica nao encontrada ou inacessivel', {

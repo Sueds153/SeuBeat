@@ -23,9 +23,21 @@ export interface SongDetails {
   status: string;
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function parseURLParams(): { params: URLSearchParams; dbSongId: string | null } {
   const params = new URLSearchParams(window.location.search);
-  return { params, dbSongId: params.get('id') };
+  let dbSongId = params.get('id');
+
+  if (!dbSongId) {
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    const lastSegment = pathSegments[pathSegments.length - 1];
+    if (lastSegment && UUID_REGEX.test(lastSegment)) {
+      dbSongId = lastSegment;
+    }
+  }
+
+  return { params, dbSongId };
 }
 
 function buildInitialFromParams(params: URLSearchParams, savedLocalPhoto: string): SongDetails {
