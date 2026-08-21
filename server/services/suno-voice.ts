@@ -25,6 +25,7 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
         await new Promise(r => setTimeout(r, 1000 * attempt));
         continue;
       }
+      logError('[Suno Voice] Fetch failed after all retries', err instanceof Error ? err : new Error(String(err)), { url, retries });
       throw err;
     } finally {
       clearTimeout(timeout);

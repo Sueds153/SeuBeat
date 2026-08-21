@@ -78,10 +78,21 @@ async function recoverStuckSong(
   if (!(await claimSong(supabase, songId, String(row.mureka_status || ''), nowIso))) return;
 
   if (row.mureka_task_id) {
-    // Evita loop infinito: se a task já falhou definitivamente, marca a música como
-    // falhada e segue. Erros transitórios deixam o pedido para o próximo ciclo.
     try {
-      await querySunoTask(row.mureka_task_id);
+      const sunoRes = await querySunoTask(row.mureka_task_id);
+      const isTaskActive = !!sunoRes.audioUrl || ['processing', 'generating', 'text_success', 'pending'].includes(String(sunoRes.status || '').toLowerCase());
+      const updatedMs = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+      const isStuckLong = Date.now() - updatedMs > 15 * 60 * 1000;
+
+      if (!isTaskActive && isStuckLong) {
+        logWarn('[StuckMusicRecovery] Task Suno estagnada há >15min sem áudio — a reiniciar nova geração', { requestId, songId, taskId: row.mureka_task_id });
+      } else {
+        logInfo('[StuckMusicRecovery] A retomar task Suno existente', { requestId, songId, taskId: row.mureka_task_id });
+        resumeSunoTaskWorkflow(requestId, songId, row.mureka_task_id).catch(err =>
+          logError('[StuckMusicRecovery] Falha ao retomar task', err, { requestId, songId })
+        );
+        return;
+      }
     } catch (err: unknown) {
       if (isTerminalTaskFailure(err)) {
         logWarn('[StuckMusicRecovery] Task Suno falhou — a marcar música como failed', { requestId, songId, taskId: row.mureka_task_id });
@@ -91,12 +102,6 @@ async function recoverStuckSong(
       logWarn('[StuckMusicRecovery] Consulta Suno transitória — adiar recuperação', { requestId, songId, message: err instanceof Error ? err.message : String(err) });
       return;
     }
-
-    logInfo('[StuckMusicRecovery] A retomar task Suno existente', { requestId, songId, taskId: row.mureka_task_id });
-    resumeSunoTaskWorkflow(requestId, songId, row.mureka_task_id).catch(err =>
-      logError('[StuckMusicRecovery] Falha ao retomar task', err, { requestId, songId })
-    );
-    return;
   }
 
   logInfo('[StuckMusicRecovery] A reiniciar workflow Suno (sem task id)', { requestId, songId });

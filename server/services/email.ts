@@ -69,6 +69,7 @@ async function sendWithRetry(to: string, subject: string, htmlContent: string): 
       await new Promise(resolve => setTimeout(resolve, 2000));
       return sendViaBrevo(to, subject, htmlContent);
     }
+    logError('[Email] Falha ao enviar email', err instanceof Error ? err : new Error(errMsg), { to, subject });
     throw err;
   }
 }

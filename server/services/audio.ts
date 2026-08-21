@@ -147,9 +147,9 @@ export async function downloadFile(url: string, destPath: string): Promise<void>
     await pipeline(Readable.fromWeb(res.body as any), fs.createWriteStream(destPath));
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error(`Download timeout after ${DOWNLOAD_TIMEOUT_MS}ms`);
+      throw new Error(`Download timeout after ${DOWNLOAD_TIMEOUT_MS}ms: ${url}`);
     }
-    throw err;
+    throw err instanceof Error ? err : new Error(`Download failed: ${String(err)} — ${url}`);
   } finally {
     clearTimeout(timeout);
   }

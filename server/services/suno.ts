@@ -72,6 +72,7 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
         await new Promise(r => setTimeout(r, delay));
         continue;
       }
+      logError('[Suno] Fetch failed after all retries', err instanceof Error ? err : new Error(String(err)), { url, retries });
       throw err;
     } finally {
       clearTimeout(timeout);

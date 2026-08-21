@@ -1,6 +1,10 @@
 import rateLimit from 'express-rate-limit';
 import { logWarn } from '../utils/logger';
 
+function isDevelopment(): boolean {
+  return process.env.NODE_ENV === 'development';
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // RATE LIMITERS - diferentes estratégias para diferentes endpoints
 // ─────────────────────────────────────────────────────────────────────────────
@@ -18,7 +22,7 @@ export const globalLimiter = rateLimit({
   },
   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
   legacyHeaders: false, // Disable `X-RateLimit-*` headers
-  skip: (req) => process.env.NODE_ENV !== 'production',
+  skip: () => isDevelopment(),
   handler: (req, res) => {
     logWarn('Rate limit exceeded', { ip: req.ip, path: req.path });
     res.status(429).json({
@@ -45,7 +49,7 @@ export const generateLyricsLimiter = rateLimit({
     success: false,
     error: 'Limite de geração atingido. Máximo 10 gerações por hora.'
   },
-  skip: (req) => process.env.NODE_ENV !== 'production',
+  skip: () => isDevelopment(),
   handler: (req, res) => {
     logWarn('Generate lyrics rate limit exceeded', {
       ip: req.ip,
@@ -79,7 +83,7 @@ export const emailLimiter = rateLimit({
     success: false,
     error: 'Demasiadas tentativas de envio de email.'
   },
-  skip: (req) => process.env.NODE_ENV !== 'production',
+  skip: () => isDevelopment(),
   handler: (req, res) => {
     logWarn('Email rate limit exceeded', { ip: req.ip });
     res.status(429).json({
@@ -100,7 +104,7 @@ export const adminLimiter = rateLimit({
     success: false,
     error: 'Limite de requisições admin atingido.'
   },
-  skip: (req) => process.env.NODE_ENV !== 'production',
+  skip: () => isDevelopment(),
   handler: (req, res) => {
     logWarn('Admin rate limit exceeded', { ip: req.ip, path: req.path });
     res.status(429).json({
@@ -121,7 +125,7 @@ export const getSongLimiter = rateLimit({
     success: false,
     error: 'Demasiadas requisições.'
   },
-  skip: (req) => process.env.NODE_ENV !== 'production',
+  skip: () => isDevelopment(),
   handler: (req, res) => {
     logWarn('Get song rate limit exceeded', { ip: req.ip });
     res.status(429).json({
@@ -142,7 +146,7 @@ export const paymentLimiter = rateLimit({
     success: false,
     error: 'Demasiadas requisições de pagamento.'
   },
-  skip: (req) => process.env.NODE_ENV !== 'production',
+  skip: () => isDevelopment(),
   handler: (req, res) => {
     logWarn('Payment rate limit exceeded', { ip: req.ip, path: req.path });
     res.status(429).json({
@@ -163,7 +167,7 @@ export const resumeDataLimiter = rateLimit({
     success: false,
     error: 'Demasiadas requisições.'
   },
-  skip: (req) => process.env.NODE_ENV !== 'production',
+  skip: () => isDevelopment(),
   handler: (req, res) => {
     logWarn('Resume data rate limit exceeded', { ip: req.ip, path: req.path });
     res.status(429).json({
@@ -184,7 +188,7 @@ export const paymentStatusLimiter = rateLimit({
     success: false,
     error: 'Demasiadas requisições.'
   },
-  skip: (req) => process.env.NODE_ENV !== 'production',
+  skip: () => isDevelopment(),
   handler: (req, res) => {
     logWarn('Payment status rate limit exceeded', { ip: req.ip });
     res.status(429).json({
@@ -205,7 +209,7 @@ export const recoverByEmailLimiter = rateLimit({
     success: false,
     error: 'Demasiadas tentativas de recuperação.'
   },
-  skip: (req) => process.env.NODE_ENV !== 'production',
+  skip: () => isDevelopment(),
   handler: (req, res) => {
     logWarn('Recover by email rate limit exceeded', { ip: req.ip });
     res.status(429).json({
@@ -226,7 +230,7 @@ export const whatsappBulkLimiter = rateLimit({
     success: false,
     error: 'Limite de campanhas WhatsApp atingido.'
   },
-  skip: (req) => process.env.NODE_ENV !== 'production',
+  skip: () => isDevelopment(),
   handler: (req, res) => {
     logWarn('WhatsApp bulk rate limit exceeded', { ip: req.ip });
     res.status(429).json({
@@ -247,7 +251,7 @@ export const voiceValidationLimiter = rateLimit({
     success: false,
     error: 'Demasiadas tentativas de validação de voz.'
   },
-  skip: (req) => process.env.NODE_ENV !== 'production',
+  skip: () => isDevelopment(),
   handler: (req, res) => {
     logWarn('Voice validation rate limit exceeded', { ip: req.ip });
     res.status(429).json({

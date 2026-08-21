@@ -14,16 +14,23 @@ export function validateEnv(): void {
   if (!process.env.SUNO_API_KEY && process.env.VITE_SUNO_API_KEY) {
     process.env.SUNO_API_KEY = process.env.VITE_SUNO_API_KEY;
   }
-  if (!process.env.ADMIN_PASSWORD) {
-    process.env.ADMIN_PASSWORD = process.env.VITE_ADMIN_PASSWORD || 'seubeat2026';
+  // SECURITY: Removed hardcoded fallbacks for ADMIN_PASSWORD and JWT_SECRET.
+  // These MUST be set in the environment — the app will not start without them.
+  if (!process.env.ADMIN_PASSWORD && process.env.VITE_ADMIN_PASSWORD) {
+    process.env.ADMIN_PASSWORD = process.env.VITE_ADMIN_PASSWORD;
   }
-  if (!process.env.JWT_SECRET) {
-    process.env.JWT_SECRET = process.env.VITE_JWT_SECRET || 'seubeat_jwt_secret_2026_prod';
+  if (!process.env.JWT_SECRET && process.env.VITE_JWT_SECRET) {
+    process.env.JWT_SECRET = process.env.VITE_JWT_SECRET;
   }
 
   const missing = REQUIRED_ENV.filter(key => !process.env[key]);
   if (missing.length > 0) {
-    console.warn(`[WARN] Variaveis de ambiente em falta no arranque: ${missing.join(', ')}`);
+    const isTest = process.env.CI || process.env.NODE_ENV === 'test';
+    if (isTest) {
+      console.warn(`[WARN] Variaveis de ambiente em falta no arranque: ${missing.join(', ')}`);
+    } else {
+      throw new Error(`[FATAL] Variaveis de ambiente obrigatorias em falta: ${missing.join(', ')}. Configure-as no .env ou no Render Dashboard.`);
+    }
   }
   const hasDeepSeekKey = !!(process.env.DEEPSEEK_API_KEY || process.env.DEEPSEEK_SECRET_KEY);
   if (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY && !process.env.GEMINI_API_KEY && !hasDeepSeekKey) {
