@@ -331,11 +331,24 @@ export async function resumeSunoTaskWorkflow(requestId: string, songId: string, 
       });
     }
 
+    // 60 polls (10 min) esgotados sem audioUrl — a task Suno provavelmente expirou
+    // ou está presa num estado que nunca converge. Limpa a task_id para o scheduler
+    // criar uma task NOVA no próximo tick, em vez de ficar num loop infinito de resume.
+    logWarn('[Background Suno] Resume: 60 polls sem audio — a limpar task_id para scheduler criar nova task', { requestId, songId, taskId });
     setProgress(requestId, {
       status: 'processing',
       progress: 85,
-      message: 'Suno ainda está a processar. Tente novamente daqui a pouco para continuar a verificação.'
+      message: 'A verificacao Suno esgotou. Uma nova musica sera gerada automaticamente.'
     });
+    const { data: pollSong } = await supabase
+      .from('songs')
+      .select('mureka_task_id')
+      .eq('id', songId)
+      .maybeSingle();
+    if (pollSong?.mureka_task_id === taskId) {
+      await supabase.from('songs').update({ mureka_task_id: null }).eq('id', songId);
+    }
+    return;
   } catch (err: unknown) {
     logError('[Background Suno] Error while resuming task', err instanceof Error ? err : new Error(String(err)), { requestId, songId, taskId });
     setProgress(requestId, { status: 'failed', progress: 100, message: 'Erro na consulta Suno', error: err instanceof Error ? err.message : String(err) });

@@ -195,6 +195,19 @@ describe('processStuckMusicRecovery', () => {
     expect(mocks.resumeSunoTaskWorkflow).not.toHaveBeenCalled();
   });
 
+  it('descarta task antiga e gera nova quando regeneration_count >= 2', async () => {
+    const row = baseRow({ mureka_task_id: 'dead-task', mureka_status: 'processing', regeneration_count: 2 });
+    const { update } = buildSupabaseMock({ candidates: { data: [row], error: null } });
+    mocks.runBackgroundSunoWorkflow.mockResolvedValue(undefined);
+
+    await processStuckMusicRecovery();
+
+    expect(mocks.resumeSunoTaskWorkflow).not.toHaveBeenCalled();
+    expect(mocks.runBackgroundSunoWorkflow).toHaveBeenCalledTimes(1);
+    const clearedTaskId = update.mock.calls.find(c => (c[0] as Record<string, unknown>).mureka_task_id === null);
+    expect(clearedTaskId).toBeTruthy();
+  });
+
   it('não faz nada quando o admin supabase está indisponível', async () => {
     mocks.getAdminSupabase.mockReturnValue(null);
 
