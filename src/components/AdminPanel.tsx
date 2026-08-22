@@ -406,7 +406,7 @@ export default function AdminPanel() {
   const progressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const viewPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const refreshDebounceRef = useRef(false);
+  const [refreshDebounce, setRefreshDebounce] = useState(false);
   const [credits, setCredits] = useState<CreditsResult | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
   const [forceStatusModal, setForceStatusModal] = useState<{ id: string; table: string; currentStatus: string } | null>(null);
@@ -874,16 +874,7 @@ export default function AdminPanel() {
     prevCountsRef.current = { requests: currentRequests, payments: currentPayments };
   }, [adminToken, apiFetch]);
 
-  // Notification polling when on admin panel
-  useEffect(() => {
-    if (authenticated) {
-      notifIntervalRef.current = setInterval(checkNewData, 15000);
-      checkNewData();
-    }
-    return () => { if (notifIntervalRef.current) clearInterval(notifIntervalRef.current); };
-  }, [authenticated, checkNewData]);
-
-  // Clear notification after 5s
+// Clear notification after 5s
   useEffect(() => {
     if (notification) {
       const t = setTimeout(() => setNotification(null), 5000);
@@ -905,72 +896,68 @@ export default function AdminPanel() {
         }, 1500);
       }
     } catch (e) {}
-  }, [adminToken]);
+  }, [adminToken, apiHeaders]);
 
   useEffect(() => {
     if (!authenticated) return;
-    if (activeView === 'dashboard') { fetchStats(); fetchFunnel(); }
-    else if (activeView === 'payments') fetchPayments();
-    else if (activeView === 'requests') { fetchRequests(); fetchProgress(); }
-    else if (activeView === 'songs') fetchSongs();
-    else if (activeView === 'credits') fetchCredits();
-    else if (activeView === 'diagnostics') fetchDiagnostics();
-    else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
-    else if (activeView === 'campaigns') fetchCampaigns();
-    else if (activeView === 'abandoned') { fetchAbandoned(abandonedRange); fetchSendProgress(); }
-    else if (activeView === 'clients') fetchClientsList();
-  }, [authenticated, activeView, abandonedRange]);
+    const loadViewData = () => {
+      if (activeView === 'dashboard') { fetchStats(); fetchFunnel(); }
+      else if (activeView === 'payments') fetchPayments();
+      else if (activeView === 'requests') { fetchRequests(); fetchProgress(); }
+      else if (activeView === 'songs') fetchSongs();
+      else if (activeView === 'credits') fetchCredits();
+      else if (activeView === 'diagnostics') fetchDiagnostics();
+      else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
+      else if (activeView === 'campaigns') fetchCampaigns();
+      else if (activeView === 'abandoned') { fetchAbandoned(abandonedRange); fetchSendProgress(); }
+      else if (activeView === 'clients') fetchClientsList();
+    };
+    loadViewData();
+    return () => {};
+  }, [authenticated, activeView, abandonedRange, fetchStats, fetchFunnel, fetchPayments, fetchRequests, fetchSongs, fetchCredits, fetchDiagnostics, fetchMetrics, fetchProfitability, fetchCampaigns, fetchAbandoned, fetchSendProgress, fetchClientsList]);
 
-  // Poll progress every 5s when on requests tab
-  useEffect(() => {
-    if (activeView === 'requests' && authenticated) {
-      progressPollRef.current = setInterval(fetchProgress, 5000);
-    } else {
-      if (progressPollRef.current) clearInterval(progressPollRef.current);
-    }
-    return () => { if (progressPollRef.current) clearInterval(progressPollRef.current); };
-  }, [activeView, authenticated]);
-
-  const pollCurrentView = useCallback(() => {
-    if (activeView === 'payments') fetchPayments();
-    else if (activeView === 'requests') fetchRequests();
-    else if (activeView === 'songs') fetchSongs();
-    else if (activeView === 'clients') fetchClientsList();
-    else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
-    else if (activeView === 'campaigns') fetchCampaigns();
-    else if (activeView === 'abandoned') { fetchAbandoned(abandonedRange); fetchSendProgress(); }
-    else if (activeView === 'credits') fetchCredits();
-    else if (activeView === 'diagnostics') fetchDiagnostics();
-  }, [activeView, fetchPayments, fetchRequests, fetchSongs, fetchClientsList, fetchMetrics, fetchProfitability, fetchCredits, fetchDiagnostics, fetchAbandoned, fetchSendProgress, abandonedRange]);
-
-  const resetViewPoll = useCallback(() => {
-    if (viewPollRef.current) clearInterval(viewPollRef.current);
-    viewPollRef.current = setInterval(pollCurrentView, 10000);
-  }, [pollCurrentView]);
-
-  const refreshData = useCallback(() => {
-    if (refreshDebounceRef.current) return;
-    refreshDebounceRef.current = true;
-    setTimeout(() => { refreshDebounceRef.current = false; }, 2000);
-    fetchStats();
-    if (activeView === 'payments') fetchPayments();
-    else if (activeView === 'requests') { fetchRequests(); fetchProgress(); }
-    else if (activeView === 'songs') fetchSongs();
-    else if (activeView === 'credits') fetchCredits();
-    else if (activeView === 'diagnostics') fetchDiagnostics();
-    else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
-    else if (activeView === 'campaigns') fetchCampaigns();
-    else if (activeView === 'abandoned') { fetchAbandoned(abandonedRange); fetchSendProgress(); }
-    else if (activeView === 'clients') fetchClientsList();
-    resetViewPoll();
-  }, [activeView, fetchStats, fetchPayments, fetchRequests, fetchProgress, fetchSongs, fetchCredits, fetchDiagnostics, fetchMetrics, fetchProfitability, fetchClientsList, resetViewPoll, fetchAbandoned, fetchSendProgress, abandonedRange]);
-
-  // Poll current view data every 10s
+  // Single polling interval for current view data (10s)
+  // Respects active tab - only polls when on that tab
   useEffect(() => {
     if (!authenticated) return;
-    viewPollRef.current = setInterval(pollCurrentView, 10000);
-    return () => { if (viewPollRef.current) clearInterval(viewPollRef.current); };
-  }, [authenticated, pollCurrentView]);
+    const poll = setInterval(() => {
+      if (activeView === 'payments') fetchPayments();
+      else if (activeView === 'requests') { fetchRequests(); fetchProgress(); }
+      else if (activeView === 'songs') fetchSongs();
+      else if (activeView === 'clients') fetchClientsList();
+      else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
+      else if (activeView === 'campaigns') fetchCampaigns();
+      else if (activeView === 'abandoned') { fetchAbandoned(abandonedRange); fetchSendProgress(); }
+      else if (activeView === 'credits') fetchCredits();
+      else if (activeView === 'diagnostics') fetchDiagnostics();
+    }, 10000);
+    return () => clearInterval(poll);
+  }, [activeView, authenticated, fetchPayments, fetchRequests, fetchSongs, fetchClientsList, fetchMetrics, fetchProfitability, fetchCampaigns, fetchAbandoned, fetchSendProgress, fetchCredits, fetchDiagnostics]);
+
+  // Notification check every 15s (independent of tab)
+  useEffect(() => {
+    if (!authenticated) return;
+    const notify = setInterval(checkNewData, 15000);
+    return () => clearInterval(notify);
+  }, [authenticated, checkNewData]);
+
+  // Refresh data when window regains focus
+  useEffect(() => {
+    if (!authenticated) return;
+    const onFocus = () => {
+      if (activeView === 'payments') fetchPayments();
+      else if (activeView === 'requests') { fetchRequests(); fetchProgress(); }
+      else if (activeView === 'songs') fetchSongs();
+      else if (activeView === 'clients') fetchClientsList();
+      else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
+      else if (activeView === 'campaigns') fetchCampaigns();
+      else if (activeView === 'abandoned') { fetchAbandoned(abandonedRange); fetchSendProgress(); }
+      else if (activeView === 'credits') fetchCredits();
+      else if (activeView === 'diagnostics') fetchDiagnostics();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [authenticated]);
 
   useEffect(() => { setReqPage(1); }, [searchQuery, reqStatusFilter]);
   useEffect(() => { setPayPage(1); }, [paymentSearchQuery, payStatusFilter]);
@@ -983,10 +970,20 @@ export default function AdminPanel() {
   // Refresh data when window regains focus
   useEffect(() => {
     if (!authenticated) return;
-    const onFocus = () => pollCurrentView();
+    const onFocus = () => {
+      if (activeView === 'payments') fetchPayments();
+      else if (activeView === 'requests') { fetchRequests(); fetchProgress(); }
+      else if (activeView === 'songs') fetchSongs();
+      else if (activeView === 'clients') fetchClientsList();
+      else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
+      else if (activeView === 'campaigns') fetchCampaigns();
+      else if (activeView === 'abandoned') { fetchAbandoned(abandonedRange); fetchSendProgress(); }
+      else if (activeView === 'credits') fetchCredits();
+      else if (activeView === 'diagnostics') fetchDiagnostics();
+    };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [authenticated, pollCurrentView]);
+  }, [authenticated]);
 
   // login handler removido — ver handleLogin acima
 
@@ -1006,7 +1003,7 @@ export default function AdminPanel() {
         showToast(`✅ Pagamento aprovado! ${data.isStandard ? '📅 Música será entregue em 24h.' : data.message?.includes('processamento') ? '🎵 Música em processamento.' : '🎵 Música entregue ao cliente.'}`);
         fetchPayments();
         fetchStats();
-        resetViewPoll();
+        
       } else {
         if (res.status === 401) expireSession();
         else showToast(data.error || 'Erro ao aprovar pagamento.', 'error');
@@ -1034,7 +1031,7 @@ export default function AdminPanel() {
         showToast('❌ Pagamento rejeitado. Cliente notificado.');
         fetchPayments();
         fetchStats();
-        resetViewPoll();
+        
       } else {
         if (res.status === 401) expireSession();
         else showToast(data.error || 'Erro ao rejeitar.', 'error');
@@ -1059,7 +1056,7 @@ export default function AdminPanel() {
         fetchSongs();
         fetchRequests();
         fetchProgress();
-        resetViewPoll();
+        
       } else {
         if (res.status === 401) expireSession();
         else showToast(data.error || 'Erro ao gerar música.', 'error');
@@ -1075,7 +1072,7 @@ export default function AdminPanel() {
     try {
       const res = await fetch(`/api/admin/request/${requestId}/retry`, { method: 'POST', headers: apiHeaders });
       const data = await res.json();
-      if (res.ok) { showToast('🔁 Fluxo reiniciado!'); fetchRequests(); fetchProgress(); resetViewPoll(); }
+      if (res.ok) { showToast('🔁 Fluxo reiniciado!'); fetchRequests(); fetchProgress();  }
       else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao reiniciar.', 'error');
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
@@ -1087,7 +1084,7 @@ export default function AdminPanel() {
     try {
       const res = await fetch(`/api/admin/request/${requestId}/force-voice`, { method: 'POST', headers: apiHeaders });
       const data = await res.json();
-      if (res.ok) { showToast('🎙️ Processamento de voz iniciado!'); fetchRequests(); fetchProgress(); resetViewPoll(); }
+      if (res.ok) { showToast('🎙️ Processamento de voz iniciado!'); fetchRequests(); fetchProgress();  }
       else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao forçar voz.', 'error');
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
@@ -1119,7 +1116,7 @@ export default function AdminPanel() {
         showToast('🗑️ Pedido e ficheiros eliminados com sucesso!');
         fetchRequests();
         fetchStats();
-        resetViewPoll();
+        
       } else {
         if (res.status === 401) expireSession();
         else showToast(data.error || 'Erro ao eliminar o pedido.', 'error');
@@ -1139,7 +1136,7 @@ export default function AdminPanel() {
         body: JSON.stringify({ title: editingSong.title, lyrics: editingSong.lyrics, letterText: editingSong.letterText })
       });
       const data = await res.json();
-      if (res.ok) { showToast('✏️ Letra atualizada!'); setEditingSong(null); fetchSongs(); fetchRequests(); resetViewPoll(); }
+      if (res.ok) { showToast('✏️ Letra atualizada!'); setEditingSong(null); fetchSongs(); fetchRequests();  }
       else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao guardar letra.', 'error');
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
@@ -1162,7 +1159,7 @@ export default function AdminPanel() {
           body: JSON.stringify({ audioBase64: base64, audioFilename: file.name, audioMimeType: file.type })
         });
         const data = await res.json();
-        if (res.ok) { showToast('📤 Áudio carregado com sucesso!'); fetchSongs(); setUploadingSongId(null); resetViewPoll(); }
+        if (res.ok) { showToast('📤 Áudio carregado com sucesso!'); fetchSongs(); setUploadingSongId(null);  }
         else if (res.status === 401) { expireSession(); setUploadingSongId(null); }
         else showToast(data.error || 'Erro ao carregar áudio.', 'error');
         setActionLoading(null);
@@ -1692,11 +1689,25 @@ export default function AdminPanel() {
 
           <div className="mt-6 px-2 space-y-2">
             <button
-              onClick={refreshData}
-              disabled={refreshDebounceRef.current}
+              onClick={() => {
+                  if (refreshDebounce) return;
+                  setRefreshDebounce(true);
+                  setTimeout(() => { setRefreshDebounce(false); }, 2000);
+                  fetchStats();
+                  if (activeView === 'payments') fetchPayments();
+                  else if (activeView === 'requests') { fetchRequests(); fetchProgress(); }
+                  else if (activeView === 'songs') fetchSongs();
+                  else if (activeView === 'credits') fetchCredits();
+                  else if (activeView === 'diagnostics') fetchDiagnostics();
+                  else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
+                  else if (activeView === 'campaigns') fetchCampaigns();
+                  else if (activeView === 'abandoned') { fetchAbandoned(abandonedRange); fetchSendProgress(); }
+                  else if (activeView === 'clients') fetchClientsList();
+                }}
+              disabled={refreshDebounce}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-stone-500 hover:text-stone-300 hover:bg-stone-800/50 transition-all cursor-pointer disabled:opacity-50"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshDebounceRef.current ? 'animate-spin' : ''}`} /> Atualizar Dados
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshDebounce ? 'animate-spin' : ''}`} /> Atualizar Dados
             </button>
             <button
               onClick={() => { setAuthenticated(false); setStats(null); setPayments([]); setRequests([]); setSongs([]); setClients([]); sessionStorage.removeItem('seubeat_admin_token'); }}
@@ -2042,7 +2053,7 @@ export default function AdminPanel() {
                                               body: JSON.stringify({ entityType: 'payment', entityId: payment.id, action: 'reject' })
                                             });
                                             const data = await res.json();
-                                            if (res.ok) { showToast('↩️ ' + (data.message || 'Rejeição desfeita.')); fetchPayments(); fetchStats(); resetViewPoll(); }
+                                            if (res.ok) { showToast('↩️ ' + (data.message || 'Rejeição desfeita.')); fetchPayments(); fetchStats();  }
                                             else if (res.status === 401) { expireSession(); }
                                             else showToast(data.error || 'Erro ao desfazer.', 'error');
                                           } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
@@ -2124,7 +2135,7 @@ export default function AdminPanel() {
                                               body: JSON.stringify({ entityType: 'payment', entityId: payment.id, action: 'approve' })
                                             });
                                             const data = await res.json();
-                                            if (res.ok) { showToast('↩️ ' + (data.message || 'Acção desfeita.')); fetchPayments(); fetchStats(); resetViewPoll(); }
+                                            if (res.ok) { showToast('↩️ ' + (data.message || 'Acção desfeita.')); fetchPayments(); fetchStats();  }
                                             else if (res.status === 401) { expireSession(); }
                                             else showToast(data.error || 'Erro ao desfazer.', 'error');
                                           } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }

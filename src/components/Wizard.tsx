@@ -2740,42 +2740,7 @@ const ROTATING_MESSAGES = [
                 </AnimatePresence>
               </div>
 
-              {/* Extras Opcionais (Upsell) */}
-              <div className="space-y-3 p-4 bg-stone-950/80 rounded-2xl border border-stone-850">
-                <div className="flex items-center gap-1.5 text-[10px] font-mono text-amber-500 uppercase tracking-widest">
-                  <span>✨ EXTRAS OPCIONAIS RECOMENDADOS</span>
-                </div>
-                <label className="flex items-start gap-3 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={addonSecondStyle}
-                    onChange={(e) => setAddonSecondStyle(e.target.checked)}
-                    className="mt-1 w-4 h-4 rounded border-stone-700 bg-stone-900 text-amber-500 focus:ring-amber-500/20"
-                  />
-                  <div className="flex-1 text-xs">
-                    <span className="text-stone-200 font-bold group-hover:text-amber-400 transition-colors">
-                      🎷 2ª Versão da Música num Estilo Diferente (+2.500 Kz)
-                    </span>
-                    <p className="text-[11px] text-stone-400">Receba a mesma letra interpretada num 2º ritmo (ex: Semba + Kizomba ou R&B).</p>
-                  </div>
-                </label>
-                <label className="flex items-start gap-3 cursor-pointer group pt-2.5 border-t border-stone-900">
-                  <input
-                    type="checkbox"
-                    checked={addonPrintableCover}
-                    onChange={(e) => setAddonPrintableCover(e.target.checked)}
-                    className="mt-1 w-4 h-4 rounded border-stone-700 bg-stone-900 text-amber-500 focus:ring-amber-500/20"
-                  />
-                  <div className="flex-1 text-xs">
-                    <span className="text-stone-200 font-bold group-hover:text-amber-400 transition-colors">
-                      🎨 Capa de CD em Alta Resolução (+1.500 Kz)
-                    </span>
-                    <p className="text-[11px] text-stone-400">Arte gráfica personalizada com a capa da música pronta a imprimir ou emoldurar.</p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Payment Method Selection */}
+              
               <div className="space-y-4 pt-2">
                 <div className="flex items-center gap-1.5 text-[10px] font-mono text-amber-500 uppercase tracking-widest border-b border-stone-900 pb-2">
                   <span>ESCOLHE COMO QUERES PAGAR</span>
