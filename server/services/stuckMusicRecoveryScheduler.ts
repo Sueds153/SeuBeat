@@ -8,6 +8,8 @@ const INTERVAL_MS = 5 * 60 * 1000;
 // só é tratada como "presa" se não tiver updates há mais de 15 min — assim nunca
 // interferimos com workflows em execução normal (que refrescam updated_at).
 const STALE_THRESHOLD_MS = Number(process.env.STUCK_RECOVERY_THRESHOLD_MS || 15 * 60 * 1000);
+// Máximo de tentativas de recuperação antes de marcar como failed (evita loop infinito).
+const MAX_RECOVERY_ATTEMPTS = 3;
 // Estados do pedido em que a geração de áudio está de facto a correr.
 const ACTIVE_REQUEST_STATUSES = ['music_processing', 'voice_processing', 'processing'];
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
@@ -20,6 +22,7 @@ interface StuckSongRow {
   mureka_task_id?: string | null;
   mureka_status?: string | null;
   updated_at?: string | null;
+  regeneration_count?: number | null;
   song_requests?: Array<Record<string, unknown>> | Record<string, unknown> | null;
 }
 
@@ -28,36 +31,10 @@ function firstRelated<T>(rel: T | T[] | null | undefined): T | null {
   return Array.isArray(rel) ? (rel[0] ?? null) : rel;
 }
 
-function asStringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
-}
-
 // Task Suno definitivamente falhada? querySunoTask lança "Suno task failed" quando
 // o estado é final de falha. Erros de rede/quota são transitórios e não contam.
 function isTerminalTaskFailure(err: unknown): boolean {
   return err instanceof Error && err.message.includes('Suno task failed');
-}
-
-async function claimSong(
-  supabase: NonNullable<ReturnType<typeof getAdminSupabase>>,
-  songId: string,
-  expectedStatus: string,
-  nowIso: string
-): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('songs')
-    .update({ updated_at: nowIso })
-    .eq('id', songId)
-    .eq('mureka_status', expectedStatus)
-    .is('audio_url', null)
-    .select('id')
-    .maybeSingle();
-
-  if (error) {
-    logError('[StuckMusicRecovery] Falha ao reclamar música', error, { songId });
-    return false;
-  }
-  return !!data;
 }
 
 async function recoverStuckSong(
@@ -74,8 +51,29 @@ async function recoverStuckSong(
   const songId = row.id;
   const nowIso = new Date().toISOString();
 
+  // Guarda de max retries: se já excedeu o limite, marca como failed e avisa admin.
+  const attempts = row.regeneration_count || 0;
+  if (attempts >= MAX_RECOVERY_ATTEMPTS) {
+    logWarn('[StuckMusicRecovery] Máximo de tentativas atingido — a marcar como failed', { requestId, songId, attempts });
+    await supabase.from('songs').update({ mureka_status: 'failed' }).eq('id', songId);
+    return;
+  }
+
   // Claim atómico: só avança se a song ainda está no estado lido e sem áudio.
-  if (!(await claimSong(supabase, songId, String(row.mureka_status || ''), nowIso))) return;
+  // Incrementa regeneration_count no claim para contar a tentativa.
+  const { data: claimed, error: claimErr } = await supabase
+    .from('songs')
+    .update({ updated_at: nowIso, regeneration_count: attempts + 1 })
+    .eq('id', songId)
+    .eq('mureka_status', String(row.mureka_status || ''))
+    .is('audio_url', null)
+    .select('id')
+    .maybeSingle();
+  if (claimErr) {
+    logError('[StuckMusicRecovery] Falha ao reclamar música', claimErr, { songId });
+    return;
+  }
+  if (!claimed) return;
 
   if (row.mureka_task_id) {
     try {
@@ -127,17 +125,41 @@ export async function processStuckMusicRecovery(): Promise<void> {
 
   const staleSince = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
 
-  const { data: rows, error } = await supabase
-    .from('songs')
-    .select('id, request_id, title, lyrics, mureka_task_id, mureka_status, updated_at, song_requests!inner(*)')
-    .in('mureka_status', ['generating', 'processing'])
-    .is('audio_url', null)
-    .lt('updated_at', staleSince)
-    .order('updated_at', { ascending: true });
+  // Dois queries para cobrir dois cenários:
+  // 1. Songs com task_id mas presas há >15min (stale)
+  // 2. Songs sem task_id (workflow nunca completou ou task perdida) — recover regardless de updated_at
+  const [staleResult, tasklessResult] = await Promise.all([
+    supabase
+      .from('songs')
+      .select('id, request_id, title, lyrics, mureka_task_id, mureka_status, updated_at, regeneration_count, song_requests!inner(*)')
+      .in('mureka_status', ['generating', 'processing'])
+      .is('audio_url', null)
+      .not('mureka_task_id', 'is', null)
+      .lt('updated_at', staleSince)
+      .order('updated_at', { ascending: true }),
+    supabase
+      .from('songs')
+      .select('id, request_id, title, lyrics, mureka_task_id, mureka_status, updated_at, regeneration_count, song_requests!inner(*)')
+      .in('mureka_status', ['generating', 'processing'])
+      .is('audio_url', null)
+      .is('mureka_task_id', null)
+      .order('updated_at', { ascending: true }),
+  ]);
 
-  if (error) {
-    logError('[StuckMusicRecovery] Erro ao consultar músicas presas', error);
+  if (staleResult.error) {
+    logError('[StuckMusicRecovery] Erro ao consultar músicas presas (stale)', staleResult.error);
     return;
+  }
+  if (tasklessResult.error) {
+    logError('[StuckMusicRecovery] Erro ao consultar músicas presas (taskless)', tasklessResult.error);
+    return;
+  }
+
+  // Merge e dedup por id
+  const seen = new Set<string>();
+  const rows: StuckSongRow[] = [];
+  for (const r of [...(staleResult.data || []), ...(tasklessResult.data || [])]) {
+    if (!seen.has(r.id)) { seen.add(r.id); rows.push(r as StuckSongRow); }
   }
 
   if (!rows || rows.length === 0) return;

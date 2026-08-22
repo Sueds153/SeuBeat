@@ -116,6 +116,17 @@ interface UseSongResult {
   setSongDetails: React.Dispatch<React.SetStateAction<SongDetails>>;
 }
 
+function normalizeLyrics(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw.filter((l): l is string => typeof l === 'string');
+  if (typeof raw === 'string' && raw.trim()) {
+    if (raw.trim().startsWith('[')) {
+      try { return JSON.parse(raw); } catch { /* fall through */ }
+    }
+    return raw.split('\n').filter(l => l.trim());
+  }
+  return [];
+}
+
 function applyFetchedSong(prev: SongDetails, dbSong: NonNullable<NonNullable<import('../api/song').SongApiResponse['data']>>): SongDetails {
   const dbRequest = dbSong.song_requests;
   const recipientName = dbRequest?.recipient_name || dbSong.recipient_name || prev.recipientName;
@@ -139,7 +150,7 @@ function applyFetchedSong(prev: SongDetails, dbSong: NonNullable<NonNullable<imp
     recipientGender: dbSong.recipient_gender || prev.recipientGender,
     letter: dbSong.letter_text || prev.letter,
     songTitle: dbSong.title || prev.songTitle,
-    lyrics: dbSong.lyrics || prev.lyrics,
+    lyrics: normalizeLyrics(dbSong.lyrics) || prev.lyrics,
     audioUrl: dbSong.audio_url || prev.audioUrl,
     photoUrl,
     status: dbSong.status || prev.status,

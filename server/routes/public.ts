@@ -1367,13 +1367,24 @@ router.get('/latest-song', getSongLimiter, async (req, res) => {
       return res.json({ success: true, found: false });
     }
 
+    // Normalise lyrics: pode ser string JSON ou array direto
+    let lyricsArray: string[] = [];
+    const rawLyrics = songData.lyrics;
+    if (Array.isArray(rawLyrics)) {
+      lyricsArray = rawLyrics;
+    } else if (typeof rawLyrics === 'string' && rawLyrics.trim().startsWith('[')) {
+      try { lyricsArray = JSON.parse(rawLyrics); } catch { lyricsArray = rawLyrics.split('\n').filter((l: string) => l.trim()); }
+    } else if (typeof rawLyrics === 'string' && rawLyrics.length > 0) {
+      lyricsArray = rawLyrics.split('\n').filter((l: string) => l.trim());
+    }
+
     res.json({
       success: true,
       found: true,
       dbSongId: songData.id,
       dbSongRequestId: requestData.id,
       songTitle: songData.title,
-      lyrics: songData.lyrics,
+      lyrics: lyricsArray,
       lyricsSnippet: songData.lyrics_snippet,
       letterText: songData.letter_text,
       photoUrl: requestData.photo_url,

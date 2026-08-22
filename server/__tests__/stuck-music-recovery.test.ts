@@ -65,6 +65,7 @@ function buildSupabaseMock(config: SupabaseConfig = {}) {
     eq: () => chain,
     in: () => chain,
     is: () => chain,
+    not: () => chain,
     lt: () => chain,
     order: () => {
       lastOp = 'candidates';
