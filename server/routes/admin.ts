@@ -19,7 +19,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
 import { logInfo, logError, logWarn } from '../utils/logger';
-import { normalizeLyricsArray } from '../services/suno';
+import { normalizeLyricsArray, querySunoTask } from '../services/suno';
+import { persistGeneratedSunoAudio } from '../services/workflow';
 import { publicErrorMessage, getAppUrl, logRouteError, kzToUsd } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
 import { sendPurchaseEvent, generateServerEventId } from '../services/metaPixelCapi';
@@ -101,6 +102,8 @@ async function checkDeepSeek(now: Date) {
 
 function extractStoragePath(url: string | null | undefined, bucket: string): string | null {
   if (!url) return null;
+
+  // Supabase Storage URL patterns
   const markers = [
     `/storage/v1/object/public/${bucket}/`,
     `/storage/v1/object/sign/${bucket}/`
@@ -111,6 +114,20 @@ function extractStoragePath(url: string | null | undefined, bucket: string): str
       return decodeURIComponent(url.slice(idx + marker.length).split('?')[0]);
     }
   }
+
+  // Cloudflare R2 public URL: https://pub-xxx.r2.dev/{bucket}/{filename}
+  const r2Match = url.match(/r2\.dev\/([^?]+)/);
+  if (r2Match) {
+    const fullPath = decodeURIComponent(r2Match[1]);
+    const bucketPrefix = `${bucket}/`;
+    return fullPath.startsWith(bucketPrefix) ? fullPath.slice(bucketPrefix.length) : fullPath;
+  }
+
+  // Bare storage path (e.g. "voices/123_sample.wav" — no URL prefix)
+  if (!url.startsWith('http') && !url.startsWith('//') && url.includes('/')) {
+    return url.split('?')[0];
+  }
+
   return null;
 }
 
@@ -1017,6 +1034,69 @@ router.post('/request/:id/retry', adminAuth, async (req, res) => {
   } catch (err: unknown) {
     logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
+}
+});
+router.post('/request/:id/recover', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB nao disponivel' });
+    const { data: requestData } = await supabase.from('song_requests').select('*, songs(*)').eq('id', id).single();
+    if (!requestData) return res.status(404).json({ success: false, error: 'Pedido nao encontrado' });
+    const songData = firstRelated(requestData.songs);
+    if (!songData) return res.status(400).json({ success: false, error: 'Música associada em falta.' });
+
+    const knownTaskIds: string[] = [
+      'f5ecb840034c7661a0c6f5b1868b7f44',
+      '52d7f402a8cd806e7bd29796d23acb58',
+      '6909cae212783daf684c2fe6db85fa87',
+    ];
+
+    logInfo('[Admin Recover] Iniciando recovery', { ourId: id });
+
+    let foundAudioUrl: string | null = null;
+    let usedTaskId: string | null = null;
+
+    for (const taskId of knownTaskIds) {
+      if (!taskId) continue;
+      try {
+        const result = await querySunoTask(taskId);
+        if (result.audioUrl) {
+          foundAudioUrl = result.audioUrl;
+          usedTaskId = taskId;
+          break;
+        }
+      } catch (e) {
+        continue;
+      }
+    }
+
+    if (!foundAudioUrl) {
+      return res.json({ success: false, error: 'Nenhuma task tem áudio.' });
+    }
+
+    // persist with skipProcessing
+    // usedTaskId is guaranteed to be set because we found audioUrl above
+    const persistResult = await persistGeneratedSunoAudio(songData.id, usedTaskId!, foundAudioUrl, {
+      skipProcessing: true,
+      hintDuration: songData.duration ?? 239,
+    });
+
+    // update song
+    await supabase.from('songs').update({
+      audio_url: persistResult.fullAudioUrl,
+      full_song_url: persistResult.fullAudioUrl,
+      preview_url: null,
+      duration: persistResult.duration,
+      mureka_task_id: usedTaskId,
+      mureka_status: 'completed'
+    }).eq('id', songData.id);
+
+    return res.json({ success: true, message: 'Recovery OK' });
+  } catch (err: unknown) {
+    logRouteError(req, err);
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ success: false, error: msg });
   }
 });
 

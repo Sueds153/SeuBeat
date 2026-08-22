@@ -30,8 +30,14 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
 
   const [likesCount, setLikesCount] = useState(382);
   const [hasLiked, setHasLiked] = useState(false);
+  const [photoLoadError, setPhotoLoadError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isFullUnlocked = songDetails.status === 'delivered' || songDetails.status === 'approved';
+
+  // Reset photo error state when photo URL changes (e.g. user replaces photo)
+  React.useEffect(() => {
+    setPhotoLoadError(false);
+  }, [songDetails.photoUrl]);
 
   const handleLike = () => {
     if (hasLiked) { setLikesCount(p => p - 1); setHasLiked(false); }
@@ -177,12 +183,13 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
                 ? 'shadow-lg shadow-amber-500/20 ring-2 ring-amber-500/50'
                 : 'shadow-black/60 ring-1 ring-white/10'
             }`}>
-              {songDetails.photoUrl ? (
+              {songDetails.photoUrl && !photoLoadError ? (
                 <img
                   src={songDetails.photoUrl}
                   alt="Capa"
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
+                  onError={() => setPhotoLoadError(true)}
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-stone-800 to-stone-900 flex items-center justify-center">
@@ -336,7 +343,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
 
       {/* Mini Now Playing */}
       <AnimatePresence>
-        {isPlaying && songDetails.photoUrl && (
+        {isPlaying && songDetails.photoUrl && !photoLoadError && (
           <motion.button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             initial={{ opacity: 0, scale: 0.8, y: 20 }}
@@ -350,6 +357,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
               src={songDetails.photoUrl}
               alt="Now Playing"
               className="w-full h-full object-cover"
+              referrerPolicy="no-referrer"
               animate={{ rotate: 360 }}
               transition={{ repeat: Infinity, ease: 'linear', duration: 8 }}
             />
