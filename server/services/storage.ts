@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { Readable } from 'stream';
 import { uploadToSupabase } from './supabase';
 import { logInfo, logError, logWarn } from '../utils/logger';
 
@@ -96,25 +97,27 @@ export async function uploadFileToStorage(
     try {
       const objectKey = `${bucket}/${filename}`;
       const client = r2.client as import('@aws-sdk/client-s3').S3Client;
+      const { Upload } = await import('@aws-sdk/lib-storage');
 
-      let body: Buffer | fs.ReadStream;
-      let contentLength: number | undefined;
-      if (typeof filePathOrBuffer === 'string') {
-        const stats = await fs.promises.stat(filePathOrBuffer);
-        body = fs.createReadStream(filePathOrBuffer);
-        contentLength = stats.size;
-      } else {
-        body = filePathOrBuffer;
-        contentLength = filePathOrBuffer.length;
-      }
+      const body = typeof filePathOrBuffer === 'string'
+        ? fs.createReadStream(filePathOrBuffer)
+        : Buffer.isBuffer(filePathOrBuffer)
+          ? Readable.from(filePathOrBuffer)
+          : filePathOrBuffer;
 
-      await client.send(new r2.sdk.PutObjectCommand({
-        Bucket: bucketName,
-        Key: objectKey,
-        Body: body,
-        ContentType: mimeType,
-        ContentLength: contentLength,
-      }));
+      const upload = new Upload({
+        client,
+        params: {
+          Bucket: bucketName,
+          Key: objectKey,
+          Body: body,
+          ContentType: mimeType,
+        },
+        queueSize: 1,
+        partSize: 10 * 1024 * 1024,
+      });
+
+      await upload.done();
 
       const baseUrl = publicDomain.endsWith('/') ? publicDomain.slice(0, -1) : publicDomain;
       const publicUrl = `${baseUrl}/${objectKey}`;
