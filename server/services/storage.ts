@@ -94,8 +94,8 @@ export async function uploadFileToStorage(
 
   if (provider === 'r2' && r2 && bucketName && publicDomain) {
     try {
-      const fileBuffer = typeof filePathOrBuffer === 'string'
-        ? await fs.promises.readFile(filePathOrBuffer)
+      const body = typeof filePathOrBuffer === 'string'
+        ? fs.createReadStream(filePathOrBuffer)
         : filePathOrBuffer;
 
       const objectKey = `${bucket}/${filename}`;
@@ -104,7 +104,7 @@ export async function uploadFileToStorage(
       await client.send(new r2.sdk.PutObjectCommand({
         Bucket: bucketName,
         Key: objectKey,
-        Body: fileBuffer,
+        Body: body,
         ContentType: mimeType,
       }));
 
