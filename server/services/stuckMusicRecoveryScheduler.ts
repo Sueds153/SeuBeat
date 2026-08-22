@@ -9,7 +9,7 @@ const INTERVAL_MS = 5 * 60 * 1000;
 // interferimos com workflows em execução normal (que refrescam updated_at).
 const STALE_THRESHOLD_MS = Number(process.env.STUCK_RECOVERY_THRESHOLD_MS || 15 * 60 * 1000);
 // Máximo de tentativas de recuperação antes de marcar como failed (evita loop infinito).
-const MAX_RECOVERY_ATTEMPTS = 3;
+const MAX_RECOVERY_ATTEMPTS = 5;
 // Estados do pedido em que a geração de áudio está de facto a correr.
 const ACTIVE_REQUEST_STATUSES = ['music_processing', 'voice_processing', 'processing'];
 let intervalHandle: ReturnType<typeof setInterval> | null = null;

@@ -47,6 +47,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 const PERSIST_AUDIO_TIMEOUT_MS = 5 * 60_000; // 5 min total for download + fade + upload
+// Lightweight persist timeout: only download + upload (no ffmpeg processing)
+const PERSIST_LIGHT_TIMEOUT_MS = 3 * 60_000; // 3 min for download + upload only
 
 const VOICE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (Suno Voice expiry)
 
@@ -99,18 +101,45 @@ export async function updateRequestStatus(requestId: string, status: string, err
   throw error;
 }
 
-export async function persistGeneratedSunoAudio(songId: string, taskId: string, audioUrl: string) {
+export async function persistGeneratedSunoAudio(
+  songId: string,
+  taskId: string,
+  audioUrl: string,
+  opts?: { skipProcessing?: boolean; hintDuration?: number | null }
+) {
   const fileInfo = getAudioFileInfo(audioUrl);
   const tempSunoPath = path.join(os.tmpdir(), `${songId}_suno.${fileInfo.ext}`);
   const tempFadedPath = path.join(os.tmpdir(), `${songId}_faded.${fileInfo.ext}`);
   const tempPreviewPath = path.join(os.tmpdir(), `${songId}_preview.mp3`);
 
-  try {
-    await downloadFile(audioUrl, tempSunoPath);
+  const mem = () => { const m = process.memoryUsage(); return { rss: `${(m.rss / 1048576).toFixed(0)}MB`, heap: `${(m.heapUsed / 1048576).toFixed(0)}MB` }; };
 
+  try {
+    logInfo('[Workflow] persistGeneratedSunoAudio start', { songId, taskId, skipProcessing: !!opts?.skipProcessing, mem: mem() });
+    await downloadFile(audioUrl, tempSunoPath);
+    logInfo('[Workflow] Download complete', { songId, mem: mem() });
+
+    if (opts?.skipProcessing) {
+      // LIGHTWEIGHT PATH — no ffmpeg at all, upload raw audio directly to R2
+      // Used by recovery path to avoid OOM on 512MB free tier
+      const uploadSizeMB = (fs.statSync(tempSunoPath).size / (1024 * 1024)).toFixed(1);
+      const originalFilename = `songs/${songId}_original.${fileInfo.ext}`;
+      logInfo('[Workflow] Lightweight persist: uploading raw audio', { songId, taskId, sizeMB: uploadSizeMB, mem: mem() });
+      const fullAudioUrl = await withTimeout(
+        uploadFileToStorage('full-audio', originalFilename, tempSunoPath, fileInfo.mimeType),
+        UPLOAD_TIMEOUT_MS,
+        `uploadFileToStorage(full-audio/${originalFilename})`
+      );
+      logInfo('[Workflow] Lightweight persist: upload done', { songId, taskId, url: fullAudioUrl, mem: mem() });
+
+      const durationInt = opts.hintDuration != null ? Math.round(opts.hintDuration) : null;
+      return { taskId, fullAudioUrl, publicPreviewUrl: null as string | null, duration: durationInt };
+    }
+
+    // FULL PATH — download → duration check → fades → upload → preview
     // Guarda de duração: rejeitar clips parciais do Suno (~8s)
     const durationSec = await getAudioDuration(tempSunoPath);
-    logInfo('[Workflow] Audio duration check', { songId, taskId, durationSec });
+    logInfo('[Workflow] Audio duration check', { songId, taskId, durationSec, mem: mem() });
     if (durationSec > 0 && durationSec < MIN_SONG_DURATION_SEC) {
       throw new Error(
         `Áudio gerado demasiado curto (${durationSec.toFixed(1)}s < ${MIN_SONG_DURATION_SEC}s). O Suno devolveu apenas um clip parcial.`
@@ -120,6 +149,9 @@ export async function persistGeneratedSunoAudio(songId: string, taskId: string, 
 
     try {
       await applyFades(tempSunoPath, tempFadedPath);
+      logInfo('[Workflow] Fades complete, cleaning up original', { songId, mem: mem() });
+      // Delete original immediately to free memory before upload
+      try { fs.unlinkSync(tempSunoPath); } catch {}
     } catch (fadeErr) {
       logWarn('[Workflow] Fades falharam, a usar áudio original', fadeErr instanceof Error ? fadeErr : undefined);
       fs.copyFileSync(tempSunoPath, tempFadedPath);
@@ -130,19 +162,24 @@ export async function persistGeneratedSunoAudio(songId: string, taskId: string, 
     const uploadSizeMB = (fs.statSync(uploadSource).size / (1024 * 1024)).toFixed(1);
 
     const originalFilename = `songs/${songId}_original.${fileInfo.ext}`;
-    logInfo('[Workflow] Uploading full audio to storage', { songId, taskId, sizeMB: uploadSizeMB, provider: process.env.STORAGE_PROVIDER || 'r2' });
+    logInfo('[Workflow] Uploading full audio to storage', { songId, taskId, sizeMB: uploadSizeMB, provider: process.env.STORAGE_PROVIDER || 'r2', mem: mem() });
     const fullAudioUrl = await withTimeout(
       uploadFileToStorage('full-audio', originalFilename, uploadSource, fileInfo.mimeType),
       UPLOAD_TIMEOUT_MS,
       `uploadFileToStorage(full-audio/${originalFilename})`
     );
-    logInfo('[Workflow] Full audio uploaded successfully', { songId, taskId, url: fullAudioUrl });
+    logInfo('[Workflow] Full audio uploaded successfully', { songId, taskId, url: fullAudioUrl, mem: mem() });
+
+    // Delete faded file before preview to free memory
+    if (uploadSource === tempFadedPath) {
+      try { fs.unlinkSync(tempFadedPath); } catch {}
+    }
 
     const previewFilename = `previews/${songId}_preview.mp3`;
     let publicPreviewUrl: string | null = null;
     try {
       await createPreviewAudio(uploadSource, tempPreviewPath);
-      logInfo('[Workflow] Uploading preview to storage', { songId, taskId });
+      logInfo('[Workflow] Uploading preview to storage', { songId, taskId, mem: mem() });
       publicPreviewUrl = await withTimeout(
         uploadFileToStorage('preview', previewFilename, tempPreviewPath, 'audio/mpeg'),
         UPLOAD_TIMEOUT_MS,
@@ -164,7 +201,8 @@ async function completeSunoWorkflowFromAudio(
   requestId: string,
   songId: string,
   taskId: string,
-  audioUrl: string
+  audioUrl: string,
+  opts?: { skipProcessing?: boolean; hintDuration?: number | null }
 ) {
   const supabase = getAdminSupabase();
   if (!supabase) throw new Error('Supabase client nao inicializado.');
@@ -172,12 +210,13 @@ async function completeSunoWorkflowFromAudio(
   setProgress(requestId, { status: 'generating', progress: 60, message: 'Geração concluída no Suno. A descarregar ficheiro...' });
   setProgress(requestId, { status: 'generating', progress: 75, message: 'A guardar áudio original no Supabase Storage...' });
 
+  const persistTimeout = opts?.skipProcessing ? PERSIST_LIGHT_TIMEOUT_MS : PERSIST_AUDIO_TIMEOUT_MS;
   const { fullAudioUrl, publicPreviewUrl, duration } = await withTimeout(
-    persistGeneratedSunoAudio(songId, taskId, audioUrl),
-    PERSIST_AUDIO_TIMEOUT_MS,
+    persistGeneratedSunoAudio(songId, taskId, audioUrl, opts),
+    persistTimeout,
     `persistGeneratedSunoAudio(${songId})`
   );
-  logInfo(`[Background Suno] Saved original to full-audio`, { songId, taskId });
+  logInfo(`[Background Suno] Saved original to full-audio`, { songId, taskId, skipProcessing: !!opts?.skipProcessing });
 
   // Reusamos as colunas mureka_task_id e mureka_status no banco de dados para evitar migrations complexas
   const { error: songUpdateError } = await supabase
@@ -224,6 +263,19 @@ export async function resumeSunoTaskWorkflow(requestId: string, songId: string, 
     logInfo(`[Background Suno] Resuming task for Request`, { requestId, songId, taskId });
     setProgress(requestId, { status: 'processing', progress: 25, message: 'A consultar task Suno existente...' });
 
+    // Read regeneration_count and duration to decide skipProcessing
+    const { data: songData } = await supabase
+      .from('songs')
+      .select('regeneration_count, duration')
+      .eq('id', songId)
+      .maybeSingle();
+    const regenCount = songData?.regeneration_count ?? 0;
+    const dbDuration = songData?.duration ?? null;
+    const skipProcessing = regenCount > 0;
+    if (skipProcessing) {
+      logInfo(`[Background Suno] Recovery path: skipping fades/preview to avoid OOM`, { songId, regenCount, mem: `${(process.memoryUsage().rss / 1048576).toFixed(0)}MB` });
+    }
+
     await updateRequestStatus(requestId, 'music_processing');
     const { error: resumeSongError } = await supabase.from('songs').update({ mureka_status: 'processing' }).eq('id', songId);
     if (resumeSongError) throw resumeSongError;
@@ -234,8 +286,11 @@ export async function resumeSunoTaskWorkflow(requestId: string, songId: string, 
       logInfo(`[Background Suno] Resume poll`, { attempt: attempt + 1, status, hasAudio: !!audioUrl, requestId });
 
       if (audioUrl) {
-        await completeSunoWorkflowFromAudio(requestId, songId, taskId, audioUrl);
-        logInfo(`[Background Suno] Existing task completed`, { requestId });
+        await completeSunoWorkflowFromAudio(requestId, songId, taskId, audioUrl, {
+          skipProcessing,
+          hintDuration: dbDuration,
+        });
+        logInfo(`[Background Suno] Existing task completed`, { requestId, skipProcessing });
 
         // Send delivery/confirmation email after resume
         try {
