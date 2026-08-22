@@ -48,6 +48,16 @@ export async function createApp(): Promise<express.Application> {
       checks.supabase = `erro: ${e instanceof Error ? e.message : 'desconhecido'}`;
     }
 
+    // R2 storage diagnostic
+    checks.storage = `${getEnv('STORAGE_PROVIDER', 'r2')} (bucket: ${getEnv('R2_BUCKET_NAME', '?')})`;
+    checks.r2Vars = [
+      getEnv('R2_ACCOUNT_ID') ? 'account' : null,
+      getEnv('R2_ACCESS_KEY_ID') ? 'access' : null,
+      getEnv('R2_SECRET_ACCESS_KEY') ? 'secret' : null,
+      getEnv('R2_BUCKET_NAME') ? 'bucket' : null,
+      getEnv('R2_PUBLIC_DOMAIN') ? 'domain' : null,
+    ].filter(Boolean).join(',') || 'nenhuma';
+
     const [deepseek, gemini] = await Promise.all([
       checkDeepSeekCredits(),
       checkGeminiCredits(),

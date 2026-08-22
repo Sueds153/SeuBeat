@@ -3,6 +3,10 @@ import { Readable } from 'stream';
 import { uploadToSupabase } from './supabase';
 import { logInfo, logError, logWarn } from '../utils/logger';
 
+function getEnv(key: string, fallback = ''): string {
+  return process.env[key] || fallback;
+}
+
 interface AwsSdkModules {
   S3Client: typeof import('@aws-sdk/client-s3').S3Client;
   PutObjectCommand: typeof import('@aws-sdk/client-s3').PutObjectCommand;
@@ -93,6 +97,15 @@ export async function uploadFileToStorage(
   const r2 = await getR2Client();
   const { bucketName, publicDomain } = getR2Config();
 
+  logInfo('[Storage] uploadFileToStorage chamado', {
+    bucket, filename, mimeType,
+    provider,
+    r2ClientAvailable: !!r2,
+    bucketName: bucketName || '(vazio)',
+    publicDomain: publicDomain ? '(definido)' : '(vazio)',
+    conditionMet: !!(provider === 'r2' && r2 && bucketName && publicDomain),
+  });
+
   if (provider === 'r2' && r2 && bucketName && publicDomain) {
     try {
       const objectKey = `${bucket}/${filename}`;
@@ -125,8 +138,26 @@ export async function uploadFileToStorage(
       logInfo('[Storage] Ficheiro enviado com sucesso para Cloudflare R2', { bucket, filename, url: publicUrl });
       return publicUrl;
     } catch (err) {
-      logError('[Storage] Falha ao enviar para Cloudflare R2, a recorrer ao Supabase Storage', err, { bucket, filename });
+      logError('[Storage] Falha ao enviar para Cloudflare R2, a recorrer ao Supabase Storage', err, {
+        bucket, filename,
+        r2Account: getEnv('R2_ACCOUNT_ID') ? `${getEnv('R2_ACCOUNT_ID')!.slice(0,6)}...` : '(missing)',
+        bucketName,
+      });
     }
+  } else {
+    logWarn('[Storage] R2 NÃO utilizado — fallback para Supabase', {
+      provider,
+      r2Client: !!r2,
+      bucketName: !!bucketName,
+      publicDomain: !!publicDomain,
+      reason: provider !== 'r2'
+        ? `provider='${provider}'`
+        : !r2
+        ? 'r2Client=null (missing env vars or sdk load failed)'
+        : !bucketName
+        ? 'R2_BUCKET_NAME missing'
+        : 'R2_PUBLIC_DOMAIN missing',
+    });
   }
 
   if (typeof filePathOrBuffer === 'string') {
