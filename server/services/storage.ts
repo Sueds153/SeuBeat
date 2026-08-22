@@ -97,15 +97,6 @@ export async function uploadFileToStorage(
   const r2 = await getR2Client();
   const { bucketName, publicDomain } = getR2Config();
 
-  logInfo('[Storage] uploadFileToStorage chamado', {
-    bucket, filename, mimeType,
-    provider,
-    r2ClientAvailable: !!r2,
-    bucketName: bucketName || '(vazio)',
-    publicDomain: publicDomain ? '(definido)' : '(vazio)',
-    conditionMet: !!(provider === 'r2' && r2 && bucketName && publicDomain),
-  });
-
   if (provider === 'r2' && r2 && bucketName && publicDomain) {
     try {
       const objectKey = `${bucket}/${filename}`;
@@ -145,19 +136,7 @@ export async function uploadFileToStorage(
       });
     }
   } else {
-    logWarn('[Storage] R2 NÃO utilizado — fallback para Supabase', {
-      provider,
-      r2Client: !!r2,
-      bucketName: !!bucketName,
-      publicDomain: !!publicDomain,
-      reason: provider !== 'r2'
-        ? `provider='${provider}'`
-        : !r2
-        ? 'r2Client=null (missing env vars or sdk load failed)'
-        : !bucketName
-        ? 'R2_BUCKET_NAME missing'
-        : 'R2_PUBLIC_DOMAIN missing',
-    });
+    logInfo('[Storage] Fallback para Supabase Storage', { provider, r2Client: !!r2, bucketName: !!bucketName, publicDomain: !!publicDomain });
   }
 
   if (typeof filePathOrBuffer === 'string') {

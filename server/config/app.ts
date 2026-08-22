@@ -58,14 +58,7 @@ export async function createApp(): Promise<express.Application> {
       getEnv('R2_PUBLIC_DOMAIN') ? 'domain' : null,
     ].filter(Boolean).join(',') || 'nenhuma';
 
-    // Test AWS SDK dynamic import (one-shot gate in storage.ts)
-    try {
-      const t0 = Date.now();
-      const s3mod = await import('@aws-sdk/client-s3');
-      checks.r2Sdk = `ok (${Date.now() - t0}ms, exports: ${Object.keys(s3mod).length})`;
-    } catch (e: unknown) {
-      checks.r2Sdk = `FALHOU: ${e instanceof Error ? e.message : String(e)}`;
-    }
+
 
     const [deepseek, gemini] = await Promise.all([
       checkDeepSeekCredits(),
