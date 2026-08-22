@@ -932,7 +932,7 @@ export default function AdminPanel() {
       else if (activeView === 'diagnostics') fetchDiagnostics();
     }, 10000);
     return () => clearInterval(poll);
-  }, [activeView, authenticated, fetchPayments, fetchRequests, fetchSongs, fetchClientsList, fetchMetrics, fetchProfitability, fetchCampaigns, fetchAbandoned, fetchSendProgress, fetchCredits, fetchDiagnostics]);
+  }, [authenticated, fetchPayments, fetchRequests, fetchSongs, fetchClientsList, fetchMetrics, fetchProfitability, fetchCampaigns, fetchAbandoned, fetchSendProgress, fetchCredits, fetchDiagnostics]);
 
   // Notification check every 15s (independent of tab)
   useEffect(() => {
