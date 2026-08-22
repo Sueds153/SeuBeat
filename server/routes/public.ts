@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getAdminSupabase, getPublicSupabase, uploadToSupabase } from '../services/supabase';
+import { getAdminSupabase, uploadToSupabase } from '../services/supabase';
 import { uploadFileToStorage, createSignedStorageUrl, deleteStorageFile } from '../services/storage';
 import { convertToWav } from '../services/audio';
 import { getValidationPhrase } from '../services/suno-voice';
@@ -623,7 +623,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
     const { id } = req.params;
     if (!UUID_REGEX.test(id)) return res.status(400).json({ success: false, error: 'ID inválido.' });
 
-    const publicSupabase = getPublicSupabase();
+    const publicSupabase = getAdminSupabase();
     if (!publicSupabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
 
     logDebug('Fetching song', { songId: id });
@@ -948,7 +948,7 @@ router.post('/song/:id/rebuild-audio', globalLimiter, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/stats/today-count', async (_req, res) => {
   try {
-    const supabase = getPublicSupabase ? getPublicSupabase() : null;
+    const supabase = getAdminSupabase();
     if (!supabase) return res.json({ count: 847 });
 
     const today = new Date();
