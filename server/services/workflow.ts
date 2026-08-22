@@ -4,7 +4,7 @@ import os from 'os';
 import { getAdminSupabase } from './supabase';
 import { uploadFileToStorage, createSignedStorageUrl } from './storage';
 import { downloadFile, createPreviewAudio, applyFades, convertToWav, getAudioDuration } from './audio';
-import { querySunoTask, generateFullSong } from './suno';
+import { querySunoTask, startSunoMusic, pollSunoTask } from './suno';
 import { generateValidationPhrase, waitForValidationPhrase, createCustomVoice, waitForVoiceId, checkVoiceAvailability } from './suno-voice';
 import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification, sendWorkflowFailedEmail } from './email';
 import { getAudioFileInfo, getAppUrl } from '../utils/helpers';
@@ -17,6 +17,9 @@ const PROGRESS_TTL_MS = 30 * 60 * 1000; // 30 minutes
 // O Suno devolve clips parciais (~8s) em TEXT_SUCCESS/FIRST_SUCCESS;
 // estas devem ser rejeitadas para não entregar músicas incompletas.
 const MIN_SONG_DURATION_SEC = 30;
+
+// Timeout para upload de áudio ao storage (R2/Supabase) — evitar pendurados infinitos
+const UPLOAD_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
 
 export const requestProgressMap: Record<string, RequestProgress> = {};
 
@@ -124,15 +127,27 @@ export async function persistGeneratedSunoAudio(songId: string, taskId: string, 
 
     const fadedFileExists = fs.existsSync(tempFadedPath) && fs.statSync(tempFadedPath).size > 0;
     const uploadSource = fadedFileExists ? tempFadedPath : tempSunoPath;
+    const uploadSizeMB = (fs.statSync(uploadSource).size / (1024 * 1024)).toFixed(1);
 
     const originalFilename = `songs/${songId}_original.${fileInfo.ext}`;
-    const fullAudioUrl = await uploadFileToStorage('full-audio', originalFilename, uploadSource, fileInfo.mimeType);
+    logInfo('[Workflow] Uploading full audio to storage', { songId, taskId, sizeMB: uploadSizeMB, provider: process.env.STORAGE_PROVIDER || 'r2' });
+    const fullAudioUrl = await withTimeout(
+      uploadFileToStorage('full-audio', originalFilename, uploadSource, fileInfo.mimeType),
+      UPLOAD_TIMEOUT_MS,
+      `uploadFileToStorage(full-audio/${originalFilename})`
+    );
+    logInfo('[Workflow] Full audio uploaded successfully', { songId, taskId, url: fullAudioUrl });
 
     const previewFilename = `previews/${songId}_preview.mp3`;
     let publicPreviewUrl: string | null = null;
     try {
       await createPreviewAudio(uploadSource, tempPreviewPath);
-      publicPreviewUrl = await uploadFileToStorage('preview', previewFilename, tempPreviewPath, 'audio/mpeg');
+      logInfo('[Workflow] Uploading preview to storage', { songId, taskId });
+      publicPreviewUrl = await withTimeout(
+        uploadFileToStorage('preview', previewFilename, tempPreviewPath, 'audio/mpeg'),
+        UPLOAD_TIMEOUT_MS,
+        `uploadFileToStorage(preview/${previewFilename})`
+      );
     } catch (err) {
       logWarn('[Workflow] Preview de 30s falhou; áudio completo não será usado como preview', err instanceof Error ? err : undefined);
     }
@@ -353,8 +368,10 @@ export async function runBackgroundSunoWorkflow(
 
     setProgress(requestId, { status: 'generating', progress: 30, message: 'A submeter letra ao Suno AI...' });
 
-    const { taskId, audioUrl: finalAudioUrl } = await generateFullSong(lyrics, musicStyle, songTitle, personaId, extraParams);
+    // Passo 1: Criar task no Suno (leve — só HTTP POST)
+    const { taskId } = await startSunoMusic(lyrics, musicStyle, songTitle, personaId, extraParams);
 
+    // Passo 2: Gravar task_id IMEDIATAMENTE na BD — garante recovery se o processo morrer durante polling
     const { error: taskUpdateError } = await supabase
       .from('songs')
       .update({
@@ -363,6 +380,11 @@ export async function runBackgroundSunoWorkflow(
       })
       .eq('id', songId);
     if (taskUpdateError) throw taskUpdateError;
+    logInfo(`[Background Suno] Task ID saved to DB before polling`, { taskId, songId, requestId });
+
+    // Passo 3: Fazer polling do estado da task (pode demorar vários minutos)
+    const pollResult = await pollSunoTask(taskId, null, 'Suno');
+    const finalAudioUrl = pollResult.audioUrl;
 
     if (!finalAudioUrl) {
       setProgress(requestId, {
@@ -370,7 +392,7 @@ export async function runBackgroundSunoWorkflow(
         progress: 85,
         message: 'Suno ainda está a processar. A música ainda não está pronta.'
       });
-      logWarn(`[Background Suno] Task still processing after generation`, { taskId, requestId });
+      logWarn(`[Background Suno] Task still processing after polling`, { taskId, requestId });
       return;
     }
 

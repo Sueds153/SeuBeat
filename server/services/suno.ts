@@ -310,7 +310,7 @@ export function normalizeLyricsArray(lyrics: unknown): string[] {
   return [];
 }
 
-async function startSunoMusic(lyrics: string[] | string, musicStyle: string, songTitle: string, personaId?: string, extraParams?: { voiceType?: string; desiredEmotion?: string; referenceArtist?: string }): Promise<SunoResult> {
+export async function startSunoMusic(lyrics: string[] | string, musicStyle: string, songTitle: string, personaId?: string, extraParams?: { voiceType?: string; desiredEmotion?: string; referenceArtist?: string }): Promise<SunoResult> {
   const apiKey = process.env.SUNO_API_KEY;
   if (!apiKey) throw new Error('SUNO_API_KEY nao configurada.');
 
@@ -428,7 +428,7 @@ async function startSunoMusic(lyrics: string[] | string, musicStyle: string, son
   return { taskId, audioUrl: null, status: extractStatus(generateData) };
 }
 
-async function pollSunoTask(taskId: string, _immediateAudioUrl: string | null, label = 'Suno', maxAttempts = 30): Promise<SunoResult> {
+export async function pollSunoTask(taskId: string, _immediateAudioUrl: string | null, label = 'Suno', maxAttempts = 30): Promise<SunoResult> {
   // Não aceitar o áudio imediato: pode ser um clip parcial (ex: 8s) devolvido em
   // TEXT_SUCCESS/FIRST_SUCCESS. Esperar sempre pelo estado final SUCCESS.
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
