@@ -7,7 +7,7 @@ const INTERVAL_MS = 5 * 60 * 1000;
 // Uma geração legítima do Suno dura ~5-6 min (create-task + poll 30x10s). A música
 // só é tratada como "presa" se não tiver updates há mais de 15 min — assim nunca
 // interferimos com workflows em execução normal (que refrescam updated_at).
-const STALE_THRESHOLD_MS = Number(process.env.STUCK_RECOVERY_THRESHOLD_MS || 2 * 60 * 1000);
+const STALE_THRESHOLD_MS = Number(process.env.STUCK_RECOVERY_THRESHOLD_MS || 15 * 60 * 1000);
 // Estados do pedido em que a geração de áudio está de facto a correr.
 const ACTIVE_REQUEST_STATUSES = ['music_processing', 'voice_processing', 'processing'];
 let intervalHandle: ReturnType<typeof setInterval> | null = null;

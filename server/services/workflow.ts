@@ -285,7 +285,20 @@ export async function resumeSunoTaskWorkflow(requestId: string, songId: string, 
     logError('[Background Suno] Error while resuming task', err instanceof Error ? err : new Error(String(err)), { requestId, songId, taskId });
     setProgress(requestId, { status: 'failed', progress: 100, message: 'Erro na consulta Suno', error: err instanceof Error ? err.message : String(err) });
     await updateRequestStatus(requestId, 'failed', err instanceof Error ? err : new Error(String(err)));
-    await supabase.from('songs').update({ mureka_status: 'failed', mureka_task_id: null }).eq('id', songId);
+    // Only clear mureka_task_id if the DB still holds the same task ID.
+    // A concurrent workflow may have saved a different, valid task ID.
+    const resumeClearUpdate: Record<string, unknown> = { mureka_status: 'failed' };
+    const { data: resumeSong } = await supabase
+      .from('songs')
+      .select('mureka_task_id')
+      .eq('id', songId)
+      .maybeSingle();
+    if (resumeSong && resumeSong.mureka_task_id === taskId) {
+      resumeClearUpdate.mureka_task_id = null;
+    } else if (resumeSong?.mureka_task_id) {
+      logInfo('[Resume] Preserving task_id from concurrent workflow', { songId, currentTaskId: resumeSong.mureka_task_id, ourTaskId: taskId });
+    }
+    await supabase.from('songs').update(resumeClearUpdate).eq('id', songId);
 
     await rollbackSunoWorkflow(supabase, requestId, songId, err);
   }
@@ -301,6 +314,11 @@ export async function runBackgroundSunoWorkflow(
 ) {
   const supabase = getAdminSupabase();
   if (!supabase) throw new Error('Supabase client nao inicializado.');
+
+  // Track the task ID saved by THIS workflow instance. The catch block must only
+  // clear it if the DB still holds the same value — a concurrent workflow (from
+  // stuckMusicRecovery) may have saved a different, valid task ID in the meantime.
+  let ourTaskId: string | null = null;
 
   try {
     logInfo(`[Background Suno] Starting workflow`, { requestId, songId });
@@ -380,6 +398,7 @@ export async function runBackgroundSunoWorkflow(
       })
       .eq('id', songId);
     if (taskUpdateError) throw taskUpdateError;
+    ourTaskId = taskId;
     logInfo(`[Background Suno] Task ID saved to DB before polling`, { taskId, songId, requestId });
 
     // Passo 3: Fazer polling do estado da task (pode demorar vários minutos)
@@ -479,10 +498,26 @@ export async function runBackgroundSunoWorkflow(
     logError('[Background Suno] Error in background workflow', err instanceof Error ? err : new Error(String(err)), { requestId, songId });
     setProgress(requestId, { status: 'failed', progress: 100, message: 'Erro na geração Suno', error: err instanceof Error ? err.message : String(err) });
     await updateRequestStatus(requestId, 'failed', err instanceof Error ? err : new Error(String(err)));
-    await supabase
-      .from('songs')
-      .update({ mureka_status: 'failed', mureka_task_id: null })
-      .eq('id', songId);
+
+    // Only clear mureka_task_id if the DB still holds the task ID from THIS workflow
+    // instance. A concurrent workflow (from stuckMusicRecovery) may have saved a
+    // different, valid task ID — clearing it would orphan that task permanently.
+    const clearUpdate: Record<string, unknown> = { mureka_status: 'failed' };
+    if (ourTaskId) {
+      const { data: currentSong } = await supabase
+        .from('songs')
+        .select('mureka_task_id')
+        .eq('id', songId)
+        .maybeSingle();
+      if (currentSong && currentSong.mureka_task_id === ourTaskId) {
+        clearUpdate.mureka_task_id = null;
+      } else if (currentSong?.mureka_task_id) {
+        logInfo('[Background Suno] Preserving task_id from concurrent workflow', { songId, currentTaskId: currentSong.mureka_task_id, ourTaskId });
+      }
+    } else {
+      clearUpdate.mureka_task_id = null;
+    }
+    await supabase.from('songs').update(clearUpdate).eq('id', songId);
 
     await rollbackSunoWorkflow(supabase, requestId, songId, err);
   }
