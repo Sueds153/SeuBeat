@@ -1,6 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import fs from 'fs';
-import { uploadFileToStorage } from './storage';
 
 let adminClient: SupabaseClient | null = null;
 let publicClient: SupabaseClient | null = null;
@@ -32,10 +31,22 @@ export function getPublicSupabase(): SupabaseClient | null {
 }
 
 /**
- * Envia ficheiro para o storage (R2 se configurado, senão Supabase).
- * Mantém compatibilidade com a API existente.
+ * Upload direto para o Supabase Storage — usado como fallback quando o R2 falha.
+ * Usa o client Supabase em vez de chamar uploadFileToStorage (evita recursão circular).
  */
 export async function uploadToSupabase(bucket: string, filename: string, filePath: string, mimeType: string): Promise<string> {
+  const supabase = getAdminSupabase();
+  if (!supabase) throw new Error('Supabase client não inicializado para upload de fallback.');
+
   const fileBuffer = await fs.promises.readFile(filePath);
-  return uploadFileToStorage(bucket, filename, fileBuffer, mimeType);
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(filename, fileBuffer, { contentType: mimeType, upsert: true });
+
+  if (error) {
+    throw new Error(`Falha no upload para Supabase Storage: ${error.message}`);
+  }
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(filename);
+  return data.publicUrl;
 }

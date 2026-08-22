@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getAdminSupabase, uploadToSupabase } from '../services/supabase';
+import { getAdminSupabase } from '../services/supabase';
 import { uploadFileToStorage, createSignedStorageUrl, deleteStorageFile } from '../services/storage';
 import { convertToWav } from '../services/audio';
 import { getValidationPhrase } from '../services/suno-voice';
@@ -70,13 +70,7 @@ function parseAngolanAmount(value: string): number {
   return Number(cleaned.replace(/\./g, '')) || 0;
 }
 
-function publicUrlForStoragePath(supabase: NonNullable<ReturnType<typeof getAdminSupabase>>, bucket: string, path: string) {
-  const publicUrl = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
-  if (!publicUrl) {
-    throw new Error(`Não foi possível obter a URL pública para o ficheiro ${bucket}/${path}.`);
-  }
-  return publicUrl;
-}
+
 
 // Janela de reutilização: se o mesmo email já tiver uma letra lyrics_ready criada
 // nos últimos 10 min com os mesmos dados, devolvemos a letra existente em vez de
