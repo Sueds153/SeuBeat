@@ -163,20 +163,35 @@ export function createPreviewAudio(inputPath: string, outputPath: string): Promi
       return;
     }
 
-    ffmpeg(inputPath)
+    const PREVIEW_TIMEOUT_MS = 60_000; // 1 minute max for preview
+    let settled = false;
+    const cmd = ffmpeg(inputPath)
       .setStartTime(0)
       .setDuration(30)
       .audioFilters('afade=t=in:ss=0:d=3,afade=t=out:st=27:d=3')
       .output(outputPath)
       .on('end', () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(previewTimer);
         console.log('✅ Preview de 30s gerado com sucesso!');
         resolve();
       })
       .on('error', (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(previewTimer);
         console.error('❌ Erro no FFmpeg ao criar preview:', err);
         reject(err);
-      })
-      .run();
+      });
+    cmd.run();
+
+    const previewTimer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try { (cmd as any).kill('SIGKILL'); } catch {}
+      reject(new Error(`createPreviewAudio timeout after ${PREVIEW_TIMEOUT_MS}ms on ${inputPath}`));
+    }, PREVIEW_TIMEOUT_MS);
   });
 }
 
@@ -206,18 +221,33 @@ export async function applyFades(inputPath: string, outputPath: string): Promise
   const filter = `afade=t=in:ss=0:d=3,${fadeOutFilter}`;
 
   return new Promise((resolve, reject) => {
-    ffmpeg(inputPath)
+    const FADE_TIMEOUT_MS = 120_000; // 2 minutes max for fade processing
+    let settled = false;
+    const cmd = ffmpeg(inputPath)
       .audioFilters(filter)
       .output(outputPath)
       .on('end', () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(fadeTimer);
         console.log(`✅ Fades aplicados com sucesso! (duração: ${duration.toFixed(1)}s, fade-out em ${fadeOutStart.toFixed(1)}s)`);
         resolve();
       })
       .on('error', (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(fadeTimer);
         console.error('❌ Erro no FFmpeg ao aplicar fades:', err);
         reject(err);
-      })
-      .run();
+      });
+    cmd.run();
+
+    const fadeTimer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try { (cmd as any).kill('SIGKILL'); } catch {}
+      reject(new Error(`applyFades timeout after ${FADE_TIMEOUT_MS}ms on ${inputPath}`));
+    }, FADE_TIMEOUT_MS);
   });
 }
 

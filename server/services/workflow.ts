@@ -32,6 +32,19 @@ setInterval(() => {
   }
 }, 60_000).unref();
 
+// Global timeout wrapper to prevent infinite hangs (ffmpeg, uploads, etc.)
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`[Timeout] ${label} exceeded ${ms}ms`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+const PERSIST_AUDIO_TIMEOUT_MS = 5 * 60_000; // 5 min total for download + fade + upload
+
 const VOICE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days (Suno Voice expiry)
 
 interface SavedVoiceMeta {
@@ -144,7 +157,11 @@ async function completeSunoWorkflowFromAudio(
   setProgress(requestId, { status: 'generating', progress: 60, message: 'Geração concluída no Suno. A descarregar ficheiro...' });
   setProgress(requestId, { status: 'generating', progress: 75, message: 'A guardar áudio original no Supabase Storage...' });
 
-  const { fullAudioUrl, publicPreviewUrl, duration } = await persistGeneratedSunoAudio(songId, taskId, audioUrl);
+  const { fullAudioUrl, publicPreviewUrl, duration } = await withTimeout(
+    persistGeneratedSunoAudio(songId, taskId, audioUrl),
+    PERSIST_AUDIO_TIMEOUT_MS,
+    `persistGeneratedSunoAudio(${songId})`
+  );
   logInfo(`[Background Suno] Saved original to full-audio`, { songId, taskId });
 
   // Reusamos as colunas mureka_task_id e mureka_status no banco de dados para evitar migrations complexas
@@ -253,7 +270,7 @@ export async function resumeSunoTaskWorkflow(requestId: string, songId: string, 
     logError('[Background Suno] Error while resuming task', err instanceof Error ? err : new Error(String(err)), { requestId, songId, taskId });
     setProgress(requestId, { status: 'failed', progress: 100, message: 'Erro na consulta Suno', error: err instanceof Error ? err.message : String(err) });
     await updateRequestStatus(requestId, 'failed', err instanceof Error ? err : new Error(String(err)));
-    await supabase.from('songs').update({ mureka_status: 'failed' }).eq('id', songId);
+    await supabase.from('songs').update({ mureka_status: 'failed', mureka_task_id: null }).eq('id', songId);
 
     await rollbackSunoWorkflow(supabase, requestId, songId, err);
   }
@@ -442,7 +459,7 @@ export async function runBackgroundSunoWorkflow(
     await updateRequestStatus(requestId, 'failed', err instanceof Error ? err : new Error(String(err)));
     await supabase
       .from('songs')
-      .update({ mureka_status: 'failed' })
+      .update({ mureka_status: 'failed', mureka_task_id: null })
       .eq('id', songId);
 
     await rollbackSunoWorkflow(supabase, requestId, songId, err);
