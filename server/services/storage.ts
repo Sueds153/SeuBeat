@@ -94,18 +94,26 @@ export async function uploadFileToStorage(
 
   if (provider === 'r2' && r2 && bucketName && publicDomain) {
     try {
-      const body = typeof filePathOrBuffer === 'string'
-        ? fs.createReadStream(filePathOrBuffer)
-        : filePathOrBuffer;
-
       const objectKey = `${bucket}/${filename}`;
-
       const client = r2.client as import('@aws-sdk/client-s3').S3Client;
+
+      let body: Buffer | fs.ReadStream;
+      let contentLength: number | undefined;
+      if (typeof filePathOrBuffer === 'string') {
+        const stats = await fs.promises.stat(filePathOrBuffer);
+        body = fs.createReadStream(filePathOrBuffer);
+        contentLength = stats.size;
+      } else {
+        body = filePathOrBuffer;
+        contentLength = filePathOrBuffer.length;
+      }
+
       await client.send(new r2.sdk.PutObjectCommand({
         Bucket: bucketName,
         Key: objectKey,
         Body: body,
         ContentType: mimeType,
+        ContentLength: contentLength,
       }));
 
       const baseUrl = publicDomain.endsWith('/') ? publicDomain.slice(0, -1) : publicDomain;

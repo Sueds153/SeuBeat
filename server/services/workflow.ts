@@ -406,12 +406,13 @@ export async function runBackgroundSunoWorkflow(
     const finalAudioUrl = pollResult.audioUrl;
 
     if (!finalAudioUrl) {
+      logWarn(`[Background Suno] Task sem áudio após polling — a marcar como failed`, { taskId, requestId });
+      await supabase.from('songs').update({ mureka_status: 'failed' }).eq('id', songId);
       setProgress(requestId, {
-        status: 'processing',
-        progress: 85,
-        message: 'Suno ainda está a processar. A música ainda não está pronta.'
+        status: 'failed',
+        progress: 100,
+        message: 'Suno não devolveu áudio. A recriar automaticamente...'
       });
-      logWarn(`[Background Suno] Task still processing after polling`, { taskId, requestId });
       return;
     }
 
