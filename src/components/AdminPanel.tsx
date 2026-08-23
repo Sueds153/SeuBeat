@@ -963,10 +963,6 @@ export default function AdminPanel() {
   useEffect(() => { setPayPage(1); }, [paymentSearchQuery, payStatusFilter]);
   useEffect(() => { setSongPage(1); }, [songSearchQuery, songStatusFilter]);
 
-  useEffect(() => { setReqPage(1); }, [activeView]);
-  useEffect(() => { setPayPage(1); }, [activeView]);
-  useEffect(() => { setSongPage(1); }, [activeView]);
-
   // Refresh data when window regains focus
   useEffect(() => {
     if (!authenticated) return;
