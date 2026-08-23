@@ -468,14 +468,14 @@ export default function AdminPanel() {
     ? (waBlocked ? 'bg-amber-500/15 text-amber-400' : 'bg-emerald-500/15 text-emerald-400')
     : 'bg-rose-500/15 text-rose-400';
 
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     setToast({ message, type });
     toastTimeoutRef.current = setTimeout(() => {
       setToast(null);
       toastTimeoutRef.current = null;
     }, 4000);
-  };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -486,9 +486,12 @@ export default function AdminPanel() {
     };
   }, []);
 
-  const apiHeaders: Record<string, string> = adminToken 
-    ? { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' }
-    : { 'Content-Type': 'application/json' };
+  const apiHeaders = useMemo<Record<string, string>>(() => 
+    adminToken
+      ? { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' }
+      : { 'Authorization': '', 'Content-Type': 'application/json' },
+    [adminToken]
+  );
 
   const handleFetchError = useCallback(async (res: Response) => {
     if (res.ok) return true;
@@ -962,24 +965,6 @@ export default function AdminPanel() {
   useEffect(() => { setReqPage(1); }, [searchQuery, reqStatusFilter]);
   useEffect(() => { setPayPage(1); }, [paymentSearchQuery, payStatusFilter]);
   useEffect(() => { setSongPage(1); }, [songSearchQuery, songStatusFilter]);
-
-  // Refresh data when window regains focus
-  useEffect(() => {
-    if (!authenticated) return;
-    const onFocus = () => {
-      if (activeView === 'payments') fetchPayments();
-      else if (activeView === 'requests') { fetchRequests(); fetchProgress(); }
-      else if (activeView === 'songs') fetchSongs();
-      else if (activeView === 'clients') fetchClientsList();
-      else if (activeView === 'metrics') { fetchMetrics(); fetchProfitability(); }
-      else if (activeView === 'campaigns') fetchCampaigns();
-      else if (activeView === 'abandoned') { fetchAbandoned(abandonedRange); fetchSendProgress(); }
-      else if (activeView === 'credits') fetchCredits();
-      else if (activeView === 'diagnostics') fetchDiagnostics();
-    };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
-  }, [authenticated]);
 
   // login handler removido — ver handleLogin acima
 
