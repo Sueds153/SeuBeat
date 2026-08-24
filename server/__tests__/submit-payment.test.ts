@@ -382,7 +382,9 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
 
     expect(res.status).toBe(400);
     const body = await res.json();
-    expect(body.error).toContain('Método de pagamento');
+    expect(body.error).toBe('Dados de pagamento inválidos');
+    expect(body.validation_errors).toBeDefined();
+    expect(body.validation_errors.some((e: { field: string }) => e.field.includes('paymentMethod'))).toBe(true);
     expect(sb.insertCalls).toHaveLength(0);
   });
 

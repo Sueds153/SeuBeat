@@ -17,15 +17,17 @@ function sanitize(str: string): string {
   return DOMPurify.sanitize(str.trim().slice(0, 5000));
 }
 import { setProgress, updateRequestStatus, runBackgroundSunoWorkflow } from '../services/workflow';
-import { publicErrorMessage, getAppUrl, logRouteError, kzToUsd } from '../utils/helpers';
+import { publicErrorMessage, getAppUrl, logRouteError, kzToUsd, toCamelCase } from '../utils/helpers';
 import { allFailuresTransient, LYRIC_GENERATION_QUEUED_MESSAGE } from '../utils/aiFailure';
 import { 
   GenerateLyricsSchema, 
   UpdateLyricsSchema,
+  SubmitPaymentSchema,
+  VoiceValidationPhraseSchema,
   validateInput,
   validationErrorsArray
-} from '../middleware/validation';
-import type { GenerateLyricsInput } from '../middleware/validation';
+} from '../shared/validation';
+import type { GenerateLyricsInput, SubmitPaymentInput, VoiceValidationPhraseInput } from '../shared/validation';
 import { 
   globalLimiter,
   generateLyricsLimiter, 
@@ -736,7 +738,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       status: requestStatus
     };
 
-    return res.json({ success: true, data: publicData });
+    return res.json({ success: true, data: toCamelCase(publicData) });
   } catch (err: unknown) {
     logError('[API] Falha ao consultar musica publica', err instanceof Error ? err : new Error(String(err)), { songId: req.params.id });
     res.status(500).json({ success: false, error: 'Nao foi possivel consultar a musica.' });
@@ -966,6 +968,10 @@ router.get('/stats/today-count', async (_req, res) => {
 
 router.post('/submit-payment', paymentLimiter, async (req, res) => {
   try {
+    const validation = validateInput(SubmitPaymentSchema, req.body);
+    if (!validation.success) {
+      return res.status(400).json({ success: false, error: 'Dados de pagamento inválidos', validation_errors: validationErrorsArray(validation.errors) });
+    }
     const { 
       songRequestId, userEmail, phone, plan, amount, 
       proofBase64, proofFilename, proofMimeType, 
@@ -973,15 +979,10 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       voiceValidationTaskId, voiceValidationPhrase,
       paymentMethod,
       eventIds 
-    } = req.body;
+    } = validation.data;
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
-    if (!songRequestId) return res.status(400).json({ success: false, error: 'ID do pedido em falta.' });
-    if (!userEmail) return res.status(400).json({ success: false, error: 'Email do cliente em falta.' });
-    if (typeof userEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) return res.status(400).json({ success: false, error: 'Email inválido.' });
-    if (!['standard', 'express', 'premium'].includes(plan)) return res.status(400).json({ success: false, error: 'Plano invalido.' });
     const resolvedPaymentMethod = paymentMethod || 'reference';
-    if (!['express', 'reference'].includes(resolvedPaymentMethod)) return res.status(400).json({ success: false, error: 'Método de pagamento inválido.' });
 
     const parsedAmount = typeof amount === 'string' ? parseAngolanAmount(amount) : typeof amount === 'number' && !isNaN(amount) ? amount : 0;
     const ALLOWED_AMOUNTS: Record<string, number[]> = {
@@ -1223,17 +1224,13 @@ function voiceLangFor(language: unknown): string {
 router.post('/song/voice/validation-phrase', voiceValidationLimiter, async (req, res) => {
   const tempFiles: string[] = [];
   try {
-    const { voiceSampleBase64, voiceSampleMimeType, language } = req.body;
-    if (!voiceSampleBase64 || typeof voiceSampleBase64 !== 'string') {
-      return res.status(400).json({ success: false, error: 'Amostra de voz em falta.' });
+    const validation = validateInput(VoiceValidationPhraseSchema, req.body);
+    if (!validation.success) {
+      return res.status(400).json({ success: false, error: 'Dados de validação de voz inválidos', validation_errors: validationErrorsArray(validation.errors) });
     }
+    const { voiceSampleBase64, voiceSampleMimeType, language } = validation.data;
 
     const resolvedMime = voiceSampleMimeType || 'audio/wav';
-    const ALLOWED_VOICE_MIMES = ['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/x-wav', 'audio/webm'];
-    if (!ALLOWED_VOICE_MIMES.includes(resolvedMime)) {
-      return res.status(400).json({ success: false, error: 'Formato de áudio inválido. Apenas WAV, MP3, MP4 ou OGG.' });
-    }
-
     const voiceBuffer = decodeBase64Payload(voiceSampleBase64);
     if (voiceBuffer.length > 5 * 1024 * 1024) {
       return res.status(400).json({ success: false, error: 'Amostra de voz demasiado grande. Máx. 5MB.' });

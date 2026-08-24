@@ -103,3 +103,19 @@ export function getAppUrl(req?: Request): string {
 export function kzToUsd(kz: number): number {
   return Math.round((kz / ENV.USD_TO_KZ_RATE) * 100) / 100;
 }
+
+export function toCamelCase(obj: Record<string, unknown>): Record<string, unknown> {
+  if (!obj || typeof obj !== 'object') return obj;
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      result[camelKey] = toCamelCase(value as Record<string, unknown>);
+    } else if (Array.isArray(value)) {
+      result[camelKey] = value.map(v => (v && typeof v === 'object' ? toCamelCase(v as Record<string, unknown>) : v));
+    } else {
+      result[camelKey] = value;
+    }
+  }
+  return result;
+}

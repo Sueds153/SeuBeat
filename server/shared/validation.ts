@@ -128,3 +128,35 @@ export function validateInput<T>(schema: z.ZodSchema<T>, data: unknown): { succe
     return { success: false, errors: { general: 'Erro de validação desconhecido' } };
   }
 }
+
+export const SubmitPaymentSchema = z.object({
+  songRequestId: z.string().min(1, 'ID do pedido requerido'),
+  userEmail: z.string().email('Email inválido').toLowerCase(),
+  phone: z.string().regex(/^\+?[\d\s()-]{7,18}$/, 'Telefone inválido').optional(),
+  plan: z.enum(['standard', 'express', 'premium']),
+  amount: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseFloat(v) : v).refine(v => !isNaN(v) && v > 0, 'Montante inválido'),
+  proofBase64: z.string().max(10 * 1024 * 1024, 'Comprovativo demasiado grande (max 10MB)').optional().nullable(),
+  proofFilename: z.string().max(255).trim().optional().nullable(),
+  proofMimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']).optional().nullable(),
+  voiceSampleBase64: z.string().max(5 * 1024 * 1024, 'Amostra de voz demasiado grande (max 5MB)').optional().nullable(),
+  voiceSampleFilename: z.string().max(255).trim().optional().nullable(),
+  voiceSampleMimeType: z.enum(['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/x-wav', 'audio/webm']).optional().nullable(),
+  voiceValidationTaskId: z.string().trim().optional().nullable(),
+  voiceValidationPhrase: z.string().trim().optional().nullable(),
+  paymentMethod: z.enum(['express', 'reference']).optional().nullable().default('reference'),
+  eventIds: z.object({
+    initiateCheckout: z.string().optional(),
+    addPaymentInfo: z.string().optional(),
+    submitApplication: z.string().optional(),
+  }).optional().nullable(),
+});
+
+export type SubmitPaymentInput = z.infer<typeof SubmitPaymentSchema>;
+
+export const VoiceValidationPhraseSchema = z.object({
+  voiceSampleBase64: z.string().max(5 * 1024 * 1024, 'Amostra de voz demasiado grande (max 5MB)'),
+  voiceSampleMimeType: z.enum(['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/x-wav', 'audio/webm']).optional().nullable().default('audio/wav'),
+  language: z.string().optional().nullable().default('português'),
+});
+
+export type VoiceValidationPhraseInput = z.infer<typeof VoiceValidationPhraseSchema>;
