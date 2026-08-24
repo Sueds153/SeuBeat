@@ -4,27 +4,36 @@ export interface SongApiResponse {
   success: boolean;
   data?: {
     id: string;
+    requestId: string;
     title?: string;
     lyrics?: string[];
-    audio_url?: string;
-    letter_text?: string;
-    dedication_letter?: string;
-    recipient_name?: string;
-    user_name?: string;
-    music_style?: string;
+    audioUrl?: string;
+    letterText?: string;
+    dedicationLetter?: string;
+    recipientName?: string;
+    userName?: string;
+    musicStyle?: string;
     memory?: string;
     occasion?: string;
     relationship?: string;
-    desired_emotion?: string;
-    voice_type?: string;
-    recipient_gender?: string;
-    photo_url?: string;
+    desiredEmotion?: string;
+    voiceType?: string;
+    recipientGender?: string;
+    photoUrl?: string;
     status?: string;
-    song_requests?: {
-      recipient_name?: string;
-      music_style?: string;
+    lyricsSnippet?: string;
+    regenerationCount?: number;
+    duration?: number;
+    createdAt?: string;
+    updatedAt?: string;
+    murekaStatus?: string;
+    previewUrl?: string;
+    elevenlabsVoiceId?: string | null;
+    songRequests?: {
+      recipientName?: string;
+      musicStyle?: string;
       memory?: string;
-      photo_url?: string;
+      photoUrl?: string;
       users?: {
         name?: string;
       };

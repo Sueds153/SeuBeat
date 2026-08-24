@@ -128,12 +128,12 @@ function normalizeLyrics(raw: unknown): string[] {
 }
 
 function applyFetchedSong(prev: SongDetails, dbSong: NonNullable<NonNullable<import('../api/song').SongApiResponse['data']>>): SongDetails {
-  const dbRequest = dbSong.song_requests;
-  const recipientName = dbRequest?.recipient_name || dbSong.recipient_name || prev.recipientName;
-  const userNick = dbRequest?.users?.name || dbSong.user_name || prev.userNick;
-  const musicStyle = dbRequest?.music_style || dbSong.music_style || prev.musicStyle;
+  const dbRequest = dbSong.songRequests;
+  const recipientName = dbRequest?.recipientName || dbSong.recipientName || prev.recipientName;
+  const userNick = dbRequest?.users?.name || dbSong.userName || prev.userNick;
+  const musicStyle = dbRequest?.musicStyle || dbSong.musicStyle || prev.musicStyle;
   const memory = dbRequest?.memory || dbSong.memory || prev.memory;
-  const photoUrl = dbRequest?.photo_url || dbSong.photo_url || prev.photoUrl;
+  const photoUrl = dbRequest?.photoUrl || dbSong.photoUrl || prev.photoUrl;
 
   return {
     ...prev,
@@ -145,13 +145,13 @@ function applyFetchedSong(prev: SongDetails, dbSong: NonNullable<NonNullable<imp
     memory,
     occasion: dbSong.occasion || prev.occasion,
     relationship: dbSong.relationship || prev.relationship,
-    desiredEmotion: dbSong.desired_emotion || prev.desiredEmotion,
-    voiceType: dbSong.voice_type || prev.voiceType,
-    recipientGender: dbSong.recipient_gender || prev.recipientGender,
-    letter: dbSong.letter_text || prev.letter,
+    desiredEmotion: dbSong.desiredEmotion || prev.desiredEmotion,
+    voiceType: dbSong.voiceType || prev.voiceType,
+    recipientGender: dbSong.recipientGender || prev.recipientGender,
+    letter: dbSong.letterText || prev.letter,
     songTitle: dbSong.title || prev.songTitle,
     lyrics: normalizeLyrics(dbSong.lyrics) || prev.lyrics,
-    audioUrl: dbSong.audio_url || prev.audioUrl,
+    audioUrl: dbSong.audioUrl || prev.audioUrl,
     photoUrl,
     status: dbSong.status || prev.status,
   };
