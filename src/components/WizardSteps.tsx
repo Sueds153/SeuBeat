@@ -1,31 +1,41 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  Upload, MapPin, Mail, Phone
+  Upload, MapPin, Mail, Phone, Cake, Heart as HeartIcon, GraduationCap, Home, Baby, Star, Sparkles, Calendar, Gift, Music, User
 } from 'lucide-react';
 import {
   RecipientType, OccasionType, MusicStyleType, VoiceType, WizardData, RecipientGender
 } from '../types';
 import { formatPhoneNumber } from '../lib/validation';
+import { PRICING_PLANS } from '../constants/pricing';
 
 interface StepProps {
   formData: WizardData;
   setFormData: React.Dispatch<React.SetStateAction<WizardData>>;
   fieldErrors?: Record<string, string>;
   relationshipCards: readonly { type: string; label: string; icon: string }[];
-  occasionCards: readonly { type: string; label: string; icon: string }[];
+  occasionCards: readonly { type: string; label: string; icon: React.ReactNode }[];
   musicStyleCards: readonly { style: string; label: string; desc: string; icon: string }[];
   voiceCards: readonly { type: string; label: string; desc: string }[];
   photoFileRef: React.RefObject<HTMLInputElement | null>;
   handlePhotoChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   todayCount: number;
+  step: number;
+  onFieldBlur?: (field: string, value: string) => void;
 }
 
+const STARTING_PRICE = PRICING_PLANS[0]?.price || '7.900 Kz';
+
 export function Step1Relation({
-  formData, setFormData, relationshipCards, fieldErrors, todayCount
-}: Pick<StepProps, 'formData' | 'setFormData' | 'relationshipCards' | 'fieldErrors' | 'todayCount'>) {
+  formData, setFormData, relationshipCards, fieldErrors, todayCount, step, onFieldBlur
+}: Pick<StepProps, 'formData' | 'setFormData' | 'relationshipCards' | 'fieldErrors' | 'todayCount' | 'step' | 'onFieldBlur'>) {
   return (
     <div className="space-y-4 pt-2">
-      <label className="text-xs font-mono text-stone-400 block font-semibold">Para quem é esta canção? (Selecione)</label>
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-mono text-stone-400 block font-semibold">Para quem é esta canção? (Selecione)</label>
+        <span className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider">
+          💰 A partir de {STARTING_PRICE}
+        </span>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {relationshipCards.map((card) => {
           const isSelected = formData.recipientRelation === card.type;
@@ -63,6 +73,7 @@ export function Step1Relation({
             maxLength={100}
             value={formData.recipientName}
             onChange={(e) => setFormData(prev => ({ ...prev, recipientName: e.target.value }))}
+            onBlur={(e) => onFieldBlur?.('recipientName', e.target.value)}
             className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300"
           />
           {fieldErrors?.recipientName && (
@@ -108,11 +119,16 @@ export function Step1Relation({
 }
 
 export function Step2Occasion({
-  formData, setFormData, occasionCards, fieldErrors
-}: Pick<StepProps, 'formData' | 'setFormData' | 'occasionCards' | 'fieldErrors'>) {
+  formData, setFormData, occasionCards, fieldErrors, step
+}: Pick<StepProps, 'formData' | 'setFormData' | 'occasionCards' | 'fieldErrors' | 'step'>) {
   return (
     <div className="space-y-4 pt-2">
-      <label className="text-xs font-mono text-stone-400 block font-semibold">Selecione a Ocasião</label>
+      <div className="flex items-center justify-between">
+        <label className="text-xs font-mono text-stone-400 block font-semibold">Selecione a Ocasião</label>
+        <span className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider">
+          💰 A partir de {STARTING_PRICE}
+        </span>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {occasionCards.map((card) => {
           const isSelected = formData.occasion === card.type;

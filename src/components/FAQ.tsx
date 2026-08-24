@@ -1,92 +1,127 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useState } from 'react';
+import { ChevronDown, ChevronUp, Search, X, HelpCircle } from 'lucide-react';
+import { FAQ_ITEMS, FAQ_CATEGORIES } from '../lib/faq';
 
-interface FAQItem {
-  question: string;
-  answer: string;
+interface FAQProps {
+  showSearch?: boolean;
+  showCategories?: boolean;
+  compact?: boolean;
+  onClose?: () => void;
 }
 
-const FAQ_ITEMS: FAQItem[] = [
-  {
-    question: "Como funciona a criação artística das músicas?",
-    answer: "É simples e emocionante! No nosso assistente, partilha memórias reais, alcunhas, piadas e mensagens do fundo do coração. O nosso estúdio de composição criativa desenvolve um poema lírico personalizado com rimas ricas e naturais em ritmos como Kizomba, Semba, R&B ou Pop. Um talentoso vocalista digital de estúdio interpreta depois a letra com instrumentistas de excelência, resultando numa faixa personalizada real e incrivelmente emocionante."
-  },
-  {
-    question: "Quanto tempo demora a entrega da minha música?",
-    answer: "Standard: entrega em 24h · Express: entrega imediata · Premium: 24h (timbre personalizado)."
-  },
-  {
-    question: "Posso sugerir alterações se não gostar de algum detalhe?",
-    answer: "Pode editar a letra à vontade depois de gerada — corrigir nomes, alcunhas ou frases. Também pode regenerar a letra até 2 vezes se quiser um tom diferente. A música só é gerada após aprovar a letra e o pagamento."
-  },
-  {
-    question: "Como funciona a opção 'A Minha Própria Voz' (Premium)?",
-    answer: "Após escolher o plano Premium, grava um áudio curto (telemóvel ou PC). A sua assinatura vocal é aplicada à música final — o cantor canta com o seu timbre."
-  },
-  {
-    question: "De que forma recebo a música pronta?",
-    answer: "A música é entregue através de um link exclusivo no seu e-mail. Esse link abre uma página de dedicatória lindíssima, personalizada com a foto que carregou, as letras animadas e um leitor interativo. Também poderá descarregar em MP3."
-  },
-  {
-    question: "Como posso efetuar o pagamento seguro em Angola?",
-    answer: "Pagamento por referência Multicaixa (Entidade 10116, Referência 929423278). No final do wizard encontras o passo a passo completo para ATM ou Multicaixa Express."
-  }
-];
+export function FAQ({ showSearch = true, showCategories = true, compact = false, onClose }: FAQProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [openItems, setOpenItems] = useState<Set<number>>(new Set());
 
-export default function FAQ() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const filteredItems = FAQ_ITEMS.filter(item => {
+    const matchesSearch = item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.answer.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'all' || item.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
 
-  const toggleItem = (idx: number) => {
-    setOpenIndex(openIndex === idx ? null : idx);
+  const toggleItem = (index: number) => {
+    const next = new Set(openItems);
+    if (next.has(index)) next.delete(index);
+    else next.add(index);
+    setOpenItems(next);
   };
 
-  return (
-    <div id="faq-accordions" className="max-w-3xl mx-auto space-y-4">
-      {FAQ_ITEMS.map((item, idx) => {
-        const isOpen = openIndex === idx;
-        return (
-          <div
-            key={idx}
-            className="border border-stone-800 bg-stone-900/40 hover:bg-stone-900/60 rounded-2xl transition-all duration-300 relative overflow-hidden"
-          >
-            <button
-              id={`faq-toggle-btn-${idx}`}
-              onClick={() => toggleItem(idx)}
-              className="w-full px-6 py-5 flex items-center justify-between text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
-            >
-              <div className="flex items-center gap-3">
-                <HelpCircle className="w-5 h-5 text-amber-500/85 shrink-0" />
-                <span className="text-stone-200 font-medium text-sm md:text-base pr-4">
-                  {item.question}
-                </span>
-              </div>
-              <div>
-                {isOpen ? (
-                  <ChevronUp className="w-4 h-4 text-amber-400 shrink-0" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-stone-500 shrink-0" />
-                )}
-              </div>
-            </button>
+  const isOpen = (index: number) => openItems.has(index);
 
-            <AnimatePresence initial={false}>
-              {isOpen && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.25, ease: 'easeInOut' }}
-                >
-                  <div className="px-6 pb-6 pt-1 text-sm md:text-base text-stone-400 border-t border-stone-800/60 leading-relaxed font-sans mt-1">
-                    {item.answer}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+  return (
+    <div className="space-y-4">
+      {onClose && (
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={onClose}
+            className="p-2 text-stone-400 hover:text-stone-200 transition-colors rounded-lg hover:bg-stone-800/50"
+            aria-label="Fechar FAQ"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
+      {showSearch && (
+        <div className="relative mb-4">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-500" />
+          <input
+            type="text"
+            placeholder="Procurar nas perguntas frequentes..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium placeholder-stone-700"
+          />
+        </div>
+      )}
+
+      {showCategories && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => setSelectedCategory('all')}
+            className={`px-3 py-1.5 rounded-full text-xs font-mono font-medium transition-all ${
+              selectedCategory === 'all'
+                ? 'bg-amber-500/20 border border-amber-500/30 text-amber-400'
+                : 'bg-stone-950 border border-stone-800 text-stone-400 hover:text-stone-200 hover:border-stone-700'
+            }`}
+          >
+            Todas
+          </button>
+          {FAQ_CATEGORIES.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`px-3 py-1.5 rounded-full text-xs font-mono font-medium transition-all ${
+                selectedCategory === cat
+                  ? 'bg-amber-500/20 border border-amber-500/30 text-amber-400'
+                  : 'bg-stone-950 border border-stone-800 text-stone-400 hover:text-stone-200 hover:border-stone-700'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {filteredItems.length === 0 ? (
+          <div className="text-center py-8 text-stone-500">
+            <HelpCircle className="w-8 h-8 mx-auto mb-2 text-stone-600" />
+            <p className="text-sm">Nenhuma pergunta encontrada.</p>
           </div>
-        );
-      })}
+        ) : (
+          filteredItems.map((item, index) => {
+            const originalIndex = FAQ_ITEMS.indexOf(item);
+            return (
+              <div key={index} className="bg-stone-950/50 border border-stone-800 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => toggleItem(originalIndex)}
+                  className="w-full px-4 py-3.5 text-left flex items-center justify-between gap-3"
+                  aria-expanded={isOpen(originalIndex)}
+                >
+                  <span className="text-stone-200 text-xs sm:text-sm font-medium leading-relaxed pr-8">
+                    {item.question}
+                  </span>
+                  {isOpen(originalIndex) ? (
+                    <ChevronUp className="w-5 h-5 text-amber-400 shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-stone-500 shrink-0" />
+                  )}
+                </button>
+                <div className={`overflow-hidden transition-all duration-300 ${isOpen(originalIndex) ? 'max-h-96 pb-4' : 'max-h-0'}`}>
+                  <div className="px-4 text-stone-400 text-xs sm:text-sm leading-relaxed font-sans">
+                    {item.answer.split('\n').map((line, i) => (
+                      <p key={i} className="mb-2 last:mb-0">{line}</p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }

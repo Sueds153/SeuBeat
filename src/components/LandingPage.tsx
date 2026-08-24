@@ -5,7 +5,7 @@ import LogoIcon from './LogoIcon';
 import AudioDemo from './AudioDemo';
 import Testimonials from './Testimonials';
 import VideoTestimonial from './VideoTestimonial';
-import FAQ from './FAQ';
+import { FAQ } from './FAQ';
 import { PRICING_PLANS } from '../constants/pricing';
 import { WHATSAPP_URL } from '../constants/whatsapp';
 import { fbViewContent, parsePrice } from '../lib/metaPixel';

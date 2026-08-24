@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   ArrowRight, ArrowLeft, Heart, Sparkles, Check, Upload,
   Mic, Mail, Eye, Lock, RefreshCw, Play, AlertTriangle, ShieldCheck, Copy,
-  Send, FileText
+  Send, FileText, Cake, Heart as HeartIcon, GraduationCap, Home, Baby, Star, Sparkles as SparklesIcon, Calendar, Gift, Music, User, MessageSquare, Crown, PartyPopper, HelpCircle, ChevronDown, ChevronUp, Search, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import StepErrorBoundary from './StepErrorBoundary';
@@ -31,6 +31,7 @@ import { safeUUID } from '../lib/uuid';
 import { buildTeaser, loadTeaserEdits, saveTeaserEdits, clearTeaserEdits, isTeaserEnabled, resetTeaserEnabledCache } from '../lib/lyricsTeaser';
 import { compressImage } from '../lib/imageCompression';
 import LyricsTeaserPreview from './LyricsTeaserPreview';
+import { FAQ } from './FAQ';
 
 interface WizardProps {
   onBackToLanding: () => void;
@@ -98,15 +99,15 @@ const RELATIONSHIP_CARDS = [
 ];
 
 const OCCASION_CARDS = [
-  { type: 'Aniversário', label: 'Aniversário', icon: '🎂' },
-  { type: 'Aniversário de namoro', label: 'Aniversário de namoro', icon: '💕' },
-  { type: 'Casamento', label: 'Casamento', icon: '💍' },
-  { type: 'Declaração', label: 'Declaração de amor', icon: '❤️' },
-  { type: 'Agradecimento', label: 'Agradecimento', icon: '🙏' },
-  { type: 'Homenagem', label: 'Homenagem', icon: '🏆' },
-  { type: 'Pedido de desculpas', label: 'Pedido de desculpas', icon: '💔' },
-  { type: 'Saudade', label: 'Saudade', icon: '📍' },
-  { type: 'Sem motivo', label: 'Sem motivo', icon: '✨' }
+  { type: 'Aniversário', label: 'Aniversário', icon: <Cake className="w-5 h-5" /> },
+  { type: 'Aniversário de namoro', label: 'Aniv. Namoro', icon: <HeartIcon className="w-5 h-5" /> },
+  { type: 'Casamento', label: 'Casamento', icon: <HeartIcon className="w-5 h-5" /> },
+  { type: 'Declaração', label: 'Declaração', icon: <HeartIcon className="w-5 h-5" /> },
+  { type: 'Agradecimento', label: 'Agradecimento', icon: <Star className="w-5 h-5" /> },
+  { type: 'Homenagem', label: 'Homenagem', icon: <Crown className="w-5 h-5" /> },
+  { type: 'Pedido de desculpas', label: 'Desculpas', icon: <MessageSquare className="w-5 h-5" /> },
+  { type: 'Saudade', label: 'Saudade', icon: <HeartIcon className="w-5 h-5" /> },
+  { type: 'Sem motivo', label: 'Sem motivo', icon: <SparklesIcon className="w-5 h-5" /> }
 ];
 
 const MUSIC_STYLE_CARDS = [
@@ -163,6 +164,12 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [addonSecondStyle, setAddonSecondStyle] = useState(false);
   const [addonPrintableCover, setAddonPrintableCover] = useState(false);
   const [countdownDisplay, setCountdownDisplay] = useState<string | null>(null);
+  const [expiryTimestamp, setExpiryTimestamp] = useState<number | null>(null);
+
+  const setCountdownDisplayExpiry = (expiresAt: string) => {
+    const expiryMs = new Date(expiresAt).getTime();
+    setExpiryTimestamp(expiryMs);
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingStage, setProcessingStage] = useState(0);
   const [rotatingMsgIndex, setRotatingMsgIndex] = useState(0);
@@ -531,6 +538,21 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       .then(d => { if (d.entidade && d.referencia) setPaymentDetails(d); })      .catch(() => {});
   }, []);
 
+  // Buscar expiração do pagamento ao entrar no ecrã de planos
+  useEffect(() => {
+    if (conversionStep !== 'plans' || !dbSongRequestId || !formData.email) return;
+    const fetchExpiry = async () => {
+      try {
+        const res = await fetch(`/api/payment-status?email=${encodeURIComponent(formData.email)}&requestId=${dbSongRequestId}`);
+        const data = await res.json();
+        if (data.expires_at) {
+          setCountdownDisplayExpiry(data.expires_at);
+        }
+      } catch {}
+    };
+    fetchExpiry();
+  }, [conversionStep, dbSongRequestId, formData.email]);
+
   // Interceptar botão de retroceder do browser no ecrã de pagamento
   useEffect(() => {
     if (!isDone) return;
@@ -765,6 +787,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   };
 
   const [instructionsOpen, setInstructionsOpen] = useState(false);
+  const [faqOpen, setFaqOpen] = useState(false);
 
   const photoFileRef = useRef<HTMLInputElement>(null);
   const submissionStartedRef = useRef(false);
@@ -911,25 +934,28 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     return () => clearInterval(interval);
   }, [isDone, paymentProofs.length]);
 
-  // Countdown timer — mostra tempo restante desde a geração da letra (urgência)
+  // Countdown timer — usa expiração real do backend (15 min) quando disponível
   useEffect(() => {
-    if (!isDone && conversionStep !== 'plans' && conversionStep !== 'preview') return;
-    // A letra "expira" em 24h após a geração — calculamos a partir do dbSongRequestId
-    // mas sem fetch extra: usamos a hora em que entrou no conversionStep como proxy
-    const startMs = Date.now();
-    const EXPIRE_MS = 24 * 60 * 60 * 1000; // 24h
+    if (!isDone || conversionStep !== 'plans') return;
+    
     const tick = () => {
-      const elapsed = Date.now() - startMs;
-      const remaining = Math.max(0, EXPIRE_MS - elapsed);
-      const h = Math.floor(remaining / 3600000);
+      if (!expiryTimestamp) {
+        setCountdownDisplay(null);
+        return;
+      }
+      const remaining = Math.max(0, expiryTimestamp - Date.now());
+      if (remaining <= 0) {
+        setCountdownDisplay('00:00:00');
+        return;
+      }
       const m = Math.floor((remaining % 3600000) / 60000);
       const s = Math.floor((remaining % 60000) / 1000);
-      setCountdownDisplay(`${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`);
+      setCountdownDisplay(`${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`);
     };
     tick();
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, [isDone, conversionStep]);
+  }, [isDone, conversionStep, expiryTimestamp]);
 
   // Meta: registar quando o ecrã de pagamento é visto (uma vez por pedido)
   const paymentScreenTrackedRef = useRef(false);
@@ -1356,6 +1382,23 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) && formData.phone.trim().length >= 7;
       default:
         return true;
+    }
+  };
+
+  const handleFieldBlur = (field: string, value: string) => {
+    if (field === 'recipientName') {
+      const trimmed = value.trim();
+      if (trimmed.length < 2) {
+        setFieldErrors(prev => ({ ...prev, recipientName: 'Nome muito curto (mín. 2 caracteres)' }));
+      } else if (trimmed.length > 100) {
+        setFieldErrors(prev => ({ ...prev, recipientName: 'Nome muito longo (máx. 100 caracteres)' }));
+      } else {
+        setFieldErrors(prev => {
+          const next = { ...prev };
+          delete next.recipientName;
+          return next;
+        });
+      }
     }
   };
 
@@ -2724,6 +2767,7 @@ const ROTATING_MESSAGES = [
                   <strong className="text-amber-400 font-serif text-base">{getPrice()}</strong>
                 </div>
               </div>
+              </div>
 
               {/* Prova social — pagamentos */}
               <div className="flex items-center justify-center h-5">
@@ -2901,9 +2945,25 @@ const ROTATING_MESSAGES = [
                       )}
                     </div>
                   )}
-                </div>
 
-                {/* Upload Section */}
+                  {/* FAQ Accordion */}
+                  <div className="space-y-3 text-left pt-2 border-t border-stone-900/60">
+                    <button
+                      type="button"
+                      onClick={() => setFaqOpen(!faqOpen)}
+                      className="flex items-center gap-1.5 text-[10px] font-mono text-amber-500 uppercase tracking-wider font-bold cursor-pointer hover:text-amber-400 transition-colors"
+                    >
+                      <span>{faqOpen ? '▾' : '▸'}</span>
+                      <span>❓ Perguntas Frequentes</span>
+                    </button>
+                    {faqOpen && (
+                      <div className="space-y-2 text-xs text-stone-400 pt-2">
+                        <FAQ showSearch={false} showCategories={false} compact={true} onClose={() => setFaqOpen(false)} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Upload Section */}
                 <div className="border-t border-stone-850 pt-4 space-y-4">
                   <div className="space-y-1 text-left">
                     <span className="text-[10px] text-amber-500 font-mono uppercase tracking-wider block font-bold">PAGA E ENVIA O COMPROVATIVO 📸</span>
@@ -3322,6 +3382,8 @@ const ROTATING_MESSAGES = [
                         relationshipCards={RELATIONSHIP_CARDS}
                         fieldErrors={fieldErrors}
                         todayCount={todayCount}
+                        step={step}
+                        onFieldBlur={(field, value) => handleFieldBlur(field, value)}
                       />
                     </StepErrorBoundary>
                   )}
@@ -3333,6 +3395,7 @@ const ROTATING_MESSAGES = [
                         setFormData={wrappedSetFormData}
                         occasionCards={OCCASION_CARDS}
                         fieldErrors={fieldErrors}
+                        step={step}
                       />
                     </StepErrorBoundary>
                   )}

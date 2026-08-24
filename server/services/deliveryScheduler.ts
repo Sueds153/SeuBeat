@@ -2,11 +2,14 @@ import { getAdminSupabase } from './supabase';
 import { sendPersonalizedEmail } from './email';
 import { getAppUrl } from '../utils/helpers';
 import { logInfo, logError, logWarn } from '../utils/logger';
+import { sendDeliveryWhatsApp, sendFeedbackRequestWhatsApp } from './whatsappSender';
 
 const INTERVAL_MS = 10 * 60 * 1000;
+const FEEDBACK_INTERVAL_MS = 60 * 60 * 1000; // 1 hora
 const MAX_RETRIES = 3;
 const RETRY_DELAYS = [60_000, 300_000, 900_000];
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
+let feedbackIntervalHandle: ReturnType<typeof setInterval> | null = null;
 
 interface PendingRequest {
   id: string;
@@ -15,9 +18,6 @@ interface PendingRequest {
   recipient_name?: string | null;
   songs?: Array<{ id?: string | null; letter_text?: string | null; title?: string | null }> | null;
 }
-
-import { sendDeliveryWhatsApp } from './whatsappSender';
-
 
 function makeSlug(name: string): string {
   return name
@@ -75,7 +75,7 @@ async function deliverWithRetry(req: PendingRequest, now: string, attempt = 0): 
       return;
     }
 
-    logInfo('[DeliveryScheduler] Musica entregue com sucesso', {
+    logInfo('[DeliveryScheduler] Música entregue com sucesso', {
       requestId: req.id,
       email: req.email,
       songId,
@@ -100,6 +100,24 @@ async function deliverWithRetry(req: PendingRequest, now: string, attempt = 0): 
         recipientName: req.recipient_name,
         songUrl: personalizedUrl,
       }).catch(err => logWarn('[DeliveryScheduler] Falha ao enviar WhatsApp de entrega', { requestId: req.id, error: String(err) }));
+
+      // Agendar pedido de feedback 24h após entrega
+      const feedbackTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      try {
+        await supabase
+          .from('feedback_requests')
+          .upsert({
+            request_id: req.id,
+            scheduled_at: feedbackTime,
+            status: 'pending',
+            recipient_name: req.recipient_name,
+            email: req.email,
+            phone: req.phone,
+            song_url: personalizedUrl,
+          }, { onConflict: 'request_id' });
+      } catch (err: unknown) {
+        logWarn('[DeliveryScheduler] Falha ao agendar pedido de feedback', { requestId: req.id, error: String(err) });
+      }
     }
   } catch (err) {
     logError('[DeliveryScheduler] Catch error', { requestId: req.id, error: err instanceof Error ? err.message : String(err) });
@@ -153,12 +171,68 @@ async function deliverPendingSongs(): Promise<void> {
   await Promise.all(pending.map(req => deliverWithRetry(req, now, 0)));
 }
 
+// Processar pedidos de feedback pendentes
+async function processPendingFeedback(): Promise<void> {
+  const supabase = getAdminSupabase();
+  if (!supabase) {
+    logWarn('[FeedbackScheduler] Admin Supabase client indisponivel');
+    return;
+  }
+
+  const now = new Date().toISOString();
+
+  const { data: pending, error } = await supabase
+    .from('feedback_requests')
+    .select('request_id, recipient_name, email, phone, song_url')
+    .eq('status', 'pending')
+    .lte('scheduled_at', now);
+
+  if (error) {
+    logError('[FeedbackScheduler] Erro ao consultar pedidos de feedback pendentes', error);
+    return;
+  }
+
+  if (!pending || pending.length === 0) return;
+
+  logInfo(`[FeedbackScheduler] ${pending.length} pedido(s) de feedback para enviar`);
+
+  await Promise.all(
+    pending.map(async (req) => {
+      try {
+        const result = await sendFeedbackRequestWhatsApp({
+          requestId: req.request_id,
+          phone: req.phone,
+          recipientName: req.recipient_name,
+          songUrl: req.song_url,
+          email: req.email,
+        });
+
+        if (result === 'sent') {
+          await supabase
+            .from('feedback_requests')
+            .update({ status: 'sent', sent_at: new Date().toISOString() })
+            .eq('request_id', req.request_id);
+          logInfo('[FeedbackScheduler] Feedback enviado com sucesso', { requestId: req.request_id });
+        } else {
+          logWarn('[FeedbackScheduler] Falha ao enviar feedback', { requestId: req.request_id, result });
+        }
+      } catch (err) {
+        logError('[FeedbackScheduler] Erro ao processar feedback', { requestId: req.request_id, error: String(err) });
+      }
+    })
+  );
+}
+
 export function startDeliveryScheduler(): void {
   if (intervalHandle) return;
   logInfo('[DeliveryScheduler] Iniciado (intervalo: 10min)');
   deliverPendingSongs();
   intervalHandle = setInterval(deliverPendingSongs, INTERVAL_MS);
   intervalHandle.unref();
+
+  if (feedbackIntervalHandle) return;
+  logInfo('[FeedbackScheduler] Iniciado (intervalo: 1h)');
+  processPendingFeedback();
+  feedbackIntervalHandle = setInterval(processPendingFeedback, FEEDBACK_INTERVAL_MS);
+  feedbackIntervalHandle.unref();
 }
-
-

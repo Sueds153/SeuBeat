@@ -657,3 +657,46 @@ export async function sendDeliveryWhatsApp(client: {
   return 'failed';
 }
 
+// ─────────────────────────────────────────────────────────────
+// Pedido de feedback em vídeo pós-entrega via WhatsApp
+// ─────────────────────────────────────────────────────────────
+
+export interface FeedbackRequestClient {
+  requestId: string;
+  phone?: string | null;
+  recipientName?: string | null;
+  songUrl: string;
+  email?: string;
+}
+
+export async function sendFeedbackRequestWhatsApp(client: FeedbackRequestClient): Promise<'sent' | 'skipped' | 'failed' | 'unconfigured'> {
+  if (!isConfigured()) return 'unconfigured';
+  const rawPhone = normalizePhoneToE164(client.phone || '');
+  if (!rawPhone) return 'skipped';
+  const phone: string = rawPhone;
+
+  const templateName = process.env.WHATSAPP_FEEDBACK_TEMPLATE || 'seubeat_feedback_request';
+  const appUrl = process.env.APP_URL || 'https://seubeat.onrender.com';
+  const params = [
+    client.recipientName || 'Destinatário',
+    `${appUrl}/feedback?requestId=${client.requestId}&email=${encodeURIComponent(client.email || '')}`,
+  ];
+
+  const res = await sendTemplate(phone, templateName, params);
+
+  if (res.ok) {
+    await insertSendLog({
+      requestId: client.requestId,
+      phone,
+      status: 'sent',
+      messageId: res.messageId ?? undefined,
+      templateName: 'feedback_request',
+    });
+    logInfo('[WhatsApp] Pedido de feedback em vídeo enviado', { phone, requestId: client.requestId });
+    return 'sent';
+  }
+
+  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', error: res.error });
+  return 'failed';
+}
+
