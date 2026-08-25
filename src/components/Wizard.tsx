@@ -284,6 +284,29 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     } catch {}
     return 'pending';
   });
+  // Reconstruir proofFile do localStorage após refresh (quando paymentSubmitted veio de localStorage)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.proofFile?.base64) {
+          const proofData = parsed.proofFile;
+          // Decodificar base64 e criar File object
+          const byteCharacters = atob(proofData.base64);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: proofData.type || 'application/octet-stream' });
+          const file = new File([blob], proofData.name, { type: blob.type });
+          setProofFile(file);
+          setProofPreviewUrl(URL.createObjectURL(file));
+        }
+      }
+    } catch {}
+  }, [paymentSubmitted]); // dependency on paymentSubmitted triggers on refresh
   const [paymentNotes, setPaymentNotes] = useState<string>('');
   const [paymentSubmitError, setPaymentSubmitError] = useState<string>('');
   // AI Song states powered by Claude
@@ -467,6 +490,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   // Persistir progresso no localStorage para sobreviver a refresh
   useEffect(() => {
     try {
+      const proofBase64 = proofFile ? btoa(proofFile.name + '\0' + proofFile.type + '\0' + proofFile.size + '\0' + proofFile.lastModified) : null;
       const { photoFile, ...rest } = formData;
       localStorage.setItem('seubeat_wizard_progress', JSON.stringify({
         formData: rest,
@@ -483,7 +507,8 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         dbSongRequestId,
         generationStatus,
         selectedPlanID,
-        voiceUpsellApplied
+        voiceUpsellApplied,
+        proofFile: proofBase64 && proofFile ? { base64: proofBase64, name: proofFile.name } : null
       }));
     } catch {}
   }, [
@@ -501,7 +526,8 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     dbSongRequestId,
     generationStatus,
     selectedPlanID,
-    voiceUpsellApplied
+    voiceUpsellApplied,
+    proofFile
   ]);
 
   // Polling automático: após refresh, verificar estado e continuar a vigiar
@@ -657,6 +683,15 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       return null;
     });
     setProofFile(null);
+    // Also clear proof data from localStorage
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        parsed.proofFile = null;
+        localStorage.setItem('seubeat_wizard_progress', JSON.stringify(parsed));
+      }
+    } catch {}
     setPaymentSubmitError('');
   };
 
@@ -763,8 +798,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
               gaSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()));
             } else if (res.status === 409) {
               setPaymentSubmitted(true);
-              setPaymentSubmitError('');
-              clearProof();
+              setPaymentSubmitError('Já existe um comprovativo pendente para este pedido.');
             } else {
               setPaymentSubmitError(data.error || 'Erro ao submeter o comprovativo.');
             }
