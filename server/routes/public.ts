@@ -1035,6 +1035,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       .maybeSingle();
 
     let proofPath: string | null = null;
+    let proofUrl: string | null = null;
     if (proofBase64) {
       const resolvedMime = proofMimeType || 'image/jpeg';
       const ALLOWED_PROOF_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
@@ -1043,12 +1044,28 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       }
       const proofBuffer = decodeBase64Payload(proofBase64);
       if (proofBuffer.length > 10 * 1024 * 1024) throw new Error('Comprovativo demasiado grande. Máx. 10MB.');
+      
+      // Validação inteligente por tipo MIME
+      const minSizes: Record<string, number> = {
+        'image/jpeg': 50 * 1024,    // 50KB mínimo para JPG (fotos de comprovativo)
+        'image/png': 50 * 1024,     // 50KB mínimo para PNG
+        'image/webp': 30 * 1024,    // 30KB mínimo para WebP (mais eficiente)
+        'application/pdf': 100 * 1024, // 100KB mínimo para PDF
+      };
+      const minSize = minSizes[resolvedMime] || 50 * 1024;
+      if (proofBuffer.length < minSize) {
+        throw new Error(`Comprovativo demasiado pequeno para ${resolvedMime} (mín. ${Math.round(minSize/1024)}KB). O ficheiro parece vazio ou corrompido.`);
+      }
+      
       const sanitizedProofFilename = String(proofFilename || 'proof.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
       const filename = `proofs/${Date.now()}_${sanitizedProofFilename}`;
       try {
-        await uploadFileToStorage('payment-proofs', filename, proofBuffer, resolvedMime);
-        proofPath = `${filename}`;
+        const uploadedUrl = await uploadFileToStorage('payment-proofs', filename, proofBuffer, resolvedMime);
+        proofPath = filename;
+        proofUrl = uploadedUrl;
+        logInfo('[API] Comprovativo enviado para storage', { bucket: 'payment-proofs', filename, url: proofUrl, size: proofBuffer.length });
       } catch (err) {
+        logError('[API] Falha no upload do comprovativo', err, { filename });
         throw new Error(`Upload do comprovativo falhou: ${err instanceof Error ? err.message : 'sem dados'}`);
       }
     }
@@ -1100,7 +1117,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       amount_kz: parsedAmount,
       amount: parsedAmount,
       payment_method: resolvedPaymentMethod,
-      proof_url: proofPath ? `storage:${proofPath}` : null,
+      proof_url: proofUrl || (proofPath ? `storage:${proofPath}` : null),
       proof_path: proofPath,
       proof_filename: proofFilename || proofPath?.split('/').pop() || null,
       proof_mime_type: proofMimeType || null,

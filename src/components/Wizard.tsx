@@ -668,6 +668,19 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         e.target.value = '';
         return;
       }
+      // Validação inteligente por tipo MIME (alinhado com backend)
+      const minSizes: Record<string, number> = {
+        'image/jpeg': 50 * 1024,
+        'image/png': 50 * 1024,
+        'image/webp': 30 * 1024,
+        'application/pdf': 100 * 1024,
+      };
+      const minSize = minSizes[file.type] || 50 * 1024;
+      if (file.size < minSize) {
+        setPaymentSubmitError(`O comprovativo é demasiado pequeno para ${file.type} (mín. ${Math.round(minSize/1024)}KB). O ficheiro parece vazio ou corrompido.`);
+        e.target.value = '';
+        return;
+      }
       setProofPreviewUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
@@ -697,7 +710,11 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       const reader = new FileReader();
       reader.readAsDataURL(proofFile);
       reader.onloadend = async () => {
-        if (!proofMountedRef.current) { setPaymentSubmitting(false); return; }
+        if (!proofMountedRef.current) {
+          setPaymentSubmitting(false);
+          setPaymentSubmitError('A página foi atualizada durante o envio. Por favor, tente novamente.');
+          return;
+        }
         const base64Data = reader.result as string;
 
         let voiceBase64 = null;
@@ -762,7 +779,11 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           const voiceReader = new FileReader();
           voiceReader.readAsDataURL(clonedVoiceFile);
           voiceReader.onloadend = async () => {
-            if (!proofMountedRef.current) { setPaymentSubmitting(false); return; }
+            if (!proofMountedRef.current) {
+              setPaymentSubmitting(false);
+              setPaymentSubmitError('A página foi atualizada durante o envio. Por favor, tente novamente.');
+              return;
+            }
             voiceBase64 = voiceReader.result as string;
             voiceFilename = clonedVoiceFile.name;
             voiceMimeType = clonedVoiceFile.type;
