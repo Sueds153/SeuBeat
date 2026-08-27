@@ -30,7 +30,7 @@ import {
   normalizePhoneToE164, ABANDONED_BUCKET_ORDER,
   isAbandonedTimeRange, elapsedInRange,
 } from '../services/abandonedMessages';
-import { sendDeliveryWhatsApp } from '../services/whatsappSender';
+import { sendDeliveryWhatsApp, sendFeedbackRequestWhatsApp, sendPaymentApprovedWhatsApp } from '../services/whatsappSender';
 import type { BulkClient } from '../services/whatsappSender';
 import { templateForBucket, enabledWhatsAppBuckets } from '../services/whatsappTemplates';
 import { getMetaAdsSpend } from '../services/metaAds';
@@ -421,6 +421,15 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
             logError('[Admin] Falha ao enviar email de confirmacao (standard)', err, { requestId, userEmail })
           );
         }
+        // WhatsApp de aprovação Standard: notifica que a música está a ser preparada e chega em 24h
+        const standardPhone = songRequest.phone || songRequest.users?.phone || null;
+        if (standardPhone) {
+          sendPaymentApprovedWhatsApp({
+            requestId,
+            phone: standardPhone,
+            recipientName: songRequest.recipient_name,
+          }).catch(err => logError('[Admin] Falha ao enviar WhatsApp de aprovacao (standard)', err, { requestId }));
+        }
         firePurchaseEvent();
         return res.json({ success: true, message: 'Pagamento aprovado. Música será entregue em 24h por e-mail.', isStandard: true });
       }
@@ -435,16 +444,36 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
         })
         .eq('id', requestId);
       firePurchaseEvent();
+      const slug = (songRequest.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
       if (userEmail) {
-        const slug = (songRequest.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-        const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
         logInfo('[Admin] Enviando email de entrega (express/premium)', { requestId, userEmail });
         sendPersonalizedEmail(userEmail, songRequest.recipient_name, personalizedUrl, letterText).catch(err =>
           logError('[Admin] Falha ao enviar email de entrega (express/premium)', err, { requestId, userEmail })
         );
-        return res.json({ success: true, message: 'Pagamento aprovado. Música entregue por e-mail.' });
       }
-      return res.json({ success: true, message: 'Pagamento aprovado. Música entregue (email do cliente não disponível).' });
+      // WhatsApp automático: notificação de entrega + agendar feedback 24h
+      if (songRequest.phone) {
+        sendDeliveryWhatsApp({
+          requestId,
+          phone: songRequest.phone,
+          recipientName: songRequest.recipient_name,
+          songUrl: personalizedUrl,
+        }).catch(err => logError('[Admin] Falha ao enviar WhatsApp de entrega (express/premium)', err, { requestId }));
+        const feedbackTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        supabase.from('feedback_requests').upsert({
+          request_id: requestId,
+          scheduled_at: feedbackTime,
+          status: 'pending',
+          recipient_name: songRequest.recipient_name,
+          email: userEmail,
+          phone: songRequest.phone,
+          song_url: personalizedUrl,
+        }, { onConflict: 'request_id' }).select().single().then(() => {}, (err: unknown) =>
+          logError('[Admin] Falha ao agendar pedido de feedback (express/premium)', err, { requestId })
+        );
+      }
+      return res.json({ success: true, message: 'Pagamento aprovado. Música entregue por e-mail e WhatsApp.' });
     }
 
     // Precisa de gerar áudio ou processar voz clonada → workflow Suno
@@ -461,6 +490,15 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
       sendConfirmationEmail(userEmail, songRequest.recipient_name, requestId, 'standard_approved').catch(err =>
         logError('[Admin] Falha ao enviar email de confirmacao (suno workflow)', err, { requestId, userEmail })
       );
+    }
+    // WhatsApp de aprovação Standard (workflow Suno): o cliente fica à espera da música
+    const sunoStandardPhone = songRequest.phone || songRequest.users?.phone || null;
+    if (sunoStandardPhone) {
+      sendPaymentApprovedWhatsApp({
+        requestId,
+        phone: sunoStandardPhone,
+        recipientName: songRequest.recipient_name,
+      }).catch(err => logError('[Admin] Falha ao enviar WhatsApp de aprovacao (suno workflow)', err, { requestId }));
     }
     await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', requestId).eq('status', 'approved');
     firePurchaseEvent();
@@ -1179,13 +1217,16 @@ router.get('/song/:id/audio-url', adminAuth, async (req, res) => {
 
     const { data: song, error } = await supabase
       .from('songs')
-      .select('id, title, audio_url, full_song_url, preview_url')
+      .select('id, title, audio_url, full_song_url, preview_url, audio_url_v2, full_song_url_v2')
       .eq('id', id)
       .single();
 
     if (error || !song) return res.status(404).json({ success: false, error: 'Música não encontrada.' });
 
-    const fullUrl = song.full_song_url || song.audio_url;
+    const wantV2 = req.query.version === '2';
+    const fullUrl = wantV2
+      ? (song.full_song_url_v2 || song.audio_url_v2 || null)
+      : (song.full_song_url || song.audio_url);
     const fullPath = extractStoragePath(fullUrl, 'full-audio');
     if (fullPath) {
       const downloadName = safeAudioFilename(song.title);

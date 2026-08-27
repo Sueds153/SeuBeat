@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   ArrowRight, ArrowLeft, Heart, Sparkles, Check, Upload,
   Mic, Mail, Eye, Lock, RefreshCw, Play, AlertTriangle, ShieldCheck, Copy,
-  Send, FileText, Cake, Heart as HeartIcon, GraduationCap, Home, Baby, Star, Sparkles as SparklesIcon, Calendar, Gift, Music, User, MessageSquare, Crown, PartyPopper, HelpCircle, ChevronDown, ChevronUp, Search, X
+  Send, FileText, Cake, Heart as HeartIcon, GraduationCap, Home, Baby, Star, Sparkles as SparklesIcon, Calendar, Gift, Music, User, MessageSquare, Crown, PartyPopper, HelpCircle, ChevronDown, ChevronUp, Search, X,
+  HeartOff, Users, Handshake, Briefcase, Plus, Guitar, TreePalm, Leaf, Landmark, Shuffle, Drum, Gem, Smile, Flame
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import StepErrorBoundary from './StepErrorBoundary';
@@ -81,21 +82,21 @@ const STEP_META = [
 const WIZARD_BUILD = '20260819_1';
 
 const RELATIONSHIP_CARDS = [
-  { type: 'Mãe', label: 'Mãe', icon: '❤️' },
-  { type: 'Pai', label: 'Pai', icon: '⭐' },
-  { type: 'Esposa', label: 'Esposa', icon: '💍' },
-  { type: 'Marido', label: 'Marido', icon: '🤵' },
-  { type: 'Namorado', label: 'Namorado(a)', icon: '💕' },
-  { type: 'Ex-namorado', label: 'Ex-namorado(a)', icon: '💔' },
-  { type: 'Filho', label: 'Filho(a)', icon: '👶' },
-  { type: 'Irmão', label: 'Irmão(ã)', icon: '👨‍👩‍👧' },
-  { type: 'Amigo', label: 'Amigo(a)', icon: '🤝' },
-  { type: 'Avó-Avô', label: 'Avó/Avô', icon: '👵' },
-  { type: 'Professor', label: 'Professor(a)', icon: '🎓' },
-  { type: 'Pastor', label: 'Pastor(a)', icon: '🙏' },
-  { type: 'Colega', label: 'Colega', icon: '💼' },
-  { type: 'Para-mim', label: 'Para mim', icon: '✨' },
-  { type: 'Outro', label: 'Outro', icon: '➕' }
+  { type: 'Mãe', label: 'Mãe', icon: <Heart className="w-5 h-5" /> },
+  { type: 'Pai', label: 'Pai', icon: <Star className="w-5 h-5" /> },
+  { type: 'Esposa', label: 'Esposa', icon: <Gem className="w-5 h-5" /> },
+  { type: 'Marido', label: 'Marido', icon: <User className="w-5 h-5" /> },
+  { type: 'Namorado', label: 'Namorado(a)', icon: <Heart className="w-5 h-5" /> },
+  { type: 'Ex-namorado', label: 'Ex-namorado(a)', icon: <HeartOff className="w-5 h-5" /> },
+  { type: 'Filho', label: 'Filho(a)', icon: <Baby className="w-5 h-5" /> },
+  { type: 'Irmão', label: 'Irmão(ã)', icon: <Users className="w-5 h-5" /> },
+  { type: 'Amigo', label: 'Amigo(a)', icon: <Handshake className="w-5 h-5" /> },
+  { type: 'Avó-Avô', label: 'Avó/Avô', icon: <Users className="w-5 h-5" /> },
+  { type: 'Professor', label: 'Professor(a)', icon: <GraduationCap className="w-5 h-5" /> },
+  { type: 'Pastor', label: 'Pastor(a)', icon: <HeartIcon className="w-5 h-5" /> },
+  { type: 'Colega', label: 'Colega', icon: <Briefcase className="w-5 h-5" /> },
+  { type: 'Para-mim', label: 'Para mim', icon: <Sparkles className="w-5 h-5" /> },
+  { type: 'Outro', label: 'Outro', icon: <Plus className="w-5 h-5" /> }
 ];
 
 const OCCASION_CARDS = [
@@ -111,29 +112,29 @@ const OCCASION_CARDS = [
 ];
 
 const MUSIC_STYLE_CARDS = [
-  { style: 'Kizomba', label: 'Kizomba', desc: 'Tarraxinha lenta, romântica e envolvente.', icon: '💃' },
-  { style: 'Semba', label: 'Semba', desc: 'Ritmo angolano com muita tradição e guitarra viva.', icon: '🎸' },
-  { style: 'Afrobeat', label: 'Afrobeat', desc: 'Moderno, dinâmico e carregado de energia.', icon: '🥁' },
-  { style: 'Gospel', label: 'Gospel', desc: 'Harmonioso, coros de fé e piano edificador.', icon: '✨' },
-  { style: 'Acoustic', label: 'Acústico', desc: 'Expressividade pura assente em violão e piano.', icon: '🕯️' },
-  { style: 'Romantic Pop', label: 'Romantic Pop', desc: 'Balada radiofónica internacional com refrão forte.', icon: '🎹' },
-  { style: 'Zouk', label: 'Zouk', desc: 'Ritmo caribenho romântico com sintetizadores suaves.', icon: '🌴' },
-  { style: 'Balada', label: 'Balada', desc: 'Emocional e orquestrada, piano e cordas a envolver.', icon: '🎻' },
-  { style: 'Pop', label: 'Pop', desc: 'Melodia cativante e produção polida, estilo radiofónico.', icon: '🌟' },
-  { style: 'R&B', label: 'R&B', desc: 'Voz suave e groove envolvente, alma e sentimento.', icon: '🎤' },
-  { style: 'Rap', label: 'Rap', desc: 'Flow ritmado e batida urbana, palavra poderosa.', icon: '🎧' },
-  { style: 'Funk', label: 'Funk', desc: 'Batida contagiante, groove elétrico e dançante angolano.', icon: '🕺' },
-  { style: 'Trap', label: 'Trap', desc: 'Batida pesada 808, flow moderno e atitude urbana.', icon: '🔥' },
-  { style: 'Reggae', label: 'Reggae', desc: 'Ritmo descontraído, vibração positiva e bass pesado.', icon: '🌿' },
-  { style: 'Samba', label: 'Samba', desc: 'Percussão vibrante, gingado brasileiro e energia festiva.', icon: '🥁' },
-  { style: 'Hino', label: 'Hino', desc: 'Épico e solene, ideal para hinos corporativos e institucionais.', icon: '🏛️' }
+  { style: 'Kizomba', label: 'Kizomba', desc: 'Tarraxinha lenta, romântica e envolvente.', icon: <Music className="w-5 h-5" /> },
+  { style: 'Semba', label: 'Semba', desc: 'Ritmo angolano com muita tradição e guitarra viva.', icon: <Guitar className="w-5 h-5" /> },
+  { style: 'Afrobeat', label: 'Afrobeat', desc: 'Moderno, dinâmico e carregado de energia.', icon: <Drum className="w-5 h-5" /> },
+  { style: 'Gospel', label: 'Gospel', desc: 'Harmonioso, coros de fé e piano edificador.', icon: <Sparkles className="w-5 h-5" /> },
+  { style: 'Acoustic', label: 'Acústico', desc: 'Expressividade pura assente em violão e piano.', icon: <Music className="w-5 h-5" /> },
+  { style: 'Romantic Pop', label: 'Romantic Pop', desc: 'Balada radiofónica internacional com refrão forte.', icon: <Music className="w-5 h-5" /> },
+  { style: 'Zouk', label: 'Zouk', desc: 'Ritmo caribenho romântico com sintetizadores suaves.', icon: <TreePalm className="w-5 h-5" /> },
+  { style: 'Balada', label: 'Balada', desc: 'Emocional e orquestrada, piano e cordas a envolver.', icon: <Music className="w-5 h-5" /> },
+  { style: 'Pop', label: 'Pop', desc: 'Melodia cativante e produção polida, estilo radiofónico.', icon: <Star className="w-5 h-5" /> },
+  { style: 'R&B', label: 'R&B', desc: 'Voz suave e groove envolvente, alma e sentimento.', icon: <Mic className="w-5 h-5" /> },
+  { style: 'Rap', label: 'Rap', desc: 'Flow ritmado e batida urbana, palavra poderosa.', icon: <Music className="w-5 h-5" /> },
+  { style: 'Funk', label: 'Funk', desc: 'Batida contagiante, groove elétrico e dançante angolano.', icon: <Music className="w-5 h-5" /> },
+  { style: 'Trap', label: 'Trap', desc: 'Batida pesada 808, flow moderno e atitude urbana.', icon: <Flame className="w-5 h-5" /> },
+  { style: 'Reggae', label: 'Reggae', desc: 'Ritmo descontraído, vibração positiva e bass pesado.', icon: <Leaf className="w-5 h-5" /> },
+  { style: 'Samba', label: 'Samba', desc: 'Percussão vibrante, gingado brasileiro e energia festiva.', icon: <Drum className="w-5 h-5" /> },
+  { style: 'Hino', label: 'Hino', desc: 'Épico e solene, ideal para hinos corporativos e institucionais.', icon: <Landmark className="w-5 h-5" /> }
 ];
 
 const VOICE_CARDS = [
-  { type: 'Masculina', label: '👨 Masculina', desc: 'Voz quente, aveludada e profunda.' },
-  { type: 'Feminina', label: '👩 Feminina', desc: 'Voz expressiva, meiga, meiga e angelical.' },
-  { type: 'Dueto', label: '👩‍❤️‍👨 Dueto', desc: 'Harmonização perfeita de tom masculino e feminino de estúdio.' },
-  { type: 'Sem preferência', label: '✨ Sem preferência', desc: 'A nossa equipa seleciona o timbre que melhor se adequa à letra criada.' }
+  { type: 'Masculina', label: 'Masculina', desc: 'Voz quente, aveludada e profunda.', icon: <Mic className="w-5 h-5" /> },
+  { type: 'Feminina', label: 'Feminina', desc: 'Voz expressiva, meiga, meiga e angelical.', icon: <Mic className="w-5 h-5" /> },
+  { type: 'Dueto', label: 'Dueto', desc: 'Harmonização perfeita de tom masculino e feminino de estúdio.', icon: <Users className="w-5 h-5" /> },
+  { type: 'Sem preferência', label: 'Sem preferência', desc: 'A nossa equipa seleciona o timbre que melhor se adequa à letra criada.', icon: <Shuffle className="w-5 h-5" /> }
 ];
 
 export default function Wizard({ onBackToLanding }: WizardProps) {
@@ -184,21 +185,21 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   const todayCount = socialProof.createdToday;
   const paymentProofs = [
     socialProof.lastPayment
-      ? `👤 ${socialProof.lastPayment.firstName || 'Um cliente'} ${socialProof.lastPayment.minutesAgo <= 1 ? 'pagou agora' : `pagou há ${socialProof.lastPayment.minutesAgo} min`}`
+      ? `${socialProof.lastPayment.firstName || 'Um cliente'} ${socialProof.lastPayment.minutesAgo <= 1 ? 'pagou agora' : `pagou ha ${socialProof.lastPayment.minutesAgo} min`}`
       : null,
     socialProof.paidToday > 0
-      ? `👥 +${socialProof.paidToday} ${socialProof.paidToday === 1 ? 'pagamento aprovado' : 'pagamentos aprovados'} hoje`
+      ? `+${socialProof.paidToday} ${socialProof.paidToday === 1 ? 'pagamento aprovado' : 'pagamentos aprovados'} hoje`
       : null,
-    socialProof.paidTotal > 0 ? `✅ ${socialProof.paidTotal} compras concluídas` : null,
-    socialProof.deliveredTotal > 0 ? `🎧 ${socialProof.deliveredTotal} músicas já entregues` : null,
+    socialProof.paidTotal > 0 ? `${socialProof.paidTotal} compras concluidas` : null,
+    socialProof.deliveredTotal > 0 ? `${socialProof.deliveredTotal} musicas ja entregues` : null,
   ].filter((x): x is string => Boolean(x));
-  const activeProof = paymentProofs.length > 0 ? paymentProofs[paymentSocialIdx % paymentProofs.length] : '⏳ Multicaixa · 2 minutos e a música é tua';
+  const activeProof = paymentProofs.length > 0 ? paymentProofs[paymentSocialIdx % paymentProofs.length] : 'Multicaixa - 2 minutos e a musica e tua';
   const liveActivity = socialProof.lastActivity
     ? {
         text: `"A última música foi criada para ${socialProof.lastActivity.firstName || 'alguém especial'}"`,
         time: formatMinutesAgo(socialProof.lastActivity.minutesAgo),
       }
-    : { text: '"A tua música pode ser a próxima história 🎵"', time: 'agora' };
+    : { text: '"A tua musica pode ser a proxima historia"', time: 'agora' };
 
   // Demo preview player (Ecrã 1)
   const [demoPlaying, setDemoPlaying] = useState(false);
@@ -1635,10 +1636,10 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
   const activeMeta = STEP_META[step - 1];
 const ROTATING_MESSAGES = [
-    '❤️ Música criada para uma mãe',
-    '💕 Declaração de amor criada',
-    '🎂 Música de aniversário pronta',
-    '💍 Pedido de casamento a transformar-se em música'
+    'Musica criada para uma mae',
+    'Declaracao de amor criada',
+    'Musica de aniversario pronta',
+    'Pedido de casamento a transformar-se em musica'
   ];
 
   const getDemoByStyle = (style: string) => {
@@ -1764,7 +1765,7 @@ const ROTATING_MESSAGES = [
 
             <div className="flex items-center gap-2 sm:gap-4 text-right">
               <span className="hidden sm:inline text-xs text-stone-400 font-mono">
-                🎵 <span className="text-amber-400 font-bold">+{todayCount}</span> hoje · PASSO <span className="text-amber-400 font-bold">{step}</span> · {Math.round((step / 5) * 100)}%
+                 <span className="text-amber-400 font-bold">+{todayCount}</span> hoje · PASSO <span className="text-amber-400 font-bold">{step}</span> · {Math.round((step / 5) * 100)}%
               </span>
               <div className="w-20 sm:w-24 md:w-36 h-2 bg-stone-900 rounded-full overflow-hidden relative">
                 <motion.div 
@@ -1791,7 +1792,7 @@ const ROTATING_MESSAGES = [
 
             <div className="space-y-2">
               <h3 className="font-serif text-2xl md:text-3xl font-medium tracking-tight text-stone-100 animate-pulse">
-                ❤️ A transformar a tua história em música...
+                 A transformar a tua história em música...
               </h3>
               <p className="text-stone-400 text-sm max-w-md mx-auto">
                 O nosso sistema de estúdio e de síntese acústica avançado está a converter as tuas memórias num tom personalizado de alta definição estúdio.
@@ -1977,19 +1978,19 @@ const ROTATING_MESSAGES = [
               </h2>
               <p className="text-stone-400 text-xs max-w-sm mx-auto">
                 Para <strong className="text-amber-400">{formData.recipientName || 'alguém especial'}</strong>
-                {formData.recipientNick ? ` (${formData.recipientNick})` : ''} · Por ti 💝
+                {formData.recipientNick ? ` (${formData.recipientNick})` : ''} · Por ti 
               </p>
             </div>
 
             {/* Barra de progresso emocional */}
             <p className="text-[10px] font-mono text-stone-500 text-center">
-              ✅ História · ✅ Letra · 🟡 Música · ⬜ {formData.recipientGender === 'Masculino' ? 'Ele' : 'Ela'}
+               História ·  Letra ·  Música ·  {formData.recipientGender === 'Masculino' ? 'Ele' : 'Ela'}
             </p>
 
             {/* Preço âncora */}
             <div className="text-center space-y-0.5">
               <p className="text-[10px] font-mono text-stone-500">
-                🎁 A partir de 7.900 Kz · Pago único
+                 A partir de 7.900 Kz · Pago único
               </p>
             </div>
 
@@ -1999,14 +2000,14 @@ const ROTATING_MESSAGES = [
                 <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-amber-400 to-rose-500 flex items-center justify-center text-2xl font-bold text-white shrink-0 overflow-hidden">
                   {formData.photoUrl
                     ? <img src={formData.photoUrl} alt="" className="w-full h-full object-cover rounded-xl" />
-                    : <span className="text-3xl">💝</span>
+                    : <span className="text-3xl"></span>
                   }
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-stone-200 break-words">{aiSongTitle || (formData.recipientName ? `Música para ${formData.recipientName}` : 'Música personalizada')}</p>
                   <p className="text-xs text-stone-500">Para {formData.recipientName || 'alguém especial'} · Por {formData.userNick || 'Ti'}</p>
                   <p className="text-[10px] text-stone-500 font-mono mt-2">
-                    🎵 {formData.musicStyle || 'Kizomba'} · 3-4 min · <em className="text-amber-400/70 not-italic">Para ouvir e chorar 🥹</em>
+                     {formData.musicStyle || 'Kizomba'} · 3-4 min · <em className="text-amber-400/70 not-italic">Para ouvir e chorar </em>
                   </p>
                 </div>
               </div>
@@ -2032,7 +2033,7 @@ const ROTATING_MESSAGES = [
                 </button>
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] font-mono text-amber-400/80 font-medium">
-                    🎵 {formData.musicStyle || 'Kizomba'} real · 30s sample
+                     {formData.musicStyle || 'Kizomba'} real · 30s sample
                   </p>
                   <div className="h-1 bg-stone-800 rounded-full mt-1.5 overflow-hidden">
                     <div
@@ -2066,7 +2067,7 @@ const ROTATING_MESSAGES = [
                   <div className="bg-stone-900/40 p-4 rounded-2xl border border-stone-800 max-h-44 overflow-y-auto">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] text-stone-500 font-mono tracking-widest uppercase">Letra da música</span>
-                      <span className="text-[10px] text-amber-400/60 font-mono">🎵 {formData.musicStyle || 'Kizomba'}</span>
+                      <span className="text-[10px] text-amber-400/60 font-mono"> {formData.musicStyle || 'Kizomba'}</span>
                     </div>
                     <div className="text-stone-300 text-sm font-serif leading-relaxed whitespace-pre-line">
                       {Array.isArray(aiLyrics) ? aiLyrics.join('\n') : aiLyrics}
@@ -2075,7 +2076,7 @@ const ROTATING_MESSAGES = [
                 ) : (
                   <div className="bg-stone-900/40 p-4 rounded-2xl border border-amber-900/30 space-y-3">
                     <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl text-xs text-amber-300 space-y-1">
-                      <strong>⚠️ Atenção à escrita:</strong>
+                      <strong> Atenção à escrita:</strong>
                       <p>A letra que escrever será cantada pela inteligência artificial. Escreva corretamente para garantir uma pronúncia perfeita. Evite abreviações, gírias ou erros ortográficos — a IA canta exatamente o que está escrito.</p>
                     </div>
                     <textarea
@@ -2125,12 +2126,12 @@ const ROTATING_MESSAGES = [
 
             {/* Linha emocional */}
             <p className="text-center text-sm text-stone-300 font-medium leading-relaxed">
-              Já imaginaste a cara {formData.recipientGender === 'Masculino' ? 'do' : 'da'} <strong className="text-amber-400">{formData.recipientName || (formData.recipientGender === 'Masculino' ? 'alguém especial' : 'alguém especial')}</strong> a ouvir o <strong className="text-amber-400/80">NOME {formData.recipientGender === 'Masculino' ? 'DELE' : 'DELA'}</strong> cantado? 🥹
+              Já imaginaste a cara {formData.recipientGender === 'Masculino' ? 'do' : 'da'} <strong className="text-amber-400">{formData.recipientName || (formData.recipientGender === 'Masculino' ? 'alguém especial' : 'alguém especial')}</strong> a ouvir o <strong className="text-amber-400/80">NOME {formData.recipientGender === 'Masculino' ? 'DELE' : 'DELA'}</strong> cantado? 
             </p>
 
             {/* Dor da indiferença */}
             <p className="text-center text-[10px] text-rose-400/40 font-mono italic leading-relaxed">
-              🎁 Este presente já devia ter sido entregue no ano passado.
+               Este presente já devia ter sido entregue no ano passado.
             </p>
 
             {/* CTA principal — ocupar ecrã inteiro no mobile */}
@@ -2138,7 +2139,7 @@ const ROTATING_MESSAGES = [
               onClick={() => setConversionStep('plans')}
               className="w-full py-4 bg-gradient-to-r from-amber-500 to-rose-600 text-stone-950 font-black text-sm rounded-2xl hover:opacity-95 active:scale-[0.98] transition-all cursor-pointer shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
             >
-              <span>SIM, QUERO QUE {formData.recipientGender === 'Masculino' ? 'ELE' : 'ELA'} OUÇA ISTO ❤️</span>
+              <span>SIM, QUERO QUE {formData.recipientGender === 'Masculino' ? 'ELE' : 'ELA'} OUÇA ISTO </span>
               <ArrowRight className="w-5 h-5" />
             </button>
           </motion.div>
@@ -2161,13 +2162,13 @@ const ROTATING_MESSAGES = [
             </button>
 
             <p className="text-[10px] font-mono text-amber-400/80 text-center">
-              🎵 Música para <strong className="text-stone-200">{formData.recipientName || 'alguém especial'}</strong>
+               Música para <strong className="text-stone-200">{formData.recipientName || 'alguém especial'}</strong>
             </p>
 
             {/* Countdown urgency banner */}
             {countdownDisplay && (
               <div className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-950/40 border border-rose-800/40 text-center">
-                <span className="text-xs text-rose-300 font-mono">⏳ Letra reservada por:</span>
+                <span className="text-xs text-rose-300 font-mono"> Letra reservada por:</span>
                 <span className="text-sm font-bold font-mono text-rose-200 tabular-nums tracking-widest">{countdownDisplay}</span>
               </div>
             )}
@@ -2176,24 +2177,24 @@ const ROTATING_MESSAGES = [
               Escolhe como queres receber
             </h3>
             <p className="text-center text-[10px] text-amber-400/70 font-mono -mt-3">
-              💾 A letra que criaste para <strong className="text-stone-300">{formData.recipientName}</strong> está guardada. Falta só escolher como entregar.
+               A letra que criaste para <strong className="text-stone-300">{formData.recipientName}</strong> está guardada. Falta só escolher como entregar.
             </p>
             <p className="text-[10px] font-mono text-stone-500 text-center leading-relaxed -mt-4">
-              💬 {liveActivity.text}<br />
+               {liveActivity.text}<br />
               <span className="text-amber-400/80">· {liveActivity.time}</span>
             </p>
             <p className="text-center text-[10px] font-mono text-amber-400/90">
-              🔥 <strong className="text-amber-300">+{todayCount}</strong> músicas criadas hoje
+               <strong className="text-amber-300">+{todayCount}</strong> músicas criadas hoje
             </p>
 
             {/* EXPRESS — hero */}
             <div className="bg-stone-900/40 rounded-2.5xl p-5 border-2 border-amber-500/70 shadow-2xl relative space-y-4">
               <div className="absolute -top-3 right-4 bg-gradient-to-r from-amber-500 to-rose-500 text-stone-950 font-mono text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider shadow">
-                🔥 + ADQUIRIDO
+                 + ADQUIRIDO
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-serif text-lg font-bold text-amber-300">EXPRESS ⚡</h4>
+                  <h4 className="font-serif text-lg font-bold text-amber-300">EXPRESS </h4>
                   <p className="text-amber-500/80 text-xs">Entrega imediata + Dueto</p>
                 </div>
               </div>
@@ -2240,7 +2241,7 @@ const ROTATING_MESSAGES = [
             <div className="bg-stone-900/20 rounded-2xl p-4 border border-dashed border-purple-800/40 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">👑</span>
+                  <span className="text-lg"></span>
                   <div>
                     <span className="text-xs font-bold text-purple-300">Premium — Voz Clonada</span>
                     <p className="text-[10px] text-stone-500">A música cantada com a tua própria voz</p>
@@ -2479,7 +2480,7 @@ const ROTATING_MESSAGES = [
                 <Mic className="w-7 h-7 text-stone-950" />
               </div>
               <h2 className="font-serif text-2xl md:text-3xl text-stone-100 font-black tracking-tight pt-2">
-                A Música Será Cantada pela Sua Voz! 🎙️
+                A Música Será Cantada pela Sua Voz! 
               </h2>
               <p className="text-stone-400 text-xs md:text-sm max-w-sm mx-auto leading-relaxed">
                 Grave 20 segundos. A nossa IA clona o seu timbre e a <strong className="text-stone-200">música completa será cantada pela sua própria voz</strong>. Precisamos apenas de uma amostra curta e clara.
@@ -2535,7 +2536,7 @@ const ROTATING_MESSAGES = [
                       <span>GRAVAÇÃO EM CURSO • 0:{(recordingSeconds < 10 ? '0' : '') + recordingSeconds}s</span>
                     </div>
                   ) : hasRecorded ? (
-                    <span className="text-emerald-500 text-xs font-bold">{validationPhrase && phraseRecorded ? '🎙️ FRASE DE VALIDAÇÃO GRAVADA!' : validationPhrase ? '🎙️ FRASE GERADA — GRAVE-A AGORA!' : '🎙️ AMOSTRA GRAVADA COM SUCESSO!'} (0:{recordingSeconds}s)</span>
+                    <span className="text-emerald-500 text-xs font-bold">{validationPhrase && phraseRecorded ? ' FRASE DE VALIDAÇÃO GRAVADA!' : validationPhrase ? ' FRASE GERADA — GRAVE-A AGORA!' : ' AMOSTRA GRAVADA COM SUCESSO!'} (0:{recordingSeconds}s)</span>
                   ) : (
                     <span className="text-stone-500 text-xs">Microfone de Gravação Pronto</span>
                   )}
@@ -2731,7 +2732,7 @@ const ROTATING_MESSAGES = [
                     : 'bg-stone-850 border border-stone-800 text-stone-500 opacity-60'
                 }`}
               >
-                <span>🎙️ Confirmar Assinatura e Seguir para o Pagamento</span>
+                <span> Confirmar Assinatura e Seguir para o Pagamento</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
               
@@ -2777,15 +2778,15 @@ const ROTATING_MESSAGES = [
             <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl" />
 
             <div className="w-16 h-16 bg-amber-500/10 rounded-full border border-amber-500/20 flex items-center justify-center mx-auto shadow-inner mb-4">
-              <span className="text-3xl">💝</span>
+              <span className="text-3xl"></span>
             </div>
 
             <div className="space-y-2 relative z-10">
               <h3 className="font-serif text-2xl md:text-3xl text-stone-100 font-bold tracking-tight">
-                Que lindo gesto, {formData.recipientName.split(' ')[0]} vai adorar! ❤️
+                Que lindo gesto, {formData.recipientName.split(' ')[0]} vai adorar! 
               </h3>
               <p className="text-amber-400/90 text-sm md:text-base max-w-md mx-auto leading-relaxed font-medium">
-                Faltam só 2 minutos para {formData.recipientName.split(' ')[0]} ouvir a música que fizeste só para {formData.recipientGender === 'Masculino' ? 'ele' : 'ela'}. 🎶
+                Faltam só 2 minutos para {formData.recipientName.split(' ')[0]} ouvir a música que fizeste só para {formData.recipientGender === 'Masculino' ? 'ele' : 'ela'}. 
               </p>
               <p className="text-stone-400 text-xs font-serif italic max-w-md mx-auto">
                 Daqui a 10 anos, esta música ainda vai tocar. E tu vais estar nela.
@@ -2798,7 +2799,7 @@ const ROTATING_MESSAGES = [
               <span className="text-stone-700 hidden xs:inline">·</span>
               <span className="flex items-center gap-1"><Check className="w-3 h-3 text-emerald-400 shrink-0" />Plano escolhido</span>
               <span className="text-stone-700">·</span>
-              <span className="flex items-center gap-1 text-amber-400 font-semibold"><span className="text-[11px]">⏳</span>Confirmação manual até 24h</span>
+              <span className="flex items-center gap-1 text-amber-400 font-semibold"><span className="text-[11px]"></span>Confirmação manual até 24h</span>
             </div>
 
             {/* Price confirmation box */}
@@ -2808,9 +2809,9 @@ const ROTATING_MESSAGES = [
                   <span className="text-[10px] text-stone-550 font-mono block">PLANO ESCOLHIDO</span>
                   <strong className="text-stone-250 font-serif text-sm">
                     {voiceUpsellApplied
-                      ? 'SeuBeat Express + Voz Clonada 👑'
+                      ? 'SeuBeat Express + Voz Clonada '
                       : selectedPlanID === 'express'
-                      ? 'SeuBeat Express ⚡'
+                      ? 'SeuBeat Express '
                       : 'SeuBeat Standard'}
                   </strong>
                   {voiceUpsellApplied && (
@@ -2857,7 +2858,7 @@ const ROTATING_MESSAGES = [
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-lg leading-none">⚡</span>
+                      <span className="text-lg leading-none"></span>
                       <span className={`text-[9px] font-black font-mono tracking-widest px-1.5 py-0.5 rounded ${paymentMethod === 'express' ? 'bg-amber-500 text-stone-950' : 'bg-stone-800 text-amber-500'}`}>MAIS RÁPIDO</span>
                     </div>
                     <p className={`mt-2.5 text-sm font-black tracking-wide ${paymentMethod === 'express' ? 'text-amber-400' : 'text-stone-200'}`}>Multicaixa Express</p>
@@ -2874,7 +2875,7 @@ const ROTATING_MESSAGES = [
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-lg leading-none">🏧</span>
+                      <span className="text-lg leading-none"></span>
                       <span className={`text-[9px] font-black font-mono tracking-widest px-1.5 py-0.5 rounded ${paymentMethod === 'reference' ? 'bg-amber-500 text-stone-950' : 'bg-stone-800 text-stone-400'}`}>ATM / APP</span>
                     </div>
                     <p className={`mt-2.5 text-sm font-black tracking-wide ${paymentMethod === 'reference' ? 'text-amber-400' : 'text-stone-200'}`}>Referência Multicaixa</p>
@@ -2963,7 +2964,7 @@ const ROTATING_MESSAGES = [
                     className="flex items-center gap-1.5 text-[10px] font-mono text-amber-500 uppercase tracking-wider font-bold cursor-pointer hover:text-amber-400 transition-colors"
                   >
                     <span>{instructionsOpen ? '▾' : '▸'}</span>
-                    <span>📱 Como pagar pelo Multicaixa</span>
+                    <span> Como pagar pelo Multicaixa</span>
                   </button>
                   {instructionsOpen && (
                     <div className="space-y-2 text-xs text-stone-400">
@@ -2979,7 +2980,7 @@ const ROTATING_MESSAGES = [
                           </div>
                           <div className="flex items-start gap-2.5">
                             <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">3</div>
-                            <p>Confirma, faz <strong className="text-stone-200">printscreen</strong> do comprovativo e carrega abaixo 📸</p>
+                            <p>Confirma, faz <strong className="text-stone-200">printscreen</strong> do comprovativo e carrega abaixo </p>
                           </div>
                         </>
                       ) : (
@@ -2994,7 +2995,7 @@ const ROTATING_MESSAGES = [
                           </div>
                           <div className="flex items-start gap-2.5">
                             <div className="w-5 h-5 rounded-full bg-amber-500/10 border border-amber-500/30 shrink-0 flex items-center justify-center text-[10px] text-amber-500 font-bold font-mono mt-0.5">3</div>
-                            <p>Confirma, faz <strong className="text-stone-200">printscreen</strong> do comprovativo e carrega abaixo 📸</p>
+                            <p>Confirma, faz <strong className="text-stone-200">printscreen</strong> do comprovativo e carrega abaixo </p>
                           </div>
                         </>
                       )}
@@ -3009,7 +3010,7 @@ const ROTATING_MESSAGES = [
                       className="flex items-center gap-1.5 text-[10px] font-mono text-amber-500 uppercase tracking-wider font-bold cursor-pointer hover:text-amber-400 transition-colors"
                     >
                       <span>{faqOpen ? '▾' : '▸'}</span>
-                      <span>❓ Perguntas Frequentes</span>
+                      <span> Perguntas Frequentes</span>
                     </button>
                     {faqOpen && (
                       <div className="space-y-2 text-xs text-stone-400 pt-2">
@@ -3021,7 +3022,7 @@ const ROTATING_MESSAGES = [
                   {/* Upload Section */}
                 <div className="border-t border-stone-850 pt-4 space-y-4">
                   <div className="space-y-1 text-left">
-                    <span className="text-[10px] text-amber-500 font-mono uppercase tracking-wider block font-bold">PAGA E ENVIA O COMPROVATIVO 📸</span>
+                    <span className="text-[10px] text-amber-500 font-mono uppercase tracking-wider block font-bold">PAGA E ENVIA O COMPROVATIVO </span>
                     <p className="text-stone-400 text-xs font-sans">
                       Só falta isto. Em 2 minutos, {formData.recipientName.split(' ')[0]} pode ouvir a tua música hoje.
                     </p>
@@ -3092,14 +3093,14 @@ const ROTATING_MESSAGES = [
                           )}
 
                           <p className="text-[10px] text-stone-500 font-mono text-center">
-                            ⏱️ Demora 2 minutos. {formData.recipientGender === 'Masculino' ? 'Ele' : 'Ela'} vai ouvir ainda hoje.
+                             Demora 2 minutos. {formData.recipientGender === 'Masculino' ? 'Ele' : 'Ela'} vai ouvir ainda hoje.
                           </p>
                           <p className="text-[9px] text-rose-400/50 font-mono text-center italic">
-                            ⏳ A letra e a música que criou para {formData.recipientName.split(' ')[0]} estão prontas. Se sair agora, a página expira e o progresso perde-se.
+                             A letra e a música que criou para {formData.recipientName.split(' ')[0]} estão prontas. Se sair agora, a página expira e o progresso perde-se.
                           </p>
 
                           <p className="text-[10px] text-emerald-500/70 font-mono text-center flex items-center justify-center gap-1">
-                            <span>🛡️</span>
+                            <span></span>
                             <span>Entregamos a música ou devolvemos. Pode editar a letra à vontade.</span>
                           </p>
 
@@ -3117,7 +3118,7 @@ const ROTATING_MESSAGES = [
                   ) : paymentStatus === 'rejected' ? (
                     <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-4 text-left space-y-3">
                       <div className="flex items-center gap-2 text-rose-400 text-xs font-bold font-mono">
-                        <span className="text-lg">❌</span>
+                        <span className="text-lg"></span>
                         <span>COMPROVATIVO REJEITADO</span>
                       </div>
                       <p className="text-stone-400 text-xs font-sans leading-relaxed">
@@ -3192,7 +3193,7 @@ const ROTATING_MESSAGES = [
             {voiceCloningFailed && (
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-left max-w-md mx-auto">
                 <div className="flex items-center gap-2 text-amber-400 text-xs font-bold font-mono mb-1">
-                  <span>⚠️</span>
+                  <span></span>
                   <span>CLONAGEM DE VOZ INDISPONÍVEL</span>
                 </div>
                 <p className="text-stone-400 text-xs leading-relaxed">
@@ -3208,7 +3209,7 @@ const ROTATING_MESSAGES = [
                 {paymentStatus === 'approved' ? (
                   <>
                     <div className="border-b border-stone-900 pb-2 flex items-center gap-2">
-                      <span className="text-xl">🎉</span>
+                      <span className="text-xl"></span>
                       <div>
                         <span className="text-[10px] text-amber-500 font-mono block uppercase tracking-wider font-extrabold">PÁGINA DEDICADA GERADA</span>
                         <h4 className="text-stone-100 font-serif text-sm font-bold">Dedicatória com som completo ativa!</h4>
@@ -3252,7 +3253,7 @@ const ROTATING_MESSAGES = [
                         rel="noopener noreferrer"
                         className="py-3 px-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-95 text-stone-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 tracking-wide uppercase cursor-pointer text-center w-full shadow-lg"
                       >
-                        <span>💝 Ver dedicatória de {formData.recipientName.split(' ')[0]}</span>
+                        <span> Ver dedicatória de {formData.recipientName.split(' ')[0]}</span>
                         <ArrowRight className="w-4 h-4 text-stone-950" />
                       </a>
                     </div>
@@ -3260,7 +3261,7 @@ const ROTATING_MESSAGES = [
                 ) : paymentStatus === 'rejected' ? (
                   <>
                     <div className="border-b border-rose-900 pb-2 flex items-center gap-2">
-                      <span className="text-xl">❌</span>
+                      <span className="text-xl"></span>
                       <div>
                         <span className="text-[10px] text-rose-400 font-mono block uppercase tracking-wider font-extrabold">COMPROVATIVO REJEITADO</span>
                         <h4 className="text-stone-100 font-serif text-sm font-bold">O pagamento não foi validado</h4>
@@ -3294,7 +3295,7 @@ const ROTATING_MESSAGES = [
                 ) : (
                   <>
                     <div className="border-b border-stone-900 pb-2 flex items-center gap-2">
-                      <span className="text-xl">📩</span>
+                      <span className="text-xl"></span>
                       <div>
                         <span className="text-[10px] text-amber-500 font-mono block uppercase tracking-wider font-extrabold">COMPROVATIVO RECEBIDO</span>
                         <h4 className="text-stone-100 font-serif text-sm font-bold">Aguardando confirmação do pagamento</h4>
@@ -3319,7 +3320,7 @@ const ROTATING_MESSAGES = [
             {paymentSubmitted && generatedShareUrl && (
               <div className="bg-stone-950/80 rounded-2xl p-5 border border-stone-800 text-left max-w-md mx-auto space-y-4">
                 <div className="border-b border-stone-800 pb-2 flex items-center gap-2">
-                  <span className="text-xl">🤝</span>
+                  <span className="text-xl"></span>
                   <div>
                     <span className="text-[10px] text-amber-500 font-mono block uppercase tracking-wider font-extrabold">INDIQUE UM AMIGO</span>
                     <h4 className="text-stone-100 font-serif text-sm font-bold">Ganhe 10% OFF na sua próxima música</h4>
@@ -3329,7 +3330,7 @@ const ROTATING_MESSAGES = [
                   Partilhe o SeuBeat com quem mais gosta. Quando eles criarem uma música, <strong className="text-stone-300">ganha 10% de desconto na sua próxima encomenda</strong>.
                 </p>
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent('Olá! 🌟 Acabei de criar uma música personalizada no SeuBeat e adorei o resultado! Eles transformam histórias em canções — Kizomba, Semba, Pop… É incrível! Cria uma também para quem amas 👉 seubeat.ao')}`}
+                  href={`https://wa.me/?text=${encodeURIComponent('Olá!  Acabei de criar uma música personalizada no SeuBeat e adorei o resultado! Eles transformam histórias em canções — Kizomba, Semba, Pop… É incrível! Cria uma também para quem amas  seubeat.ao')}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 py-3 px-4 bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
@@ -3386,7 +3387,7 @@ const ROTATING_MESSAGES = [
                   }}
                 className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 rounded-xl text-xs font-bold shadow-lg shadow-amber-500/10 transition-all cursor-pointer"
               >
-                Criar Outra Música ❤️
+                Criar Outra Música 
               </button>
             </div>
             
@@ -3570,7 +3571,7 @@ const ROTATING_MESSAGES = [
                 <div>
                   <span className="text-stone-605 block text-[9px] uppercase tracking-wider">Voz escolhida:</span>
                   <span className="font-semibold text-stone-200">
-                    {formData.voiceType ? `${formData.voiceType} 🎤` : 'Pendente de escolha...'}
+                    {formData.voiceType ? `${formData.voiceType} ` : 'Pendente de escolha...'}
                   </span>
                 </div>
 

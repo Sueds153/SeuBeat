@@ -129,7 +129,7 @@ export default function SongShare(props: SongShareProps) {
 
               <div className="pt-2 flex items-center justify-between text-[10px] text-stone-500 font-mono border-t border-white/5">
                 <span className="font-bold tracking-wider text-amber-400">SEUBEAT.COM</span>
-                <span>🎵 Exclusivo</span>
+                <span className="inline-flex items-center gap-1"><Music className="w-3 h-3" /> Exclusivo</span>
               </div>
             </div>
 

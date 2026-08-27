@@ -8,6 +8,7 @@ export interface SongApiResponse {
     title?: string;
     lyrics?: string[];
     audioUrl?: string;
+    audioUrlV2?: string;
     letterText?: string;
     dedicationLetter?: string;
     recipientName?: string;

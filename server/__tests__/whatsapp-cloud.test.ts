@@ -471,4 +471,168 @@ describe('whatsappSender (Cloud API)', () => {
     expect(upd.status).toBe('delivered');
     expect(upd.message_id).toBe('wamid.99');
   });
+
+  it('sendDeliveryWhatsApp envia com template de entrega e regista log', async () => {
+    const wa = await importSender({ WHATSAPP_DELIVERY_TEMPLATE: 'seubeat_entrega_v1' });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ messages: [{ id: 'wamid.del1' }] }),
+    });
+    const res = await wa.sendDeliveryWhatsApp({
+      requestId: 'r-del1',
+      phone: '244900000001',
+      recipientName: 'Ana',
+      songUrl: 'https://seubeat.onrender.com/song/ana?id=s1',
+    });
+    expect(res).toBe('sent');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toContain('123456789/messages');
+    const body = JSON.parse(opts.body);
+    expect(body.template.name).toBe('seubeat_entrega_v1');
+    expect(body.template.components[0].parameters[0].text).toBe('Ana');
+    expect(body.template.components[0].parameters[1].text).toBe('https://seubeat.onrender.com/song/ana?id=s1');
+    const insertRow = supabaseState.query.insert.mock.calls[0][0];
+    expect(insertRow.status).toBe('sent');
+    expect(insertRow.message_id).toBe('wamid.del1');
+    expect(insertRow.request_id).toBe('r-del1');
+  });
+
+  it('sendDeliveryWhatsApp devolve skipped sem telefone', async () => {
+    const wa = await importSender();
+    const res = await wa.sendDeliveryWhatsApp({
+      requestId: 'r-del2',
+      phone: null,
+      recipientName: 'Ana',
+      songUrl: 'https://x',
+    });
+    expect(res).toBe('skipped');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('sendDeliveryWhatsApp devolve unconfigured sem env', async () => {
+    const wa = await importUnconfigured();
+    const res = await wa.sendDeliveryWhatsApp({
+      requestId: 'r-del3',
+      phone: '244900000001',
+      recipientName: 'Ana',
+      songUrl: 'https://x',
+    });
+    expect(res).toBe('unconfigured');
+  });
+
+  it('sendFeedbackRequestWhatsApp envia com template de feedback e regista log', async () => {
+    const wa = await importSender({ WHATSAPP_FEEDBACK_TEMPLATE: 'seubeat_feedback_v1' });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ messages: [{ id: 'wamid.fb1' }] }),
+    });
+    const res = await wa.sendFeedbackRequestWhatsApp({
+      requestId: 'r-fb1',
+      phone: '244900000001',
+      recipientName: 'Carlos',
+      songUrl: 'https://seubeat.onrender.com/song/carlos?id=s2',
+      email: 'carlos@test.com',
+    });
+    expect(res).toBe('sent');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.template.name).toBe('seubeat_feedback_v1');
+    expect(body.template.components[0].parameters[0].text).toBe('Carlos');
+    expect(body.template.components[0].parameters[1].text).toContain('/feedback?requestId=r-fb1');
+    const insertRow = supabaseState.query.insert.mock.calls[0][0];
+    expect(insertRow.status).toBe('sent');
+    expect(insertRow.message_id).toBe('wamid.fb1');
+  });
+
+  it('sendFeedbackRequestWhatsApp devolve skipped sem telefone', async () => {
+    const wa = await importSender();
+    const res = await wa.sendFeedbackRequestWhatsApp({
+      requestId: 'r-fb2',
+      phone: '',
+      recipientName: 'Carlos',
+      songUrl: 'https://x',
+    });
+    expect(res).toBe('skipped');
+  });
+
+  it('sendFeedbackRequestWhatsApp devolve unconfigured sem env', async () => {
+    const wa = await importUnconfigured();
+    const res = await wa.sendFeedbackRequestWhatsApp({
+      requestId: 'r-fb3',
+      phone: '244900000001',
+      recipientName: 'Carlos',
+      songUrl: 'https://x',
+    });
+    expect(res).toBe('unconfigured');
+  });
+
+  // ── sendPaymentApprovedWhatsApp ──────────────────────────────────────────────
+
+  it('sendPaymentApprovedWhatsApp envia com template de aprovação e regista log', async () => {
+    const wa = await importSender({ WHATSAPP_PAYMENT_APPROVED_TEMPLATE: 'seubeat_pagamento_aprovado_v2' });
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ messages: [{ id: 'wamid.pap1' }] }),
+    });
+    const res = await wa.sendPaymentApprovedWhatsApp({
+      requestId: 'r-pap1',
+      phone: '244900000001',
+      recipientName: 'Nair',
+    });
+    expect(res).toBe('sent');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.template.name).toBe('seubeat_pagamento_aprovado_v2');
+    // {{1}} = nome destinatário, {{2}} = prazo
+    expect(body.template.components[0].parameters[0].text).toBe('Nair');
+    expect(body.template.components[0].parameters[1].text).toBe('24 horas');
+    const insertRow = supabaseState.query.insert.mock.calls[0][0];
+    expect(insertRow.status).toBe('sent');
+    expect(insertRow.message_id).toBe('wamid.pap1');
+    expect(insertRow.request_id).toBe('r-pap1');
+  });
+
+  it('sendPaymentApprovedWhatsApp devolve skipped sem telefone', async () => {
+    const wa = await importSender();
+    const res = await wa.sendPaymentApprovedWhatsApp({
+      requestId: 'r-pap2',
+      phone: null,
+      recipientName: 'Nair',
+    });
+    expect(res).toBe('skipped');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('sendPaymentApprovedWhatsApp devolve unconfigured sem env', async () => {
+    const wa = await importUnconfigured();
+    const res = await wa.sendPaymentApprovedWhatsApp({
+      requestId: 'r-pap3',
+      phone: '244900000001',
+      recipientName: 'Nair',
+    });
+    expect(res).toBe('unconfigured');
+  });
+
+  it('sendPaymentApprovedWhatsApp devolve failed quando a API rejeita', async () => {
+    const wa = await importSender();
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { code: 132000, message: 'Template not approved' } }),
+    });
+    const res = await wa.sendPaymentApprovedWhatsApp({
+      requestId: 'r-pap4',
+      phone: '244900000001',
+      recipientName: 'Nair',
+    });
+    expect(res).toBe('failed');
+    const insertRow = supabaseState.query.insert.mock.calls[0][0];
+    expect(insertRow.status).toBe('failed');
+    expect(insertRow.request_id).toBe('r-pap4');
+  });
 });
+

@@ -185,10 +185,17 @@ function extractStatus(payload: unknown): string {
 }
 
 export function extractAudioUrl(payload: unknown): string | null {
+  return extractBothAudioUrls(payload).v1;
+}
+
+export function extractBothAudioUrls(payload: unknown): { v1: string | null; v2: string | null } {
   const p = payload as Record<string, unknown>;
   const data = p['data'] as Record<string, unknown> | undefined;
   const response = p['response'] as Record<string, unknown> | undefined;
   const sunoData = (data?.['response'] as Record<string, unknown> | undefined)?.['sunoData'] || response?.['sunoData'];
+
+  const validUrls: string[] = [];
+
   if (Array.isArray(sunoData) && sunoData.length > 0) {
     for (const item of sunoData) {
       const url = firstString(
@@ -199,14 +206,19 @@ export function extractAudioUrl(payload: unknown): string | null {
         (item as Record<string, unknown>)?.['streamAudioUrl'] as string | undefined,
         (item as Record<string, unknown>)?.['sourceStreamAudioUrl'] as string | undefined
       );
-      if (url && isLikelyAudioUrl('audio', url)) return url;
+      if (url && isLikelyAudioUrl('audio', url)) validUrls.push(url);
     }
   }
 
-  const urls = collectAudioUrls(payload);
-  const sourceUrl = urls.find(url => /cdn\d*\.suno\.ai\/(?!image[_-])/i.test(url));
-  if (sourceUrl) return sourceUrl;
-  return urls.find(url => /\.(mp3|wav|flac|m4a|aac|ogg)(\?|$)/i.test(url)) || urls[0] || null;
+  if (validUrls.length < 2) {
+    const allUrls = collectAudioUrls(payload);
+    for (const url of allUrls) {
+      if (validUrls.length >= 2) break;
+      if (!validUrls.includes(url)) validUrls.push(url);
+    }
+  }
+
+  return { v1: validUrls[0] || null, v2: validUrls[1] || null };
 }
 
 const VOICE_STYLE_MAP: Record<string, string> = {
@@ -278,14 +290,20 @@ export async function querySunoTask(taskId: string): Promise<SunoResult> {
   const status = extractStatus(statusData);
   // Só expor audioUrl quando o estado é final de sucesso. Estados intermédios
   // (TEXT_SUCCESS/FIRST_SUCCESS) devolvem clips parciais que não devem ser entregues.
-  const audioUrl = SUCCESS_STATUSES.has(status) ? extractAudioUrl(statusData) : null;
+  let audioUrl: string | null = null;
+  let audioUrlV2: string | null = null;
+  if (SUCCESS_STATUSES.has(status)) {
+    const both = extractBothAudioUrls(statusData);
+    audioUrl = both.v1;
+    audioUrlV2 = both.v2;
+  }
 
   if (FAILED_STATUSES.has(status)) {
     const safe = JSON.stringify(statusData).slice(0, 200);
     throw new Error(`Suno task failed: ${safe}`);
   }
 
-  return { taskId, audioUrl, status };
+  return { taskId, audioUrl, audioUrlV2, status };
   });
 }
 
@@ -425,7 +443,7 @@ export async function startSunoMusic(lyrics: string[] | string, musicStyle: stri
   }
 
   logInfo(`[Suno] Task created`, { taskId });
-  return { taskId, audioUrl: null, status: extractStatus(generateData) };
+  return { taskId, audioUrl: null, audioUrlV2: null, status: extractStatus(generateData) };
 }
 
 export async function pollSunoTask(taskId: string, _immediateAudioUrl: string | null, label = 'Suno', maxAttempts = 30): Promise<SunoResult> {

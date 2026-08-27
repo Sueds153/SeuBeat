@@ -7,6 +7,7 @@ import { downloadFile, createPreviewAudio, applyFades, convertToWav, getAudioDur
 import { querySunoTask, startSunoMusic, pollSunoTask } from './suno';
 import { generateValidationPhrase, waitForValidationPhrase, createCustomVoice, waitForVoiceId, checkVoiceAvailability } from './suno-voice';
 import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification, sendWorkflowFailedEmail } from './email';
+import { sendDeliveryWhatsApp, sendPaymentApprovedWhatsApp } from './whatsappSender';
 import { getAudioFileInfo, getAppUrl } from '../utils/helpers';
 import { logInfo, logWarn, logError } from '../utils/logger';
 import { RequestProgress } from './types';
@@ -202,6 +203,7 @@ async function completeSunoWorkflowFromAudio(
   songId: string,
   taskId: string,
   audioUrl: string,
+  audioUrlV2: string | null | undefined,
   opts?: { skipProcessing?: boolean; hintDuration?: number | null }
 ) {
   const supabase = getAdminSupabase();
@@ -218,17 +220,39 @@ async function completeSunoWorkflowFromAudio(
   );
   logInfo(`[Background Suno] Saved original to full-audio`, { songId, taskId, skipProcessing: !!opts?.skipProcessing });
 
+  // Processar segunda versão (v2) se disponível
+  let fullAudioUrlV2: string | null = null;
+  if (audioUrlV2) {
+    try {
+      logInfo(`[Background Suno] Processing v2 audio`, { songId, taskId });
+      const v2Result = await withTimeout(
+        persistGeneratedSunoAudio(`${songId}_v2`, taskId, audioUrlV2, opts),
+        persistTimeout,
+        `persistGeneratedSunoAudio(${songId}_v2)`
+      );
+      fullAudioUrlV2 = v2Result.fullAudioUrl;
+      logInfo(`[Background Suno] v2 audio saved`, { songId, fullAudioUrlV2 });
+    } catch (v2Err) {
+      logWarn(`[Background Suno] v2 audio processing failed, continuing with v1 only`, { songId, error: v2Err instanceof Error ? v2Err.message : String(v2Err) });
+    }
+  }
+
   // Reusamos as colunas mureka_task_id e mureka_status no banco de dados para evitar migrations complexas
+  const songUpdate: Record<string, unknown> = {
+    audio_url: fullAudioUrl,
+    full_song_url: fullAudioUrl,
+    preview_url: publicPreviewUrl,
+    duration,
+    mureka_task_id: taskId,
+    mureka_status: 'completed'
+  };
+  if (fullAudioUrlV2) {
+    songUpdate.audio_url_v2 = fullAudioUrlV2;
+    songUpdate.full_song_url_v2 = fullAudioUrlV2;
+  }
   const { error: songUpdateError } = await supabase
     .from('songs')
-    .update({
-      audio_url: fullAudioUrl,
-      full_song_url: fullAudioUrl,
-      preview_url: publicPreviewUrl,
-      duration,
-      mureka_task_id: taskId,
-      mureka_status: 'completed'
-    })
+    .update(songUpdate)
     .eq('id', songId);
   if (songUpdateError) throw songUpdateError;
 
@@ -282,11 +306,11 @@ export async function resumeSunoTaskWorkflow(requestId: string, songId: string, 
 
     for (let attempt = 0; attempt < 60; attempt++) {
       if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 10000));
-      const { audioUrl, status } = await querySunoTask(taskId);
-      logInfo(`[Background Suno] Resume poll`, { attempt: attempt + 1, status, hasAudio: !!audioUrl, requestId });
+      const { audioUrl, audioUrlV2 } = await querySunoTask(taskId);
+      logInfo(`[Background Suno] Resume poll`, { attempt: attempt + 1, status, hasAudio: !!audioUrl, hasV2: !!audioUrlV2, requestId });
 
       if (audioUrl) {
-        await completeSunoWorkflowFromAudio(requestId, songId, taskId, audioUrl, {
+        await completeSunoWorkflowFromAudio(requestId, songId, taskId, audioUrl, audioUrlV2, {
           skipProcessing,
           hintDuration: dbDuration,
         });
@@ -296,7 +320,7 @@ export async function resumeSunoTaskWorkflow(requestId: string, songId: string, 
         try {
           const { data: sr } = await supabase
             .from('song_requests')
-            .select('status, email, recipient_name, users!inner(email, name), songs!inner(id, letter_text, title)')
+            .select('status, email, phone, recipient_name, users!inner(email, name), songs!inner(id, letter_text, title)')
             .eq('id', requestId)
             .single();
           if (sr) {
@@ -311,9 +335,26 @@ export async function resumeSunoTaskWorkflow(requestId: string, songId: string, 
               if (songReqStatus === 'approved') {
                 sendConfirmationEmail(userEmail, sr.recipient_name, requestId, 'standard_approved')
                   .catch(err => logError('[Resume] Confirmation email failed', err, { requestId }));
+                // WhatsApp de aprovacao Standard no resume (musica sera entregue em 24h)
+                if (sr.phone) {
+                  sendPaymentApprovedWhatsApp({
+                    requestId,
+                    phone: sr.phone,
+                    recipientName: sr.recipient_name,
+                  }).catch(err => logError('[Resume] Payment approved WhatsApp failed', err, { requestId }));
+                }
               } else {
                 sendPersonalizedEmail(userEmail, sr.recipient_name, url, song?.letter_text || 'Dedicatória.')
                   .catch(err => logError('[Resume] Delivery email failed', err, { requestId }));
+                // WhatsApp automático no resume de entrega Express/Premium
+                if (sr.phone) {
+                  sendDeliveryWhatsApp({
+                    requestId,
+                    phone: sr.phone,
+                    recipientName: sr.recipient_name,
+                    songUrl: url,
+                  }).catch(err => logError('[Resume] Delivery WhatsApp failed', err, { requestId }));
+                }
               }
             }
           }
@@ -472,6 +513,7 @@ export async function runBackgroundSunoWorkflow(
     // Passo 3: Fazer polling do estado da task (pode demorar vários minutos)
     const pollResult = await pollSunoTask(taskId, null, 'Suno');
     const finalAudioUrl = pollResult.audioUrl;
+    const finalAudioUrlV2 = pollResult.audioUrlV2;
 
     if (!finalAudioUrl) {
       logWarn(`[Background Suno] Task sem áudio após polling — a marcar como failed`, { taskId, requestId });
@@ -491,16 +533,34 @@ export async function runBackgroundSunoWorkflow(
     const { fullAudioUrl, publicPreviewUrl, duration } = await persistGeneratedSunoAudio(songId, taskId, finalAudioUrl);
     logInfo(`[Background Suno] Audio saved to storage`, { songId, taskId });
 
+    // Processar segunda versão (v2) se disponível
+    let fullAudioUrlV2: string | null = null;
+    if (finalAudioUrlV2) {
+      try {
+        logInfo(`[Background Suno] Processing v2 audio`, { songId, taskId });
+        const v2Result = await persistGeneratedSunoAudio(`${songId}_v2`, taskId, finalAudioUrlV2);
+        fullAudioUrlV2 = v2Result.fullAudioUrl;
+        logInfo(`[Background Suno] v2 audio saved`, { songId, fullAudioUrlV2 });
+      } catch (v2Err) {
+        logWarn(`[Background Suno] v2 audio processing failed, continuing with v1 only`, { songId, error: v2Err instanceof Error ? v2Err.message : String(v2Err) });
+      }
+    }
+
+    const songUpdate: Record<string, unknown> = {
+      audio_url: fullAudioUrl,
+      full_song_url: fullAudioUrl,
+      preview_url: publicPreviewUrl,
+      duration,
+      mureka_task_id: taskId,
+      mureka_status: 'completed'
+    };
+    if (fullAudioUrlV2) {
+      songUpdate.audio_url_v2 = fullAudioUrlV2;
+      songUpdate.full_song_url_v2 = fullAudioUrlV2;
+    }
     const { error: completedSongUpdateError } = await supabase
       .from('songs')
-      .update({
-        audio_url: fullAudioUrl,
-        full_song_url: fullAudioUrl,
-        preview_url: publicPreviewUrl,
-        duration,
-        mureka_task_id: taskId,
-        mureka_status: 'completed'
-      })
+      .update(songUpdate)
       .eq('id', songId);
     if (completedSongUpdateError) throw completedSongUpdateError;
 
@@ -550,6 +610,16 @@ export async function runBackgroundSunoWorkflow(
         ).catch((emailErr) => {
           logError('[Background Suno] Confirmation email failed', emailErr, { requestId, userEmail });
         });
+        // WhatsApp de aprovacao Standard: avisa que a musica esta a ser preparada
+        if (requestData.phone) {
+          sendPaymentApprovedWhatsApp({
+            requestId,
+            phone: requestData.phone,
+            recipientName: requestData.recipient_name,
+          }).catch((waErr) => {
+            logError('[Background Suno] Payment approved WhatsApp failed (Standard)', waErr, { requestId });
+          });
+        }
       } else {
         logInfo(`[Background Suno] Sending delivery email`, { userEmail });
         sendPersonalizedEmail(
@@ -560,6 +630,17 @@ export async function runBackgroundSunoWorkflow(
         ).catch((emailErr) => {
           logError('[Background Suno] Delivery email failed (song already delivered)', emailErr, { requestId, userEmail });
         });
+        // WhatsApp automático: notificação de entrega (Express/Premium)
+        if (requestData.phone) {
+          sendDeliveryWhatsApp({
+            requestId,
+            phone: requestData.phone,
+            recipientName: requestData.recipient_name,
+            songUrl: personalizedUrl,
+          }).catch((waErr) => {
+            logError('[Background Suno] Delivery WhatsApp failed', waErr, { requestId });
+          });
+        }
       }
     }
     logInfo(`[Background Suno] Workflow completed`, { requestId, nextStatus });
@@ -737,7 +818,7 @@ export async function processSunoVoice(
   try {
     const { data: voiceRequestData, error: voiceReqError } = await supabase
       .from('song_requests')
-      .select('language, elevenlabs_voice_id')
+      .select('language, elevenlabs_voice_id, created_at')
       .eq('id', requestId)
       .single();
     if (voiceReqError || !voiceRequestData) {
@@ -808,10 +889,15 @@ export async function processSunoVoice(
           throw new Error('task_phrase_mismatch');
         }
       } catch (verifyErr) {
+        const reason = verifyErr instanceof Error ? verifyErr.message : String(verifyErr);
+        const createdAtMs = voiceRequestData.created_at ? new Date(voiceRequestData.created_at).getTime() : null;
+        const elapsedMin = createdAtMs ? Math.round((Date.now() - createdAtMs) / 60_000) : null;
         logWarn(`[Suno Voice] Task de validação expirada/inválida — a tentar nova frase`, {
           taskId: validationTaskId,
           requestId,
-          error: verifyErr instanceof Error ? verifyErr.message : String(verifyErr),
+          reason,
+          elapsedMin,
+          storedPhrase: storedPhrase || null,
         });
         validationTaskId = null;
       }

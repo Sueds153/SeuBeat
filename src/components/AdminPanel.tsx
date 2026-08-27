@@ -4,7 +4,7 @@ import {
   Clock, RefreshCw, Eye, LogOut, ChevronDown, ChevronRight,
   Download, Play, AlertTriangle, Sparkles, TrendingUp, Shield,
   Activity, RotateCcw, Mic, Mail, Pencil, Upload, Search, FileText, ExternalLink, List, Zap,
-  Menu, Megaphone, X, Send
+  Menu, Megaphone, X, Send, Music2, Package, Undo2, Target, TrendingDown, Trash2, Banknote, Flame
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LogoIcon from './LogoIcon';
@@ -86,7 +86,7 @@ interface SongRequest {
   utm_term?: string | null;
   utm_content?: string | null;
   users?: { name: string; email: string; phone: string };
-  songs?: { id: string; title: string; audio_url: string | null; mureka_status: string; created_at: string; letter_text?: string; lyrics?: string[] }[];
+  songs?: { id: string; title: string; audio_url: string | null; audio_url_v2?: string | null; mureka_status: string; created_at: string; letter_text?: string; lyrics?: string[] }[];
   payments?: { plan: string; amount: string; status: string; created_at?: string; payment_reference?: string; user_email?: string }[];
 }
 
@@ -96,6 +96,8 @@ interface Song {
   audio_url: string | null;
   full_song_url?: string | null;
   preview_url?: string | null;
+  audio_url_v2?: string | null;
+  full_song_url_v2?: string | null;
   mureka_status: string;
   mureka_task_id: string | null;
   created_at: string;
@@ -220,28 +222,28 @@ const STATUS_COLORS: Record<string, string> = {
   delivered: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  pending_verification: '⏳ Aguardando Verificação',
-  approved: '✅ Aprovado',
-  rejected: '❌ Rejeitado',
-  pending: '⏳ Pendente',
-  payment_submitted: '💳 Comprovativo Enviado',
-  paid: '✅ Pago',
-  payment_rejected: '❌ Pagamento Rejeitado',
-  music_generating: '🎵 Gerando Música',
-  music_processing: '🎵 A Processar Música',
-  music_ready: '🎶 Música Pronta',
-  not_started: '⏸ Não Iniciado',
-  generating: '🎵 Gerando...',
-  completed: '✅ Concluído',
-  failed: '❌ Falhou',
-  processing: '⏳ Em Processamento',
-  draft: '📝 Rascunho',
-  lyrics_generating: '📝 A Gerar Letra',
-  lyrics_ready: '📝 Letra Pronta',
-  preview_ready: '🎧 Preview Pronto',
-  voice_processing: '🎙️ Processando Voz',
-  delivered: '🎁 Entregue',
+const STATUS_LABELS: Record<string, React.ReactNode> = {
+  pending_verification: <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> Aguardando Verificacao</span>,
+  approved: <span className="inline-flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Aprovado</span>,
+  rejected: <span className="inline-flex items-center gap-1"><XCircle className="w-3 h-3" /> Rejeitado</span>,
+  pending: <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> Pendente</span>,
+  payment_submitted: <span className="inline-flex items-center gap-1"><CreditCard className="w-3 h-3" /> Comprovativo Enviado</span>,
+  paid: <span className="inline-flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Pago</span>,
+  payment_rejected: <span className="inline-flex items-center gap-1"><XCircle className="w-3 h-3" /> Pagamento Rejeitado</span>,
+  music_generating: <span className="inline-flex items-center gap-1"><Music className="w-3 h-3" /> Gerando Musica</span>,
+  music_processing: <span className="inline-flex items-center gap-1"><Music className="w-3 h-3" /> A Processar Musica</span>,
+  music_ready: <span className="inline-flex items-center gap-1"><Music2 className="w-3 h-3" /> Musica Pronta</span>,
+  not_started: <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> Nao Iniciado</span>,
+  generating: <span className="inline-flex items-center gap-1"><Music className="w-3 h-3" /> Gerando...</span>,
+  completed: <span className="inline-flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Concluido</span>,
+  failed: <span className="inline-flex items-center gap-1"><XCircle className="w-3 h-3" /> Falhou</span>,
+  processing: <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> Em Processamento</span>,
+  draft: <span className="inline-flex items-center gap-1"><FileText className="w-3 h-3" /> Rascunho</span>,
+  lyrics_generating: <span className="inline-flex items-center gap-1"><FileText className="w-3 h-3" /> A Gerar Letra</span>,
+  lyrics_ready: <span className="inline-flex items-center gap-1"><FileText className="w-3 h-3" /> Letra Pronta</span>,
+  preview_ready: <span className="inline-flex items-center gap-1"><Music className="w-3 h-3" /> Preview Pronto</span>,
+  voice_processing: <span className="inline-flex items-center gap-1"><Mic className="w-3 h-3" /> Processando Voz</span>,
+  delivered: <span className="inline-flex items-center gap-1"><Package className="w-3 h-3" /> Entregue</span>,
 };
 
 function cap(str: string): string {
@@ -290,29 +292,29 @@ function normalizeLyricsArray(lyrics: any): string[] {
 
 const VALID_STATUSES_FRONTEND: Record<string, { label: string; value: string }[]> = {
   song_requests: [
-    { label: '📝 A gerar letra', value: 'lyrics_generating' },
-    { label: '📝 Letra pronta', value: 'lyrics_ready' },
-    { label: '🎵 A processar música', value: 'music_processing' },
-    { label: '🎙️ A processar voz', value: 'voice_processing' },
-    { label: '🎶 Música pronta', value: 'music_ready' },
-    { label: '✅ Aprovado (24h)', value: 'approved' },
-    { label: '🎁 Entregue', value: 'delivered' },
-    { label: '❌ Falhou', value: 'failed' },
-    { label: '💳 Pagamento rejeitado', value: 'payment_rejected' },
-    { label: '💳 Comprovativo enviado', value: 'payment_submitted' },
+    { label: 'A gerar letra', value: 'lyrics_generating' },
+    { label: 'Letra pronta', value: 'lyrics_ready' },
+    { label: 'A processar musica', value: 'music_processing' },
+    { label: 'A processar voz', value: 'voice_processing' },
+    { label: 'Musica pronta', value: 'music_ready' },
+    { label: 'Aprovado (24h)', value: 'approved' },
+    { label: 'Entregue', value: 'delivered' },
+    { label: 'Falhou', value: 'failed' },
+    { label: 'Pagamento rejeitado', value: 'payment_rejected' },
+    { label: 'Comprovativo enviado', value: 'payment_submitted' },
   ],
   payments: [
-    { label: '⏳ A aguardar verificação', value: 'pending_verification' },
-    { label: '✅ Aprovado', value: 'approved' },
-    { label: '❌ Rejeitado', value: 'rejected' },
-    { label: '❌ Falhou', value: 'failed' },
+    { label: 'A aguardar verificacao', value: 'pending_verification' },
+    { label: 'Aprovado', value: 'approved' },
+    { label: 'Rejeitado', value: 'rejected' },
+    { label: 'Falhou', value: 'failed' },
   ],
   songs: [
-    { label: '⏸ Não iniciado', value: 'not_started' },
-    { label: '🎵 A gerar', value: 'generating' },
-    { label: '⏳ Em processamento', value: 'processing' },
-    { label: '✅ Concluído', value: 'completed' },
-    { label: '❌ Falhou', value: 'failed' },
+    { label: 'Nao iniciado', value: 'not_started' },
+    { label: 'A gerar', value: 'generating' },
+    { label: 'Em processamento', value: 'processing' },
+    { label: 'Concluido', value: 'completed' },
+    { label: 'Falhou', value: 'failed' },
   ],
 };
 
@@ -637,7 +639,7 @@ export default function AdminPanel() {
         body: JSON.stringify({ music_style: musicStyle, voice_type: voiceType })
       });
       const data = await res.json();
-      if (res.ok) { showToast('🎵 Estilo atualizado!'); fetchRequests(); }
+      if (res.ok) { showToast(' Estilo atualizado!'); fetchRequests(); }
       else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao atualizar.', 'error');
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
@@ -651,7 +653,7 @@ export default function AdminPanel() {
         method: 'POST', headers: apiHeaders
       });
       const data = await res.json();
-      if (res.ok) { showToast('✏️ Letra regenerada com sucesso!'); fetchRequests(); }
+      if (res.ok) { showToast(' Letra regenerada com sucesso!'); fetchRequests(); }
       else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao regenerar.', 'error');
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
@@ -737,7 +739,7 @@ export default function AdminPanel() {
     if (data?.success) {
       setWaTestModal(prev => ({
         ...prev, loading: false,
-        result: { ok: true, message: `✅ Enviado! ID: ${data.messageId || '—'} · Para: ${data.phone} · Template: ${data.template}` },
+        result: { ok: true, message: ` Enviado! ID: ${data.messageId || '—'} · Para: ${data.phone} · Template: ${data.template}` },
       }));
     } else {
       setWaTestModal(prev => ({
@@ -865,12 +867,12 @@ export default function AdminPanel() {
     const currentPayments = statsData.pendingPayments || 0;
 
     if (prev.requests > 0 && currentRequests > prev.requests) {
-      setNotification({ message: `📦 Novo pedido de música recebido!` });
+      setNotification({ message: ` Novo pedido de música recebido!` });
       setNotifCount(c => c + 1);
       setNotifDot(true);
     }
     if (prev.payments >= 0 && currentPayments > prev.payments) {
-      setNotification({ message: `💳 Novo pagamento pendente!` });
+      setNotification({ message: ` Novo pagamento pendente!` });
       setNotifCount(c => c + 1);
       setNotifDot(true);
     }
@@ -981,7 +983,7 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast(`✅ Pagamento aprovado! ${data.isStandard ? '📅 Música será entregue em 24h.' : data.message?.includes('processamento') ? '🎵 Música em processamento.' : '🎵 Música entregue ao cliente.'}`);
+        showToast(` Pagamento aprovado! ${data.isStandard ? ' Música será entregue em 24h.' : data.message?.includes('processamento') ? ' Música em processamento.' : ' Música entregue ao cliente.'}`);
         fetchPayments();
         fetchStats();
         
@@ -1009,7 +1011,7 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast('❌ Pagamento rejeitado. Cliente notificado.');
+        showToast(' Pagamento rejeitado. Cliente notificado.');
         fetchPayments();
         fetchStats();
         
@@ -1053,7 +1055,7 @@ export default function AdminPanel() {
     try {
       const res = await fetch(`/api/admin/request/${requestId}/retry`, { method: 'POST', headers: apiHeaders });
       const data = await res.json();
-      if (res.ok) { showToast('🔁 Fluxo reiniciado!'); fetchRequests(); fetchProgress();  }
+      if (res.ok) { showToast(' Fluxo reiniciado!'); fetchRequests(); fetchProgress();  }
       else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao reiniciar.', 'error');
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
@@ -1065,7 +1067,7 @@ export default function AdminPanel() {
     try {
       const res = await fetch(`/api/admin/request/${requestId}/force-voice`, { method: 'POST', headers: apiHeaders });
       const data = await res.json();
-      if (res.ok) { showToast('🎙️ Processamento de voz iniciado!'); fetchRequests(); fetchProgress();  }
+      if (res.ok) { showToast(' Processamento de voz iniciado!'); fetchRequests(); fetchProgress();  }
       else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao forçar voz.', 'error');
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
@@ -1077,7 +1079,7 @@ export default function AdminPanel() {
     try {
       const res = await fetch(`/api/admin/request/${requestId}/resend-email`, { method: 'POST', headers: apiHeaders });
       const data = await res.json();
-      if (res.ok) showToast('📧 Email reenviado com sucesso!');
+      if (res.ok) showToast(' Email reenviado com sucesso!');
       else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao reenviar email.', 'error');
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
@@ -1094,7 +1096,7 @@ export default function AdminPanel() {
       });
       const data = await res.json();
       if (res.ok) {
-        showToast('🗑️ Pedido e ficheiros eliminados com sucesso!');
+        showToast(' Pedido e ficheiros eliminados com sucesso!');
         fetchRequests();
         fetchStats();
         
@@ -1117,7 +1119,7 @@ export default function AdminPanel() {
         body: JSON.stringify({ title: editingSong.title, lyrics: editingSong.lyrics, letterText: editingSong.letterText })
       });
       const data = await res.json();
-      if (res.ok) { showToast('✏️ Letra atualizada!'); setEditingSong(null); fetchSongs(); fetchRequests();  }
+      if (res.ok) { showToast(' Letra atualizada!'); setEditingSong(null); fetchSongs(); fetchRequests();  }
       else if (res.status === 401) expireSession();
       else showToast(data.error || 'Erro ao guardar letra.', 'error');
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
@@ -1140,7 +1142,7 @@ export default function AdminPanel() {
           body: JSON.stringify({ audioBase64: base64, audioFilename: file.name, audioMimeType: file.type })
         });
         const data = await res.json();
-        if (res.ok) { showToast('📤 Áudio carregado com sucesso!'); fetchSongs(); setUploadingSongId(null);  }
+        if (res.ok) { showToast(' Áudio carregado com sucesso!'); fetchSongs(); setUploadingSongId(null);  }
         else if (res.status === 401) { expireSession(); setUploadingSongId(null); }
         else showToast(data.error || 'Erro ao carregar áudio.', 'error');
         setActionLoading(null);
@@ -1153,10 +1155,12 @@ export default function AdminPanel() {
     } catch (e: any) { showToast(e.message, 'error'); setActionLoading(null); }
   };
 
-  const handleSongAudio = async (song: Song, download = false) => {
-    setActionLoading(song.id + (download ? '_download_audio' : '_listen_audio'));
+  const handleSongAudio = async (song: Song, download = false, version?: string) => {
+    const suffix = version === '2' ? '_v2' : '';
+    setActionLoading(song.id + (download ? `_download_audio${suffix}` : '_listen_audio'));
     try {
-      const data = await apiFetch(`/api/admin/song/${song.id}/audio-url${download ? '?download=1' : ''}`);
+      const qs = [download ? 'download=1' : '', version ? `version=${version}` : ''].filter(Boolean).join('&');
+      const data = await apiFetch(`/api/admin/song/${song.id}/audio-url${qs ? `?${qs}` : ''}`);
       if (!data?.url) return;
 
       const a = document.createElement('a');
@@ -1353,7 +1357,7 @@ export default function AdminPanel() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a'); a.href = url; a.download = `${type}_${Date.now()}.csv`; a.click();
       URL.revokeObjectURL(url);
-      showToast(`📥 ${type} exportado com sucesso!`);
+      showToast(` ${type} exportado com sucesso!`);
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
   };
 
@@ -1413,7 +1417,7 @@ export default function AdminPanel() {
                   <Send className="w-4 h-4 text-emerald-400" />
                   <span className="font-mono text-xs text-stone-200 uppercase tracking-wider font-bold">Testar Envio Meta WhatsApp API</span>
                 </div>
-                <button onClick={() => setWaTestModal(prev => ({ ...prev, open: false }))} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer">✕</button>
+                <button onClick={() => setWaTestModal(prev => ({ ...prev, open: false }))} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer"></button>
               </div>
 
               <p className="text-xs text-stone-400 leading-relaxed">
@@ -1480,7 +1484,7 @@ export default function AdminPanel() {
                   <Shield className="w-4 h-4 text-amber-400" />
                   <span className="font-mono text-xs text-stone-200 uppercase tracking-wider font-bold">Verificar Número WhatsApp</span>
                 </div>
-                <button onClick={() => setWaVerifyModal(prev => ({ ...prev, open: false }))} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer">✕</button>
+                <button onClick={() => setWaVerifyModal(prev => ({ ...prev, open: false }))} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer"></button>
               </div>
 
               <div className={`p-3 rounded-xl text-xs font-mono ${waBlocked ? 'bg-rose-950/60 border border-rose-800/50 text-rose-300' : waVerificationStatus ? 'bg-emerald-950/60 border border-emerald-800/50 text-emerald-300' : 'bg-stone-800/60 border border-stone-700 text-stone-300'}`}>
@@ -1575,7 +1579,7 @@ export default function AdminPanel() {
             >
               <div className="flex items-center justify-between p-4 border-b border-stone-800">
                 <span className="font-mono text-xs text-stone-400 uppercase tracking-wider">Comprovativo de Pagamento</span>
-                <button onClick={() => setProofModal(null)} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer">✕ Fechar</button>
+                <button onClick={() => setProofModal(null)} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer"> Fechar</button>
               </div>
               <div className="p-4">
                 {proofModal?.startsWith('https://') ? (
@@ -1854,7 +1858,7 @@ export default function AdminPanel() {
                       onClick={fetchFunnel}
                       className="w-full py-4 rounded-2xl bg-stone-900/50 border border-stone-800 text-stone-500 text-xs font-mono hover:border-amber-500/20 hover:text-amber-400 transition-colors cursor-pointer flex items-center justify-center gap-2"
                     >
-                      {funnelLoading ? <RefreshCw className="w-4 h-4 animate-spin text-amber-400" /> : '📈 Carregar Funil de Conversão & Receita'}
+                      {funnelLoading ? <RefreshCw className="w-4 h-4 animate-spin text-amber-400" /> : ' Carregar Funil de Conversão & Receita'}
                     </button>
                   )}
                 </div>
@@ -1925,7 +1929,7 @@ export default function AdminPanel() {
                       <div className="space-y-3">
                       {paginatedPayments.map(payment => {
                         const phone = payment.song_requests?.users?.phone || '';
-                        const waMsg = encodeURIComponent(`Olá! O seu pagamento no SeuBeat foi ${payment.status === 'approved' ? 'aprovado ✅' : 'rejeitado ❌'}.`);
+                        const waMsg = encodeURIComponent(`Olá! O seu pagamento no SeuBeat foi ${payment.status === 'approved' ? 'aprovado ' : 'rejeitado '}.`);
                         return (
                         <div key={payment.id} className="bg-stone-900/50 border border-stone-800 rounded-2xl overflow-hidden">
                           <div
@@ -2034,7 +2038,7 @@ export default function AdminPanel() {
                                               body: JSON.stringify({ entityType: 'payment', entityId: payment.id, action: 'reject' })
                                             });
                                             const data = await res.json();
-                                            if (res.ok) { showToast('↩️ ' + (data.message || 'Rejeição desfeita.')); fetchPayments(); fetchStats();  }
+                                            if (res.ok) { showToast('↩ ' + (data.message || 'Rejeição desfeita.')); fetchPayments(); fetchStats();  }
                                             else if (res.status === 401) { expireSession(); }
                                             else showToast(data.error || 'Erro ao desfazer.', 'error');
                                           } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
@@ -2082,7 +2086,7 @@ export default function AdminPanel() {
                                           ) : (
                                             <CheckCircle className="w-3.5 h-3.5" />
                                           )}
-                                          {payment.plan === 'standard' ? '✅ Aprovar (Entrega em 24h)' : '⚡ Aprovar + Entregar Já'}
+                                          {payment.plan === 'standard' ? ' Aprovar (Entrega em 24h)' : ' Aprovar + Entregar Já'}
                                         </button>
                                         <button
                                           onClick={() => setConfirmAction({ action: 'reject', paymentId: payment.id })}
@@ -2116,7 +2120,7 @@ export default function AdminPanel() {
                                               body: JSON.stringify({ entityType: 'payment', entityId: payment.id, action: 'approve' })
                                             });
                                             const data = await res.json();
-                                            if (res.ok) { showToast('↩️ ' + (data.message || 'Acção desfeita.')); fetchPayments(); fetchStats();  }
+                                            if (res.ok) { showToast('↩ ' + (data.message || 'Acção desfeita.')); fetchPayments(); fetchStats();  }
                                             else if (res.status === 401) { expireSession(); }
                                             else showToast(data.error || 'Erro ao desfazer.', 'error');
                                           } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
@@ -2246,7 +2250,7 @@ export default function AdminPanel() {
                                     <p className="text-sm text-stone-400">{req.recipient_name}</p>
                                     {plan && <PlanBadge plan={plan} />}
                                   </div>
-                                  <p className="text-[10px] font-mono text-stone-500">{req.occasion} • {req.music_style} • {req.users?.email}{req.utm_campaign ? ` • 🎯 ${req.utm_campaign}` : ''}</p>
+                                  <p className="text-[10px] font-mono text-stone-500">{req.occasion} • {req.music_style} • {req.users?.email}{req.utm_campaign ? ` •  ${req.utm_campaign}` : ''}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
@@ -2266,7 +2270,7 @@ export default function AdminPanel() {
                                   <div className="w-full bg-stone-800 rounded-full h-1.5">
                                     <div className={`h-1.5 rounded-full transition-all duration-500 ${progress.status === 'failed' ? 'bg-rose-500' : progress.status === 'completed' ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${progress.progress}%` }} />
                                   </div>
-                                  {progress.error && <p className="text-[10px] text-rose-400 font-mono mt-1.5">❌ {progress.error}</p>}
+                                  {progress.error && <p className="text-[10px] text-rose-400 font-mono mt-1.5"> {progress.error}</p>}
                                 </div>
                               </div>
                             )}
@@ -2276,7 +2280,7 @@ export default function AdminPanel() {
                                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="border-t border-stone-800 overflow-hidden">
                                   <div className="p-4 space-y-3">
 
-                                    {/* 👤 Cliente */}
+                                    {/*  Cliente */}
                                     <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
                                       <p className="text-stone-500 font-mono text-[9px] uppercase mb-2 flex items-center gap-1.5"><Users className="w-3 h-3" /> Cliente</p>
                                       <div className="grid grid-cols-3 gap-2">
@@ -2286,7 +2290,7 @@ export default function AdminPanel() {
                                       </div>
                                     </div>
 
-                                    {/* 💳 Pagamento */}
+                                    {/*  Pagamento */}
                                     <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
                                       <p className="text-stone-500 font-mono text-[9px] uppercase mb-2 flex items-center gap-1.5"><CreditCard className="w-3 h-3" /> Pagamento</p>
                                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -2303,7 +2307,7 @@ export default function AdminPanel() {
                                       )}
                                     </div>
 
-                                    {/* 📋 Dados do Formulário */}
+                                    {/*  Dados do Formulário */}
                                     <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
                                       <p className="text-stone-500 font-mono text-[9px] uppercase mb-2 flex items-center gap-1.5"><FileText className="w-3 h-3" /> Dados do Formulário</p>
                                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
@@ -2327,7 +2331,7 @@ export default function AdminPanel() {
                                       )}
                                     </div>
 
-                                    {/* 🎵 Conteúdo Gerado */}
+                                    {/*  Conteúdo Gerado */}
                                     {song && (
                                       <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
                                         <p className="text-stone-500 font-mono text-[9px] uppercase mb-2 flex items-center gap-1.5"><Music className="w-3 h-3" /> Conteúdo Gerado</p>
@@ -2362,9 +2366,9 @@ export default function AdminPanel() {
                                       </div>
                                     )}
 
-                                    {/* ✏️ Style Editor */}
+                                    {/*  Style Editor */}
                                     <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
-                                      <p className="text-stone-500 font-mono text-[9px] uppercase mb-2">✏️ Editor de Estilo & Voz</p>
+                                      <p className="text-stone-500 font-mono text-[9px] uppercase mb-2"> Editor de Estilo & Voz</p>
                                       <div className="flex gap-2 items-center">
                                         <select
                                           defaultValue={req.music_style}
@@ -2602,6 +2606,16 @@ export default function AdminPanel() {
                                   >
                                     {actionLoading === song.id + '_download_audio' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />} Baixar
                                   </button>
+                                  {(song.audio_url_v2 || song.full_song_url_v2) && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSongAudio(song, true, '2')}
+                                      disabled={actionLoading === song.id + '_download_audio_v2'}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 border border-purple-600/30 text-purple-400 text-xs rounded-xl hover:bg-purple-600/30 transition-colors font-mono disabled:opacity-50 cursor-pointer"
+                                    >
+                                      {actionLoading === song.id + '_download_audio_v2' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />} Baixar v2
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -2697,7 +2711,7 @@ export default function AdminPanel() {
                                 </div>
                                 <div className="flex items-center justify-between text-[10px] font-mono">
                                   <span className={credits.suno.low ? 'text-rose-400' : 'text-stone-500'}>
-                                    {credits.suno.low ? '⚠️ Créditos baixos!' : credits.suno.credits < 50 ? '⚡ A ficar baixo' : '✅ Saldo saudável'}
+                                    {credits.suno.low ? ' Créditos baixos!' : credits.suno.credits < 50 ? ' A ficar baixo' : ' Saldo saudável'}
                                   </span>
                                   <span className="text-stone-600">
                                     ~{credits.usage?.estimatedSongsRemaining || 0} músicas
@@ -2749,7 +2763,7 @@ export default function AdminPanel() {
                                 </div>
                                 <div className="flex items-center justify-between text-[10px] font-mono">
                                   <span className={credits.deepseek.low ? 'text-rose-400' : 'text-stone-500'}>
-                                    {credits.deepseek.low ? '⚠️ Saldo baixo!' : '✅ Saldo ativo'}
+                                    {credits.deepseek.low ? ' Saldo baixo!' : ' Saldo ativo'}
                                   </span>
                                   <span className="text-stone-600">~{credits.deepseek.estimatedLyricsRemaining || 0} letras</span>
                                 </div>
@@ -2794,7 +2808,7 @@ export default function AdminPanel() {
                                 <div className="flex items-center justify-between">
                                   <span className="text-[10px] font-mono text-stone-500">Estado</span>
                                   <span className={`text-xs font-mono font-bold ${credits.claude.quota_exceeded ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                    {credits.claude.quota_exceeded ? '⚠️ Quota excedida' : '✅ Operacional'}
+                                    {credits.claude.quota_exceeded ? ' Quota excedida' : ' Operacional'}
                                   </span>
                                 </div>
                                 <div className="flex items-center justify-between">
@@ -2849,7 +2863,7 @@ export default function AdminPanel() {
                                     </div>
                                     <div className="flex items-center justify-between text-[10px] font-mono">
                                       <span className={credits.openai.total_available < 1 ? 'text-rose-400' : credits.openai.total_available < 5 ? 'text-amber-400' : 'text-emerald-400'}>
-                                        {credits.openai.total_available < 1 ? '⚠️ Saldo baixo!' : credits.openai.total_available < 5 ? '⚡ A ficar baixo' : '✅ Saldo saudável'}
+                                        {credits.openai.total_available < 1 ? ' Saldo baixo!' : credits.openai.total_available < 5 ? ' A ficar baixo' : ' Saldo saudável'}
                                       </span>
                                       <span className="text-stone-600">
                                         ~{Math.floor((credits.openai.total_available || 0) / 0.01)} letras
@@ -2875,7 +2889,7 @@ export default function AdminPanel() {
                                   </div>
                                   <div className="flex items-center justify-between">
                                     <span className="text-[10px] font-mono text-stone-500">Estado</span>
-                                    <span className="text-xs font-mono font-bold text-emerald-400">✅ Operacional</span>
+                                    <span className="text-xs font-mono font-bold text-emerald-400"> Operacional</span>
                                   </div>
                                 </div>
                               )}
@@ -2917,7 +2931,7 @@ export default function AdminPanel() {
                                 <div className="flex items-center justify-between">
                                   <span className="text-[10px] font-mono text-stone-500">Estado</span>
                                   <span className={`text-xs font-mono font-bold ${credits.gemini.quota_exceeded ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                    {credits.gemini.quota_exceeded ? '⚠️ Quota excedida' : '✅ Operacional'}
+                                    {credits.gemini.quota_exceeded ? ' Quota excedida' : ' Operacional'}
                                   </span>
                                 </div>
                               </div>
@@ -2942,7 +2956,7 @@ export default function AdminPanel() {
 
                       {/* Brevo SMTP Card */}
                       <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5">
-                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4">📧 Brevo SMTP (Envios de Email)</h3>
+                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4"> Brevo SMTP (Envios de Email)</h3>
                         {credits.email ? (
                           <div className="space-y-3">
                             <div className="flex items-center justify-between bg-stone-950 rounded-xl p-4 border border-stone-800">
@@ -2956,7 +2970,7 @@ export default function AdminPanel() {
                                 </div>
                               </div>
                               <span className={`text-xs font-mono font-bold ${credits.email.ok ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {credits.email.ok ? '✅ Online' : '❌ Offline'}
+                                {credits.email.ok ? ' Online' : ' Offline'}
                               </span>
                             </div>
                             {!credits.email.ok && credits.email.error && (
@@ -2982,7 +2996,7 @@ export default function AdminPanel() {
 
                       {/* Usage & Cost Summary */}
                       <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5">
-                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4">📊 Consumo Real</h3>
+                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4"> Consumo Real</h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
                           <div className="bg-stone-950 rounded-xl p-4 border border-stone-800 text-center">
                             <p className="text-[9px] font-mono text-stone-500 uppercase mb-1">Músicas Geradas</p>
@@ -3396,7 +3410,7 @@ export default function AdminPanel() {
                         <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5 space-y-4">
                           <div className="flex items-center justify-between">
                             <div>
-                              <h3 className="text-sm font-mono text-stone-300 uppercase tracking-wider">🎯 Funil de Conversão do Cliente</h3>
+                              <h3 className="text-sm font-mono text-stone-300 uppercase tracking-wider"> Funil de Conversão do Cliente</h3>
                               <p className="text-xs text-stone-500 mt-0.5">Estatísticas de passagem entre etapas do Wizard até ao pagamento</p>
                             </div>
                             <span className="text-xs font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-full">
@@ -3459,7 +3473,7 @@ export default function AdminPanel() {
 
                       {/* Popular Styles */}
                       <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5">
-                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4">🎵 Estilos Musicais Populares</h3>
+                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4"> Estilos Musicais Populares</h3>
                         {metrics.popularStyles?.length > 0 ? (
                           <div className="space-y-2">
                             {metrics.popularStyles.map((s: any, i: number) => {
@@ -3483,7 +3497,7 @@ export default function AdminPanel() {
 
                       {/* Monthly Revenue Chart */}
                       <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5">
-                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4">💰 Receita por Mês</h3>
+                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4"> Receita por Mês</h3>
                         {metrics.revenueByMonth?.length > 0 ? (
                           <div className="space-y-2">
                             {metrics.revenueByMonth.map((r: any, i: number) => {
@@ -3508,7 +3522,7 @@ export default function AdminPanel() {
 
                       {/* Revenue by Plan */}
                       <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5">
-                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4">📊 Receita por Plano</h3>
+                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4"> Receita por Plano</h3>
                         {metrics.revenueByPlan?.length > 0 ? (
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             {metrics.revenueByPlan.map((r: any, i: number) => {
@@ -3529,7 +3543,7 @@ export default function AdminPanel() {
 
                       {/* Profitability */}
                       <div className="bg-stone-900/50 border border-stone-800 rounded-2xl p-5">
-                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4">📈 Rentabilidade</h3>
+                        <h3 className="text-sm font-mono text-stone-400 uppercase tracking-wider mb-4"> Rentabilidade</h3>
                         {profitability && !profitLoading ? (
                           <div className="space-y-5">
                             {/* Summary cards */}
@@ -3649,9 +3663,9 @@ export default function AdminPanel() {
                                           </span>
                                         </div>
                                         <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500">
-                                          <span>💰 ${pl.revenueUSD.toFixed(2)}</span>
+                                          <span> ${pl.revenueUSD.toFixed(2)}</span>
                                           <span>→</span>
-                                          <span>💸 ${pl.costUSD.toFixed(2)}</span>
+                                          <span> ${pl.costUSD.toFixed(2)}</span>
                                           <span>•</span>
                                           <span>{pl.songCount} músicas</span>
                                         </div>
@@ -3765,7 +3779,7 @@ export default function AdminPanel() {
                   <Pencil className="w-4 h-4 text-amber-400" />
                   <span className="font-mono text-sm text-stone-300 uppercase tracking-wider">Editar Música</span>
                 </div>
-                <button onClick={() => setEditingSong(null)} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer">✕ Fechar</button>
+                <button onClick={() => setEditingSong(null)} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer"> Fechar</button>
               </div>
               <div className="p-5 space-y-4">
                 <div>
@@ -3836,7 +3850,7 @@ export default function AdminPanel() {
                   <List className="w-4 h-4 text-amber-400" />
                   <h3 className="font-serif text-lg font-bold text-stone-100">Histórico do Pedido</h3>
                 </div>
-                <button onClick={() => setLogsModal(null)} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer">✕ Fechar</button>
+                <button onClick={() => setLogsModal(null)} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer"> Fechar</button>
               </div>
 
               {logsModal.loading ? (
@@ -3884,7 +3898,7 @@ export default function AdminPanel() {
                   <FileText className="w-4 h-4 text-amber-400" />
                   <h3 className="font-serif text-lg font-bold text-stone-100">{previewLyrics.title}</h3>
                 </div>
-                <button onClick={() => setPreviewLyrics(null)} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer">✕ Fechar</button>
+                <button onClick={() => setPreviewLyrics(null)} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer"> Fechar</button>
               </div>
 
               <div className="bg-stone-950 rounded-xl p-4 border border-stone-800 space-y-3">
@@ -4038,7 +4052,7 @@ export default function AdminPanel() {
                       : 'bg-rose-600 hover:bg-rose-500'
                   }`}
                 >
-                  {confirmAction.action === 'approve' ? '✅ Sim, Aprovar' : '❌ Sim, Rejeitar'}
+                  {confirmAction.action === 'approve' ? ' Sim, Aprovar' : ' Sim, Rejeitar'}
                 </button>
               </div>
             </motion.div>

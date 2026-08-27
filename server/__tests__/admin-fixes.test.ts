@@ -134,6 +134,15 @@ function buildSupabaseMock(handlers: {
         in: vi.fn().mockReturnThis(),
       };
     }
+    if (table === 'feedback_requests') {
+      return {
+        upsert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: {}, error: null }),
+          }),
+        }),
+      };
+    }
     return { update: vi.fn().mockResolvedValue({ error: null }), select: vi.fn().mockResolvedValue({ data: [], error: null }) };
   });
 

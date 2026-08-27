@@ -10,6 +10,7 @@ export type AIProvider = 'deepseek' | 'openai' | 'claude' | 'gemini';
 export interface SunoResult {
   taskId: string;
   audioUrl: string | null;
+  audioUrlV2: string | null;
   status?: string;
 }
 

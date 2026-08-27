@@ -436,7 +436,7 @@ describe('AdminPanel', () => {
       await user.click(screen.getByText(/sim, aprovar/i));
 
       await waitFor(() => {
-        expect(screen.getByText(/✅ pagamento aprovado/i)).toBeInTheDocument();
+        expect(screen.getByText(/pagamento aprovado/i)).toBeInTheDocument();
       });
     });
 
@@ -484,7 +484,7 @@ describe('AdminPanel', () => {
       await user.click(screen.getByText(/sim, rejeitar/i));
 
       await waitFor(() => {
-        expect(screen.getByText(/❌ pagamento rejeitado/i)).toBeInTheDocument();
+        expect(screen.getByText(/pagamento rejeitado/i)).toBeInTheDocument();
       });
     }, 15000);
 
@@ -640,7 +640,7 @@ describe('AdminPanel', () => {
       await user.click(screen.getByText(/sim, aprovar/i));
 
       await waitFor(() => {
-        expect(screen.getByText(/✅ pagamento aprovado/i)).toBeInTheDocument();
+        expect(screen.getByText(/pagamento aprovado/i)).toBeInTheDocument();
       });
     });
 

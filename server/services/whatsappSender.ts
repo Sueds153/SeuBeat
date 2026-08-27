@@ -1,7 +1,7 @@
 import { getAdminSupabase } from './supabase';
 import { logInfo, logWarn, logError } from '../utils/logger';
 import { normalizePhoneToE164 } from './abandonedMessages';
-import { TEMPLATE_LANGUAGE, templateForBucket, listTemplates, enabledWhatsAppBuckets } from './whatsappTemplates';
+import { TEMPLATE_LANGUAGE, templateForBucket, listTemplates, enabledWhatsAppBuckets, DELIVERY_TEMPLATE_NAME, FEEDBACK_TEMPLATE_NAME, PAYMENT_APPROVED_TEMPLATE_NAME } from './whatsappTemplates';
 
 // ─────────────────────────────────────────────────────────────
 // Envio de WhatsApp via WhatsApp Business Cloud API (Meta).
@@ -636,7 +636,7 @@ export async function sendDeliveryWhatsApp(client: {
   const phone = normalizePhoneToE164(client.phone || '');
   if (!phone) return 'skipped';
 
-  const templateName = process.env.WHATSAPP_DELIVERY_TEMPLATE || 'seubeat_abandono_30min_v6';
+  const templateName = DELIVERY_TEMPLATE_NAME;
   const params = [client.recipientName || 'Destinatário', client.songUrl];
   const res = await sendTemplate(phone, templateName, params);
 
@@ -650,6 +650,43 @@ export async function sendDeliveryWhatsApp(client: {
       templateName,
     });
     logInfo('[WhatsApp] Notificação de entrega enviada', { phone, requestId: client.requestId });
+    return 'sent';
+  }
+
+  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', error: res.error });
+  return 'failed';
+}
+
+// ─────────────────────────────────────────────────────────────
+// Notificação de aprovação de pagamento Standard (entrega em 24h)
+// Sem janela horária nem cap — é uma notificação transacional crítica
+// (o cliente acabou de ter o pagamento aprovado e precisa de saber).
+// Params do template: {{1}} = nome do destinatário, {{2}} = prazo ("24 horas")
+// ─────────────────────────────────────────────────────────────
+
+export async function sendPaymentApprovedWhatsApp(client: {
+  requestId: string;
+  phone?: string | null;
+  recipientName?: string | null;
+}): Promise<'sent' | 'skipped' | 'failed' | 'unconfigured'> {
+  if (!isConfigured()) return 'unconfigured';
+  const phone = normalizePhoneToE164(client.phone || '');
+  if (!phone) return 'skipped';
+
+  const templateName = PAYMENT_APPROVED_TEMPLATE_NAME;
+  // {{1}} = nome do destinatário (para personalização), {{2}} = prazo de entrega
+  const params = [client.recipientName || 'Destinatário', '24 horas'];
+  const res = await sendTemplate(phone, templateName, params);
+
+  if (res.ok) {
+    await insertSendLog({
+      requestId: client.requestId,
+      phone,
+      status: 'sent',
+      messageId: res.messageId || undefined,
+      templateName,
+    });
+    logInfo('[WhatsApp] Notificação de pagamento aprovado enviada (Standard)', { phone, requestId: client.requestId });
     return 'sent';
   }
 
@@ -675,7 +712,7 @@ export async function sendFeedbackRequestWhatsApp(client: FeedbackRequestClient)
   if (!rawPhone) return 'skipped';
   const phone: string = rawPhone;
 
-  const templateName = process.env.WHATSAPP_FEEDBACK_TEMPLATE || 'seubeat_feedback_request';
+  const templateName = FEEDBACK_TEMPLATE_NAME;
   const appUrl = process.env.APP_URL || 'https://seubeat.onrender.com';
   const params = [
     client.recipientName || 'Destinatário',

@@ -9,6 +9,7 @@ import { convertToWav } from '../services/audio';
 import { getValidationPhrase } from '../services/suno-voice';
 import { generateLyrics } from '../services/ai';
 import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification } from '../services/email';
+import { sendDeliveryWhatsApp } from '../services/whatsappSender';
 import { generateServerEventId } from '../services/metaPixelCapi';
 import { sendSubmitApplicationEvent, sendLeadEvent, sendCompleteRegistrationEvent, sendInitiateCheckoutEvent, sendAddPaymentInfoEvent } from '../services/metaPixelCapi';
 import DOMPurify from 'isomorphic-dompurify';
@@ -626,7 +627,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
 
     const { data: songsData, error } = await publicSupabase
       .from('songs')
-      .select('*, song_requests!inner(id, recipient_name, status, email, photo_url, final_mixed_audio_url, elevenlabs_voice_id, music_style, memory, deliver_at, occasion, relationship, desired_emotion, voice_type, recipient_gender, users(name))')
+      .select('*, song_requests!inner(id, recipient_name, status, email, phone, photo_url, final_mixed_audio_url, elevenlabs_voice_id, music_style, memory, deliver_at, occasion, relationship, desired_emotion, voice_type, recipient_gender, users(name))')
       .or(`id.eq.${id},request_id.eq.${id}`)
       .limit(1);
 
@@ -645,6 +646,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
     let requestStatus = sr?.status;
     const deliverAt = sr?.deliver_at;
     let audioUrl = songData.preview_url || null;
+    let audioUrlV2 = null;
 
     const adminSupabase = getAdminSupabase();
 
@@ -662,10 +664,19 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
           requestStatus = 'delivered';
 
           const userEmail = sr?.email;
+          const slug = (sr?.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+          const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
           if (userEmail) {
-            const slug = (sr?.recipient_name || 'especial').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-            const personalizedUrl = `${getAppUrl(req)}/song/${slug}?id=${songData.id}`;
             sendPersonalizedEmail(userEmail, sr?.recipient_name, personalizedUrl, songData.letter_text || 'Dedicatória.').catch(err => logError('[API] Falha ao enviar email de entrega', err, { songId: id }));
+          }
+          // WhatsApp automático na entrega via página
+          if (sr?.phone) {
+            sendDeliveryWhatsApp({
+              requestId: songData.request_id,
+              phone: sr.phone,
+              recipientName: sr?.recipient_name,
+              songUrl: personalizedUrl,
+            }).catch(err => logError('[API] Falha ao enviar WhatsApp de entrega', err, { songId: id }));
           }
 
           if (fullUrl) {
@@ -675,6 +686,17 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
               audioUrl = signedUrl || fullUrl;
             } else {
               audioUrl = fullUrl;
+            }
+          }
+          // v2 URL
+          const fullUrlV2 = songData.audio_url_v2 || songData.full_song_url_v2;
+          if (fullUrlV2) {
+            const matchV2 = fullUrlV2.match(/full-audio\/(.+)/);
+            if (matchV2) {
+              const signedUrlV2 = await createSignedStorageUrl('full-audio', matchV2[1], 604800);
+              audioUrlV2 = signedUrlV2 || fullUrlV2;
+            } else {
+              audioUrlV2 = fullUrlV2;
             }
           }
         }
@@ -691,6 +713,19 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
           audioUrl = signedUrl || fullUrl;
         } else {
           audioUrl = fullUrl;
+        }
+      }
+      // v2 URL
+      if (!audioUrlV2) {
+        const fullUrlV2 = songData.audio_url_v2 || songData.full_song_url_v2;
+        if (fullUrlV2) {
+          const matchV2 = fullUrlV2.match(/full-audio\/(.+)/);
+          if (matchV2) {
+            const signedUrlV2 = await createSignedStorageUrl('full-audio', matchV2[1], 604800);
+            audioUrlV2 = signedUrlV2 || fullUrlV2;
+          } else {
+            audioUrlV2 = fullUrlV2;
+          }
         }
       }
     }
@@ -724,6 +759,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
       mureka_status: songData.mureka_status,
       preview_url: songData.preview_url,
       audio_url: audioUrl,
+      audio_url_v2: audioUrlV2,
       recipient_name: song_requests?.recipient_name,
       photo_url: song_requests?.photo_url,
       user_name: song_requests?.users?.name,

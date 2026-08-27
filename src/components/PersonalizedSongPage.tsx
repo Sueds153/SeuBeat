@@ -23,8 +23,12 @@ interface PersonalizedSongPageProps {
 
 export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSongPageProps) {
   const { isLoading, notFound, fetchError, songDetails, setSongDetails } = useSong();
+  const [selectedVersion, setSelectedVersion] = useState<'v1' | 'v2'>('v1');
+  const activeAudioUrl = selectedVersion === 'v2' && songDetails.audioUrlV2
+    ? songDetails.audioUrlV2
+    : songDetails.audioUrl;
   const { isPlaying, isMuted, audioProgress, togglePlay, toggleMute } = useAudioPlayer({
-    audioUrl: songDetails.audioUrl,
+    audioUrl: activeAudioUrl,
     textFallback: songDetails.letter || (songDetails.lyrics.length > 0 ? songDetails.lyrics.join(' ') : undefined),
   });
 
@@ -62,11 +66,11 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
   };
 
   const handleDownloadMP3 = () => {
-    if (!songDetails.audioUrl || !isFullUnlocked) return;
+    if (!activeAudioUrl || !isFullUnlocked) return;
     const a = document.createElement('a');
-    a.href = songDetails.audioUrl;
+    a.href = activeAudioUrl;
     a.target = '_blank';
-    a.download = `${songDetails.recipientName.replace(/\s+/g, '_')}_SeuBeat_Completa.mp3`;
+    a.download = `${songDetails.recipientName.replace(/\s+/g, '_')}_SeuBeat_Completa${selectedVersion === 'v2' ? '_v2' : ''}.mp3`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
 
@@ -284,13 +288,44 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
           </section>
         )}
 
+        {/* ── VERSION TOGGLE ── */}
+        {isFullUnlocked && songDetails.audioUrlV2 && (
+          <section className="mb-6">
+            <div className="flex items-center justify-center gap-3">
+              <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Versão</span>
+              <div className="flex bg-stone-900 border border-stone-800 rounded-full p-0.5">
+                <button
+                  onClick={() => setSelectedVersion('v1')}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    selectedVersion === 'v1'
+                      ? 'bg-amber-500 text-stone-950 shadow-lg shadow-amber-500/20'
+                      : 'text-stone-400 hover:text-white'
+                  }`}
+                >
+                  A
+                </button>
+                <button
+                  onClick={() => setSelectedVersion('v2')}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                    selectedVersion === 'v2'
+                      ? 'bg-amber-500 text-stone-950 shadow-lg shadow-amber-500/20'
+                      : 'text-stone-400 hover:text-white'
+                  }`}
+                >
+                  B
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* ── PLAYER ── */}
         <SongPlayer
           ref={fileInputRef}
           audioProgress={audioProgress}
           isPlaying={isPlaying}
           isMuted={isMuted}
-          hasAudio={!!songDetails.audioUrl}
+          hasAudio={!!activeAudioUrl}
           isFullUnlocked={isFullUnlocked}
           songTitle={songDetails.songTitle}
           recipientName={songDetails.recipientName}

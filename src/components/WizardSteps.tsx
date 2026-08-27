@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Upload, MapPin, Mail, Phone, Cake, Heart as HeartIcon, GraduationCap, Home, Baby, Star, Sparkles, Calendar, Gift, Music, User
+  Upload, MapPin, Mail, Phone, Cake, Heart as HeartIcon, GraduationCap, Home, Baby, Star, Sparkles, Calendar, Gift, Music, User,
+  Zap, ShieldCheck, MessageCircle, CheckCircle2, Lock, Clock, Banknote, Flame, Smile, Feather, Eye, Waves, CookingPot
 } from 'lucide-react';
 import {
   RecipientType, OccasionType, MusicStyleType, VoiceType, WizardData, RecipientGender
@@ -12,10 +13,10 @@ interface StepProps {
   formData: WizardData;
   setFormData: React.Dispatch<React.SetStateAction<WizardData>>;
   fieldErrors?: Record<string, string>;
-  relationshipCards: readonly { type: string; label: string; icon: string }[];
+  relationshipCards: readonly { type: string; label: string; icon: React.ReactNode }[];
   occasionCards: readonly { type: string; label: string; icon: React.ReactNode }[];
-  musicStyleCards: readonly { style: string; label: string; desc: string; icon: string }[];
-  voiceCards: readonly { type: string; label: string; desc: string }[];
+  musicStyleCards: readonly { style: string; label: string; desc: string; icon: React.ReactNode }[];
+  voiceCards: readonly { type: string; label: string; desc: string; icon: React.ReactNode }[];
   photoFileRef: React.RefObject<HTMLInputElement | null>;
   handlePhotoChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   todayCount: number;
@@ -33,7 +34,7 @@ export function Step1Relation({
       <div className="flex items-center justify-between">
         <label className="text-xs font-mono text-stone-400 block font-semibold">Para quem é esta canção? (Selecione)</label>
         <span className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider">
-          💰 A partir de {STARTING_PRICE}
+          <Banknote className="w-3 h-3 inline mr-1" /> A partir de {STARTING_PRICE}
         </span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -126,7 +127,7 @@ export function Step2Occasion({
       <div className="flex items-center justify-between">
         <label className="text-xs font-mono text-stone-400 block font-semibold">Selecione a Ocasião</label>
         <span className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-[10px] font-mono font-bold text-amber-400 uppercase tracking-wider">
-          💰 A partir de {STARTING_PRICE}
+          <Banknote className="w-3 h-3 inline mr-1" /> A partir de {STARTING_PRICE}
         </span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -273,22 +274,22 @@ export function Step4Story({
           <p className="text-[10px] text-stone-500 font-mono">Toque para adicionar ideias prontas em 1 segundo:</p>
           <div className="flex flex-wrap gap-1.5">
             {[
-              { label: '✨ Doce e Carinhosa', append: 'É uma pessoa extremamente doce e carinhosa, com um coração gigante que acolhe todos à sua volta.' },
-              { label: '🔥 Forte e Inspiradora', append: 'É uma fonte inesgotável de força e inspiração, supera cada desafio com um sorriso que ilumina.' },
-              { label: '😂 Divertida e Alegre', append: 'Traz alegria a cada momento com o seu sentido de humor único e gargalhada contagiante.' },
-              { label: '🕊️ Sábia e Conselheira', append: 'Tem sempre a palavra certa na hora certa, uma sabedoria que admiro profundamente.' },
-              { label: '💖 Memória Inesquecível', append: 'Guardo com carinho o momento em que tudo começou, uma memória que aquece o coração e nunca mais esqueci.' },
-              { label: '👀 Primeiro Encontro', append: 'No primeiro encontro percebi que era especial — os olhares cruzaram-se e tudo à nossa volta desapareceu.' },
-              { label: '🌊 Passeio à Beira-Mar', append: 'Aquele passeio à beira-mar sob o luar, partilhando segredos embalados pelo som das ondas.' },
-              { label: '🍳 Cozinhando Juntos', append: 'Quando cozinhámos juntos e o prato correu mal, mas acabámos a rir no chão com boa disposição.' },
+              { label: 'Doce e Carinhosa', icon: <Sparkles className="w-3 h-3" />, append: 'É uma pessoa extremamente doce e carinhosa, com um coração gigante que acolhe todos à sua volta.' },
+              { label: 'Forte e Inspiradora', icon: <Flame className="w-3 h-3" />, append: 'É uma fonte inesgotável de força e inspiração, supera cada desafio com um sorriso que ilumina.' },
+              { label: 'Divertida e Alegre', icon: <Smile className="w-3 h-3" />, append: 'Traz alegria a cada momento com o seu sentido de humor único e gargalhada contagiante.' },
+              { label: 'Sábia e Conselheira', icon: <Feather className="w-3 h-3" />, append: 'Tem sempre a palavra certa na hora certa, uma sabedoria que admiro profundamente.' },
+              { label: 'Memória Inesquecível', icon: <HeartIcon className="w-3 h-3" />, append: 'Guardo com carinho o momento em que tudo começou, uma memória que aquece o coração e nunca mais esqueci.' },
+              { label: 'Primeiro Encontro', icon: <Eye className="w-3 h-3" />, append: 'No primeiro encontro percebi que era especial — os olhares cruzaram-se e tudo à nossa volta desapareceu.' },
+              { label: 'Passeio à Beira-Mar', icon: <Waves className="w-3 h-3" />, append: 'Aquele passeio à beira-mar sob o luar, partilhando segredos embalados pelo som das ondas.' },
+              { label: 'Cozinhando Juntos', icon: <CookingPot className="w-3 h-3" />, append: 'Quando cozinhámos juntos e o prato correu mal, mas acabámos a rir no chão com boa disposição.' },
             ].map((pill, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => appendStory(pill.append)}
-                className="px-2.5 py-1 bg-stone-950 hover:bg-stone-850 border border-stone-800 hover:border-amber-500/50 text-[10px] text-stone-300 rounded-full font-medium transition-all cursor-pointer active:scale-95"
+                className="px-2.5 py-1 bg-stone-950 hover:bg-stone-850 border border-stone-800 hover:border-amber-500/50 text-[10px] text-stone-300 rounded-full font-medium transition-all cursor-pointer active:scale-95 flex items-center gap-1"
               >
-                {pill.label}
+                {pill.icon} {pill.label}
               </button>
             ))}
           </div>
@@ -471,11 +472,33 @@ export function Step5Finalize({
         "O link da música será enviado para este email."
       </p>
 
-      <div className="p-4 bg-amber-500/5 rounded-2xl border border-amber-500/10 text-xs text-stone-400 leading-normal max-w-md">
-        "Estamos quase a transformar a tua história numa música."
+      <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-center max-w-md">
+        <p className="text-xs font-semibold text-amber-300 flex items-center justify-center gap-1.5">
+          <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>Recebes a tua música no WhatsApp em menos de 24h.</span>
+        </p>
       </div>
-      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        Seus dados estão protegidos — usados apenas para criar e entregar a sua música. Mais de 800 músicas já foram criadas com segurança.
+
+      <div className="grid grid-cols-3 gap-2 py-1 max-w-md">
+        <div className="p-2.5 bg-amber-500/5 rounded-xl border border-amber-500/15 text-center flex flex-col items-center">
+          <MessageCircle className="w-4 h-4 text-amber-400 mb-1" />
+          <span className="text-[10px] font-bold text-amber-300 block font-mono">No WhatsApp</span>
+          <span className="text-[9px] text-stone-400 block leading-tight mt-0.5">Áudio + Dedicatória</span>
+        </div>
+        <div className="p-2.5 bg-emerald-500/5 rounded-xl border border-emerald-500/15 text-center flex flex-col items-center">
+          <ShieldCheck className="w-4 h-4 text-emerald-400 mb-1" />
+          <span className="text-[10px] font-bold text-emerald-300 block font-mono">Multicaixa</span>
+          <span className="text-[9px] text-stone-400 block leading-tight mt-0.5">100% Seguro</span>
+        </div>
+        <div className="p-2.5 bg-rose-500/5 rounded-xl border border-rose-500/15 text-center flex flex-col items-center">
+          <CheckCircle2 className="w-4 h-4 text-rose-400 mb-1" />
+          <span className="text-[10px] font-bold text-rose-300 block font-mono">+500 Músicas</span>
+          <span className="text-[9px] text-stone-400 block leading-tight mt-0.5">Entregues em Angola</span>
+        </div>
+      </div>
+      <p className="text-[10px] text-stone-500 font-mono text-center pt-2 border-t border-stone-900/40 flex items-center justify-center gap-1">
+        <Lock className="w-3 h-3 text-stone-600 inline" />
+        <span>Os seus dados estão protegidos — usados apenas para criar e entregar a sua música.</span>
       </p>
     </div>
   );

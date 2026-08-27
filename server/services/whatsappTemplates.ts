@@ -2,6 +2,15 @@ import type { AbandonedBucketKey } from './abandonedMessages';
 
 export const TEMPLATE_LANGUAGE = 'pt_PT';
 
+// ── Templates de ciclo de vida (entrega + feedback) ──────────────────────
+// Estes nomes devem corresponder EXACTAMENTE aos templates aprovados na Meta
+// Business Manager → WhatsApp Manager → Message Templates.
+// Configuráveis por env vars para flexibilidade sem mudar código.
+export const DELIVERY_TEMPLATE_NAME = process.env.WHATSAPP_DELIVERY_TEMPLATE || 'seubeat_entrega_v1';
+export const FEEDBACK_TEMPLATE_NAME = process.env.WHATSAPP_FEEDBACK_TEMPLATE || 'seubeat_feedback_v1';
+/** Template enviado ao cliente quando o admin aprova o pagamento Standard (entrega em 24h). */
+export const PAYMENT_APPROVED_TEMPLATE_NAME = process.env.WHATSAPP_PAYMENT_APPROVED_TEMPLATE || 'seubeat_pagamento_aprovado_v2';
+
 export interface WhatsAppTemplateDef {
   name: string;
   body: (name: string, link: string) => string;
@@ -36,11 +45,16 @@ export function templateForBucket(bucket: AbandonedBucketKey | string | undefine
 }
 
 export function listTemplates(): Array<{ bucket: string; name: string; language: string }> {
-  return (Object.keys(WHATSAPP_TEMPLATES) as AbandonedBucketKey[]).map((k) => ({
+  const abandoned: Array<{ bucket: string; name: string; language: string }> = (Object.keys(WHATSAPP_TEMPLATES) as AbandonedBucketKey[]).map((k) => ({
     bucket: k,
     name: WHATSAPP_TEMPLATES[k].name,
     language: TEMPLATE_LANGUAGE,
   }));
+  // Incluir templates de ciclo de vida (entrega + feedback + aprovação) no painel admin
+  abandoned.push({ bucket: 'delivery', name: DELIVERY_TEMPLATE_NAME, language: TEMPLATE_LANGUAGE });
+  abandoned.push({ bucket: 'feedback', name: FEEDBACK_TEMPLATE_NAME, language: TEMPLATE_LANGUAGE });
+  abandoned.push({ bucket: 'payment_approved', name: PAYMENT_APPROVED_TEMPLATE_NAME, language: TEMPLATE_LANGUAGE });
+  return abandoned;
 }
 
 // Buckets com envio por WhatsApp (env WHATSAPP_ENABLED_BUCKETS, default '30min').

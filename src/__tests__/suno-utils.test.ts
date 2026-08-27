@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractAudioUrl } from '../../server/services/suno';
+import { extractAudioUrl, extractBothAudioUrls } from '../../server/services/suno';
 
 describe('Suno utility functions', () => {
   const SUCCESS_STATUSES = new Set(['success', 'completed', 'done', 'finished', 'succeeded']);
@@ -176,6 +176,77 @@ describe('Suno utility functions', () => {
       };
 
       expect(extractAudioUrl(payload)).toBe('https://cdn1.suno.ai/fallback-song.mp3');
+    });
+  });
+
+  describe('extractBothAudioUrls', () => {
+    it('returns both URLs from sunoData array with two items', () => {
+      const payload = {
+        data: {
+          response: {
+            sunoData: [
+              { sourceAudioUrl: 'https://cdn1.suno.ai/song-v1.mp3' },
+              { sourceAudioUrl: 'https://cdn1.suno.ai/song-v2.mp3' }
+            ]
+          }
+        }
+      };
+      const result = extractBothAudioUrls(payload);
+      expect(result.v1).toBe('https://cdn1.suno.ai/song-v1.mp3');
+      expect(result.v2).toBe('https://cdn1.suno.ai/song-v2.mp3');
+    });
+
+    it('returns null v2 when only one item in sunoData', () => {
+      const payload = {
+        data: {
+          response: {
+            sunoData: [
+              { sourceAudioUrl: 'https://cdn1.suno.ai/song-v1.mp3' }
+            ]
+          }
+        }
+      };
+      const result = extractBothAudioUrls(payload);
+      expect(result.v1).toBe('https://cdn1.suno.ai/song-v1.mp3');
+      expect(result.v2).toBeNull();
+    });
+
+    it('falls back to collectAudioUrls for v2 when sunoData has one item', () => {
+      const payload = {
+        data: {
+          response: {
+            sunoData: [
+              { sourceAudioUrl: 'https://cdn1.suno.ai/song-v1.mp3' }
+            ]
+          },
+          fallback: {
+            sourceAudioUrl: 'https://cdn1.suno.ai/fallback-v2.mp3'
+          }
+        }
+      };
+      const result = extractBothAudioUrls(payload);
+      expect(result.v1).toBe('https://cdn1.suno.ai/song-v1.mp3');
+      expect(result.v2).toBe('https://cdn1.suno.ai/fallback-v2.mp3');
+    });
+
+    it('returns both null for empty payload', () => {
+      const result = extractBothAudioUrls({});
+      expect(result.v1).toBeNull();
+      expect(result.v2).toBeNull();
+    });
+
+    it('extractAudioUrl still returns only v1 for backward compatibility', () => {
+      const payload = {
+        data: {
+          response: {
+            sunoData: [
+              { sourceAudioUrl: 'https://cdn1.suno.ai/song-v1.mp3' },
+              { sourceAudioUrl: 'https://cdn1.suno.ai/song-v2.mp3' }
+            ]
+          }
+        }
+      };
+      expect(extractAudioUrl(payload)).toBe('https://cdn1.suno.ai/song-v1.mp3');
     });
   });
 });
