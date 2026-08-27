@@ -8,7 +8,6 @@ vi.mock('../services/supabase', () => ({
 vi.mock('../services/audio', () => ({
   downloadFile: vi.fn().mockResolvedValue(undefined),
   convertToWav: vi.fn().mockResolvedValue(undefined),
-  createPreviewAudio: vi.fn(),
   applyFades: vi.fn(),
   getAudioDuration: vi.fn(),
 }));

@@ -28,7 +28,6 @@ vi.mock('../services/storage', () => ({
 
 vi.mock('../services/audio', () => ({
   downloadFile: vi.fn(),
-  createPreviewAudio: vi.fn(),
   applyFades: vi.fn(),
   convertToWav: vi.fn(),
   getAudioDuration: vi.fn(),

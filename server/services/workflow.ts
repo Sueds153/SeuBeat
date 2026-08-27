@@ -3,7 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import { getAdminSupabase } from './supabase';
 import { uploadFileToStorage, createSignedStorageUrl } from './storage';
-import { downloadFile, createPreviewAudio, applyFades, convertToWav, getAudioDuration } from './audio';
+import { downloadFile, applyFades, convertToWav, getAudioDuration } from './audio';
 import { querySunoTask, startSunoMusic, pollSunoTask } from './suno';
 import { generateValidationPhrase, waitForValidationPhrase, createCustomVoice, waitForVoiceId, checkVoiceAvailability } from './suno-voice';
 import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification, sendWorkflowFailedEmail } from './email';
@@ -171,26 +171,12 @@ export async function persistGeneratedSunoAudio(
     );
     logInfo('[Workflow] Full audio uploaded successfully', { songId, taskId, url: fullAudioUrl, mem: mem() });
 
-    // Delete faded file before preview to free memory
+    // Delete faded file to free memory
     if (uploadSource === tempFadedPath) {
       try { fs.unlinkSync(tempFadedPath); } catch {}
     }
 
-    const previewFilename = `previews/${songId}_preview.mp3`;
-    let publicPreviewUrl: string | null = null;
-    try {
-      await createPreviewAudio(uploadSource, tempPreviewPath);
-      logInfo('[Workflow] Uploading preview to storage', { songId, taskId, mem: mem() });
-      publicPreviewUrl = await withTimeout(
-        uploadFileToStorage('preview', previewFilename, tempPreviewPath, 'audio/mpeg'),
-        UPLOAD_TIMEOUT_MS,
-        `uploadFileToStorage(preview/${previewFilename})`
-      );
-    } catch (err) {
-      logWarn('[Workflow] Preview de 30s falhou; áudio completo não será usado como preview', err instanceof Error ? err : undefined);
-    }
-
-    return { taskId, fullAudioUrl, publicPreviewUrl, duration: durationInt };
+    return { taskId, fullAudioUrl, publicPreviewUrl: null as string | null, duration: durationInt };
   } finally {
     try { fs.unlinkSync(tempSunoPath); } catch {}
     try { fs.unlinkSync(tempFadedPath); } catch {}
@@ -241,7 +227,7 @@ async function completeSunoWorkflowFromAudio(
   const songUpdate: Record<string, unknown> = {
     audio_url: fullAudioUrl,
     full_song_url: fullAudioUrl,
-    preview_url: publicPreviewUrl,
+    preview_url: null,
     duration,
     mureka_task_id: taskId,
     mureka_status: 'completed'
@@ -549,7 +535,7 @@ export async function runBackgroundSunoWorkflow(
     const songUpdate: Record<string, unknown> = {
       audio_url: fullAudioUrl,
       full_song_url: fullAudioUrl,
-      preview_url: publicPreviewUrl,
+      preview_url: null,
       duration,
       mureka_task_id: taskId,
       mureka_status: 'completed'

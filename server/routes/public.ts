@@ -645,7 +645,7 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
     const sr = songData.song_requests;
     let requestStatus = sr?.status;
     const deliverAt = sr?.deliver_at;
-    let audioUrl = songData.preview_url || null;
+    let audioUrl = songData.full_song_url || songData.audio_url || null;
     let audioUrlV2 = null;
 
     const adminSupabase = getAdminSupabase();

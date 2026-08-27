@@ -672,7 +672,7 @@ router.post('/song/:id/generate-music', adminAuth, async (req, res) => {
       mureka_task_id: null,
       audio_url: forceNew ? null : songData.audio_url,
       full_song_url: forceNew ? null : songData.full_song_url,
-      preview_url: forceNew ? null : songData.preview_url
+      preview_url: null
     }).eq('id', id);
     await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', songData.request_id);
 
@@ -1239,7 +1239,7 @@ router.get('/song/:id/audio-url', adminAuth, async (req, res) => {
 
     const fallbackUrl = fullUrl || song.preview_url;
     if (!fallbackUrl) return res.status(404).json({ success: false, error: 'Áudio indisponível.' });
-    res.json({ success: true, url: fallbackUrl, filename: safeAudioFilename(song.title), source: fallbackUrl === song.preview_url ? 'preview' : 'external' });
+    res.json({ success: true, url: fallbackUrl, filename: safeAudioFilename(song.title), source: 'audio' });
   } catch (err: unknown) {
     logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });
@@ -1263,25 +1263,7 @@ router.post('/song/:id/upload-audio', adminAuth, async (req, res) => {
 
     const fullAudioUrl = await uploadFileToStorage('full-audio', filename, buffer, audioMimeType || 'audio/mpeg');
 
-    const previewFilename = `previews/${id}_preview.mp3`;
-    let previewUrl: string | null = null;
-    const tempDir = await import('os').then(os => os.tmpdir());
-    const path = await import('path');
-    const fs = await import('fs');
-    const { createPreviewAudio } = await import('../services/audio');
-    const tempInput = path.join(tempDir, `${id}_manual_input.mp3`);
-    const tempPreview = path.join(tempDir, `${id}_manual_preview.mp3`);
-
-    try {
-      await fs.promises.writeFile(tempInput, buffer);
-      await createPreviewAudio(tempInput, tempPreview);
-      const previewBuffer = await fs.promises.readFile(tempPreview);
-      previewUrl = await uploadFileToStorage('preview', previewFilename, previewBuffer, 'audio/mpeg');
-    } catch (previewErr: unknown) {
-      logWarn('[Admin] Preview de 30s falhou no upload manual; áudio completo não será exposto como preview', { songId: id, error: previewErr instanceof Error ? previewErr.message : String(previewErr) });
-    }
-
-    await supabase.from('songs').update({ audio_url: fullAudioUrl, full_song_url: fullAudioUrl, mureka_status: 'completed', preview_url: previewUrl }).eq('id', id);
+    await supabase.from('songs').update({ audio_url: fullAudioUrl, full_song_url: fullAudioUrl, mureka_status: 'completed', preview_url: null }).eq('id', id);
     const { data: songData } = await supabase.from('songs').select('request_id').eq('id', id).single();
     if (songData?.request_id) {
       const { data: approvedPayment } = await supabase

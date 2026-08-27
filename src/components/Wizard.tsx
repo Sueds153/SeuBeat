@@ -1042,13 +1042,13 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
         const song = await statusRes.json();
         const requestStatus = song?.data?.status;
-        const previewUrl = song?.data?.preview_url;
+        const audioReady = song?.data?.audio_url || song?.data?.full_song_url;
 
         if (requestStatus === 'failed' || song?.data?.mureka_status === 'failed') {
           throw new Error('A geracao da musica falhou. Tente novamente.');
         }
 
-        if (previewUrl && (requestStatus === 'music_ready' || song?.data?.mureka_status === 'completed')) {
+        if (audioReady && (requestStatus === 'music_ready' || song?.data?.mureka_status === 'completed')) {
           setProcessingStage(4);
           setIsSubmitting(false);
           return true;

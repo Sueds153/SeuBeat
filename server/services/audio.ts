@@ -1,6 +1,7 @@
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from 'ffmpeg-static';
 import fs from 'fs';
+import path from 'path';
 import { execFileSync, spawn } from 'child_process';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
@@ -22,14 +23,15 @@ if (ffmpegInstaller) {
   FFMPEG_AVAILABLE = false;
 }
 
-// Verificar ffprobe disponibilidade
+// Verificar ffprobe disponibilidade (procura na mesma directoria do ffmpeg)
 if (ffmpegInstaller) {
-  const ffprobePath = ffmpegInstaller.replace('ffmpeg', 'ffprobe');
+  const ffmpegDir = path.dirname(ffmpegInstaller);
+  const ffprobePath = path.join(ffmpegDir, process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe');
   try {
     execFileSync(ffprobePath, ['-version'], { stdio: 'pipe', timeout: 5000 });
     console.log('✅ FFprobe disponível e funcional');
   } catch {
-    console.warn('⚠️ FFprobe não disponível, duração de áudio não será detectada');
+    console.warn('⚠️ FFprobe não disponível, duração de áudio será detectada via stderr do ffmpeg');
     FFPROBE_AVAILABLE = false;
   }
 } else {
@@ -153,46 +155,6 @@ export async function downloadFile(url: string, destPath: string): Promise<void>
   } finally {
     clearTimeout(timeout);
   }
-}
-
-// Utilitário para cortar os primeiros 30s de preview
-export function createPreviewAudio(inputPath: string, outputPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (!FFMPEG_AVAILABLE) {
-      reject(new Error('FFmpeg indisponível para gerar preview de 30s.'));
-      return;
-    }
-
-    const PREVIEW_TIMEOUT_MS = 60_000; // 1 minute max for preview
-    let settled = false;
-    const cmd = ffmpeg(inputPath)
-      .setStartTime(0)
-      .setDuration(30)
-      .audioFilters('afade=t=in:ss=0:d=3,afade=t=out:st=27:d=3')
-      .output(outputPath)
-      .on('end', () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(previewTimer);
-        console.log('✅ Preview de 30s gerado com sucesso!');
-        resolve();
-      })
-      .on('error', (err) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(previewTimer);
-        console.error('❌ Erro no FFmpeg ao criar preview:', err);
-        reject(err);
-      });
-    cmd.run();
-
-    const previewTimer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      try { (cmd as any).kill('SIGKILL'); } catch {}
-      reject(new Error(`createPreviewAudio timeout after ${PREVIEW_TIMEOUT_MS}ms on ${inputPath}`));
-    }, PREVIEW_TIMEOUT_MS);
-  });
 }
 
 // Aplica fade-in (3s) e fade-out (4s) no áudio completo
