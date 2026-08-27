@@ -18,12 +18,20 @@ export default defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
+    {
+      name: 'mobile-chrome',
+      use: { ...devices['Pixel 7'] },
+    },
   ],
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000/health',
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     timeout: 120000,
     cwd: '.',
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+    },
   },
 });

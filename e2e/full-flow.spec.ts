@@ -2,15 +2,15 @@ import { test, expect } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { ensureTestProofPng } from './fixtures/mocks';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-test.describe.configure({ mode: 'serial' });
-
 const FIXTURES = path.join(__dirname, 'fixtures');
 const TEST_IMAGE = path.join(FIXTURES, 'test-photo.png');
-const TEST_PNG = path.join(FIXTURES, 'test-proof.png');
+
+test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(() => {
   fs.mkdirSync(FIXTURES, { recursive: true });
@@ -26,15 +26,16 @@ test.beforeAll(() => {
     0x44, 0xAE, 0x42, 0x60, 0x82
   ]);
   if (!fs.existsSync(TEST_IMAGE)) fs.writeFileSync(TEST_IMAGE, minimalPng);
-  if (!fs.existsSync(TEST_PNG)) fs.writeFileSync(TEST_PNG, minimalPng);
+  ensureTestProofPng();
 });
 
 test('completes wizard -> selects plan -> submits payment', async ({ page }) => {
   test.setTimeout(180000);
+  const TEST_PNG = ensureTestProofPng();
 
   // Mock API endpoints
   await page.route('**/api/payment-details', async (route) => {
-    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ entity: '10116', reference: '929423278' }) });
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ entidade: '10116', referencia: '929423278', expressPhone: '+244929423278' }) });
   });
   await page.route('**/api/stats/today-count', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ count: 42 }) });
@@ -111,10 +112,14 @@ test('completes wizard -> selects plan -> submits payment', async ({ page }) => 
   // Submit wizard
   await page.locator('#wizard-advance-btn').click();
 
+  // Wait for preview screen, then click CTA to advance to plans
+  const ctaButton = page.locator('button:has-text("QUERO QUE")');
+  await ctaButton.waitFor({ state: 'visible', timeout: 120000 });
+  await ctaButton.click();
+
   // Wait for plan selection
   await expect(page.locator('#standard-plan-btn')).toBeVisible({ timeout: 120000 });
   await expect(page.locator('#express-plan-btn')).toBeVisible();
-  await expect(page.locator('#premium-plan-btn')).toBeVisible();
 
   // Select Standard plan
   await page.locator('#standard-plan-btn').click();
@@ -123,13 +128,15 @@ test('completes wizard -> selects plan -> submits payment', async ({ page }) => 
   await expect(page.locator('#upsell-decline-btn')).toBeVisible({ timeout: 5000 });
   await page.locator('#upsell-decline-btn').click();
 
-  // Payment screen
-  await expect(page.getByText('10116').first()).toBeVisible({ timeout: 10000 });
-  await expect(page.getByText('929423278').first()).toBeVisible();
+  // Payment screen — Express is default
+  await expect(page.getByText('929423278').first()).toBeVisible({ timeout: 10000 });
 
-  // Upload payment proof
-  await page.locator('input[type="file"]').last().setInputFiles(TEST_PNG);
-  await page.waitForTimeout(1000);
+  // Upload payment proof (must be >=50KB)
+  const proofChooser = page.waitForEvent('filechooser', { timeout: 5000 });
+  await page.getByText('Carregar arquivo de comprovativo').click();
+  const proofFile = await proofChooser;
+  await proofFile.setFiles(TEST_PNG);
+  await page.waitForTimeout(1500);
 
   // Submit payment
   await page.locator('button:has-text("Enviar Comprovativo e Libertar a Música")').click();
