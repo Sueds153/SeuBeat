@@ -1094,7 +1094,7 @@ router.post('/request/:id/retry', adminAuth, async (req, res) => {
     res.json({ success: true, message: 'Reiniciado.' });
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    logError('[Admin] recover-audio ERRO', err instanceof Error ? err : new Error(errMsg), { requestId, taskId });
+    console.error('[Admin] recover-audio ERRO:', errMsg, { requestId, taskId });
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
@@ -2503,6 +2503,7 @@ async function sendVideoUpsellOffer(
 // ─── TEMPORÁRIO: Recuperar áudio de pedido falhado via taskId Suno ───────
 // Remover após recuperar todos os pedidos órfãos.
 router.post('/recover-audio', adminAuth, async (req, res) => {
+  console.error('[Admin] recover-audio INICIADO', { requestId: req.body?.requestId, taskId: req.body?.taskId });
   try {
     const { requestId, taskId } = req.body as { requestId?: string; taskId?: string };
     if (!requestId || !taskId) {
