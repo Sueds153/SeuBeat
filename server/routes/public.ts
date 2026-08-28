@@ -1485,32 +1485,43 @@ router.get('/social-proof', async (_req, res) => {
 
     const { data: lastPaymentRow } = await supabase
       .from('payments')
-      .select('user_email, approved_at')
+      .select('user_email, approved_at, request_id')
       .eq('status', 'approved')
       .order('approved_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    let lastPayment: { firstName: string | null; minutesAgo: number } | null = null;
+    let lastPayment: { firstName: string | null; minutesAgo: number; style: string | null } | null = null;
     if (lastPaymentRow?.approved_at) {
+      let style: string | null = null;
+      if (lastPaymentRow.request_id) {
+        const { data: sr } = await supabase
+          .from('song_requests')
+          .select('music_style')
+          .eq('id', lastPaymentRow.request_id)
+          .maybeSingle();
+        style = sr?.music_style ?? null;
+      }
       lastPayment = {
         firstName: await lookupFirstNameByEmail(supabase, lastPaymentRow.user_email),
         minutesAgo: minutesAgo(lastPaymentRow.approved_at),
+        style,
       };
     }
 
     const { data: lastActivityRow } = await supabase
       .from('song_requests')
-      .select('created_at, users(name)')
+      .select('created_at, music_style, users(name)')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    let lastActivity: { firstName: string | null; minutesAgo: number } | null = null;
+    let lastActivity: { firstName: string | null; minutesAgo: number; style: string | null } | null = null;
     if (lastActivityRow?.created_at) {
       lastActivity = {
         firstName: formatFirstName((lastActivityRow as { users?: { name?: string | null } | null }).users?.name),
         minutesAgo: minutesAgo(lastActivityRow.created_at as string),
+        style: (lastActivityRow as { music_style?: string | null }).music_style ?? null,
       };
     }
 

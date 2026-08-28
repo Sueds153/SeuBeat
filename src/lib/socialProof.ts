@@ -5,8 +5,8 @@ export interface SocialProofData {
   paidToday: number;
   paidTotal: number;
   deliveredTotal: number;
-  lastPayment: { firstName: string | null; minutesAgo: number } | null;
-  lastActivity: { firstName: string | null; minutesAgo: number } | null;
+  lastPayment: { firstName: string | null; minutesAgo: number; style: string | null } | null;
+  lastActivity: { firstName: string | null; minutesAgo: number; style: string | null } | null;
 }
 
 export const EMPTY_SOCIAL_PROOF: SocialProofData = {

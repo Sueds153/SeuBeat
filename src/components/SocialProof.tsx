@@ -1,87 +1,160 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles } from 'lucide-react';
+import { Music } from 'lucide-react';
 import { useSocialProof, formatMinutesAgo } from '../lib/socialProof';
 
+const STYLE_COLORS: Record<string, string> = {
+  kizomba: 'bg-pink-500',
+  semba: 'bg-orange-500',
+  'r&b': 'bg-purple-500',
+  gospel: 'bg-yellow-500',
+  'romantic pop': 'bg-red-500',
+  zouk: 'bg-cyan-500',
+  kuduro: 'bg-green-500',
+  rap: 'bg-gray-500',
+  afrobeat: 'bg-emerald-500',
+  reggae: 'bg-lime-500',
+  acoustic: 'bg-amber-500',
+  samba: 'bg-rose-500',
+  'hino': 'bg-indigo-500',
+};
+
+const STYLE_LABELS: Record<string, string> = {
+  'r&b': 'R&B',
+  'romantic pop': 'Pop Romântico',
+  'hino': 'Hino',
+};
+
+function getInitials(name: string | null): string {
+  if (!name) return '?';
+  const parts = name.split(' ').filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return parts[0]?.[0]?.toUpperCase() ?? '?';
+}
+
+function getStyleColor(style: string | null): string {
+  if (!style) return 'bg-amber-500';
+  return STYLE_COLORS[style.toLowerCase()] ?? 'bg-amber-500';
+}
+
+function getStyleLabel(style: string | null): string {
+  if (!style) return '';
+  return STYLE_LABELS[style.toLowerCase()] ?? style.charAt(0).toUpperCase() + style.slice(1);
+}
+
+interface ProofMessage {
+  id: string;
+  name: string | null;
+  initials: string;
+  colorClass: string;
+  action: string;
+  styleLabel: string;
+  minutesAgo: number;
+  timeLabel: string;
+}
+
 export default function SocialProof() {
-  const proof = useSocialProof();
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const proof = useSocialProof(30_000);
+  const [current, setCurrent] = useState<ProofMessage | null>(null);
   const [isVisible, setIsVisible] = useState(false);
 
-  const messages: string[] = [];
-  if (proof.lastActivity) {
-    messages.push(
-      `Uma música foi criada para ${proof.lastActivity.firstName || 'alguém especial'} ${formatMinutesAgo(proof.lastActivity.minutesAgo)}`
-    );
-  }
-  if (proof.paidToday > 0) {
-    messages.push(`+${proof.paidToday} ${proof.paidToday === 1 ? 'compra concluída' : 'compras concluídas'} hoje`);
-  }
-  if (proof.createdToday > 0) {
-    messages.push(`+${proof.createdToday} ${proof.createdToday === 1 ? 'música criada' : 'músicas criadas'} hoje`);
-  }
-  if (proof.deliveredTotal > 0) {
-    messages.push(`${proof.deliveredTotal} músicas já entregues`);
-  }
-
-  const hasMessages = messages.length > 0;
+  const buildMessages = useCallback((): ProofMessage[] => {
+    const msgs: ProofMessage[] = [];
+    if (proof.lastPayment?.firstName) {
+      const s = proof.lastPayment.style;
+      msgs.push({
+        id: `pay-${proof.lastPayment.minutesAgo}`,
+        name: proof.lastPayment.firstName,
+        initials: getInitials(proof.lastPayment.firstName),
+        colorClass: getStyleColor(s),
+        action: 'comprou uma música',
+        styleLabel: getStyleLabel(s),
+        minutesAgo: proof.lastPayment.minutesAgo,
+        timeLabel: formatMinutesAgo(proof.lastPayment.minutesAgo),
+      });
+    }
+    if (proof.lastActivity?.firstName) {
+      const s = proof.lastActivity.style;
+      msgs.push({
+        id: `act-${proof.lastActivity.minutesAgo}`,
+        name: proof.lastActivity.firstName,
+        initials: getInitials(proof.lastActivity.firstName),
+        colorClass: getStyleColor(s),
+        action: 'está a criar uma música',
+        styleLabel: getStyleLabel(s),
+        minutesAgo: proof.lastActivity.minutesAgo,
+        timeLabel: formatMinutesAgo(proof.lastActivity.minutesAgo),
+      });
+    }
+    return msgs;
+  }, [proof]);
 
   useEffect(() => {
-    if (!hasMessages) return;
+    const msgs = buildMessages();
+    if (msgs.length === 0) return;
+
     let alive = true;
-    let intervalId: ReturnType<typeof setInterval> | null = null;
+    let idx = 0;
+    let showTimer: ReturnType<typeof setTimeout> | null = null;
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
 
     const show = () => {
       if (!alive) return;
+      const msg = msgs[idx % msgs.length];
+      setCurrent(msg);
       setIsVisible(true);
-      setTimeout(() => {
+      hideTimer = setTimeout(() => {
         if (!alive) return;
         setIsVisible(false);
-        setTimeout(() => {
-          if (!alive) return;
-          setCurrentIndex((prev) => (prev + 1) % messages.length);
-        }, 500);
-      }, 5000);
+        showTimer = setTimeout(() => {
+          idx++;
+          show();
+        }, 15_000);
+      }, 8_000);
     };
 
-    const initial = setTimeout(() => {
-      show();
-      intervalId = setInterval(() => { show(); }, 12000);
-    }, 3000);
+    const initial = setTimeout(() => show(), 4_000);
 
     return () => {
       alive = false;
       clearTimeout(initial);
-      if (intervalId !== null) clearInterval(intervalId);
+      if (showTimer) clearTimeout(showTimer);
+      if (hideTimer) clearTimeout(hideTimer);
     };
-  }, [hasMessages, messages.length]);
-
-  if (!hasMessages) return null;
-
-  const current = messages[currentIndex % messages.length];
+  }, [buildMessages]);
 
   return (
-    <div className="fixed bottom-4 left-4 z-50 pointer-events-none max-w-sm w-[calc(100vw-2rem)] sm:w-auto">
+    <div className="fixed bottom-4 left-4 z-50 pointer-events-none max-w-xs w-[calc(100vw-2rem)] sm:w-auto">
       <AnimatePresence>
-        {isVisible && (
+        {isVisible && current && (
           <motion.div
             role="alert"
-            initial={{ opacity: 0, y: 30, scale: 0.9 }}
+            initial={{ opacity: 0, y: 40, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 15, scale: 0.95 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-            className="pointer-events-auto bg-stone-900/90 backdrop-blur-md border border-stone-800 text-stone-100 rounded-2xl p-4 shadow-xl flex items-center gap-3 pr-5"
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+            className="pointer-events-auto bg-stone-900/95 backdrop-blur-md border border-stone-800 rounded-2xl p-3 shadow-2xl flex items-center gap-3"
           >
-            <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500 shrink-0">
-              <Sparkles className="w-4 h-4 text-amber-400 animate-[pulse_2s_infinite]" />
+            <div className={`w-10 h-10 rounded-full ${current.colorClass} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
+              {current.initials}
             </div>
-            <div>
-              <p className="text-xs sm:text-xs font-sans font-medium text-stone-200 leading-snug">
-                {current}
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-stone-100 leading-snug truncate">
+                {current.name} {current.action}
               </p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {current.styleLabel && (
+                  <>
+                    <Music className="w-3 h-3 text-stone-500 shrink-0" />
+                    <span className="text-[10px] text-stone-400 truncate">{current.styleLabel}</span>
+                    <span className="text-stone-600 text-[10px]">·</span>
+                  </>
+                )}
+                <span className="text-[10px] text-stone-500 whitespace-nowrap">{current.timeLabel}</span>
+              </div>
               <div className="flex items-center gap-1 mt-1">
                 <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 animate-ping" />
-                <span className="text-[9px] text-stone-500 uppercase tracking-widest font-mono">Em tempo real • Angola</span>
+                <span className="text-[8px] text-stone-600 uppercase tracking-widest font-mono">Em tempo real</span>
               </div>
             </div>
           </motion.div>
