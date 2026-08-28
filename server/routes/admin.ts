@@ -2542,7 +2542,8 @@ router.post('/recover-audio', adminAuth, async (req, res) => {
     }).eq('id', song.id);
 
     const { error: reqUpdateErr } = await supabase.from('song_requests').update({
-      status: 'music_ready',
+      status: 'approved',
+      deliver_at: null,
       updated_at: new Date().toISOString(),
     }).eq('id', requestId).eq('status', 'failed');
 
