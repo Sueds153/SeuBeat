@@ -65,13 +65,20 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
     ];
   };
 
-  const handleDownloadMP3 = () => {
+  const handleDownloadMP3 = async () => {
     if (!activeAudioUrl || !isFullUnlocked) return;
-    const a = document.createElement('a');
-    a.href = activeAudioUrl;
-    a.target = '_blank';
-    a.download = `${songDetails.recipientName.replace(/\s+/g, '_')}_SeuBeat_Completa${selectedVersion === 'v2' ? '_v2' : ''}.mp3`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    try {
+      const res = await fetch(activeAudioUrl);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${songDetails.recipientName.replace(/\s+/g, '_')}_SeuBeat_Completa${selectedVersion === 'v2' ? '_v2' : ''}.mp3`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      window.open(activeAudioUrl, '_blank');
+    }
   };
 
   const handleDownloadLyrics = () => {
