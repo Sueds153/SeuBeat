@@ -47,6 +47,7 @@ interface Payment {
   proof_url: string | null;
   proof_path: string | null;
   proof_filename: string | null;
+  proof_mime_type?: string | null;
   status: 'pending_verification' | 'approved' | 'rejected';
   notes: string | null;
   created_at: string;
@@ -401,6 +402,7 @@ export default function AdminPanel() {
   const [diagLoading, setDiagLoading] = useState(false);
   const [progressMap, setProgressMap] = useState<Record<string, ProgressEntry>>({});
   const [expandedRequest, setExpandedRequest] = useState<string | null>(null);
+  const [expandedPayment, setExpandedPayment] = useState<string | null>(null);
   const [editingSong, setEditingSong] = useState<{ id: string; title: string; lyrics: string; letterText: string } | null>(null);
   const [uploadingSongId, setUploadingSongId] = useState<string | null>(null);
   const [funnel, setFunnel] = useState<any>(null);

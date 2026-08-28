@@ -9,6 +9,7 @@ import SocialProof from './components/SocialProof';
 import TermsPage from './components/TermsPage';
 import PrivacyPage from './components/PrivacyPage';
 import RecoverPage from './components/RecoverPage';
+import VoiceCapturePage from './components/VoiceCapturePage';
 import Wizard from './components/Wizard';
 import { useMetaPixel } from './hooks/useMetaPixel';
 import { fbPageView } from './lib/metaPixel';
@@ -25,12 +26,15 @@ export default function App() {
     captureUtm();
   }, []);
 
-  const [currentView, setCurrentView] = useState<'landing' | 'wizard' | 'song' | 'admin' | 'terms' | 'privacy' | 'recover'>(() => {
+  const [currentView, setCurrentView] = useState<'landing' | 'wizard' | 'song' | 'admin' | 'terms' | 'privacy' | 'recover' | 'voice'>(() => {
     if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
       return 'admin';
     }
     if (window.location.pathname === '/wizard') {
       return 'wizard';
+    }
+    if (window.location.pathname.includes('/voice/')) {
+      return 'voice';
     }
     if (window.location.pathname.includes('/song/') || window.location.pathname.includes('/dedicatoria/')) {
       return 'song';
@@ -68,6 +72,8 @@ export default function App() {
         setCurrentView('admin');
       } else if (path === '/wizard') {
         setCurrentView('wizard');
+      } else if (path.includes('/voice/')) {
+        setCurrentView('voice');
       } else if (path.includes('/song/') || path.includes('/dedicatoria/')) {
         setCurrentView('song');
       } else if (path === '/terms') {
@@ -76,7 +82,7 @@ export default function App() {
         setCurrentView('privacy');
       } else if (path === '/retomar' || path === '/retomar/') {
         setCurrentView('recover');
-      } else if (currentViewRef.current === 'song' || currentViewRef.current === 'admin' || currentViewRef.current === 'wizard') {
+      } else if (currentViewRef.current === 'song' || currentViewRef.current === 'admin' || currentViewRef.current === 'wizard' || currentViewRef.current === 'voice') {
         setCurrentView('landing');
       }
     };
@@ -119,6 +125,20 @@ export default function App() {
           setCurrentView('wizard');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
+      />
+    );
+  }
+
+  if (currentView === 'voice') {
+    const match = window.location.pathname.match(/\/voice\/([a-f0-9-]+)/);
+    const reqId = match?.[1] || '';
+    const urlParams = new URLSearchParams(window.location.search);
+    const emailParam = urlParams.get('email') || undefined;
+    return (
+      <VoiceCapturePage
+        requestId={reqId}
+        email={emailParam}
+        onBackToLanding={backToLanding}
       />
     );
   }

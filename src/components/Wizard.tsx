@@ -228,14 +228,61 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     return false;
   });
   const [showUpsellModal, setShowUpsellModal] = useState(false);
-  const [showVoiceCloningScreen, setShowVoiceCloningScreen] = useState(false);
+  const [showVoiceCloningScreen, setShowVoiceCloningScreen] = useState(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.selectedPlanID === 'premium' && parsed?.isDone && !parsed?.paymentSubmitted && !parsed?.hasVoiceSample) {
+          return true;
+        }
+      }
+    } catch {}
+    return false;
+  });
   const [isRecording, setIsRecording] = useState(false);
-  const [hasRecorded, setHasRecorded] = useState(false);
+  const [hasRecorded, setHasRecorded] = useState(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.hasRecorded || false;
+      }
+    } catch {}
+    return false;
+  });
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [clonedVoiceFile, setClonedVoiceFile] = useState<File | null>(null);
-  const [validationPhrase, setValidationPhrase] = useState<string | null>(null);
-  const [validationTaskId, setValidationTaskId] = useState<string | null>(null);
-  const [phraseRecorded, setPhraseRecorded] = useState(false);
+  const [validationPhrase, setValidationPhrase] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.validationPhrase || null;
+      }
+    } catch {}
+    return null;
+  });
+  const [validationTaskId, setValidationTaskId] = useState<string | null>(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.validationTaskId || null;
+      }
+    } catch {}
+    return null;
+  });
+  const [phraseRecorded, setPhraseRecorded] = useState(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return parsed?.phraseRecorded || false;
+      }
+    } catch {}
+    return false;
+  });
   const [validationLoading, setValidationLoading] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [copiedText, setCopiedText] = useState<'entidade' | 'referencia' | 'express' | 'link' | null>(null);
@@ -491,7 +538,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   // Persistir progresso no localStorage para sobreviver a refresh
   useEffect(() => {
     try {
-      const proofBase64 = proofFile ? btoa(proofFile.name + '\0' + proofFile.type + '\0' + proofFile.size + '\0' + proofFile.lastModified) : null;
       const { photoFile, ...rest } = formData;
       localStorage.setItem('seubeat_wizard_progress', JSON.stringify({
         formData: rest,
@@ -509,7 +555,12 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         generationStatus,
         selectedPlanID,
         voiceUpsellApplied,
-        proofFile: proofBase64 && proofFile ? { base64: proofBase64, name: proofFile.name } : null
+        hasRecorded,
+        validationPhrase,
+        validationTaskId,
+        phraseRecorded,
+        hasVoiceSample: !!clonedVoiceFile,
+        proofFile: null
       }));
     } catch {}
   }, [
@@ -528,7 +579,12 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     generationStatus,
     selectedPlanID,
     voiceUpsellApplied,
-    proofFile
+    proofFile,
+    hasRecorded,
+    validationPhrase,
+    validationTaskId,
+    phraseRecorded,
+    clonedVoiceFile
   ]);
 
   // Polling automático: após refresh, verificar estado e continuar a vigiar
@@ -816,6 +872,13 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
             setPaymentSubmitting(false);
           };
         } else {
+          if (selectedPlanID === 'premium' || voiceUpsellApplied) {
+            setPaymentSubmitError('Para o pacote Premium, é obrigatório gravar a voz. Volte ao ecrã de gravação.');
+            setPaymentSubmitting(false);
+            setShowVoiceCloningScreen(true);
+            setIsDone(false);
+            return;
+          }
           await postPaymentData(base64Data, null, null, null);
         }
       };

@@ -1723,6 +1723,76 @@ router.post('/song/recover-by-email', recoverByEmailLimiter, async (req, res) =>
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// POST /api/song/:id/voice-sample — permitir ao cliente gravar/enviar voz pós-pagamento
+// ─────────────────────────────────────────────────────────────────────────────
+
+router.post('/song/:id/voice-sample', async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id || !UUID_REGEX.test(id)) {
+      return res.status(400).json({ success: false, error: 'ID de pedido inválido.' });
+    }
+
+    const { voiceSampleBase64, voiceSampleFilename, voiceSampleMimeType, email } = req.body;
+    if (!voiceSampleBase64 || typeof voiceSampleBase64 !== 'string') {
+      return res.status(400).json({ success: false, error: 'Amostra de voz em falta.' });
+    }
+
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponível.' });
+
+    const { data: requestData, error: reqError } = await supabase
+      .from('song_requests')
+      .select('id, status, email, voice_sample_url')
+      .eq('id', id)
+      .single();
+
+    if (reqError || !requestData) {
+      return res.status(404).json({ success: false, error: 'Pedido não encontrado.' });
+    }
+
+    if (email && requestData.email && email.toLowerCase() !== requestData.email.toLowerCase()) {
+      return res.status(403).json({ success: false, error: 'Email não corresponde ao pedido.' });
+    }
+
+    if (requestData.voice_sample_url) {
+      return res.status(409).json({ success: false, error: 'Já existe uma amostra de voz registada. Contacte o suporte para substituir.' });
+    }
+
+    const ALLOWED_VOICE_MIMES = ['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/x-wav', 'audio/webm'];
+    const resolvedVoiceMime = voiceSampleMimeType || 'audio/wav';
+    if (!ALLOWED_VOICE_MIMES.includes(resolvedVoiceMime)) {
+      return res.status(400).json({ success: false, error: 'Formato de áudio inválido. Apenas WAV, MP3, MP4 ou OGG.' });
+    }
+
+    const voiceBuffer = decodeBase64Payload(voiceSampleBase64);
+    if (voiceBuffer.length > 5 * 1024 * 1024) {
+      return res.status(400).json({ success: false, error: 'Amostra de voz demasiado grande. Máx. 5MB.' });
+    }
+    if (voiceBuffer.length < 1024) {
+      return res.status(400).json({ success: false, error: 'Amostra de voz demasiado pequena. Grava pelo menos 3 segundos.' });
+    }
+
+    const sanitizedVoiceFilename = String(voiceSampleFilename || 'sample.wav').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filename = `voices/${Date.now()}_${sanitizedVoiceFilename}`;
+    await uploadFileToStorage('voice-samples', filename, voiceBuffer, resolvedVoiceMime);
+
+    const { error: updateError } = await supabase
+      .from('song_requests')
+      .update({ voice_sample_url: filename })
+      .eq('id', id);
+
+    if (updateError) throw updateError;
+
+    logInfo('[API] Voice sample received post-payment', { requestId: id, mime: resolvedVoiceMime, bytes: voiceBuffer.length });
+    res.json({ success: true, message: 'Amostra de voz recebida com sucesso. A clonagem será processada na aprovação do pagamento.' });
+  } catch (err: unknown) {
+    logRouteError(req, err);
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GET /api/config — configurações de runtime (feature flags)
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/config', (_req, res) => {
