@@ -2499,8 +2499,6 @@ async function sendVideoUpsellOffer(
   }
 }
 
-export default router;
-
 // ─── TEMPORÁRIO: Recuperar áudio de pedido falhado via taskId Suno ───────
 // Remover após recuperar todos os pedidos órfãos.
 router.post('/recover-audio', adminAuth, async (req, res) => {
@@ -2558,3 +2556,5 @@ router.post('/recover-audio', adminAuth, async (req, res) => {
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
+
+export default router;
