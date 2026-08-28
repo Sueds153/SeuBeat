@@ -97,11 +97,21 @@ function TypewriterQuote() {
 export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
+  const [isStudioOpening, setIsStudioOpening] = useState(false);
   const countRef = useRef<HTMLSpanElement>(null);
   const [showCount, setShowCount] = useState(false);
   const [animatedCount, setAnimatedCount] = useState(0);
   const [heroIdx, setHeroIdx] = useState(0);
   const [showStickyBar, setShowStickyBar] = useState(false);
+
+  const handleStartWizard = () => {
+    if (isStudioOpening) return;
+    setIsStudioOpening(true);
+    setTimeout(() => {
+      onStartWizard();
+      setIsStudioOpening(false);
+    }, 380);
+  };
 
   const socialProof = useSocialProof();
   const todayCount = socialProof.createdToday;
@@ -319,6 +329,25 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                   </motion.span>
                 </AnimatePresence>
               </p>
+
+              {/* Interactive Gift Comparison Badge */}
+              <div className="grid grid-cols-2 gap-2 bg-stone-950/70 p-1.5 rounded-2xl border border-stone-800/80 max-w-lg">
+                <div className="flex items-center gap-2 p-2 rounded-xl bg-stone-900/40 border border-stone-800/50">
+                  <span className="text-base">🥀</span>
+                  <div>
+                    <p className="text-[11px] font-semibold text-stone-400 line-through">Presente Comum</p>
+                    <p className="text-[9px] text-stone-500 font-mono">Murcha em 3 dias</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 p-2 rounded-xl bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-amber-500/10 border border-amber-500/30 relative overflow-hidden shadow-inner">
+                  <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-rose-500/5 animate-pulse" />
+                  <span className="text-base animate-bounce">🎵</span>
+                  <div className="relative z-10">
+                    <p className="text-[11px] font-bold text-amber-400">Música SeuBeat</p>
+                    <p className="text-[9px] text-amber-300/80 font-mono font-bold uppercase tracking-wider">Eterna · Para Sempre ✨</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -327,7 +356,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             <div className="flex flex-col items-start gap-1">
               <button
                 id="hero-primary-cta"
-                onClick={onStartWizard}
+                onClick={handleStartWizard}
                 className="px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm md:text-base rounded-full shadow-xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all inline-flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>Criar Minha Música</span>
@@ -350,6 +379,20 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           {/* Emotional Photo — mobile: após CTA, acima das trust badges; desktop: coluna direita */}
           <div className="relative flex justify-center lg:justify-end lg:col-start-2 lg:row-start-1 lg:row-span-full">
             <div className="relative w-full max-w-md">
+              {/* Sound Ripples Ambient Animation behind photo */}
+              <div className="absolute inset-0 -m-4 rounded-3xl pointer-events-none overflow-hidden">
+                <motion.div
+                  animate={{ scale: [1, 1.06, 1], opacity: [0.15, 0.35, 0.15] }}
+                  transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
+                  className="absolute inset-0 rounded-3xl bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-amber-500/20 blur-xl"
+                />
+                <motion.div
+                  animate={{ scale: [1.03, 1.12, 1.03], opacity: [0.1, 0.25, 0.1] }}
+                  transition={{ repeat: Infinity, duration: 4, delay: 1.5, ease: "easeInOut" }}
+                  className="absolute inset-0 rounded-3xl bg-gradient-to-r from-rose-500/15 via-amber-500/15 to-rose-500/15 blur-2xl"
+                />
+              </div>
+
               {/* Main photo */}
               <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-amber-900/20 border border-stone-800/60">
                 <img
@@ -453,6 +496,38 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 <p className="text-stone-400 text-xs md:text-sm leading-relaxed">{item.desc}</p>
               </motion.div>
             ))}
+          </div>
+
+          {/* Interactive Before & After Story Transformer Showcase */}
+          <div className="max-w-3xl mx-auto mt-8 bg-gradient-to-r from-stone-900/60 via-stone-950/80 to-stone-900/60 border border-amber-500/20 rounded-3xl p-5 md:p-7 shadow-2xl relative overflow-hidden text-left">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Transformação em Tempo Real</span>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Before */}
+              <div className="bg-stone-950/80 border border-stone-850 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center justify-between text-[10px] font-mono text-stone-500 uppercase tracking-wider">
+                  <span>1. O que você escreve</span>
+                  <span className="text-stone-600">Ideia Bruta</span>
+                </div>
+                <p className="text-xs text-stone-300 italic font-serif leading-relaxed">
+                  "Conhecemos-nos na praia da Mussulo num domingo de sol, ela estava a rir com as amigas e trocámos telefones..."
+                </p>
+              </div>
+
+              {/* After */}
+              <div className="bg-gradient-to-br from-amber-500/10 via-stone-900/90 to-rose-500/10 border border-amber-500/30 rounded-2xl p-4 space-y-2 relative overflow-hidden shadow-lg">
+                <div className="flex items-center justify-between text-[10px] font-mono text-amber-400 uppercase tracking-wider">
+                  <span className="inline-flex items-center gap-1 font-bold"><Music2 className="w-3 h-3" /> 2. O que o SeuBeat canta</span>
+                  <span className="bg-amber-500/20 px-1.5 py-0.5 rounded text-amber-300 font-bold">Kizomba</span>
+                </div>
+                <p className="text-xs text-amber-200 font-serif font-medium leading-relaxed drop-shadow-[0_0_10px_rgba(245,158,11,0.15)]">
+                  "♪ Naquele domingo no Mussulo, a brisa parou pra ver... Teu sorriso ao sol brilhou e o meu mundo começou a nascer... ♪"
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -840,7 +915,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             </div>
             <button
               id="sticky-cta-btn"
-              onClick={onStartWizard}
+              onClick={handleStartWizard}
               className="flex-1 py-3.5 bg-gradient-to-r from-amber-500 to-rose-600 active:from-amber-400 active:to-rose-500 text-stone-950 font-extrabold text-sm rounded-full shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all cursor-pointer"
             >
               Criar Minha Música
@@ -848,6 +923,39 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           </div>
         </motion.div>
       )}
+
+      {/* Studio Opening Curtain Overlay */}
+      <AnimatePresence>
+        {isStudioOpening && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-50 bg-stone-950/95 backdrop-blur-xl flex flex-col items-center justify-center pointer-events-auto"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.25 }}
+              className="flex flex-col items-center gap-4 text-center p-6"
+            >
+              <LogoIcon size={56} className="animate-pulse drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]" />
+              <h3 className="text-xl font-serif font-bold text-white tracking-tight">A preparar o teu estúdio...</h3>
+              <div className="flex items-center gap-1 h-6">
+                {[20, 60, 40, 80, 50, 90, 30].map((h, i) => (
+                  <motion.div
+                    key={i}
+                    animate={{ height: ['20%', `${h}%`, '20%'] }}
+                    transition={{ repeat: Infinity, duration: 0.4 + i * 0.1 }}
+                    className="w-1 bg-amber-400 rounded-full"
+                  />
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
