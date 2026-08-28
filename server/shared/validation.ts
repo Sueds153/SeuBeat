@@ -135,7 +135,7 @@ export const SubmitPaymentSchema = z.object({
   phone: z.string().regex(/^\+?[\d\s()-]{7,18}$/, 'Telefone inválido').optional(),
   plan: z.enum(['standard', 'express', 'premium']),
   amount: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseFloat(v) : v).refine(v => !isNaN(v) && v > 0, 'Montante inválido'),
-  proofBase64: z.string().max(10 * 1024 * 1024, 'Comprovativo demasiado grande (max 10MB)').optional().nullable(),
+  proofBase64: z.string().max(14 * 1024 * 1024, 'Comprovativo demasiado grande (max 10MB)').optional().nullable(),
   proofFilename: z.string().max(255).trim().optional().nullable(),
   proofMimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']).optional().nullable(),
   voiceSampleBase64: z.string().max(5 * 1024 * 1024, 'Amostra de voz demasiado grande (max 5MB)').optional().nullable(),
