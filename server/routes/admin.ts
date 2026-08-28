@@ -14,7 +14,7 @@ import {
   runBackgroundSunoWorkflow, 
   processSunoVoice 
 } from '../services/workflow';
-import { sendPersonalizedEmail, sendPaymentRejectionEmail, sendConfirmationEmail } from '../services/email';
+import { sendPersonalizedEmail, sendPaymentRejectionEmail, sendConfirmationEmail, sendVideoUpsellOfferEmail } from '../services/email';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
@@ -30,7 +30,7 @@ import {
   normalizePhoneToE164, ABANDONED_BUCKET_ORDER,
   isAbandonedTimeRange, elapsedInRange,
 } from '../services/abandonedMessages';
-import { sendDeliveryWhatsApp, sendFeedbackRequestWhatsApp, sendPaymentApprovedWhatsApp } from '../services/whatsappSender';
+import { sendDeliveryWhatsApp, sendFeedbackRequestWhatsApp, sendPaymentApprovedWhatsApp, sendVideoUpsellWhatsApp } from '../services/whatsappSender';
 import type { BulkClient } from '../services/whatsappSender';
 import { templateForBucket, enabledWhatsAppBuckets } from '../services/whatsappTemplates';
 import { getMetaAdsSpend } from '../services/metaAds';
@@ -269,7 +269,7 @@ router.get('/payments', adminAuth, async (req, res) => {
 
     const { data, error } = await supabase
       .from('payments')
-      .select('*, song_requests(id, recipient_name, occasion, music_style, status, users(name, email, phone))')
+      .select('*, song_requests(id, recipient_name, occasion, music_style, status, video_upsell_sent_at, video_upsell_paid, users(name, email, phone))')
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
@@ -435,6 +435,8 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
           }).catch(err => logError('[Admin] Falha ao enviar WhatsApp de aprovacao (standard)', err, { requestId }));
         }
         firePurchaseEvent();
+        // Video upsell: enviar offer de videoclipe (Standard)
+        sendVideoUpsellOffer(requestId, songRequest, req);
         return res.json({ success: true, message: 'Pagamento aprovado. Música será entregue em 24h por e-mail.', isStandard: true });
       }
 
@@ -477,6 +479,8 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
           logError('[Admin] Falha ao agendar pedido de feedback (express/premium)', err, { requestId })
         );
       }
+      // Video upsell: enviar offer de videoclipe (Express/Premium)
+      sendVideoUpsellOffer(requestId, songRequest, req);
       return res.json({ success: true, message: 'Pagamento aprovado. Música entregue por e-mail e WhatsApp.' });
     }
 
@@ -2334,5 +2338,66 @@ router.post('/abandoned/send-bulk', adminAuth, whatsappBulkLimiter, async (req, 
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
+
+// ─────────────────────────────────────────────────────────────
+// Video Upsell: envio automático de offer pós-aprovação
+// ─────────────────────────────────────────────────────────────
+
+async function sendVideoUpsellOffer(
+  requestId: string,
+  songRequest: { recipient_name?: string; phone?: string; users?: { phone?: string }; user_email?: string; music_style?: string; video_upsell_sent_at?: string },
+  req?: express.Request
+) {
+  try {
+    // Dedupe: não enviar se já foi enviado
+    if (songRequest.video_upsell_sent_at) return;
+
+    const supabase = getAdminSupabase();
+    if (!supabase) return;
+
+    // Buscar título da música
+    let songTitle = 'a tua música';
+    try {
+      const { data: songData } = await supabase
+        .from('songs')
+        .select('title')
+        .eq('request_id', requestId)
+        .single();
+      if (songData?.title) songTitle = songData.title;
+    } catch {}
+
+    const upsellUrl = `${getAppUrl(req)}/video-upsell?requestId=${requestId}&email=${encodeURIComponent(songRequest.user_email || '')}`;
+
+    // Marcar como enviado (antes do envio para evitar duplicatas por race condition)
+    try {
+      await supabase
+        .from('song_requests')
+        .update({ video_upsell_sent_at: new Date().toISOString() })
+        .eq('id', requestId);
+    } catch {}
+
+    // Enviar WhatsApp
+    const phone = songRequest.phone || songRequest.users?.phone || null;
+    if (phone) {
+      sendVideoUpsellWhatsApp({
+        requestId,
+        phone,
+        recipientName: songRequest.recipient_name,
+        songTitle,
+        upsellUrl,
+      }).catch(err => logError('[Admin] Falha ao enviar offer de videoclipe (WhatsApp)', err, { requestId }));
+    }
+
+    // Enviar email
+    if (songRequest.user_email) {
+      sendVideoUpsellOfferEmail(songRequest.user_email, songRequest.recipient_name || '', songTitle, upsellUrl)
+        .catch(err => logError('[Admin] Falha ao enviar offer de videoclipe (email)', err, { requestId }));
+    }
+
+    logInfo('[Admin] Video upsell offer enviada', { requestId, phone: !!phone, email: !!songRequest.user_email });
+  } catch (err) {
+    logError('[Admin] Falha ao enviar offer de videoclipe', err, { requestId });
+  }
+}
 
 export default router;

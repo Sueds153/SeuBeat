@@ -10,6 +10,7 @@ export const DELIVERY_TEMPLATE_NAME = process.env.WHATSAPP_DELIVERY_TEMPLATE || 
 export const FEEDBACK_TEMPLATE_NAME = process.env.WHATSAPP_FEEDBACK_TEMPLATE || 'seubeat_feedback_v1';
 /** Template enviado ao cliente quando o admin aprova o pagamento Standard (entrega em 24h). */
 export const PAYMENT_APPROVED_TEMPLATE_NAME = process.env.WHATSAPP_PAYMENT_APPROVED_TEMPLATE || 'seubeat_pagamento_aprovado_v2';
+export const VIDEO_UPSELL_TEMPLATE_NAME = process.env.WHATSAPP_VIDEO_UPSELL_TEMPLATE || 'seubeat_video_upsell_v1';
 
 export interface WhatsAppTemplateDef {
   name: string;
@@ -54,6 +55,7 @@ export function listTemplates(): Array<{ bucket: string; name: string; language:
   abandoned.push({ bucket: 'delivery', name: DELIVERY_TEMPLATE_NAME, language: TEMPLATE_LANGUAGE });
   abandoned.push({ bucket: 'feedback', name: FEEDBACK_TEMPLATE_NAME, language: TEMPLATE_LANGUAGE });
   abandoned.push({ bucket: 'payment_approved', name: PAYMENT_APPROVED_TEMPLATE_NAME, language: TEMPLATE_LANGUAGE });
+  abandoned.push({ bucket: 'video_upsell', name: VIDEO_UPSELL_TEMPLATE_NAME, language: TEMPLATE_LANGUAGE });
   return abandoned;
 }
 

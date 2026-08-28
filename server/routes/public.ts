@@ -25,10 +25,11 @@ import {
   UpdateLyricsSchema,
   SubmitPaymentSchema,
   VoiceValidationPhraseSchema,
+  VideoUpsellPaymentSchema,
   validateInput,
   validationErrorsArray
 } from '../shared/validation';
-import type { GenerateLyricsInput, SubmitPaymentInput, VoiceValidationPhraseInput } from '../shared/validation';
+import type { GenerateLyricsInput, SubmitPaymentInput, VoiceValidationPhraseInput, VideoUpsellPaymentInput } from '../shared/validation';
 import { 
   globalLimiter,
   generateLyricsLimiter, 
@@ -1231,6 +1232,94 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       userEmail: req.body?.userEmail,
       plan: req.body?.plan
     });
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// Video Upsell: pagamento do videoclipe (+2.900 Kz)
+// ─────────────────────────────────────────────────────────────
+
+router.post('/song/:id/video-upsell-payment', paymentLimiter, async (req, res) => {
+  try {
+    const { id: requestId } = req.params;
+    const validation = validateInput(VideoUpsellPaymentSchema, { ...req.body, songRequestId: requestId });
+    if (!validation.success) {
+      return res.status(400).json({ success: false, error: 'Dados de pagamento inválidos', validation_errors: validationErrorsArray(validation.errors) });
+    }
+    const { userEmail, proofBase64, proofFilename, proofMimeType, paymentMethod } = validation.data;
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
+
+    // Validar que o pedido existe e está approved/delivered
+    const { data: songRequest } = await supabase
+      .from('song_requests')
+      .select('id, status, recipient_name, video_upsell_paid')
+      .eq('id', requestId)
+      .single();
+
+    if (!songRequest) {
+      return res.status(404).json({ success: false, error: 'Pedido não encontrado.' });
+    }
+
+    if (songRequest.video_upsell_paid) {
+      return res.status(409).json({ success: false, error: 'O videoclipe já foi pago.' });
+    }
+
+    // Upload do comprovativo
+    let proofPath: string | null = null;
+    let proofUrl: string | null = null;
+    if (proofBase64) {
+      const resolvedMime = proofMimeType || 'application/octet-stream';
+      const proofBuffer = decodeBase64Payload(proofBase64);
+      if (proofBuffer.length > 10 * 1024 * 1024) throw new Error('Comprovativo demasiado grande. Máx. 10MB.');
+      const sanitizedProofFilename = String(proofFilename || 'proof.bin').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filename = `proofs/video_${Date.now()}_${sanitizedProofFilename}`;
+      try {
+        const uploadedUrl = await uploadFileToStorage('payment-proofs', filename, proofBuffer, resolvedMime);
+        proofPath = filename;
+        proofUrl = uploadedUrl;
+      } catch (err) {
+        throw new Error(`Upload do comprovativo falhou: ${err instanceof Error ? err.message : 'sem dados'}`);
+      }
+    }
+
+    // Criar registo de pagamento (video_upsell = true)
+    const paymentFields = {
+      request_id: requestId,
+      user_email: userEmail,
+      plan_type: 'video_upsell',
+      amount_kz: 2900,
+      amount: 2900,
+      payment_method: paymentMethod || 'reference',
+      proof_url: proofUrl || (proofPath ? `storage:${proofPath}` : null),
+      proof_path: proofPath,
+      proof_filename: proofFilename || proofPath?.split('/').pop() || null,
+      proof_mime_type: proofMimeType || null,
+      status: 'pending_verification',
+      video_upsell: true,
+      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+    };
+
+    const { data: paymentRecord, error: insertErr } = await supabase
+      .from('payments')
+      .insert([paymentFields])
+      .select('id')
+      .single();
+
+    if (insertErr) throw insertErr;
+
+    // Notificar admin
+    sendAdminNotification(
+      'Novo pagamento de videoclipe pendente 🎬',
+      `Cliente: ${userEmail}\nVideoclipe: 2.900 Kz\nPedido: ${requestId}\nPagamento: ${paymentRecord?.id}\n\nVer no painel: ${getAppUrl(req)}/admin?tab=payments`
+    ).catch(err =>
+      logError('[API] Falha ao notificar admin (video upsell)', err, { paymentId: paymentRecord?.id })
+    );
+
+    res.json({ success: true, paymentId: paymentRecord?.id });
+  } catch (err: unknown) {
+    logRouteError(req, err, { songRequestId: req.params?.id, userEmail: req.body?.userEmail });
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });

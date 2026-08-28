@@ -52,12 +52,15 @@ interface Payment {
   notes: string | null;
   created_at: string;
   approved_at: string | null;
+  video_upsell?: boolean;
   song_requests?: {
     id: string;
     recipient_name: string;
     occasion: string;
     music_style: string;
     status: string;
+    video_upsell_sent_at?: string;
+    video_upsell_paid?: boolean;
     users?: { name: string; email: string; phone: string };
   };
 }
@@ -2008,7 +2011,19 @@ export default function AdminPanel() {
                                       <p className="text-stone-500 font-mono mb-1 uppercase tracking-wider text-[9px]">Pedido Associado</p>
                                       <p className="text-stone-300"><strong>Para:</strong> {payment.song_requests.recipient_name}</p>
                                       <p className="text-stone-400"><strong>Ocasião:</strong> {payment.song_requests.occasion} • <strong>Estilo:</strong> {payment.song_requests.music_style}</p>
-                                      <StatusBadge status={payment.song_requests.status} />
+                                      <div className="flex items-center gap-2 mt-2">
+                                        <StatusBadge status={payment.song_requests.status} />
+                                        {payment.song_requests.video_upsell_paid && (
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                            🎬 Videoclipe Pago
+                                          </span>
+                                        )}
+                                        {payment.song_requests.video_upsell_sent_at && !payment.song_requests.video_upsell_paid && (
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                            🎬 Offer Enviada
+                                          </span>
+                                        )}
+                                      </div>
                                     </div>
                                   )}
 

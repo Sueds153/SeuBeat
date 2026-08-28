@@ -168,3 +168,14 @@ export const VoiceValidationPhraseSchema = z.object({
 });
 
 export type VoiceValidationPhraseInput = z.infer<typeof VoiceValidationPhraseSchema>;
+
+export const VideoUpsellPaymentSchema = z.object({
+  songRequestId: z.string().min(1, 'ID do pedido requerido'),
+  userEmail: z.string().email('Email inválido').toLowerCase(),
+  proofBase64: z.string().max(14 * 1024 * 1024, 'Comprovativo demasiado grande (max 10MB)').optional().nullable(),
+  proofFilename: z.string().max(255).trim().optional().nullable(),
+  proofMimeType: z.string().max(100).trim().optional().nullable(),
+  paymentMethod: z.enum(['express', 'reference']).optional().nullable().default('reference'),
+});
+
+export type VideoUpsellPaymentInput = z.infer<typeof VideoUpsellPaymentSchema>;

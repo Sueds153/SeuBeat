@@ -10,6 +10,7 @@ import TermsPage from './components/TermsPage';
 import PrivacyPage from './components/PrivacyPage';
 import RecoverPage from './components/RecoverPage';
 import VoiceCapturePage from './components/VoiceCapturePage';
+import VideoUpsellPage from './components/VideoUpsellPage';
 import Wizard from './components/Wizard';
 import { useMetaPixel } from './hooks/useMetaPixel';
 import { fbPageView } from './lib/metaPixel';
@@ -26,7 +27,7 @@ export default function App() {
     captureUtm();
   }, []);
 
-  const [currentView, setCurrentView] = useState<'landing' | 'wizard' | 'song' | 'admin' | 'terms' | 'privacy' | 'recover' | 'voice'>(() => {
+  const [currentView, setCurrentView] = useState<'landing' | 'wizard' | 'song' | 'admin' | 'terms' | 'privacy' | 'recover' | 'voice' | 'video-upsell'>(() => {
     if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
       return 'admin';
     }
@@ -35,6 +36,9 @@ export default function App() {
     }
     if (window.location.pathname.includes('/voice/')) {
       return 'voice';
+    }
+    if (window.location.pathname === '/video-upsell') {
+      return 'video-upsell';
     }
     if (window.location.pathname.includes('/song/') || window.location.pathname.includes('/dedicatoria/')) {
       return 'song';
@@ -74,6 +78,8 @@ export default function App() {
         setCurrentView('wizard');
       } else if (path.includes('/voice/')) {
         setCurrentView('voice');
+      } else if (path === '/video-upsell') {
+        setCurrentView('video-upsell');
       } else if (path.includes('/song/') || path.includes('/dedicatoria/')) {
         setCurrentView('song');
       } else if (path === '/terms') {
@@ -136,6 +142,19 @@ export default function App() {
     const emailParam = urlParams.get('email') || undefined;
     return (
       <VoiceCapturePage
+        requestId={reqId}
+        email={emailParam}
+        onBackToLanding={backToLanding}
+      />
+    );
+  }
+
+  if (currentView === 'video-upsell') {
+    const urlParams = new URLSearchParams(window.location.search);
+    const reqId = urlParams.get('requestId') || '';
+    const emailParam = urlParams.get('email') || undefined;
+    return (
+      <VideoUpsellPage
         requestId={reqId}
         email={emailParam}
         onBackToLanding={backToLanding}
