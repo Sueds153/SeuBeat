@@ -2554,7 +2554,9 @@ router.post('/recover-audio', adminAuth, async (req, res) => {
     logInfo('[Admin] recover-audio: sucesso', { requestId, taskId, duration: persistResult.duration });
     res.json({ success: true, data: { fullAudioUrl: persistResult.fullAudioUrl, duration: persistResult.duration } });
   } catch (err: unknown) {
-    logRouteError(req, err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const errStack = err instanceof Error ? err.stack : '';
+    console.error('[Admin] recover-audio ERRO:', errMsg, errStack, { requestId, taskId });
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
