@@ -90,7 +90,7 @@ const STYLE_LYRICAL_INSTRUCTIONS: Record<string, string> = {
   zouk: 'Use romantismo caribenho com influência africana, sintetizadores suaves, refrão melódico e envolvente com vibe tropical.',
   balada: 'Use tom emocional e orquestrado, piano e cordas, construção dramática com refrão explosivo.',
   pop: 'Use melodia cativante, refrão pegajoso, linguagem acessível e produção moderna e radiofónica.',
-  'r&b': 'Use flow suave e sensual, groove envolvente, letra emocional com alma e sentimento à moda R&B.',
+  'r&b': 'Use flow suave e sensual, groove envolvente, refrão com melisma e情感 profunda. Escreva como um slow jam: versos intimistas, pré-refrão que constrói tensão, refrão explosivo com vocal Runs. Use imagens sensoriais (toque, calor, brilho dos olhos) em vez de declarações diretas. Evite ritmo acelerado — o R&B respira no espaço entre as notas.',
   rap: 'Use flow ritmado, palavra poderosa, batida urbana, lírica afiada com consciência e autenticidade.',
   funk: 'Use groove contagiante, batida dançante, percussão marcada, letra vibrante com swing e atitude.',
   trap: 'Use flow moderno e atitude urbana, 808 pesado, refrão curto e impactante, linguagem jovem e autêntica.',

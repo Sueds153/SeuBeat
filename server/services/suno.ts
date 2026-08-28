@@ -154,7 +154,7 @@ const STYLE_MAP: Record<string, string> = {
   gospel: 'gospel, choral harmonies, organ, piano, inspirational, uplifting, powerful vocal, 80bpm',
   acoustic: 'acoustic, soft guitar, intimate vocals, unplugged, warm, gentle, stripped down, 80bpm',
   'romantic pop': 'romantic pop, emotional strings, modern radio ballad, synth pads, catchy chorus, 90bpm',
-  'r&b': 'r&b, smooth vocals, groovy bassline, soulful, sensual melody, rhythm and blues, 85bpm',
+  'r&b': 'contemporary R&B, slow jam, smooth soulful vocals, melisma, falsetto, groovy bassline, electric piano, synth pads, finger snaps, 808 hi-hats, sensual melody, rhythm and blues, 75bpm',
   hino: 'hino, orchestral, epic cinematic, choir, brass section, majestic, corporate anthem, inspirational, 80bpm',
 };
 
@@ -229,7 +229,7 @@ const VOICE_STYLE_MAP: Record<string, string> = {
 };
 
 const EMOTION_STYLE_MAP: Record<string, string> = {
-  amor: 'romantic mood, warm atmosphere, love theme',
+  amor: 'romantic, intimate, vulnerable, slow tempo emotion, love ballad feel',
   emoção: 'emotional, heartfelt, touching atmosphere',
   gratidão: 'grateful mood, warm and appreciative tone',
   carinho: 'tender, affectionate, gentle mood',
@@ -239,8 +239,9 @@ const EMOTION_STYLE_MAP: Record<string, string> = {
 
 // Sotaque angolano no canto. Fraseado só positivo (negações são pouco fiáveis
 // em prompts de áudio e podem dar efeito contrário). Desligável via env.
+// NOTA: mantido curto para não sobrepor o estilo musical (ex: R&B, Kizomba)
 const ANGOLAN_ACCENT_STYLE =
-  'Angolan Portuguese accent (Luanda), authentic Angolan Portuguese pronunciation, singing in Angolan Portuguese';
+  'singing in Angolan Portuguese, Luanda accent';
 const SUNO_ACCENT_ENABLED = process.env.SUNO_ACCENT_ENABLED !== 'false';
 const PORTUGUESE_TEXT_RE = /[àáâãéêíóôõúç]/i;
 
