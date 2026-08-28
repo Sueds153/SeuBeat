@@ -110,7 +110,7 @@ export function gaPurchase(plan?: string, value?: number, currency = CURRENCY): 
   } catch {}
 }
 
-export function gaWizardStep(step: number, totalSteps = 9): void {
+export function gaWizardStep(step: number, totalSteps = 5): void {
   if (!IS_ENABLED || !initialized) return;
   try {
     ReactGA.event('wizard_step', {

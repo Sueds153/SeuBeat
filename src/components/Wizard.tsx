@@ -1235,6 +1235,14 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
               console.error('Error reading photo file:', e);
               showToast('Erro ao ler a foto. Tente selecionar novamente.', 'error');
             }
+          } else {
+            // Fallback: usar base64 guardado no localStorage (sobrevive refresh)
+            const savedBase64 = sessionStorage.getItem('seubeat_photo_base64') || localStorage.getItem('seubeat_photo_base64');
+            if (savedBase64) {
+              photoBase64 = savedBase64;
+              photoFilename = 'foto.jpg';
+              photoMimeType = savedBase64.split(':')[1]?.split(';')[0] || 'image/jpeg';
+            }
           }
 
           const controller = new AbortController();

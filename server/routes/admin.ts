@@ -269,7 +269,7 @@ router.get('/payments', adminAuth, async (req, res) => {
 
     const { data, error } = await supabase
       .from('payments')
-      .select('*, song_requests(id, recipient_name, occasion, music_style, status, video_upsell_sent_at, video_upsell_paid, users(name, email, phone))')
+      .select('*, song_requests(id, recipient_name, occasion, music_style, status, users(name, email, phone))')
       .order('created_at', { ascending: false });
 
     if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
@@ -899,7 +899,17 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: `Status inválido para "${table}". Permitidos: ${allowed.join(', ')}` });
     }
 
+    const ALLOWED_FIELDS: Record<string, string[]> = {
+      song_requests: ['status'],
+      payments: ['status'],
+      songs: ['mureka_status'],
+    };
+
     const statusField = field || (table === 'songs' ? 'mureka_status' : 'status');
+    const allowedFields = ALLOWED_FIELDS[table] || [];
+    if (!allowedFields.includes(statusField)) {
+      return res.status(400).json({ success: false, error: `Campo "${statusField}" não é editável. Permitidos: ${allowedFields.join(', ')}` });
+    }
 
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
@@ -1367,6 +1377,11 @@ router.post('/undo', adminAuth, async (req, res) => {
     if (action === 'force_status') {
       const { previousStatus } = req.body;
       if (!previousStatus) return res.status(400).json({ success: false, error: 'Força-status undo requer "previousStatus".' });
+      // Validar previousStatus contra a lista de status permitidos
+      const undoAllowed = VALID_STATUSES[entityType] || [];
+      if (undoAllowed.length > 0 && !undoAllowed.includes(previousStatus)) {
+        return res.status(400).json({ success: false, error: `previousStatus "${previousStatus}" inválido para "${entityType}". Permitidos: ${undoAllowed.join(', ')}` });
+      }
       if (entityType === 'song_requests' || entityType === 'payments') {
         await supabase.from(entityType).update({ status: previousStatus }).eq('id', entityId);
         logAdminAction({ action: 'undo', entityType, entityId, notes: `Undo force_status: revertido para ${previousStatus}` });

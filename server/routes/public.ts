@@ -790,6 +790,9 @@ router.put('/song/:id/lyrics', globalLimiter, async (req, res) => {
     const { id } = req.params;
     if (!UUID_REGEX.test(id)) return res.status(400).json({ success: false, error: 'ID inválido.' });
 
+    const { email } = req.body;
+    if (!email || typeof email !== 'string') return res.status(400).json({ success: false, error: 'Email requerido.' });
+
     const validation = validateInput(UpdateLyricsSchema, req.body);
     if ('errors' in validation) {
       logWarn('[API] PUT /song/:id/lyrics dados inválidos', {
@@ -802,8 +805,14 @@ router.put('/song/:id/lyrics', globalLimiter, async (req, res) => {
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
 
-    const { data: existing } = await supabase.from('songs').select('id, request_id').eq('id', id).maybeSingle();
+    const { data: existing } = await supabase.from('songs').select('id, request_id, song_requests(user_email)').eq('id', id).maybeSingle();
     if (!existing) return res.status(404).json({ success: false, error: 'Música não encontrada.' });
+
+    // Auth: verificar que o email corresponde ao pedido
+    const srEmail = (existing as { song_requests?: { user_email?: string } }).song_requests?.user_email;
+    if (srEmail && srEmail.toLowerCase() !== email.toLowerCase()) {
+      return res.status(403).json({ success: false, error: 'Não autorizado.' });
+    }
 
     const rawLyrics = validation.data.lyrics;
     const lyricsArray = Array.isArray(rawLyrics) ? rawLyrics : rawLyrics.split('\n').filter(l => l.trim().length > 0);
@@ -929,6 +938,9 @@ router.post('/song/:id/rebuild-audio', globalLimiter, async (req, res) => {
     const { id } = req.params;
     if (!UUID_REGEX.test(id)) return res.status(400).json({ success: false, error: 'ID inválido.' });
 
+    const { email } = req.body;
+    if (!email || typeof email !== 'string') return res.status(400).json({ success: false, error: 'Email requerido.' });
+
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponível.' });
 
@@ -941,7 +953,11 @@ router.post('/song/:id/rebuild-audio', globalLimiter, async (req, res) => {
     const song = songsData && songsData.length > 0 ? songsData[0] : null;
     if (!song) return res.status(404).json({ success: false, error: 'Música não encontrada.' });
 
+    // Auth: verificar que o email corresponde ao pedido
     const sr = song.song_requests;
+    if (sr.user_email && sr.user_email.toLowerCase() !== email.toLowerCase()) {
+      return res.status(403).json({ success: false, error: 'Não autorizado.' });
+    }
     const requestId = song.request_id;
     const songId = song.id;
 

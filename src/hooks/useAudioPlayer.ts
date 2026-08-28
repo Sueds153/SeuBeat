@@ -54,6 +54,7 @@ export function useAudioPlayer({ audioUrl, textFallback }: UseAudioPlayerOptions
       audioRef.current.muted = isMuted;
       audioRef.current.play().catch((err) => {
         console.warn('Audio playback interrupted:', err);
+        setIsPlaying(false);
       });
     } else {
       if (audioRef.current) {
