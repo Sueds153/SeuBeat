@@ -120,7 +120,11 @@ export default function SongShare(props: SongShareProps) {
                 <h4 className="text-lg font-black text-white tracking-tight">
                   Para: {props.recipientName}
                 </h4>
-                <p className="text-xs text-stone-400">De: {props.userNick || 'Alguém especial'}</p>
+                <p className="text-xs text-stone-400">
+                  {props.userNick && !['autor', 'seubeat', 'anónimo', 'anonimo'].includes(props.userNick.trim().toLowerCase())
+                    ? `De: ${props.userNick}`
+                    : 'Com amor ❤️'}
+                </p>
               </div>
 
               <div className="p-3 bg-stone-900/80 rounded-xl border border-white/5 text-xs text-stone-300 italic line-clamp-3">

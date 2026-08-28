@@ -224,11 +224,27 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
             <h1 className="font-bold text-2xl sm:text-3xl md:text-4xl text-white leading-tight line-clamp-3 sm:line-clamp-2">
               {songDetails.songTitle || `Música de ${songDetails.recipientName}`}
             </h1>
-            <p className="text-stone-400 text-sm">
-              Criada por <span className="text-white font-semibold">{songDetails.userNick}</span>
-              {' '}para <span className="text-white font-semibold">{songDetails.recipientName}</span>
-              {songDetails.recipientNick ? ` · ${songDetails.recipientNick}` : ''}
-            </p>
+            {(() => {
+              const isGenericAuthor = !songDetails.userNick || ['autor', 'seubeat', 'anónimo', 'anonimo', 'null', 'undefined'].includes(songDetails.userNick.trim().toLowerCase());
+              const hasUniqueNick = !!songDetails.recipientNick && 
+                songDetails.recipientNick.trim().toLowerCase() !== songDetails.recipientName.trim().toLowerCase() &&
+                !['autor', 'seubeat', 'anónimo', 'anonimo'].includes(songDetails.recipientNick.trim().toLowerCase());
+              
+              return (
+                <p className="text-stone-400 text-sm">
+                  {!isGenericAuthor ? (
+                    <>
+                      Criada por <span className="text-white font-semibold">{songDetails.userNick}</span> para <span className="text-white font-semibold">{songDetails.recipientName}</span>
+                    </>
+                  ) : (
+                    <>
+                      Criada especialmente para <span className="text-white font-semibold">{songDetails.recipientName}</span>
+                    </>
+                  )}
+                  {hasUniqueNick && <span className="text-stone-400"> ({songDetails.recipientNick})</span>}
+                </p>
+              );
+            })()}
             <div className="flex flex-wrap gap-2">
               {songDetails.musicStyle && (
                 <span className="px-3 py-1 bg-stone-900 border border-stone-800 rounded-full text-[11px] text-stone-300 font-medium inline-flex items-center gap-1">
