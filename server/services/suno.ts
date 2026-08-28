@@ -241,7 +241,7 @@ const EMOTION_STYLE_MAP: Record<string, string> = {
 // em prompts de áudio e podem dar efeito contrário). Desligável via env.
 // NOTA: mantido curto para não sobrepor o estilo musical (ex: R&B, Kizomba)
 const ANGOLAN_ACCENT_STYLE =
-  'singing in Angolan Portuguese, Luanda accent';
+  'Angolan Portuguese vocal, Luanda accent, African rhythm cadence';
 const SUNO_ACCENT_ENABLED = process.env.SUNO_ACCENT_ENABLED !== 'false';
 const PORTUGUESE_TEXT_RE = /[àáâãéêíóôõúç]/i;
 
