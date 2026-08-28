@@ -2500,3 +2500,60 @@ async function sendVideoUpsellOffer(
 }
 
 export default router;
+
+// ─── TEMPORÁRIO: Recuperar áudio de pedido falhado via taskId Suno ───────
+// Remover após recuperar todos os pedidos órfãos.
+router.post('/recover-audio', adminAuth, async (req, res) => {
+  try {
+    const { requestId, taskId } = req.body as { requestId?: string; taskId?: string };
+    if (!requestId || !taskId) {
+      return res.status(400).json({ success: false, error: 'requestId e taskId obrigatórios' });
+    }
+
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
+
+    const { data: song, error: songErr } = await supabase
+      .from('songs')
+      .select('id, request_id, mureka_status')
+      .eq('request_id', requestId)
+      .single();
+    if (songErr || !song) return res.status(404).json({ success: false, error: 'Song não encontrada' });
+
+    logInfo('[Admin] recover-audio: a consultar Suno', { requestId, taskId });
+
+    const sunoResult = await querySunoTask(taskId);
+    if (!sunoResult.audioUrl) {
+      return res.status(400).json({ success: false, error: `Suno não tem áudio pronto. Status: ${sunoResult.status}` });
+    }
+
+    logInfo('[Admin] recover-audio: áudio encontrado no Suno', { requestId, taskId, audioUrl: sunoResult.audioUrl.slice(0, 80) });
+
+    const persistResult = await persistGeneratedSunoAudio(song.id, taskId, sunoResult.audioUrl, { skipProcessing: false });
+
+    await supabase.from('songs').update({
+      audio_url: persistResult.fullAudioUrl,
+      audio_url_v2: null,
+      full_song_url: persistResult.fullAudioUrl,
+      mureka_task_id: taskId,
+      mureka_status: 'completed',
+      duration: persistResult.duration,
+      updated_at: new Date().toISOString(),
+    }).eq('id', song.id);
+
+    const { error: reqUpdateErr } = await supabase.from('song_requests').update({
+      status: 'music_ready',
+      updated_at: new Date().toISOString(),
+    }).eq('id', requestId).eq('status', 'failed');
+
+    if (reqUpdateErr) {
+      logWarn('[Admin] recover-audio: falha ao atualizar request status', reqUpdateErr);
+    }
+
+    logInfo('[Admin] recover-audio: sucesso', { requestId, taskId, duration: persistResult.duration });
+    res.json({ success: true, data: { fullAudioUrl: persistResult.fullAudioUrl, duration: persistResult.duration } });
+  } catch (err: unknown) {
+    logRouteError(req, err);
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
