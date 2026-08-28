@@ -140,22 +140,22 @@ function collectAudioUrls(value: unknown, urls: string[] = []): string[] {
 }
 
 const STYLE_MAP: Record<string, string> = {
-  kizomba: 'kizomba, afro romance, angolan romantic, slow tempo 70bpm, sensual rhythm, soft bass, tarraxinha, romantic vocal, african beats',
-  semba: 'semba, traditional angolan rhythm, acoustic guitar, fast tempo 120bpm, energetic percussion, dance',
-  zouk: 'zouk, caribbean rhythm, romantic, soft synth, french creole vibe, sensual, mid tempo 90bpm',
-  samba: 'samba, carnival percussion, brazilian drums, festive, energetic 100bpm, tamborim, agogo, celebration',
-  afrobeat: 'afrobeat, upbeat percussion, energetic, african pop, groovy bass, horns, dance 110bpm',
-  funk: 'funk, groovy bass, syncopated drums, upbeat, dance, rhythmic guitar, soulful, 100bpm',
+  kizomba: 'kizomba, tarraxinha, angolan romantic, slow 70bpm, sensual rhythm, soft bass, romantic vocal',
+  semba: 'semba, traditional angolan rhythm, viola de fado, mid tempo 105bpm, energetic percussion, dance',
+  zouk: 'zouk, caribbean romantic, soft synth, sensual, mid tempo 90bpm',
+  samba: 'samba, carnival percussion, brazilian drums, festive, energetic 100bpm, tamborim, agogo',
+  afrobeat: 'afrobeat, upbeat percussion, energetic, nigerian afro pop, groovy bass, horns, dance 110bpm',
+  funk: 'kuduro funk, groovy bass, syncopated drums, upbeat, angolan dance, rhythmic guitar, 130bpm',
   trap: 'trap, 808 bass, hi-hat rolls, dark atmosphere, urban, modern hip hop, 140bpm',
-  rap: 'rap, rhythmic flow, spoken word, urban beats, lyrical, hip hop, 90bpm',
+  rap: 'rap, rhythmic flow, urban beats, lyrical, hip hop, 90bpm',
   reggae: 'reggae, offbeat rhythm, bass heavy, jamaican vibe, relaxed, skank guitar, 80bpm',
   pop: 'pop, catchy melody, polished production, radio friendly, upbeat, modern, 120bpm',
-  balada: 'ballad, slow tempo 70bpm, piano-driven, emotional, orchestral, strings, powerful crescendo',
+  balada: 'ballad, slow 70bpm, piano-driven, emotional, orchestral, strings, powerful crescendo',
   gospel: 'gospel, choral harmonies, organ, piano, inspirational, uplifting, powerful vocal, 80bpm',
   acoustic: 'acoustic, soft guitar, intimate vocals, unplugged, warm, gentle, stripped down, 80bpm',
   'romantic pop': 'romantic pop, emotional strings, modern radio ballad, synth pads, catchy chorus, 90bpm',
-  'r&b': 'contemporary R&B, slow jam, smooth soulful vocals, melisma, falsetto, groovy bassline, electric piano, synth pads, finger snaps, 808 hi-hats, sensual melody, rhythm and blues, 75bpm',
-  hino: 'hino, orchestral, epic cinematic, choir, brass section, majestic, corporate anthem, inspirational, 80bpm',
+  'r&b': 'contemporary R&B, slow jam, smooth soulful vocals, melisma, falsetto, electric piano, synth pads, 75bpm',
+  hino: 'hino, orchestral, epic cinematic, choir, brass section, majestic, inspirational, 80bpm',
 };
 
 function extractTaskId(payload: unknown): string | null {
@@ -222,19 +222,19 @@ export function extractBothAudioUrls(payload: unknown): { v1: string | null; v2:
 }
 
 const VOICE_STYLE_MAP: Record<string, string> = {
-  masculina: 'male vocal, deep voice, masculine tone',
-  feminina: 'female vocal, soft voice, feminine tone',
+  masculina: 'male vocal, warm masculine tone',
+  feminina: 'female vocal, expressive feminine tone',
   dueto: 'male and female duet, alternating vocals, harmonized voices',
   'sem preferência': '',
 };
 
 const EMOTION_STYLE_MAP: Record<string, string> = {
-  amor: 'romantic, intimate, vulnerable, slow tempo emotion, love ballad feel',
-  emoção: 'emotional, heartfelt, touching atmosphere',
-  gratidão: 'grateful mood, warm and appreciative tone',
-  carinho: 'tender, affectionate, gentle mood',
-  saudade: 'melancholic, nostalgic, wistful atmosphere',
-  inspiração: 'uplifting, inspiring, hopeful mood',
+  amor: 'romantic, intimate, vulnerable, love ballad',
+  emoção: 'emotional, heartfelt, touching, deep feeling',
+  gratidão: 'grateful, warm, appreciative',
+  carinho: 'tender, affectionate, gentle',
+  saudade: 'melancholic, nostalgic, wistful',
+  inspiração: 'uplifting, inspiring, hopeful',
 };
 
 // Sotaque angolano no canto. Fraseado só positivo (negações são pouco fiáveis
