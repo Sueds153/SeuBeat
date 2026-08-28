@@ -1093,9 +1093,10 @@ router.post('/request/:id/retry', adminAuth, async (req, res) => {
     }).catch(err => logError('[Admin] Background Suno falhou no retry', err, { requestId: id }));
     res.json({ success: true, message: 'Reiniciado.' });
   } catch (err: unknown) {
-    logRouteError(req, err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    logError('[Admin] recover-audio ERRO', err instanceof Error ? err : new Error(errMsg), { requestId, taskId });
     res.status(500).json({ success: false, error: safeMessage(err) });
-}
+  }
 });
 router.post('/request/:id/recover', adminAuth, async (req, res) => {
   try {
