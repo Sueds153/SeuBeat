@@ -696,7 +696,8 @@ export async function sendPaymentApprovedWhatsApp(client: {
 
 // ─────────────────────────────────────────────────────────────
 // Offer de videoclipe pós-aprovação (upsell 2.900 Kz)
-// Template params: {{1}} = nome do destinatário, {{2}} = nome da música, {{3}} = link para pagamento
+// Template sem variáveis — mensagem genérica "A tua música está pronta..."
+// O link do videoclipe é enviado como follow-up de texto regular
 // ─────────────────────────────────────────────────────────────
 
 export async function sendVideoUpsellWhatsApp(client: {
@@ -704,19 +705,14 @@ export async function sendVideoUpsellWhatsApp(client: {
   phone?: string | null;
   recipientName?: string | null;
   songTitle?: string | null;
-  upsellUrl: string;
 }): Promise<'sent' | 'skipped' | 'failed' | 'unconfigured'> {
   if (!isConfigured()) return 'unconfigured';
   const phone = normalizePhoneToE164(client.phone || '');
   if (!phone) return 'skipped';
 
   const templateName = VIDEO_UPSELL_TEMPLATE_NAME;
-  const params = [
-    client.recipientName || 'Destinatário',
-    client.songTitle || 'a tua música',
-    client.upsellUrl,
-  ];
-  const res = await sendTemplate(phone, templateName, params);
+  // Template sem variáveis — params vazio
+  const res = await sendTemplate(phone, templateName, []);
 
   if (res.ok) {
     await insertSendLog({

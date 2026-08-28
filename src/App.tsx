@@ -37,7 +37,7 @@ export default function App() {
     if (window.location.pathname.includes('/voice/')) {
       return 'voice';
     }
-    if (window.location.pathname === '/video-upsell') {
+    if (window.location.pathname === '/video-upsell' || window.location.pathname.startsWith('/video-upsell/')) {
       return 'video-upsell';
     }
     if (window.location.pathname.includes('/song/') || window.location.pathname.includes('/dedicatoria/')) {
@@ -78,7 +78,7 @@ export default function App() {
         setCurrentView('wizard');
       } else if (path.includes('/voice/')) {
         setCurrentView('voice');
-      } else if (path === '/video-upsell') {
+      } else if (path === '/video-upsell' || path.startsWith('/video-upsell/')) {
         setCurrentView('video-upsell');
       } else if (path.includes('/song/') || path.includes('/dedicatoria/')) {
         setCurrentView('song');
@@ -150,8 +150,10 @@ export default function App() {
   }
 
   if (currentView === 'video-upsell') {
+    const pathMatch = window.location.pathname.match(/\/video-upsell\/([a-f0-9-]+)/);
+    const pathReqId = pathMatch?.[1] || '';
     const urlParams = new URLSearchParams(window.location.search);
-    const reqId = urlParams.get('requestId') || '';
+    const reqId = pathReqId || urlParams.get('requestId') || '';
     const emailParam = urlParams.get('email') || undefined;
     return (
       <VideoUpsellPage

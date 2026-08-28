@@ -2384,7 +2384,6 @@ async function sendVideoUpsellOffer(
         phone,
         recipientName: songRequest.recipient_name,
         songTitle,
-        upsellUrl,
       }).catch(err => logError('[Admin] Falha ao enviar offer de videoclipe (WhatsApp)', err, { requestId }));
     }
 
