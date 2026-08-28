@@ -1,13 +1,14 @@
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from 'ffmpeg-static';
+import ffprobeInstaller from 'ffprobe-static';
 import fs from 'fs';
-import path from 'path';
 import { execFileSync, spawn } from 'child_process';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
 
 let FFMPEG_AVAILABLE = true;
 let FFPROBE_AVAILABLE = true;
+let FFPROBE_PATH: string | null = null;
 
 if (ffmpegInstaller) {
   try {
@@ -15,26 +16,26 @@ if (ffmpegInstaller) {
     execFileSync(ffmpegInstaller, ['-version'], { stdio: 'pipe', timeout: 10000 });
     console.log('✅ FFmpeg disponível e funcional');
   } catch (err: unknown) {
-    console.warn(`⚠️ FFmpeg não disponível, preview de 30s ficará indisponível: ${err instanceof Error ? err.message : String(err)}`);
+    console.warn(`⚠️ FFmpeg não disponível, processamento de áudio indisponível: ${err instanceof Error ? err.message : String(err)}`);
     FFMPEG_AVAILABLE = false;
   }
 } else {
-  console.warn('⚠️ ffmpeg-static não instalado, preview de 30s ficará indisponível');
+  console.warn('⚠️ ffmpeg-static não instalado, processamento de áudio indisponível');
   FFMPEG_AVAILABLE = false;
 }
 
-// Verificar ffprobe disponibilidade (procura na mesma directoria do ffmpeg)
-if (ffmpegInstaller) {
-  const ffmpegDir = path.dirname(ffmpegInstaller);
-  const ffprobePath = path.join(ffmpegDir, process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe');
+// Verificar ffprobe disponibilidade (via ffprobe-static)
+if (ffprobeInstaller?.path) {
   try {
-    execFileSync(ffprobePath, ['-version'], { stdio: 'pipe', timeout: 5000 });
+    execFileSync(ffprobeInstaller.path, ['-version'], { stdio: 'pipe', timeout: 5000 });
+    FFPROBE_PATH = ffprobeInstaller.path;
     console.log('✅ FFprobe disponível e funcional');
   } catch {
     console.warn('⚠️ FFprobe não disponível, duração de áudio será detectada via stderr do ffmpeg');
     FFPROBE_AVAILABLE = false;
   }
 } else {
+  console.warn('⚠️ ffprobe-static não instalado, duração de áudio será detectada via stderr do ffmpeg');
   FFPROBE_AVAILABLE = false;
 }
 
@@ -79,14 +80,12 @@ export function getAudioDurationFfmpeg(inputPath: string): Promise<number> {
 
 // Obter duração do áudio em segundos (ffprobe se disponível, senão FFmpeg)
 export async function getAudioDuration(inputPath: string): Promise<number> {
-  if (!FFPROBE_AVAILABLE) {
+  if (!FFPROBE_AVAILABLE || !FFPROBE_PATH) {
     return getAudioDurationFfmpeg(inputPath);
   }
 
-  const ffprobePath = (ffmpegInstaller || '').replace('ffmpeg', 'ffprobe');
-  
   return new Promise((resolve) => {
-    const ffprobe = spawn(ffprobePath, [
+    const ffprobe = spawn(FFPROBE_PATH, [
       '-v', 'error',
       '-show_entries', 'format=duration',
       '-of', 'default=noprint_wrappers=1:nokey=1',
