@@ -253,6 +253,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   });
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [clonedVoiceFile, setClonedVoiceFile] = useState<File | null>(null);
+  const [clonedVoiceFreeSampleFile, setClonedVoiceFreeSampleFile] = useState<File | null>(null);
   const [validationPhrase, setValidationPhrase] = useState<string | null>(() => {
     try {
       const saved = localStorage.getItem('seubeat_wizard_progress');
@@ -800,7 +801,15 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         let voiceFilename = null;
         let voiceMimeType = null;
 
-        const postPaymentData = async (proofStr: string, voiceStr: string | null, voiceName: string | null, voiceType: string | null) => {
+        const postPaymentData = async (
+          proofStr: string,
+          voiceStr: string | null,
+          voiceName: string | null,
+          voiceType: string | null,
+          freeVoiceStr?: string | null,
+          freeVoiceName?: string | null,
+          freeVoiceType?: string | null
+        ) => {
           try {
             // Generate deterministic eventIds for cross-device deduplication
             const checkoutEventId = generateEventId(dbSongRequestId, 'InitiateCheckout');
@@ -823,6 +832,9 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
                 voiceSampleBase64: voiceStr,
                 voiceSampleFilename: voiceName,
                 voiceSampleMimeType: voiceType,
+                voiceFreeSampleBase64: freeVoiceStr || null,
+                voiceFreeSampleFilename: freeVoiceName || null,
+                voiceFreeSampleMimeType: freeVoiceType || null,
                 voiceValidationTaskId: validationTaskId,
                 voiceValidationPhrase: validationPhrase,
                 eventIds: {
@@ -865,7 +877,35 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
             voiceBase64 = voiceReader.result as string;
             voiceFilename = clonedVoiceFile.name;
             voiceMimeType = clonedVoiceFile.type;
-            await postPaymentData(base64Data, voiceBase64, voiceFilename, voiceMimeType);
+
+            let freeVoiceBase64: string | null = null;
+            let freeVoiceFilename: string | null = null;
+            let freeVoiceMimeType: string | null = null;
+
+            if (clonedVoiceFreeSampleFile && clonedVoiceFreeSampleFile !== clonedVoiceFile) {
+              try {
+                freeVoiceBase64 = await new Promise<string | null>((resolve) => {
+                  const fr = new FileReader();
+                  fr.onloadend = () => resolve(fr.result as string);
+                  fr.onerror = () => resolve(null);
+                  fr.readAsDataURL(clonedVoiceFreeSampleFile);
+                });
+                if (freeVoiceBase64) {
+                  freeVoiceFilename = clonedVoiceFreeSampleFile.name;
+                  freeVoiceMimeType = clonedVoiceFreeSampleFile.type;
+                }
+              } catch {}
+            }
+
+            await postPaymentData(
+              base64Data,
+              voiceBase64,
+              voiceFilename,
+              voiceMimeType,
+              freeVoiceBase64,
+              freeVoiceFilename,
+              freeVoiceMimeType
+            );
           };
           voiceReader.onerror = () => {
             setPaymentSubmitError('Erro ao ler o ficheiro de voz.');
@@ -931,12 +971,13 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           stream.getTracks().forEach(track => track.stop());
           return;
         }
-        const file = new File([audioBlob], 'sample_vocal.wav', { type: 'audio/wav' });
+        const file = new File([audioBlob], wasPhraseActive ? 'phrase_vocal.wav' : 'sample_vocal.wav', { type: 'audio/wav' });
         setClonedVoiceFile(file);
         setHasRecorded(true);
         if (wasPhraseActive) {
           setPhraseRecorded(true);
         } else {
+          setClonedVoiceFreeSampleFile(file);
           setValidationPhrase(null);
           setValidationTaskId(null);
           setValidationError('');
@@ -2835,9 +2876,31 @@ const ROTATING_MESSAGES = [
             <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-amber-500 to-rose-500" />
             <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl" />
 
-            <div className="w-16 h-16 bg-amber-500/10 rounded-full border border-amber-500/20 flex items-center justify-center mx-auto shadow-inner mb-4">
-              <span className="text-3xl"></span>
-            </div>
+            {(() => {
+              const photoSrc = formData.photoUrl || sessionStorage.getItem('seubeat_photo_base64') || localStorage.getItem('seubeat_photo_base64');
+              if (photoSrc) {
+                return (
+                  <div className="relative w-20 h-20 mx-auto mb-4 group">
+                    <div className="w-20 h-20 rounded-full border-2 border-amber-500/40 p-0.5 bg-gradient-to-b from-amber-500/40 to-rose-500/40 shadow-lg shadow-amber-500/20 overflow-hidden transition-transform duration-300 group-hover:scale-105">
+                      <img 
+                        src={photoSrc} 
+                        alt={formData.recipientName || 'Foto'} 
+                        className="w-full h-full object-cover rounded-full"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 bg-stone-900 border border-amber-500/40 rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-md">
+                      ❤️
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div className="w-16 h-16 bg-amber-500/10 rounded-full border border-amber-500/20 flex items-center justify-center mx-auto shadow-inner mb-4">
+                  <span className="text-2xl">🎵</span>
+                </div>
+              );
+            })()}
 
             <div className="space-y-2 relative z-10">
               <h3 className="font-serif text-2xl md:text-3xl text-stone-100 font-bold tracking-tight">

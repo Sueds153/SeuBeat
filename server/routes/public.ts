@@ -1029,6 +1029,7 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       songRequestId, userEmail, phone, plan, amount, 
       proofBase64, proofFilename, proofMimeType, 
       voiceSampleBase64, voiceSampleFilename, voiceSampleMimeType,
+      voiceFreeSampleBase64, voiceFreeSampleFilename, voiceFreeSampleMimeType,
       voiceValidationTaskId, voiceValidationPhrase,
       paymentMethod,
       eventIds 
@@ -1100,9 +1101,9 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
     }
 
     let voiceSampleUrl = null;
+    const ALLOWED_VOICE_MIMES = ['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/x-wav', 'audio/webm'];
     if (voiceSampleBase64) {
       const resolvedVoiceMime = voiceSampleMimeType || 'audio/wav';
-      const ALLOWED_VOICE_MIMES = ['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/x-wav', 'audio/webm'];
       if (!ALLOWED_VOICE_MIMES.includes(resolvedVoiceMime)) {
         return res.status(400).json({ success: false, error: 'Formato de áudio inválido. Apenas WAV, MP3, MP4 ou OGG.' });
       }
@@ -1119,8 +1120,29 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       }
     }
 
+    let voiceFreeSampleUrl = null;
+    if (voiceFreeSampleBase64) {
+      const resolvedFreeMime = voiceFreeSampleMimeType || 'audio/wav';
+      if (!ALLOWED_VOICE_MIMES.includes(resolvedFreeMime)) {
+        return res.status(400).json({ success: false, error: 'Formato de áudio livre inválido.' });
+      }
+      const freeBuffer = decodeBase64Payload(voiceFreeSampleBase64);
+      if (freeBuffer.length > 5 * 1024 * 1024) throw new Error('Amostra de voz livre demasiado grande. Máx. 5MB.');
+      if (freeBuffer.length >= 1024) {
+        const sanitizedFreeFilename = String(voiceFreeSampleFilename || 'free_sample.wav').replace(/[^a-zA-Z0-9._-]/g, '_');
+        const freeFilename = `voices/${Date.now()}_free_${sanitizedFreeFilename}`;
+        try {
+          await uploadFileToStorage('voice-samples', freeFilename, freeBuffer, resolvedFreeMime);
+          voiceFreeSampleUrl = `${freeFilename}`;
+        } catch (err) {
+          logError('[API] Upload da amostra de voz livre falhou', err, { freeFilename });
+        }
+      }
+    }
+
     const updateData: Record<string, unknown> = { status: 'payment_submitted' };
     if (voiceSampleUrl) updateData.voice_sample_url = voiceSampleUrl;
+    if (voiceFreeSampleUrl) updateData.voice_free_sample_url = voiceFreeSampleUrl;
     if (voiceSampleUrl && voiceValidationTaskId && typeof voiceValidationTaskId === 'string' && voiceValidationTaskId.trim()) {
       // Task da frase de validação gerada no wizard — reutilizada pelo processSunoVoice
       // para criar a voz a partir da gravação da frase (verifyUrl). A frase é guardada
@@ -1849,7 +1871,7 @@ router.post('/song/:id/voice-sample', async (req, res) => {
       return res.status(400).json({ success: false, error: 'ID de pedido inválido.' });
     }
 
-    const { voiceSampleBase64, voiceSampleFilename, voiceSampleMimeType, email } = req.body;
+    const { voiceSampleBase64, voiceSampleFilename, voiceSampleMimeType, voiceFreeSampleBase64, voiceFreeSampleFilename, voiceFreeSampleMimeType, email } = req.body;
     if (!voiceSampleBase64 || typeof voiceSampleBase64 !== 'string') {
       return res.status(400).json({ success: false, error: 'Amostra de voz em falta.' });
     }
@@ -1893,9 +1915,30 @@ router.post('/song/:id/voice-sample', async (req, res) => {
     const filename = `voices/${Date.now()}_${sanitizedVoiceFilename}`;
     await uploadFileToStorage('voice-samples', filename, voiceBuffer, resolvedVoiceMime);
 
+    let freeFilename: string | null = null;
+    if (voiceFreeSampleBase64 && typeof voiceFreeSampleBase64 === 'string') {
+      const resolvedFreeMime = voiceFreeSampleMimeType || 'audio/wav';
+      if (ALLOWED_VOICE_MIMES.includes(resolvedFreeMime)) {
+        const freeBuffer = decodeBase64Payload(voiceFreeSampleBase64);
+        if (freeBuffer.length <= 5 * 1024 * 1024 && freeBuffer.length >= 1024) {
+          const sanitizedFreeFilename = String(voiceFreeSampleFilename || 'free_sample.wav').replace(/[^a-zA-Z0-9._-]/g, '_');
+          freeFilename = `voices/${Date.now()}_free_${sanitizedFreeFilename}`;
+          try {
+            await uploadFileToStorage('voice-samples', freeFilename, freeBuffer, resolvedFreeMime);
+          } catch (err) {
+            logError('[API] Upload da amostra de voz livre falhou (post-payment)', err, { freeFilename });
+            freeFilename = null;
+          }
+        }
+      }
+    }
+
+    const voiceUpdates: Record<string, unknown> = { voice_sample_url: filename };
+    if (freeFilename) voiceUpdates.voice_free_sample_url = freeFilename;
+
     const { error: updateError } = await supabase
       .from('song_requests')
-      .update({ voice_sample_url: filename })
+      .update(voiceUpdates)
       .eq('id', id);
 
     if (updateError) throw updateError;

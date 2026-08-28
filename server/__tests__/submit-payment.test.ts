@@ -303,6 +303,41 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     expect(payload.elevenlabs_voice_id).toBe(JSON.stringify({ validation_task_id: 'vt-999', phrase: 'Frase de Validação' }));
   });
 
+  it('guarda o voice_free_sample_url no pedido quando enviada a amostra livre de voz', async () => {
+    const base = await startServer();
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: { status: 'lyrics_ready' },
+      updateError: null,
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...validBody(),
+        voiceSampleBase64: 'data:audio/wav;base64,' + Buffer.alloc(4096, 1).toString('base64'),
+        voiceSampleFilename: 'frase.wav',
+        voiceSampleMimeType: 'audio/wav',
+        voiceFreeSampleBase64: 'data:audio/wav;base64,' + Buffer.alloc(4096, 2).toString('base64'),
+        voiceFreeSampleFilename: 'amostra_livre.wav',
+        voiceFreeSampleMimeType: 'audio/wav',
+        voiceValidationTaskId: 'vt-999',
+        voiceValidationPhrase: 'Frase de Validação',
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const requestUpdate = sb.updateCalls.find((u) => u.table === 'song_requests');
+    expect(requestUpdate).toBeDefined();
+    const payload = requestUpdate!.payload as Record<string, unknown>;
+    expect(payload.voice_sample_url).toBeTruthy();
+    expect(payload.voice_free_sample_url).toBeTruthy();
+  });
+
   it('não guarda elevenlabs_voice_id quando não há validation_task_id', async () => {
     const base = await startServer();
     const sb = buildSupabaseMock({

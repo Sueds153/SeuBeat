@@ -12,6 +12,7 @@ export default function VoiceCapturePage({ requestId, email, onBackToLanding }: 
   const [hasRecorded, setHasRecorded] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [clonedVoiceFile, setClonedVoiceFile] = useState<File | null>(null);
+  const [freeSampleFile, setFreeSampleFile] = useState<File | null>(null);
   const [validationPhrase, setValidationPhrase] = useState<string | null>(null);
   const [validationTaskId, setValidationTaskId] = useState<string | null>(null);
   const [phraseRecorded, setPhraseRecorded] = useState(false);
@@ -72,7 +73,7 @@ export default function VoiceCapturePage({ requestId, email, onBackToLanding }: 
           stream.getTracks().forEach(track => track.stop());
           return;
         }
-        const file = new File([audioBlob], 'sample_vocal.wav', { type: 'audio/wav' });
+        const file = new File([audioBlob], wasPhraseActive ? 'phrase_vocal.wav' : 'sample_vocal.wav', { type: 'audio/wav' });
         if (mountedRef.current) {
           setClonedVoiceFile(file);
           setHasRecorded(true);
@@ -80,6 +81,7 @@ export default function VoiceCapturePage({ requestId, email, onBackToLanding }: 
           if (wasPhraseActive) {
             setPhraseRecorded(true);
           } else {
+            setFreeSampleFile(file);
             setValidationPhrase(null);
             setValidationTaskId(null);
             setValidationError('');
@@ -161,6 +163,25 @@ export default function VoiceCapturePage({ requestId, email, onBackToLanding }: 
     setSubmitting(true);
     setSubmitError('');
 
+    let voiceFreeSampleBase64: string | null = null;
+    let voiceFreeSampleFilename: string | null = null;
+    let voiceFreeSampleMimeType: string | null = null;
+
+    if (freeSampleFile && freeSampleFile !== clonedVoiceFile) {
+      try {
+        voiceFreeSampleBase64 = await new Promise<string | null>((resolve) => {
+          const fr = new FileReader();
+          fr.onloadend = () => resolve(fr.result as string);
+          fr.onerror = () => resolve(null);
+          fr.readAsDataURL(freeSampleFile);
+        });
+        if (voiceFreeSampleBase64) {
+          voiceFreeSampleFilename = freeSampleFile.name;
+          voiceFreeSampleMimeType = freeSampleFile.type || 'audio/wav';
+        }
+      } catch {}
+    }
+
     const reader = new FileReader();
     reader.onloadend = async () => {
       const voiceBase64 = reader.result as string;
@@ -172,6 +193,9 @@ export default function VoiceCapturePage({ requestId, email, onBackToLanding }: 
             voiceSampleBase64: voiceBase64,
             voiceSampleFilename: clonedVoiceFile.name,
             voiceSampleMimeType: clonedVoiceFile.type || 'audio/wav',
+            voiceFreeSampleBase64: voiceFreeSampleBase64 || undefined,
+            voiceFreeSampleFilename: voiceFreeSampleFilename || undefined,
+            voiceFreeSampleMimeType: voiceFreeSampleMimeType || undefined,
             email: email || undefined,
           })
         });

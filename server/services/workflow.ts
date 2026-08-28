@@ -804,7 +804,7 @@ export async function processSunoVoice(
   try {
     const { data: voiceRequestData, error: voiceReqError } = await supabase
       .from('song_requests')
-      .select('language, elevenlabs_voice_id, created_at')
+      .select('language, elevenlabs_voice_id, created_at, voice_free_sample_url')
       .eq('id', requestId)
       .single();
     if (voiceReqError || !voiceRequestData) {
@@ -889,13 +889,34 @@ export async function processSunoVoice(
       }
     }
 
+    let publicVoiceUrlToUse = publicVoiceUrl;
+
     if (validationTaskId) {
       logInfo(`[Suno Voice] Reutilizando frase de validação do wizard`, { taskId: validationTaskId, requestId });
       setProgress(requestId, { status: 'voice_processing', progress: 40, message: 'Frase de validação registada. A criar voz personalizada...' });
     } else {
       // Fallback legado + recuperação de task expirada: gera a frase a partir da
-      // amostra. Nota: se a task expirou, o cliente gravou a frase antiga e a API
-      // pode rejeitar a nova ("didn't sound like you said the phrase").
+      // amostra livre se disponível, garantindo alinhamento perfeito.
+      if (voiceRequestData.voice_free_sample_url) {
+        try {
+          const resolvedFreeUrl = await resolveVoiceSampleUrl(supabase, voiceRequestData.voice_free_sample_url);
+          const tempFreeSamplePath = path.join(os.tmpdir(), `${requestId}_free_sample_raw`);
+          await downloadFile(resolvedFreeUrl, tempFreeSamplePath);
+          const tempFreeWavPath = path.join(os.tmpdir(), `${requestId}_free_converted.wav`);
+          await convertToWav(tempFreeSamplePath, tempFreeWavPath);
+          try { fs.unlinkSync(tempFreeSamplePath); } catch {}
+          const freePublicFilename = `sunovoice/${requestId}_free_${Date.now()}.wav`;
+          const uploadedFreeUrl = await uploadFileToStorage('preview', freePublicFilename, tempFreeWavPath, 'audio/wav');
+          try { fs.unlinkSync(tempFreeWavPath); } catch {}
+          if (uploadedFreeUrl) {
+            publicVoiceUrlToUse = uploadedFreeUrl;
+            logInfo(`[Suno Voice] Usando amostra livre para fallback de validação`, { requestId, publicVoiceUrlToUse });
+          }
+        } catch (freeErr) {
+          logWarn(`[Suno Voice] Falha ao processar amostra livre para fallback, usando amostra original`, { error: freeErr, requestId });
+        }
+      }
+
       setProgress(requestId, { status: 'voice_processing', progress: 25, message: 'A gerar frase de validação...' });
 
       const langMap: Record<string, string> = {
@@ -907,7 +928,7 @@ export async function processSunoVoice(
         'umbundu': 'pt',
       };
       const voiceLang = langMap[voiceRequestData.language] || 'pt';
-      const validationResult = await generateValidationPhrase(publicVoiceUrl, 0, 30, voiceLang);
+      const validationResult = await generateValidationPhrase(publicVoiceUrlToUse, 0, 30, voiceLang);
       logInfo(`[Suno Voice] Validation task created`, { taskId: validationResult.taskId, requestId });
 
       setProgress(requestId, { status: 'voice_processing', progress: 40, message: 'A aguardar frase de validação...' });
@@ -923,7 +944,7 @@ export async function processSunoVoice(
     // Step 3: Create custom voice using the phrase recording (verifyUrl)
     const voiceResult = await createCustomVoice(
       validationTaskId,
-      publicVoiceUrl,
+      publicVoiceUrlToUse,
       `SeuBeat_${requestId}`,
       'Custom voice from SeuBeat',
       '',
