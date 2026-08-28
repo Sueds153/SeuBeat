@@ -61,7 +61,7 @@ interface Payment {
     status: string;
     video_upsell_sent_at?: string;
     video_upsell_paid?: boolean;
-    users?: { name: string; email: string; phone: string };
+  users?: { id: string; name: string; email: string; phone: string };
   };
 }
 
@@ -89,7 +89,7 @@ interface SongRequest {
   utm_campaign?: string | null;
   utm_term?: string | null;
   utm_content?: string | null;
-  users?: { name: string; email: string; phone: string };
+  users?: { id: string; name: string; email: string; phone: string };
   songs?: { id: string; title: string; audio_url: string | null; audio_url_v2?: string | null; mureka_status: string; created_at: string; letter_text?: string; lyrics?: string[] }[];
   payments?: { plan: string; amount: string; status: string; created_at?: string; payment_reference?: string; user_email?: string }[];
 }
@@ -407,6 +407,8 @@ export default function AdminPanel() {
   const [expandedRequest, setExpandedRequest] = useState<string | null>(null);
   const [expandedPayment, setExpandedPayment] = useState<string | null>(null);
   const [editingSong, setEditingSong] = useState<{ id: string; title: string; lyrics: string; letterText: string } | null>(null);
+  const [editingClient, setEditingClient] = useState<{ userId: string; name: string; email: string; phone: string } | null>(null);
+  const [editingRequestDetails, setEditingRequestDetails] = useState<{ requestId: string; recipientName: string; relationship: string; occasion: string; language: string } | null>(null);
   const [uploadingSongId, setUploadingSongId] = useState<string | null>(null);
   const [funnel, setFunnel] = useState<any>(null);
   const [funnelLoading, setFunnelLoading] = useState(false);
@@ -650,6 +652,43 @@ export default function AdminPanel() {
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
   }, [adminToken, expireSession]);
+
+  const handleSaveClient = useCallback(async () => {
+    if (!editingClient) return;
+    setActionLoading('client_' + editingClient.userId);
+    try {
+      const res = await fetch(`/api/admin/user/${editingClient.userId}/edit`, {
+        method: 'POST', headers: apiHeaders,
+        body: JSON.stringify({ name: editingClient.name, email: editingClient.email, phone: editingClient.phone })
+      });
+      const data = await res.json();
+      if (res.ok) { showToast('Dados do cliente atualizados!'); setEditingClient(null); fetchRequests(); fetchPayments(); }
+      else if (res.status === 401) expireSession();
+      else showToast(data.error || 'Erro ao atualizar cliente.', 'error');
+    } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
+    setActionLoading(null);
+  }, [editingClient, apiHeaders, expireSession]);
+
+  const handleSaveRequestDetails = useCallback(async () => {
+    if (!editingRequestDetails) return;
+    setActionLoading('details_' + editingRequestDetails.requestId);
+    try {
+      const res = await fetch(`/api/admin/request/${editingRequestDetails.requestId}/edit-details`, {
+        method: 'POST', headers: apiHeaders,
+        body: JSON.stringify({
+          recipient_name: editingRequestDetails.recipientName,
+          relationship: editingRequestDetails.relationship,
+          occasion: editingRequestDetails.occasion,
+          language: editingRequestDetails.language
+        })
+      });
+      const data = await res.json();
+      if (res.ok) { showToast('Dados do pedido atualizados!'); setEditingRequestDetails(null); fetchRequests(); fetchPayments(); fetchSongs(); }
+      else if (res.status === 401) expireSession();
+      else showToast(data.error || 'Erro ao atualizar pedido.', 'error');
+    } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
+    setActionLoading(null);
+  }, [editingRequestDetails, apiHeaders, expireSession]);
 
   const handleRegenerateLyrics = useCallback(async (requestId: string) => {
     setActionLoading(requestId + '_reg');
@@ -2346,12 +2385,29 @@ export default function AdminPanel() {
 
                                     {/*  Cliente */}
                                     <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
-                                      <p className="text-stone-500 font-mono text-[9px] uppercase mb-2 flex items-center gap-1.5"><Users className="w-3 h-3" /> Cliente</p>
-                                      <div className="grid grid-cols-3 gap-2">
-                                        <div><p className="text-stone-500 text-[9px]">Nome</p><p className="text-stone-200 font-medium">{req.users?.name || '—'}</p></div>
-                                        <div><p className="text-stone-500 text-[9px]">Email</p><p className="text-stone-200">{req.users?.email || req.email || '—'}</p></div>
-                                        <div><p className="text-stone-500 text-[9px]">Telefone</p><p className="text-stone-200">{req.users?.phone || req.phone || '—'}</p></div>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <p className="text-stone-500 font-mono text-[9px] uppercase flex items-center gap-1.5"><Users className="w-3 h-3" /> Cliente</p>
+                                        {editingClient?.userId !== req.users?.id && (
+                                          <button onClick={() => setEditingClient({ userId: req.users?.id || '', name: req.users?.name || '', email: req.users?.email || req.email || '', phone: req.users?.phone || req.phone || '' })} className="text-[9px] text-stone-600 hover:text-blue-400 transition-colors cursor-pointer font-mono">Editar</button>
+                                        )}
                                       </div>
+                                      {editingClient !== null && editingClient.userId === req.users?.id ? (
+                                        <div className="grid grid-cols-3 gap-2">
+                                          <div><p className="text-stone-500 text-[9px]">Nome</p><input type="text" value={editingClient.name} onChange={e => setEditingClient(s => s ? { ...s, name: e.target.value } : null)} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1 text-stone-200 text-xs mt-0.5" /></div>
+                                          <div><p className="text-stone-500 text-[9px]">Email</p><input type="email" value={editingClient.email} onChange={e => setEditingClient(s => s ? { ...s, email: e.target.value } : null)} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1 text-stone-200 text-xs mt-0.5" /></div>
+                                          <div><p className="text-stone-500 text-[9px]">Telefone</p><input type="text" value={editingClient.phone} onChange={e => setEditingClient(s => s ? { ...s, phone: e.target.value } : null)} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1 text-stone-200 text-xs mt-0.5" /></div>
+                                          <div className="col-span-3 flex gap-2 mt-1">
+                                            <button onClick={handleSaveClient} disabled={actionLoading === 'client_' + req.users?.id} className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] rounded-lg transition-colors disabled:opacity-50 cursor-pointer">{actionLoading === 'client_' + req.users?.id ? '...' : 'Guardar'}</button>
+                                            <button onClick={() => setEditingClient(null)} className="px-3 py-1 bg-stone-800 hover:bg-stone-700 text-stone-400 text-[10px] rounded-lg transition-colors cursor-pointer">Cancelar</button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="grid grid-cols-3 gap-2">
+                                          <div><p className="text-stone-500 text-[9px]">Nome</p><p className="text-stone-200 font-medium">{req.users?.name || '—'}</p></div>
+                                          <div><p className="text-stone-500 text-[9px]">Email</p><p className="text-stone-200">{req.users?.email || req.email || '—'}</p></div>
+                                          <div><p className="text-stone-500 text-[9px]">Telefone</p><p className="text-stone-200">{req.users?.phone || req.phone || '—'}</p></div>
+                                        </div>
+                                      )}
                                     </div>
 
                                     {/*  Pagamento */}
@@ -2373,19 +2429,40 @@ export default function AdminPanel() {
 
                                     {/*  Dados do Formulário */}
                                     <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
-                                      <p className="text-stone-500 font-mono text-[9px] uppercase mb-2 flex items-center gap-1.5"><FileText className="w-3 h-3" /> Dados do Formulário</p>
-                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
-                                        <div><p className="text-stone-500 text-[9px]">Para</p><p className="text-stone-200 mt-0.5">{req.recipient_name}</p></div>
-                                        <div><p className="text-stone-500 text-[9px]">Relação</p><p className="text-stone-200 mt-0.5">{req.relationship}</p></div>
-                                        <div><p className="text-stone-500 text-[9px]">Ocasião</p><p className="text-stone-200 mt-0.5">{req.occasion || '—'}</p></div>
-                                        <div><p className="text-stone-500 text-[9px]">Estilo</p><p className="text-stone-200 mt-0.5">{req.music_style}</p></div>
-                                        <div><p className="text-stone-500 text-[9px]">Voz</p><p className="text-stone-200 mt-0.5">{req.voice_type}</p></div>
-                                        <div><p className="text-stone-500 text-[9px]">Idioma</p><p className="text-stone-200 mt-0.5">{cap(req.language || 'português')}</p></div>
-                                        <div><p className="text-stone-500 text-[9px]">Emoção</p><p className="text-stone-200 mt-0.5">{req.desired_emotion || '—'}</p></div>
-                                        {(req.utm_source || req.utm_campaign) && (
-                                          <div className="col-span-2 sm:col-span-4"><p className="text-stone-500 text-[9px]">UTM</p><p className="text-stone-200 mt-0.5 font-mono text-[10px]">{[req.utm_source, req.utm_medium, req.utm_campaign, req.utm_term, req.utm_content].filter(Boolean).join(' › ')}</p></div>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <p className="text-stone-500 font-mono text-[9px] uppercase flex items-center gap-1.5"><FileText className="w-3 h-3" /> Dados do Formulário</p>
+                                        {editingRequestDetails?.requestId !== req.id && (
+                                          <button onClick={() => setEditingRequestDetails({ requestId: req.id, recipientName: req.recipient_name || '', relationship: req.relationship || '', occasion: req.occasion || '', language: req.language || 'português' })} className="text-[9px] text-stone-600 hover:text-blue-400 transition-colors cursor-pointer font-mono">Editar</button>
                                         )}
                                       </div>
+                                      {editingRequestDetails !== null && editingRequestDetails.requestId === req.id ? (
+                                        <div className="space-y-2">
+                                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
+                                            <div><p className="text-stone-500 text-[9px]">Para</p><input type="text" value={editingRequestDetails.recipientName} onChange={e => setEditingRequestDetails(s => s ? { ...s, recipientName: e.target.value } : null)} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1 text-stone-200 text-xs mt-0.5" /></div>
+                                            <div><p className="text-stone-500 text-[9px]">Relação</p><select value={editingRequestDetails.relationship} onChange={e => setEditingRequestDetails(s => s ? { ...s, relationship: e.target.value } : null)} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1 text-stone-200 text-xs mt-0.5">{['mãe', 'pai', 'avó', 'avô', 'filho', 'filha', 'irmã', 'irmão', 'cônjuge', 'marido', 'esposa', 'namorada', 'namorado', 'parceira', 'parceiro', 'melhor amiga', 'melhor amigo', 'amiga', 'amigo', 'colega', 'chefe', 'professor', 'professora', 'pastor', 'pastora', 'mestre', 'outro'].map(r => <option key={r} value={r}>{r}</option>)}</select></div>
+                                            <div><p className="text-stone-500 text-[9px]">Ocasião</p><select value={editingRequestDetails.occasion} onChange={e => setEditingRequestDetails(s => s ? { ...s, occasion: e.target.value } : null)} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1 text-stone-200 text-xs mt-0.5">{['aniversário', 'casamento', 'homenagem', 'memorial', 'saudade', 'pedido de desculpas', 'declaração', 'formatura', 'promoção', 'nova casa', 'nascimento', 'recuperação', 'despedida', 'aniversário de namoro', 'agradecimento', 'sem motivo'].map(o => <option key={o} value={o}>{o}</option>)}</select></div>
+                                            <div><p className="text-stone-500 text-[9px]">Idioma</p><select value={editingRequestDetails.language} onChange={e => setEditingRequestDetails(s => s ? { ...s, language: e.target.value } : null)} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1 text-stone-200 text-xs mt-0.5">{['português', 'kimbundu', 'umbundu', 'inglês', 'kikongo', 'lingala'].map(l => <option key={l} value={l}>{l}</option>)}</select></div>
+                                          </div>
+                                          <p className="text-stone-600 text-[9px] italic">Alterar estes campos não afecta a música já gerada. Se regenerar a letra, os novos dados serão usados.</p>
+                                          <div className="flex gap-2">
+                                            <button onClick={handleSaveRequestDetails} disabled={actionLoading === 'details_' + req.id} className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] rounded-lg transition-colors disabled:opacity-50 cursor-pointer">{actionLoading === 'details_' + req.id ? '...' : 'Guardar'}</button>
+                                            <button onClick={() => setEditingRequestDetails(null)} className="px-3 py-1 bg-stone-800 hover:bg-stone-700 text-stone-400 text-[10px] rounded-lg transition-colors cursor-pointer">Cancelar</button>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
+                                          <div><p className="text-stone-500 text-[9px]">Para</p><p className="text-stone-200 mt-0.5">{req.recipient_name}</p></div>
+                                          <div><p className="text-stone-500 text-[9px]">Relação</p><p className="text-stone-200 mt-0.5">{req.relationship}</p></div>
+                                          <div><p className="text-stone-500 text-[9px]">Ocasião</p><p className="text-stone-200 mt-0.5">{req.occasion || '—'}</p></div>
+                                          <div><p className="text-stone-500 text-[9px]">Estilo</p><p className="text-stone-200 mt-0.5">{req.music_style}</p></div>
+                                          <div><p className="text-stone-500 text-[9px]">Voz</p><p className="text-stone-200 mt-0.5">{req.voice_type}</p></div>
+                                          <div><p className="text-stone-500 text-[9px]">Idioma</p><p className="text-stone-200 mt-0.5">{cap(req.language || 'português')}</p></div>
+                                          <div><p className="text-stone-500 text-[9px]">Emoção</p><p className="text-stone-200 mt-0.5">{req.desired_emotion || '—'}</p></div>
+                                          {(req.utm_source || req.utm_campaign) && (
+                                            <div className="col-span-2 sm:col-span-4"><p className="text-stone-500 text-[9px]">UTM</p><p className="text-stone-200 mt-0.5 font-mono text-[10px]">{[req.utm_source, req.utm_medium, req.utm_campaign, req.utm_term, req.utm_content].filter(Boolean).join(' › ')}</p></div>
+                                          )}
+                                        </div>
+                                      )}
                                       {(req.special_traits || req.memory || req.heart_message) && (
                                         <div className="mt-2 pt-2 border-t border-stone-800 space-y-1.5">
                                           {req.special_traits && <div><p className="text-stone-500 text-[9px]">O que a torna especial</p><p className="text-stone-300 mt-0.5 italic leading-relaxed">{req.special_traits}</p></div>}

@@ -1421,7 +1421,92 @@ router.post('/request/:id/update-style', adminAuth, async (req, res) => {
   }
 });
 
-// L. Regenerate lyrics (re-call Claude)
+// L. Edit client data (name, email, phone)
+router.post('/user/:id/edit', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone } = req.body;
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
+
+    const updateData: Record<string, string | null> = {};
+    if (name !== undefined) {
+      if (typeof name !== 'string' || name.length > 100) return res.status(400).json({ success: false, error: 'Nome inválido (max 100 caracteres).' });
+      updateData.name = name.trim() || null;
+    }
+    if (email !== undefined) {
+      if (typeof email !== 'string' || !email.includes('@')) return res.status(400).json({ success: false, error: 'Email inválido.' });
+      const normalizedEmail = email.trim().toLowerCase();
+      const { data: existing } = await supabase.from('users').select('id').eq('email', normalizedEmail).neq('id', id).maybeSingle();
+      if (existing) return res.status(400).json({ success: false, error: 'Este email já está em uso por outro cliente.' });
+      updateData.email = normalizedEmail;
+    }
+    if (phone !== undefined) {
+      if (typeof phone === 'string' && phone.trim() && !/^\+?[\d\s()-]{7,18}$/.test(phone.trim())) {
+        return res.status(400).json({ success: false, error: 'Telefone inválido (7-18 caracteres).' });
+      }
+      updateData.phone = phone?.trim() || null;
+    }
+
+    if (Object.keys(updateData).length === 0) return res.status(400).json({ success: false, error: 'Nada para atualizar.' });
+
+    const { data, error } = await supabase.from('users').update(updateData).eq('id', id).select().single();
+    if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
+    logInfo('[Admin] Dados do cliente atualizados', { userId: id, fields: Object.keys(updateData) });
+    res.json({ success: true, data });
+  } catch (err: unknown) {
+    logRouteError(req, err);
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+// M. Edit request details (recipient_name, relationship, occasion, language)
+router.post('/request/:id/edit-details', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { recipient_name, relationship, occasion, language } = req.body;
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
+
+    const updateData: Record<string, string> = {};
+    if (recipient_name !== undefined) {
+      if (typeof recipient_name !== 'string' || recipient_name.trim().length < 1 || recipient_name.trim().length > 100) {
+        return res.status(400).json({ success: false, error: 'Nome do destinatário inválido (1-100 caracteres).' });
+      }
+      updateData.recipient_name = recipient_name.trim();
+    }
+    if (relationship !== undefined) {
+      if (typeof relationship !== 'string' || !relationship.trim()) {
+        return res.status(400).json({ success: false, error: 'Relação inválida.' });
+      }
+      updateData.relationship = relationship.trim().toLowerCase();
+    }
+    if (occasion !== undefined) {
+      if (typeof occasion !== 'string' || !occasion.trim()) {
+        return res.status(400).json({ success: false, error: 'Ocasião inválida.' });
+      }
+      updateData.occasion = occasion.trim().toLowerCase();
+    }
+    if (language !== undefined) {
+      if (typeof language !== 'string' || !language.trim()) {
+        return res.status(400).json({ success: false, error: 'Idioma inválido.' });
+      }
+      updateData.language = language.trim().toLowerCase();
+    }
+
+    if (Object.keys(updateData).length === 0) return res.status(400).json({ success: false, error: 'Nada para atualizar.' });
+
+    const { data, error } = await supabase.from('song_requests').update(updateData).eq('id', id).select().single();
+    if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
+    logInfo('[Admin] Dados do pedido atualizados', { requestId: id, fields: Object.keys(updateData) });
+    res.json({ success: true, data });
+  } catch (err: unknown) {
+    logRouteError(req, err);
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+// N. Regenerate lyrics (re-call Claude)
 router.post('/request/:id/regenerate-lyrics', adminAuth, async (req, res) => {
   try {
     const { id } = req.params;
