@@ -1073,27 +1073,11 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
     let proofPath: string | null = null;
     let proofUrl: string | null = null;
     if (proofBase64) {
-      const resolvedMime = proofMimeType || 'image/jpeg';
-      const ALLOWED_PROOF_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-      if (!ALLOWED_PROOF_MIMES.includes(resolvedMime)) {
-        return res.status(400).json({ success: false, error: 'Formato de comprovativo inválido. Apenas JPG, PNG, WebP ou PDF.' });
-      }
+      const resolvedMime = proofMimeType || 'application/octet-stream';
       const proofBuffer = decodeBase64Payload(proofBase64);
       if (proofBuffer.length > 10 * 1024 * 1024) throw new Error('Comprovativo demasiado grande. Máx. 10MB.');
       
-      // Validação inteligente por tipo MIME
-      const minSizes: Record<string, number> = {
-        'image/jpeg': 50 * 1024,    // 50KB mínimo para JPG (fotos de comprovativo)
-        'image/png': 50 * 1024,     // 50KB mínimo para PNG
-        'image/webp': 30 * 1024,    // 30KB mínimo para WebP (mais eficiente)
-        'application/pdf': 100 * 1024, // 100KB mínimo para PDF
-      };
-      const minSize = minSizes[resolvedMime] || 50 * 1024;
-      if (proofBuffer.length < minSize) {
-        throw new Error(`Comprovativo demasiado pequeno para ${resolvedMime} (mín. ${Math.round(minSize/1024)}KB). O ficheiro parece vazio ou corrompido.`);
-      }
-      
-      const sanitizedProofFilename = String(proofFilename || 'proof.jpg').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const sanitizedProofFilename = String(proofFilename || 'proof.bin').replace(/[^a-zA-Z0-9._-]/g, '_');
       const filename = `proofs/${Date.now()}_${sanitizedProofFilename}`;
       try {
         const uploadedUrl = await uploadFileToStorage('payment-proofs', filename, proofBuffer, resolvedMime);

@@ -134,10 +134,18 @@ export const SubmitPaymentSchema = z.object({
   userEmail: z.string().email('Email inválido').toLowerCase(),
   phone: z.string().regex(/^\+?[\d\s()-]{7,18}$/, 'Telefone inválido').optional(),
   plan: z.enum(['standard', 'express', 'premium']),
-  amount: z.union([z.number(), z.string()]).transform(v => typeof v === 'string' ? parseFloat(v) : v).refine(v => !isNaN(v) && v > 0, 'Montante inválido'),
+  amount: z.union([z.number(), z.string()]).transform(v => {
+    if (typeof v === 'number') return v;
+    // Parse Angolan format: "7.900 Kz", "7.900,00", "9900" etc.
+    const cleaned = v.replace(/[^\d.,]/g, '');
+    if (cleaned.includes(',')) {
+      return Number(cleaned.replace(/\./g, '').replace(',', '.')) || 0;
+    }
+    return Number(cleaned.replace(/\./g, '')) || 0;
+  }).refine(v => !isNaN(v) && v > 0, 'Montante inválido'),
   proofBase64: z.string().max(14 * 1024 * 1024, 'Comprovativo demasiado grande (max 10MB)').optional().nullable(),
   proofFilename: z.string().max(255).trim().optional().nullable(),
-  proofMimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']).optional().nullable(),
+  proofMimeType: z.string().max(100).trim().optional().nullable(),
   voiceSampleBase64: z.string().max(5 * 1024 * 1024, 'Amostra de voz demasiado grande (max 5MB)').optional().nullable(),
   voiceSampleFilename: z.string().max(255).trim().optional().nullable(),
   voiceSampleMimeType: z.enum(['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/x-wav', 'audio/webm']).optional().nullable(),

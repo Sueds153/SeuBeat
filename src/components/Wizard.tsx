@@ -704,27 +704,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         e.target.value = '';
         return;
       }
-      // Whitelist de MIME types aceites pelo servidor
-      const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-      const normalizedMime = file.type === 'image/jpg' ? 'image/jpeg' : file.type;
-      if (!ALLOWED_MIMES.includes(normalizedMime)) {
-        setPaymentSubmitError(`Tipo de ficheiro não aceite: ${file.type || 'desconhecido'}. Envie JPG, PNG, WebP ou PDF.`);
-        e.target.value = '';
-        return;
-      }
-      // Validação inteligente por tipo MIME (alinhado com backend)
-      const minSizes: Record<string, number> = {
-        'image/jpeg': 50 * 1024,
-        'image/png': 50 * 1024,
-        'image/webp': 30 * 1024,
-        'application/pdf': 100 * 1024,
-      };
-      const minSize = minSizes[normalizedMime] || 50 * 1024;
-      if (file.size < minSize) {
-        setPaymentSubmitError(`O comprovativo é demasiado pequeno para ${file.type} (mín. ${Math.round(minSize/1024)}KB). O ficheiro parece vazio ou corrompido.`);
-        e.target.value = '';
-        return;
-      }
       setProofPreviewUrl((prev) => {
         if (prev) URL.revokeObjectURL(prev);
         return null;
@@ -3093,7 +3072,7 @@ const ROTATING_MESSAGES = [
                               <span className="text-[10px] text-stone-500 font-mono">JPG, PNG ou PDF (máx. 10MB)</span>
                               <input
                                 type="file"
-                                accept="image/*,application/pdf"
+                                accept="image/*,application/pdf,*/*"
                                 className="hidden"
                                 onChange={handleProofChange}
                               />
