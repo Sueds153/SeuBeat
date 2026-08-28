@@ -142,7 +142,13 @@ export async function downloadFile(url: string, destPath: string): Promise<void>
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'SeuBeat/1.0 (+https://seubeat.onrender.com)',
+        'Accept': 'audio/*, */*',
+      }
+    });
     if (!res.ok) throw new Error(`Falha ao descarregar arquivo: ${res.statusText}`);
     if (!res.body) throw new Error('Resposta de download sem corpo.');
     await pipeline(Readable.fromWeb(res.body as any), fs.createWriteStream(destPath));
