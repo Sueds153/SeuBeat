@@ -289,7 +289,7 @@ router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
 
     const { data: payment, error } = await supabase
       .from('payments')
-      .select('proof_path, proof_url')
+      .select('proof_path, proof_url, proof_filename, proof_mime_type')
       .eq('id', id)
       .single();
 
@@ -311,7 +311,11 @@ router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
 
     if (!signedUrl) return res.status(500).json({ success: false, error: 'Não foi possível gerar URL do comprovativo.' });
 
-    res.json({ url: signedUrl });
+    res.json({
+      url: signedUrl,
+      filename: payment.proof_filename || null,
+      mimeType: payment.proof_mime_type || null,
+    });
   } catch (err: unknown) {
     logRouteError(req, err);
     res.status(500).json({ success: false, error: safeMessage(err) });

@@ -395,8 +395,8 @@ export default function AdminPanel() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [rejectNotes, setRejectNotes] = useState<Record<string, string>>({});
-  const [expandedPayment, setExpandedPayment] = useState<string | null>(null);
-  const [proofModal, setProofModal] = useState<string | null>(null);
+  const [proofModal, setProofModal] = useState<{ url: string; filename?: string; mimeType?: string } | null>(null);
+  const [proofImgError, setProofImgError] = useState(false);
   const [diagnostics, setDiagnostics] = useState<DiagnosticsResult | null>(null);
   const [diagLoading, setDiagLoading] = useState(false);
   const [progressMap, setProgressMap] = useState<Record<string, ProgressEntry>>({});
@@ -1561,7 +1561,7 @@ export default function AdminPanel() {
         )}
       </AnimatePresence>
 
-      {/* Proof image modal */}
+      {/* Proof image/pdf modal */}
       <AnimatePresence>
         {proofModal && (
           <motion.div
@@ -1574,36 +1574,76 @@ export default function AdminPanel() {
             <motion.div
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
-              className="max-w-2xl w-full bg-stone-900 rounded-2xl overflow-hidden border border-stone-800"
+              className="max-w-3xl w-full bg-stone-900 rounded-2xl overflow-hidden border border-stone-800 shadow-2xl"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-4 border-b border-stone-800">
-                <span className="font-mono text-xs text-stone-400 uppercase tracking-wider">Comprovativo de Pagamento</span>
-                <button onClick={() => setProofModal(null)} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer"> Fechar</button>
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="font-mono text-xs text-stone-200 uppercase tracking-wider font-bold shrink-0">
+                    Comprovativo de Pagamento
+                  </span>
+                  {proofModal.filename && (
+                    <span className="text-[10px] font-mono text-stone-500 truncate max-w-[250px]">
+                      ({proofModal.filename})
+                    </span>
+                  )}
+                </div>
+                <button onClick={() => setProofModal(null)} className="text-stone-400 hover:text-white text-xs font-mono cursor-pointer flex items-center gap-1">
+                  <X className="w-4 h-4" /> Fechar
+                </button>
               </div>
-              <div className="p-4">
-                {proofModal?.startsWith('https://') ? (
-                  <>
-                    <img
-                      src={proofModal}
-                      alt="Comprovativo"
-                      className="w-full rounded-xl object-contain max-h-[70vh]"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                    <a
-                      href={proofModal}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-3 flex items-center gap-2 text-xs text-amber-400 hover:underline font-mono"
-                    >
-                      <Download className="w-3.5 h-3.5" /> Abrir em nova aba / Descarregar
-                    </a>
-                  </>
-                ) : (
-                  <p className="text-stone-400 text-sm text-center py-8">URL do comprovativo inválida</p>
-                )}
+
+              <div className="p-4 space-y-3">
+                {(() => {
+                  const url = proofModal.url;
+                  const filename = (proofModal.filename || url || '').toLowerCase();
+                  const isPdf = proofModal.mimeType === 'application/pdf' || filename.endsWith('.pdf') || filename.includes('.pdf?');
+
+                  if (!url || (!url.startsWith('https://') && !url.startsWith('http://'))) {
+                    return <p className="text-stone-400 text-sm text-center py-8">URL do comprovativo inválida</p>;
+                  }
+
+                  if (isPdf || proofImgError) {
+                    return (
+                      <div className="w-full">
+                        <iframe
+                          src={url}
+                          className="w-full h-[65vh] rounded-xl border border-stone-800 bg-stone-950"
+                          title="Comprovativo PDF"
+                        />
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="flex flex-col items-center">
+                      <img
+                        src={url}
+                        alt="Comprovativo"
+                        className="w-full rounded-xl object-contain max-h-[70vh]"
+                        onError={() => setProofImgError(true)}
+                      />
+                    </div>
+                  );
+                })()}
+
+                <div className="flex items-center justify-between pt-2 border-t border-stone-800">
+                  <a
+                    href={proofModal.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-xs text-amber-400 hover:text-amber-300 font-mono transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Abrir em nova aba / Descarregar
+                  </a>
+                  <button
+                    onClick={() => setProofModal(null)}
+                    className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-mono rounded-lg transition-colors cursor-pointer"
+                  >
+                    Fechar
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -1982,7 +2022,14 @@ export default function AdminPanel() {
                                             });
                                             if (res.status === 401) { expireSession(); return; }
                                             const data = await res.json();
-                                            if (data.url) setProofModal(data.url);
+                                            if (data.url) {
+                                              setProofModal({
+                                                url: data.url,
+                                                filename: data.filename || payment.proof_filename || undefined,
+                                                mimeType: data.mimeType || payment.proof_mime_type || undefined,
+                                              });
+                                              setProofImgError(false);
+                                            }
                                             else showToast('Erro ao carregar comprovativo.', 'error');
                                           } catch {
                                             showToast('Erro de ligação ao servidor.', 'error');
