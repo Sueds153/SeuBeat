@@ -142,15 +142,19 @@ export async function downloadFile(url: string, destPath: string): Promise<void>
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
   try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'SeuBeat/1.0 (+https://seubeat.onrender.com)',
-        'Accept': 'audio/*, */*',
-        'Referer': 'https://suno.com/',
-        'Origin': 'https://suno.com',
+    const headers: Record<string, string> = {
+      'User-Agent': 'SeuBeat/1.0 (+https://seubeat.onrender.com)',
+      'Accept': 'audio/*, */*',
+    };
+    if (/suno/i.test(url)) {
+      const apiKey = process.env.SUNO_API_KEY;
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+        headers['Referer'] = 'https://suno.com/';
+        headers['Origin'] = 'https://suno.com';
       }
-    });
+    }
+    const res = await fetch(url, { signal: controller.signal, headers });
     if (!res.ok) throw new Error(`Falha ao descarregar arquivo: ${res.statusText}`);
     if (!res.body) throw new Error('Resposta de download sem corpo.');
     await pipeline(Readable.fromWeb(res.body as any), fs.createWriteStream(destPath));
