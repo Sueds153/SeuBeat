@@ -1951,7 +1951,7 @@ export default function AdminPanel() {
               {/* PAYMENTS */}
               {activeView === 'payments' && (
                 <div className="space-y-5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Pagamentos</h1>
                       <p className="text-stone-500 text-sm mt-1">Gerir comprovativos e aprovações</p>
@@ -1972,7 +1972,7 @@ export default function AdminPanel() {
                     <div className="text-center py-16 text-stone-600 font-mono text-sm">{paymentSearchQuery ? 'Nenhum pagamento corresponde à pesquisa.' : 'Nenhum pagamento encontrado.'}</div>
                   ) : (
                     <div>
-                      <div className="flex items-center gap-2 mb-4">
+                      <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 mb-4">
                         <div className="relative flex-1">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-600" />
                           <input
@@ -1988,19 +1988,19 @@ export default function AdminPanel() {
                             Limpar
                           </button>
                         )}
-                        <select value={payStatusFilter} onChange={e => setPayStatusFilter(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                        <select value={payStatusFilter} onChange={e => setPayStatusFilter(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono flex-1 sm:flex-none min-w-[120px]">
                           <option value="">Todos estados</option>
                           <option value="pending_verification">Aguardando Verificação</option>
                           <option value="approved">Aprovado</option>
                           <option value="rejected">Rejeitado</option>
                         </select>
-                        <select value={payPlanFilter} onChange={e => setPayPlanFilter(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                        <select value={payPlanFilter} onChange={e => setPayPlanFilter(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono flex-1 sm:flex-none min-w-[110px]">
                           <option value="">Todos planos</option>
                           <option value="standard">Standard</option>
                           <option value="express">Express</option>
                           <option value="premium">Premium</option>
                         </select>
-                        <select value={paySort} onChange={e => setPaySort(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                        <select value={paySort} onChange={e => setPaySort(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono flex-1 sm:flex-none min-w-[120px]">
                           <option value="created_at_desc">Mais recentes</option>
                           <option value="created_at_asc">Mais antigos</option>
                           <option value="email_asc">Email A-Z</option>
@@ -2178,7 +2178,7 @@ export default function AdminPanel() {
                                           </button>
                                         ))}
                                       </div>
-                                      <div className="flex gap-2">
+                                      <div className="flex flex-col sm:flex-row gap-2">
                                         <button
                                           onClick={() => setConfirmAction({ action: 'approve', paymentId: payment.id, plan: payment.plan })}
                                           disabled={actionLoading === payment.id + '_approve'}
@@ -2512,7 +2512,7 @@ export default function AdminPanel() {
                                     {/*  Style Editor */}
                                     <div className="bg-stone-950 rounded-xl p-3 border border-stone-800 text-xs">
                                       <p className="text-stone-500 font-mono text-[9px] uppercase mb-2"> Editor de Estilo & Voz</p>
-                                      <div className="flex gap-2 items-center">
+                                      <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
                                         <select
                                           defaultValue={req.music_style}
                                           onChange={e => handleUpdateStyle(req.id, e.target.value)}
@@ -2615,7 +2615,7 @@ export default function AdminPanel() {
               {/* SONGS */}
               {activeView === 'songs' && (
                 <div className="space-y-5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Músicas</h1>
                       <p className="text-stone-500 text-sm mt-1">Letras geradas e áudio Suno</p>
@@ -2809,7 +2809,7 @@ export default function AdminPanel() {
               {/* CRÉDITOS API */}
               {activeView === 'credits' && (
                 <div className="space-y-5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Créditos das APIs</h1>
                       <p className="text-stone-500 text-sm mt-1">Saldo, consumo e custos reais dos serviços</p>
@@ -3218,7 +3218,7 @@ export default function AdminPanel() {
               {/* DIAGNOSTICS */}
               {activeView === 'diagnostics' && (
                 <div className="space-y-5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Diagnóstico</h1>
                       <p className="text-stone-500 text-sm mt-1">Estado das APIs e serviços externos</p>
@@ -3257,7 +3257,7 @@ export default function AdminPanel() {
               {/* CAMPANHAS */}
               {activeView === 'campaigns' && (
                 <div className="space-y-5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Campanhas</h1>
                       <p className="text-stone-500 text-sm mt-1">Estatísticas de campanhas UTM — parâmetros capturados automaticamente via URL</p>
@@ -3336,12 +3336,12 @@ export default function AdminPanel() {
               {/* ABANDONADOS */}
               {activeView === 'abandoned' && (
                 <div className="space-y-5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Abandonados</h1>
                       <p className="text-stone-500 text-sm mt-1">Clientes com letra pronta que ainda não pagaram — recuperação via email automático e WhatsApp manual</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <button onClick={() => fetchAbandoned(abandonedRange)} disabled={abandonedLoading} className="flex items-center gap-2 text-xs text-stone-400 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer">
                         <RefreshCw className={`w-3.5 h-3.5 ${abandonedLoading ? 'animate-spin' : ''}`} /> {abandonedLoading ? 'A carregar...' : 'Atualizar'}
                       </button>
@@ -3417,7 +3417,7 @@ export default function AdminPanel() {
                       )}
 
                       {/* Bulk actions */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
                         <button
                           onClick={() => sendAbandonedBulk()}
                           disabled={sendButtonLoading || abandonedTotal === 0}
@@ -3845,7 +3845,7 @@ export default function AdminPanel() {
               {/* CLIENTS */}
               {activeView === 'clients' && (
                 <div className="space-y-5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <h1 className="font-serif text-2xl font-bold text-stone-100">Clientes</h1>
                       <p className="text-stone-500 text-sm mt-1">Base de dados de clientes registados</p>
