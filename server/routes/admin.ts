@@ -2503,9 +2503,8 @@ async function sendVideoUpsellOffer(
 // ─── TEMPORÁRIO: Recuperar áudio de pedido falhado via taskId Suno ───────
 // Remover após recuperar todos os pedidos órfãos.
 router.post('/recover-audio', adminAuth, async (req, res) => {
-  console.error('[Admin] recover-audio INICIADO', { requestId: req.body?.requestId, taskId: req.body?.taskId });
+  const { requestId, taskId } = (req.body || {}) as { requestId?: string; taskId?: string };
   try {
-    const { requestId, taskId } = req.body as { requestId?: string; taskId?: string };
     if (!requestId || !taskId) {
       return res.status(400).json({ success: false, error: 'requestId e taskId obrigatórios' });
     }
