@@ -2526,13 +2526,27 @@ router.post('/recover-audio', adminAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: `Suno não tem áudio pronto. Status: ${sunoResult.status}` });
     }
 
-    logInfo('[Admin] recover-audio: áudio encontrado no Suno', { requestId, taskId, audioUrl: sunoResult.audioUrl.slice(0, 80) });
+    logInfo('[Admin] recover-audio: áudio encontrado no Suno', { requestId, taskId, audioUrl: sunoResult.audioUrl.slice(0, 80), hasV2: !!sunoResult.audioUrlV2 });
 
     const persistResult = await persistGeneratedSunoAudio(song.id, taskId, sunoResult.audioUrl, { skipProcessing: false });
 
+    let fullAudioUrlV2: string | null = null;
+    let durationV2: number | null = null;
+    if (sunoResult.audioUrlV2) {
+      try {
+        logInfo('[Admin] recover-audio: a processar v2', { requestId, taskId });
+        const persistV2 = await persistGeneratedSunoAudio(`${song.id}_v2`, taskId, sunoResult.audioUrlV2, { skipProcessing: false });
+        fullAudioUrlV2 = persistV2.fullAudioUrl;
+        durationV2 = persistV2.duration;
+        logInfo('[Admin] recover-audio: v2 concluído', { requestId, durationV2 });
+      } catch (v2Err: unknown) {
+        logWarn('[Admin] recover-audio: falha no v2 (v1 mantido)', v2Err);
+      }
+    }
+
     await supabase.from('songs').update({
       audio_url: persistResult.fullAudioUrl,
-      audio_url_v2: null,
+      audio_url_v2: fullAudioUrlV2,
       full_song_url: persistResult.fullAudioUrl,
       mureka_task_id: taskId,
       mureka_status: 'completed',
@@ -2550,8 +2564,8 @@ router.post('/recover-audio', adminAuth, async (req, res) => {
       logWarn('[Admin] recover-audio: falha ao atualizar request status', reqUpdateErr);
     }
 
-    logInfo('[Admin] recover-audio: sucesso', { requestId, taskId, duration: persistResult.duration });
-    res.json({ success: true, data: { fullAudioUrl: persistResult.fullAudioUrl, duration: persistResult.duration } });
+    logInfo('[Admin] recover-audio: sucesso', { requestId, taskId, duration: persistResult.duration, durationV2 });
+    res.json({ success: true, data: { fullAudioUrl: persistResult.fullAudioUrl, fullAudioUrlV2, duration: persistResult.duration, durationV2 } });
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
     const errStack = err instanceof Error ? err.stack : '';
