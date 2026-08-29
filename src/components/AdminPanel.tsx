@@ -328,7 +328,7 @@ const StatCard = ({ icon: Icon, label, value, color, subtitle, onClick }: {
 }) => {
   const Comp = onClick ? 'button' : 'div';
   return (
-    <Comp onClick={onClick} className={`bg-stone-900/50 border border-stone-800 rounded-2xl p-5 flex items-start gap-4 ${onClick ? 'cursor-pointer hover:bg-stone-800/40 hover:border-amber-500/20 active:scale-[0.98] transition-all text-left w-full' : ''}`}>
+    <Comp onClick={onClick} className={`bg-stone-900/50 border border-stone-800 rounded-2xl p-4 sm:p-5 flex items-start gap-3 sm:gap-4 ${onClick ? 'cursor-pointer hover:bg-stone-800/40 hover:border-amber-500/20 active:scale-[0.98] transition-all text-left w-full' : ''}`}>
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
         <Icon className="w-5 h-5" />
       </div>
@@ -369,11 +369,11 @@ const Pagination = ({ page, totalPages, setPage }: { page: number; totalPages: n
   if (totalPages <= 1) return null;
   return (
     <div className="flex items-center justify-center gap-2 py-3">
-      <button onClick={() => setPage(1)} disabled={page <= 1} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">«</button>
-      <button onClick={() => setPage(page - 1)} disabled={page <= 1} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">‹</button>
+      <button onClick={() => setPage(1)} disabled={page <= 1} className="px-3 py-2 min-h-[36px] text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">«</button>
+      <button onClick={() => setPage(page - 1)} disabled={page <= 1} className="px-3 py-2 min-h-[36px] text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">‹</button>
       <span className="text-[10px] font-mono text-stone-500 px-2">{page} / {totalPages}</span>
-      <button onClick={() => setPage(page + 1)} disabled={page >= totalPages} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">›</button>
-      <button onClick={() => setPage(totalPages)} disabled={page >= totalPages} className="px-2 py-1 text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">»</button>
+      <button onClick={() => setPage(page + 1)} disabled={page >= totalPages} className="px-3 py-2 min-h-[36px] text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">›</button>
+      <button onClick={() => setPage(totalPages)} disabled={page >= totalPages} className="px-3 py-2 min-h-[36px] text-[10px] font-mono text-stone-500 bg-stone-900 border border-stone-800 rounded-lg hover:text-amber-400 disabled:opacity-30 disabled:cursor-default transition-colors cursor-pointer">»</button>
     </div>
   );
 };
@@ -1414,7 +1414,7 @@ export default function AdminPanel() {
             initial={{ opacity: 0, y: -40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -40 }}
-            className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-2xl font-mono text-sm shadow-2xl border ${
+            className={`fixed top-4 right-4 z-50 max-w-[calc(100vw-2rem)] px-5 py-3 rounded-2xl font-mono text-sm shadow-2xl border break-words ${
               toast.type === 'success'
                 ? 'bg-emerald-900/90 border-emerald-500/30 text-emerald-300'
                 : 'bg-rose-900/90 border-rose-500/30 text-rose-300'
@@ -1432,7 +1432,7 @@ export default function AdminPanel() {
             initial={{ opacity: 0, y: -40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -40 }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl font-mono text-sm shadow-2xl border bg-amber-900/90 border-amber-500/30 text-amber-300 backdrop-blur"
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-[calc(100vw-2rem)] px-4 sm:px-5 py-3 rounded-2xl font-mono text-sm shadow-2xl border bg-amber-900/90 border-amber-500/30 text-amber-300 backdrop-blur break-words"
           >
             {notification.message}
           </motion.div>
@@ -1461,7 +1461,7 @@ export default function AdminPanel() {
                   <Send className="w-4 h-4 text-emerald-400" />
                   <span className="font-mono text-xs text-stone-200 uppercase tracking-wider font-bold">Testar Envio Meta WhatsApp API</span>
                 </div>
-                <button onClick={() => setWaTestModal(prev => ({ ...prev, open: false }))} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer"></button>
+                <button onClick={() => setWaTestModal(prev => ({ ...prev, open: false }))} className="text-stone-500 hover:text-white p-2 cursor-pointer"><X className="w-4 h-4" /></button>
               </div>
 
               <p className="text-xs text-stone-400 leading-relaxed">
@@ -1528,7 +1528,7 @@ export default function AdminPanel() {
                   <Shield className="w-4 h-4 text-amber-400" />
                   <span className="font-mono text-xs text-stone-200 uppercase tracking-wider font-bold">Verificar Número WhatsApp</span>
                 </div>
-                <button onClick={() => setWaVerifyModal(prev => ({ ...prev, open: false }))} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer"></button>
+                <button onClick={() => setWaVerifyModal(prev => ({ ...prev, open: false }))} className="text-stone-500 hover:text-white p-2 cursor-pointer"><X className="w-4 h-4" /></button>
               </div>
 
               <div className={`p-3 rounded-xl text-xs font-mono ${waBlocked ? 'bg-rose-950/60 border border-rose-800/50 text-rose-300' : waVerificationStatus ? 'bg-emerald-950/60 border border-emerald-800/50 text-emerald-300' : 'bg-stone-800/60 border border-stone-700 text-stone-300'}`}>
@@ -1720,14 +1720,14 @@ export default function AdminPanel() {
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1.5 text-stone-500 hover:text-stone-100 transition-colors touch-target"
+              className="lg:hidden p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-stone-500 hover:text-stone-100 transition-colors"
               aria-label="Fechar menu"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          <nav className="space-y-1 flex-grow">
+          <nav className="space-y-1 flex-grow overflow-y-auto">
             {NAV_ITEMS.map(item => {
               const isActive = activeView === item.id;
               return (
@@ -1788,7 +1788,7 @@ export default function AdminPanel() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-4 md:p-6 max-w-6xl min-w-0">
+        <main className="flex-1 p-4 md:p-6 max-w-6xl min-w-0 overflow-x-hidden">
           <div className="flex items-center gap-3 mb-4 lg:hidden">
             <button
               onClick={() => setSidebarOpen(true)}
@@ -1919,7 +1919,8 @@ export default function AdminPanel() {
                       {Array.isArray(funnel.revenue?.chart) && funnel.revenue.chart.length > 0 && (
                         <div className="pt-2">
                           <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider mb-2">Receita Diária (30 dias)</p>
-                          <div className="flex items-end gap-0.5 h-16">
+                          <div className="overflow-x-auto -mx-1 px-1">
+                          <div className="flex items-end gap-0.5 h-16" style={{ minWidth: funnel.revenue.chart.length * 12 }}>
                             {funnel.revenue.chart.map((d: { day: string; amount: number }, i: number) => {
                               const max = Math.max(...funnel.revenue.chart.map((x: { day: string; amount: number }) => x.amount), 1);
                               const pct = Math.round((d.amount / max) * 100);
@@ -1933,6 +1934,7 @@ export default function AdminPanel() {
                                 </div>
                               );
                             })}
+                          </div>
                           </div>
                         </div>
                       )}
@@ -2026,7 +2028,7 @@ export default function AdminPanel() {
                               </div>
                               <div className="min-w-0">
                                 <p className="text-sm font-medium text-stone-200 truncate">{payment.user_email}</p>
-                                <p className="text-[10px] font-mono text-stone-500">{payment.plan} • {payment.amount} • {formatDate(payment.created_at)}</p>
+                                <p className="text-[10px] font-mono text-stone-500 truncate">{payment.plan} • {payment.amount} • {formatDate(payment.created_at)}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-3 shrink-0">
@@ -2172,7 +2174,7 @@ export default function AdminPanel() {
                                           <button
                                             key={t.value}
                                             onClick={() => setRejectNotes(prev => ({ ...prev, [payment.id]: t.value }))}
-                                            className="px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-[10px] rounded-xl hover:text-rose-400 hover:border-rose-500/30 transition-colors cursor-pointer font-mono"
+                                            className="px-2.5 py-2 bg-stone-800 border border-stone-700 text-stone-400 text-[10px] rounded-xl hover:text-rose-400 hover:border-rose-500/30 transition-colors cursor-pointer font-mono"
                                           >
                                             {t.label}
                                           </button>
@@ -2273,7 +2275,7 @@ export default function AdminPanel() {
 
                   {/* Search bar */}
                   <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
-                    <div className="relative flex-1 min-w-[200px]">
+                    <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-600" />
                       <input
                         type="text"
@@ -2355,7 +2357,7 @@ export default function AdminPanel() {
                                     <p className="text-sm text-stone-400">{req.recipient_name}</p>
                                     {plan && <PlanBadge plan={plan} />}
                                   </div>
-                                  <p className="text-[10px] font-mono text-stone-500">{req.occasion} • {req.music_style} • {req.users?.email}{req.utm_campaign ? ` •  ${req.utm_campaign}` : ''}</p>
+                                  <p className="text-[10px] font-mono text-stone-500 truncate">{req.occasion} • {req.music_style} • {req.users?.email}{req.utm_campaign ? ` •  ${req.utm_campaign}` : ''}</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
@@ -2394,17 +2396,17 @@ export default function AdminPanel() {
                                         )}
                                       </div>
                                       {editingClient !== null && editingClient.userId === req.users?.id ? (
-                                        <div className="grid grid-cols-3 gap-2">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                           <div><p className="text-stone-500 text-[9px]">Nome</p><input type="text" value={editingClient.name} onChange={e => setEditingClient(s => s ? { ...s, name: e.target.value } : null)} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1 text-stone-200 text-xs mt-0.5" /></div>
                                           <div><p className="text-stone-500 text-[9px]">Email</p><input type="email" value={editingClient.email} onChange={e => setEditingClient(s => s ? { ...s, email: e.target.value } : null)} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1 text-stone-200 text-xs mt-0.5" /></div>
                                           <div><p className="text-stone-500 text-[9px]">Telefone</p><input type="text" value={editingClient.phone} onChange={e => setEditingClient(s => s ? { ...s, phone: e.target.value } : null)} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1 text-stone-200 text-xs mt-0.5" /></div>
-                                          <div className="col-span-3 flex gap-2 mt-1">
+                                          <div className="col-span-1 sm:col-span-3 flex gap-2 mt-1">
                                             <button onClick={handleSaveClient} disabled={actionLoading === 'client_' + req.users?.id} className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] rounded-lg transition-colors disabled:opacity-50 cursor-pointer">{actionLoading === 'client_' + req.users?.id ? '...' : 'Guardar'}</button>
                                             <button onClick={() => setEditingClient(null)} className="px-3 py-1 bg-stone-800 hover:bg-stone-700 text-stone-400 text-[10px] rounded-lg transition-colors cursor-pointer">Cancelar</button>
                                           </div>
                                         </div>
                                       ) : (
-                                        <div className="grid grid-cols-3 gap-2">
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                           <div><p className="text-stone-500 text-[9px]">Nome</p><p className="text-stone-200 font-medium">{req.users?.name || '—'}</p></div>
                                           <div><p className="text-stone-500 text-[9px]">Email</p><p className="text-stone-200">{req.users?.email || req.email || '—'}</p></div>
                                           <div><p className="text-stone-500 text-[9px]">Telefone</p><p className="text-stone-200">{req.users?.phone || req.phone || '—'}</p></div>
@@ -2461,7 +2463,7 @@ export default function AdminPanel() {
                                           <div><p className="text-stone-500 text-[9px]">Idioma</p><p className="text-stone-200 mt-0.5">{cap(req.language || 'português')}</p></div>
                                           <div><p className="text-stone-500 text-[9px]">Emoção</p><p className="text-stone-200 mt-0.5">{req.desired_emotion || '—'}</p></div>
                                           {(req.utm_source || req.utm_campaign) && (
-                                            <div className="col-span-2 sm:col-span-4"><p className="text-stone-500 text-[9px]">UTM</p><p className="text-stone-200 mt-0.5 font-mono text-[10px]">{[req.utm_source, req.utm_medium, req.utm_campaign, req.utm_term, req.utm_content].filter(Boolean).join(' › ')}</p></div>
+                                            <div className="col-span-2 sm:col-span-4"><p className="text-stone-500 text-[9px]">UTM</p><p className="text-stone-200 mt-0.5 font-mono text-[10px] truncate">{[req.utm_source, req.utm_medium, req.utm_campaign, req.utm_term, req.utm_content].filter(Boolean).join(' › ')}</p></div>
                                           )}
                                         </div>
                                       )}
@@ -2558,7 +2560,7 @@ export default function AdminPanel() {
                                     </div>
 
                                     {/* Ações */}
-                                    <div className="flex flex-wrap gap-2 pt-1">
+                                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 pt-1">
                                       <button onClick={() => handleRetry(req.id)} disabled={!!actionLoading} className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs rounded-xl hover:bg-amber-500/20 disabled:opacity-50 cursor-pointer font-mono transition-colors">
                                         {actionLoading === req.id + '_retry' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />} Tentar Novamente
                                       </button>
@@ -2632,7 +2634,7 @@ export default function AdminPanel() {
 
                   {/* Search bar */}
                   <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
-                    <div className="relative flex-1 min-w-[200px]">
+                    <div className="relative flex-1 min-w-0 sm:min-w-[200px]">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-600" />
                       <input
                         type="text"
@@ -2705,7 +2707,7 @@ export default function AdminPanel() {
                                 <p className="text-[10px] font-mono text-stone-600">{formatDate(song.created_at)}</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 flex-wrap justify-start sm:justify-end">
+                            <div className="flex items-center gap-2 flex-nowrap overflow-x-auto sm:flex-wrap justify-start sm:justify-end">
                               <StatusBadge status={song.mureka_status || 'not_started'} />
                               <button onClick={() => setEditingSong({ id: song.id, title: song.title, lyrics: normalizeLyricsArray(song.lyrics).join('\n'), letterText: song.letter_text || '' })}
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-amber-400 hover:border-amber-500/30 transition-colors cursor-pointer font-mono">
@@ -3347,17 +3349,17 @@ export default function AdminPanel() {
                       </button>
                       {waLinked ? (
                         waBlocked ? (
-                          <span className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl" title={`O número ${waVerifiedPhone || ''} reporta NOT_VERIFIED na Meta (${waVerificationStatus}), mas os envios de mensagens automáticas continuam operacionais.`}>
-                            <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" /> WhatsApp API Ativa · Envios Operacionais (NOT_VERIFIED)
+                          <span className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl max-w-full" title={`O número ${waVerifiedPhone || ''} reporta NOT_VERIFIED na Meta (${waVerificationStatus}), mas os envios de mensagens automáticas continuam operacionais.`}>
+                            <span className="w-2 h-2 bg-amber-400 rounded-full animate-pulse shrink-0" /> <span className="truncate hidden sm:inline">WhatsApp API Ativa · Envios Operacionais (NOT_VERIFIED)</span><span className="truncate sm:hidden">WA Ativa</span>
                           </span>
                         ) : (
-                          <span className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 rounded-xl">
-                            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" /> WhatsApp API configurada{waVerifiedPhone ? ` · ${waVerifiedPhone}` : ''}
+                          <span className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 rounded-xl max-w-full">
+                            <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shrink-0" /> <span className="truncate hidden sm:inline">WhatsApp API configurada{waVerifiedPhone ? ` · ${waVerifiedPhone}` : ''}</span><span className="truncate sm:hidden">WA OK</span>
                           </span>
                         )
                       ) : (
-                        <span className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl" title="Define WHATSAPP_API_TOKEN e WHATSAPP_PHONE_NUMBER_ID no ambiente (Meta WhatsApp Business Cloud API) para ativar o envio por templates.">
-                          WhatsApp API não configurada
+                        <span className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-xl max-w-full" title="Define WHATSAPP_API_TOKEN e WHATSAPP_PHONE_NUMBER_ID no ambiente (Meta WhatsApp Business Cloud API) para ativar o envio por templates.">
+                          <span className="hidden sm:inline">WhatsApp API não configurada</span><span className="sm:hidden">WA off</span>
                         </span>
                       )}
                       <button
@@ -3366,14 +3368,14 @@ export default function AdminPanel() {
                         className="flex items-center gap-2 text-xs text-stone-300 hover:text-emerald-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
                         title="Verifica a configuração da WhatsApp Business API"
                       >
-                        <RefreshCw className={`w-3.5 h-3.5 ${waConfigLoading ? 'animate-spin' : ''}`} /> {waConfigLoading ? 'A verificar...' : 'Verificar configuração'}
+                        <RefreshCw className={`w-3.5 h-3.5 ${waConfigLoading ? 'animate-spin' : ''}`} /> <span className="hidden sm:inline">{waConfigLoading ? 'A verificar...' : 'Verificar configuração'}</span><span className="sm:hidden">{waConfigLoading ? '...' : 'Config'}</span>
                       </button>
                       <button
                         onClick={() => setWaTestModal({ open: true, phone: '', loading: false, result: null })}
                         className="flex items-center gap-2 text-xs text-stone-300 hover:text-emerald-400 bg-emerald-900/20 border border-emerald-700/30 px-3 py-2 rounded-xl transition-colors cursor-pointer"
                         title="Envia uma mensagem WhatsApp real para testar a ligação à Meta API"
                       >
-                        <Send className="w-3.5 h-3.5" /> Testar envio
+                        <Send className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Testar envio</span><span className="sm:hidden">Testar</span>
                       </button>
                       <button
                         onClick={() => setWaVerifyModal({ open: true, method: 'SMS', code: '', loading: false, message: null, error: null })}
@@ -3381,7 +3383,7 @@ export default function AdminPanel() {
                         className="flex items-center gap-2 text-xs text-stone-300 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
                         title="Verifica o estado de verificação do número WhatsApp na Meta e confirma o código (SMS/chamada) se necessário"
                       >
-                        <Shield className="w-3.5 h-3.5" /> Verificar número
+                        <Shield className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Verificar número</span><span className="sm:hidden">Verificar</span>
                       </button>
                     </div>
                   </div>
@@ -3489,11 +3491,11 @@ export default function AdminPanel() {
                                   <p className="text-xs text-stone-400 italic line-clamp-2 mt-1">{client.message}</p>
                                 </div>
                                 <div className="flex items-center gap-2 justify-end">
-                                  {client.waDigits ? (
-                                    <button
-                                      onClick={() => sendAbandonedBulk([client.id])}
-                                      disabled={sendButtonLoading}
-                                      className="flex items-center gap-1.5 text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1.5 rounded-lg hover:bg-emerald-500/20 transition-colors cursor-pointer"
+                                   {client.waDigits ? (
+                                     <button
+                                       onClick={() => sendAbandonedBulk([client.id])}
+                                       disabled={sendButtonLoading}
+                                       className="flex items-center gap-1.5 text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-2 rounded-lg hover:bg-emerald-500/20 transition-colors cursor-pointer"
                                     >
                                       <Send className="w-3 h-3" /> Enviar WhatsApp
                                     </button>
@@ -3503,7 +3505,7 @@ export default function AdminPanel() {
                                   <button
                                     onClick={() => markContacted(client.id)}
                                     disabled={!!client.manualContactedAt}
-                                    className="flex items-center gap-1.5 text-[11px] text-stone-300 bg-stone-900 border border-stone-800 px-2.5 py-1.5 rounded-lg hover:bg-stone-800 disabled:opacity-40 transition-colors cursor-pointer"
+                                    className="flex items-center gap-1.5 text-[11px] text-stone-300 bg-stone-900 border border-stone-800 px-2.5 py-2 rounded-lg hover:bg-stone-800 disabled:opacity-40 transition-colors cursor-pointer"
                                   >
                                     <CheckCircle className="w-3 h-3" /> Já contactei
                                   </button>
@@ -3628,7 +3630,7 @@ export default function AdminPanel() {
                               const pct = (s.count / maxCount) * 100;
                               return (
                                 <div key={i} className="flex items-center gap-3">
-                                  <span className="text-xs font-mono text-stone-400 w-24 text-right">{s.style}</span>
+                                   <span className="text-xs font-mono text-stone-400 w-20 sm:w-24 text-right truncate" title={s.style}>{s.style}</span>
                                   <div className="flex-1 bg-stone-800 rounded-full h-4 overflow-hidden">
                                     <div className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                                   </div>
@@ -3918,7 +3920,7 @@ export default function AdminPanel() {
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="max-w-2xl w-full bg-stone-900 rounded-2xl border border-stone-800 overflow-hidden"
+              className="max-w-2xl w-full bg-stone-900 rounded-2xl border border-stone-800 overflow-hidden max-h-[85vh] flex flex-col"
               onClick={e => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-5 border-b border-stone-800">
@@ -3928,7 +3930,7 @@ export default function AdminPanel() {
                 </div>
                 <button onClick={() => setEditingSong(null)} className="text-stone-500 hover:text-white text-xs font-mono cursor-pointer"> Fechar</button>
               </div>
-              <div className="p-5 space-y-4">
+              <div className="p-5 space-y-4 overflow-y-auto">
                 <div>
                   <label className="text-[10px] font-mono text-stone-500 uppercase tracking-wider block mb-1.5">Título da Música</label>
                   <input
