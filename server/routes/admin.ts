@@ -1038,138 +1038,6 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
       })(),
       (async () => {
         const key = process.env.BREVO_API_KEY;
-        if (!key) return { ok: false, error: 'BREVO_API_KEY em falta' };
-        return { ok: true, provider: 'Brevo' };
-      })()
-    ]);
-
-    const mem = process.memoryUsage();
-    res.json({
-      supabase: supabaseDiag,
-      deepseek: deepseekDiag,
-      claude: claudeDiag,
-      openai: openaiDiag,
-      gemini: geminiDiag,
-      suno: sunoDiag,
-      sunoVoice: sunoVoiceDiag,
-      email: emailDiag,
-      server: {
-        uptime: process.uptime(),
-        node: process.version,
-        platform: process.platform,
-        memory: {
-          rss: `${Math.round(mem.rss / 1024 / 1024)}MB`,
-          heapUsed: `${Math.round(mem.heapUsed / 1024 / 1024)}MB`,
-          heapTotal: `${Math.round(mem.heapTotal / 1024 / 1024)}MB`,
-        },
-      },
-    });
-  } catch (err: unknown) {
-    logRouteError(req, err);
-    res.status(500).json({ success: false, error: safeMessage(err) });
-  }
-});
-
-router.post('/request/:id/retry', adminAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
-    const { data: requestData } = await supabase.from('song_requests').select('*, songs(*)').eq('id', id).single();
-    if (!requestData) return res.status(404).json({ success: false, error: 'Pedido não encontrado' });
-    const songData = firstRelated(requestData.songs);
-    if (!songData) return res.status(400).json({ success: false, error: 'Música associada em falta.' });
-
-    if (songData.mureka_task_id && !songData.audio_url) {
-      resumeSunoTaskWorkflow(id, songData.id, songData.mureka_task_id).catch(err => logError('[Admin] Resume Suno task falhou no retry', err, { requestId: id }));
-      return res.json({ success: true, message: 'Retomado.' });
-    }
-
-    await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', id);
-    await supabase.from('songs').update({ mureka_status: 'generating' }).eq('id', songData.id);
-    runBackgroundSunoWorkflow(id, songData.id, requestData.music_style || 'Kizomba', songData.title || 'Música SeuBeat', songData.lyrics || [], {
-      voiceType: requestData.voice_type || undefined,
-      desiredEmotion: requestData.desired_emotion || undefined,
-    }).catch(err => logError('[Admin] Background Suno falhou no retry', err, { requestId: id }));
-    res.json({ success: true, message: 'Reiniciado.' });
-  } catch (err: unknown) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.error('[Admin] recover-audio ERRO:', errMsg, { requestId, taskId });
-    res.status(500).json({ success: false, error: safeMessage(err) });
-  }
-});
-router.post('/request/:id/recover', adminAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ success: false, error: 'DB nao disponivel' });
-    const { data: requestData } = await supabase.from('song_requests').select('*, songs(*)').eq('id', id).single();
-    if (!requestData) return res.status(404).json({ success: false, error: 'Pedido nao encontrado' });
-    const songData = firstRelated(requestData.songs);
-    if (!songData) return res.status(400).json({ success: false, error: 'Música associada em falta.' });
-
-    const knownTaskIds: string[] = [
-      'f5ecb840034c7661a0c6f5b1868b7f44',
-      '52d7f402a8cd806e7bd29796d23acb58',
-      '6909cae212783daf684c2fe6db85fa87',
-    ];
-
-    logInfo('[Admin Recover] Iniciando recovery', { ourId: id });
-
-    let foundAudioUrl: string | null = null;
-    let usedTaskId: string | null = null;
-
-    for (const taskId of knownTaskIds) {
-      if (!taskId) continue;
-      try {
-        const result = await querySunoTask(taskId);
-        if (result.audioUrl) {
-          foundAudioUrl = result.audioUrl;
-          usedTaskId = taskId;
-          break;
-        }
-      } catch (e) {
-        continue;
-      }
-    }
-
-    if (!foundAudioUrl) {
-      return res.json({ success: false, error: 'Nenhuma task tem áudio.' });
-    }
-
-    // persist with skipProcessing
-    // usedTaskId is guaranteed to be set because we found audioUrl above
-    const persistResult = await persistGeneratedSunoAudio(songData.id, usedTaskId!, foundAudioUrl, {
-      skipProcessing: true,
-      hintDuration: songData.duration ?? 239,
-    });
-
-    // update song
-    await supabase.from('songs').update({
-      audio_url: persistResult.fullAudioUrl,
-      full_song_url: persistResult.fullAudioUrl,
-      preview_url: null,
-      duration: persistResult.duration,
-      mureka_task_id: usedTaskId,
-      mureka_status: 'completed'
-    }).eq('id', songData.id);
-
-    return res.json({ success: true, message: 'Recovery OK' });
-  } catch (err: unknown) {
-    logRouteError(req, err);
-    const msg = err instanceof Error ? err.message : String(err);
-    return res.status(500).json({ success: false, error: msg });
-  }
-});
-
-router.post('/request/:id/force-voice', adminAuth, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const supabase = getAdminSupabase();
-    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
-    const { data: requestData } = await supabase.from('song_requests').select('*, songs(*)').eq('id', id).single();
-    const songData = firstRelated(requestData?.songs);
-    if (!requestData || !songData) return res.status(404).json({ success: false, error: 'Pedido ou música não encontrada' });
     if (!requestData.voice_sample_url) return res.status(400).json({ success: false, error: 'Sem amostra de voz.' });
 
     await supabase.from('song_requests').update({ status: 'voice_processing' }).eq('id', id);
@@ -2503,9 +2371,9 @@ async function sendVideoUpsellOffer(
 // ─── TEMPORÁRIO: Recuperar áudio de pedido falhado via taskId Suno ───────
 // Remover após recuperar todos os pedidos órfãos.
 router.post('/recover-audio', adminAuth, async (req, res) => {
-  console.error('[Admin] recover-audio INICIADO', { requestId: req.body?.requestId, taskId: req.body?.taskId });
+  const { requestId, taskId } = (req.body || {}) as { requestId?: string; taskId?: string };
+  console.error('[Admin] recover-audio INICIADO', { requestId, taskId });
   try {
-    const { requestId, taskId } = req.body as { requestId?: string; taskId?: string };
     if (!requestId || !taskId) {
       return res.status(400).json({ success: false, error: 'requestId e taskId obrigatórios' });
     }
