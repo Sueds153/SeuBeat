@@ -32,6 +32,10 @@ async function fixHoracioSong() {
   console.log('   - Duração (segundos):', duration);
 
   const supabase = getAdminSupabase();
+  if (!supabase) {
+    console.error('❌ Supabase client não disponível');
+    return;
+  }
   const { error: songUpdateError } = await supabase
     .from('songs')
     .update({

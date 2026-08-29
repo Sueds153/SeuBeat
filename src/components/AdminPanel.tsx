@@ -2272,8 +2272,8 @@ export default function AdminPanel() {
                   </div>
 
                   {/* Search bar */}
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
+                  <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+                    <div className="relative flex-1 min-w-[200px]">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-600" />
                       <input
                         type="text"
@@ -2283,50 +2283,52 @@ export default function AdminPanel() {
                         className="w-full bg-stone-950 border border-stone-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-stone-300 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
                       />
                     </div>
-                    <select
-                      value={searchFilter}
-                      onChange={e => setSearchFilter(e.target.value as any)}
-                      className="bg-stone-950 border border-stone-800 rounded-xl px-3 py-2.5 text-xs text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
-                    >
-                      <option value="all">Todos</option>
-                      <option value="name">Nome</option>
-                      <option value="email">Email</option>
-                      <option value="status">Estado</option>
-                      <option value="style">Estilo</option>
-                      <option value="occasion">Ocasião</option>
-                      <option value="relationship">Relação</option>
-                    </select>
-                    <select value={reqStatusFilter} onChange={e => setReqStatusFilter(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
-                      <option value="">Todos estados</option>
-                      <option value="payment_submitted">Comprovativo Enviado</option>
-                      <option value="payment_rejected">Pagamento Rejeitado</option>
-                      <option value="lyrics_generating">A Gerar Letra</option>
-                      <option value="lyrics_ready">Letra Pronta</option>
-                      <option value="music_processing">A Processar Música</option>
-                      <option value="voice_processing">A Processar Voz</option>
-                      <option value="music_ready">Música Pronta</option>
-                      <option value="approved">Aprovado</option>
-                      <option value="delivered">Entregue</option>
-                      <option value="failed">Falhou</option>
-                    </select>
-                    <select value={reqPlanFilter} onChange={e => setReqPlanFilter(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
-                      <option value="">Todos planos</option>
-                      <option value="standard">Standard</option>
-                      <option value="express">Express</option>
-                      <option value="premium">Premium</option>
-                    </select>
-                    {(searchQuery || reqStatusFilter || reqPlanFilter) && (
-                      <button onClick={() => { setSearchQuery(''); setReqStatusFilter(''); setReqPlanFilter(''); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer">
-                        Limpar
-                      </button>
-                    )}
-                    <select value={reqSort} onChange={e => setReqSort(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
-                      <option value="created_at_desc">Mais recentes</option>
-                      <option value="created_at_asc">Mais antigos</option>
-                      <option value="name_asc">Nome A-Z</option>
-                      <option value="name_desc">Nome Z-A</option>
-                      <option value="status_asc">Estado</option>
-                    </select>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={searchFilter}
+                        onChange={e => setSearchFilter(e.target.value as any)}
+                        className="bg-stone-950 border border-stone-800 rounded-xl px-3 py-2.5 text-xs text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
+                      >
+                        <option value="all">Todos</option>
+                        <option value="name">Nome</option>
+                        <option value="email">Email</option>
+                        <option value="status">Estado</option>
+                        <option value="style">Estilo</option>
+                        <option value="occasion">Ocasião</option>
+                        <option value="relationship">Relação</option>
+                      </select>
+                      <select value={reqStatusFilter} onChange={e => setReqStatusFilter(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                        <option value="">Todos estados</option>
+                        <option value="payment_submitted">Comprovativo Enviado</option>
+                        <option value="payment_rejected">Pagamento Rejeitado</option>
+                        <option value="lyrics_generating">A Gerar Letra</option>
+                        <option value="lyrics_ready">Letra Pronta</option>
+                        <option value="music_processing">A Processar Música</option>
+                        <option value="voice_processing">A Processar Voz</option>
+                        <option value="music_ready">Música Pronta</option>
+                        <option value="approved">Aprovado</option>
+                        <option value="delivered">Entregue</option>
+                        <option value="failed">Falhou</option>
+                      </select>
+                      <select value={reqPlanFilter} onChange={e => setReqPlanFilter(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                        <option value="">Todos planos</option>
+                        <option value="standard">Standard</option>
+                        <option value="express">Express</option>
+                        <option value="premium">Premium</option>
+                      </select>
+                      {(searchQuery || reqStatusFilter || reqPlanFilter) && (
+                        <button onClick={() => { setSearchQuery(''); setReqStatusFilter(''); setReqPlanFilter(''); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer px-1">
+                          Limpar
+                        </button>
+                      )}
+                      <select value={reqSort} onChange={e => setReqSort(e.target.value)} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                        <option value="created_at_desc">Mais recentes</option>
+                        <option value="created_at_asc">Mais antigos</option>
+                        <option value="name_asc">Nome A-Z</option>
+                        <option value="name_desc">Nome Z-A</option>
+                        <option value="status_asc">Estado</option>
+                      </select>
+                    </div>
                   </div>
 
                   {loading ? (
@@ -2629,8 +2631,8 @@ export default function AdminPanel() {
                   </div>
 
                   {/* Search bar */}
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
+                  <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+                    <div className="relative flex-1 min-w-[200px]">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-600" />
                       <input
                         type="text"
@@ -2640,45 +2642,47 @@ export default function AdminPanel() {
                         className="w-full bg-stone-950 border border-stone-800 rounded-xl pl-9 pr-3 py-2.5 text-xs text-stone-300 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
                       />
                     </div>
-                    <select
-                      value={songSearchFilter}
-                      onChange={e => setSongSearchFilter(e.target.value as any)}
-                      className="bg-stone-950 border border-stone-800 rounded-xl px-3 py-2.5 text-xs text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
-                    >
-                      <option value="all">Todos</option>
-                      <option value="title">Título</option>
-                      <option value="recipient">Destinatário</option>
-                      <option value="email">Email</option>
-                      <option value="phone">Telefone</option>
-                      <option value="style">Estilo</option>
-                      <option value="status">Estado</option>
-                    </select>
-                    <select value={songStatusFilter} onChange={e => { setSongStatusFilter(e.target.value); setSongPage(1); }} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
-                      <option value="">Todos estados</option>
-                      <option value="not_started">Não Iniciado</option>
-                      <option value="generating">A Gerar</option>
-                      <option value="processing">Em Processamento</option>
-                      <option value="completed">Concluído</option>
-                      <option value="failed">Falhou</option>
-                    </select>
-                    <select value={songPlanFilter} onChange={e => { setSongPlanFilter(e.target.value); setSongPage(1); }} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
-                      <option value="">Todos planos</option>
-                      <option value="standard">Standard</option>
-                      <option value="express">Express</option>
-                      <option value="premium">Premium</option>
-                    </select>
-                    {(songSearchQuery || songStatusFilter || songPlanFilter) && (
-                      <button onClick={() => { setSongSearchQuery(''); setSongStatusFilter(''); setSongPlanFilter(''); setSongPage(1); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer">
-                        Limpar
-                      </button>
-                    )}
-                    <select value={songSort} onChange={e => { setSongSort(e.target.value); setSongPage(1); }} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
-                      <option value="created_at_desc">Mais recentes</option>
-                      <option value="created_at_asc">Mais antigos</option>
-                      <option value="title_asc">Título A-Z</option>
-                      <option value="title_desc">Título Z-A</option>
-                      <option value="status_asc">Estado</option>
-                    </select>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={songSearchFilter}
+                        onChange={e => setSongSearchFilter(e.target.value as any)}
+                        className="bg-stone-950 border border-stone-800 rounded-xl px-3 py-2.5 text-xs text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono"
+                      >
+                        <option value="all">Todos</option>
+                        <option value="title">Título</option>
+                        <option value="recipient">Destinatário</option>
+                        <option value="email">Email</option>
+                        <option value="phone">Telefone</option>
+                        <option value="style">Estilo</option>
+                        <option value="status">Estado</option>
+                      </select>
+                      <select value={songStatusFilter} onChange={e => { setSongStatusFilter(e.target.value); setSongPage(1); }} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                        <option value="">Todos estados</option>
+                        <option value="not_started">Não Iniciado</option>
+                        <option value="generating">A Gerar</option>
+                        <option value="processing">Em Processamento</option>
+                        <option value="completed">Concluído</option>
+                        <option value="failed">Falhou</option>
+                      </select>
+                      <select value={songPlanFilter} onChange={e => { setSongPlanFilter(e.target.value); setSongPage(1); }} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                        <option value="">Todos planos</option>
+                        <option value="standard">Standard</option>
+                        <option value="express">Express</option>
+                        <option value="premium">Premium</option>
+                      </select>
+                      {(songSearchQuery || songStatusFilter || songPlanFilter) && (
+                        <button onClick={() => { setSongSearchQuery(''); setSongStatusFilter(''); setSongPlanFilter(''); setSongPage(1); }} className="text-xs text-stone-500 hover:text-stone-300 font-mono cursor-pointer px-1">
+                          Limpar
+                        </button>
+                      )}
+                      <select value={songSort} onChange={e => { setSongSort(e.target.value); setSongPage(1); }} className="bg-stone-950 border border-stone-800 rounded-xl px-2.5 py-2.5 text-[10px] text-stone-400 focus:outline-none focus:border-amber-500/50 transition-colors font-mono">
+                        <option value="created_at_desc">Mais recentes</option>
+                        <option value="created_at_asc">Mais antigos</option>
+                        <option value="title_asc">Título A-Z</option>
+                        <option value="title_desc">Título Z-A</option>
+                        <option value="status_asc">Estado</option>
+                      </select>
+                    </div>
                   </div>
 
                   {loading ? (
@@ -2688,18 +2692,20 @@ export default function AdminPanel() {
                       {songTotalPages > 1 && <Pagination page={songPage} totalPages={songTotalPages} setPage={setSongPage} />}
                       {paginatedSongs.map(song => (
                         <div key={song.id} className="bg-stone-900/50 border border-stone-800 rounded-2xl p-4">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 bg-amber-500/10 rounded-xl border border-amber-500/20 flex items-center justify-center shrink-0">
-                              <Music className="w-5 h-5 text-amber-400" />
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className="w-10 h-10 bg-amber-500/10 rounded-xl border border-amber-500/20 flex items-center justify-center shrink-0">
+                                <Music className="w-5 h-5 text-amber-400" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-serif text-sm font-bold text-stone-200 truncate">{song.title}</p>
+                                <p className="text-[10px] font-mono text-stone-500 truncate">
+                                  Para: {song.song_requests?.recipient_name || '—'} • {song.song_requests?.music_style || '—'}
+                                </p>
+                                <p className="text-[10px] font-mono text-stone-600">{formatDate(song.created_at)}</p>
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="font-serif text-sm font-bold text-stone-200 truncate">{song.title}</p>
-                              <p className="text-[10px] font-mono text-stone-500">
-                                Para: {song.song_requests?.recipient_name || '—'} • {song.song_requests?.music_style || '—'}
-                              </p>
-                              <p className="text-[10px] font-mono text-stone-600">{formatDate(song.created_at)}</p>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                            <div className="flex items-center gap-2 flex-wrap justify-start sm:justify-end">
                               <StatusBadge status={song.mureka_status || 'not_started'} />
                               <button onClick={() => setEditingSong({ id: song.id, title: song.title, lyrics: normalizeLyricsArray(song.lyrics).join('\n'), letterText: song.letter_text || '' })}
                                 className="flex items-center gap-1 px-2.5 py-1.5 bg-stone-800 border border-stone-700 text-stone-400 text-xs rounded-xl hover:text-amber-400 hover:border-amber-500/30 transition-colors cursor-pointer font-mono">

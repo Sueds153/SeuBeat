@@ -1094,7 +1094,7 @@ router.post('/request/:id/retry', adminAuth, async (req, res) => {
     res.json({ success: true, message: 'Reiniciado.' });
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    console.error('[Admin] retry ERRO:', errMsg, { requestId: id });
+    console.error('[Admin] retry ERRO:', errMsg, { requestId: req.params?.id });
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });

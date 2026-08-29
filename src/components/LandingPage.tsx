@@ -241,16 +241,15 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
         </button>
 
         {mobileMenuOpen && (
-          <div className="fixed inset-0 z-50 md:hidden">
-            <div className="absolute inset-0 bg-stone-950/95 backdrop-blur-md" onClick={() => setMobileMenuOpen(false)} />
-            <div className="relative flex flex-col items-center justify-center h-full gap-8 p-8">
-              <button
-                onClick={() => setMobileMenuOpen(false)}
-                className="absolute top-6 right-6 p-2.5 text-stone-400 hover:text-stone-100 transition-colors touch-target"
-                aria-label="Fechar menu"
-              >
-                <X className="w-6 h-6" />
-              </button>
+          <div className="fixed inset-0 z-[100] md:hidden bg-stone-950 flex flex-col items-center justify-center p-8">
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="absolute top-6 right-6 p-2.5 text-stone-400 hover:text-stone-100 transition-colors touch-target"
+              aria-label="Fechar menu"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <div className="flex flex-col items-center justify-center gap-8 w-full max-w-xs text-center">
               {NAV_LINKS.map(l => (
                 <a
                   key={l.href}
@@ -262,10 +261,10 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 </a>
               ))}
               <button
-                onClick={() => { setMobileMenuOpen(false); onStartWizard(); }}
-                className="mt-4 px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 text-stone-950 font-bold text-lg rounded-full shadow-xl"
+                onClick={() => { setMobileMenuOpen(false); handleStartWizard(); }}
+                className="mt-4 w-full py-4 bg-gradient-to-r from-amber-500 to-rose-600 text-stone-950 font-bold text-lg rounded-full shadow-xl active:scale-95 transition-transform cursor-pointer"
               >
-                Criar Música
+                Criar Minha Música
               </button>
             </div>
           </div>
