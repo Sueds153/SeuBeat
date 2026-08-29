@@ -295,6 +295,17 @@ router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
 
     if (error || !payment) return res.status(404).json({ success: false, error: 'Pagamento não encontrado.' });
 
+    // Se proof_url já é uma URL pública completa (R2 pub-*.r2.dev), usa directamente
+    // — evita problemas de CORS/Content-Type com URLs assinadas R2 em iframes.
+    if (payment.proof_url && /^https?:\/\//.test(payment.proof_url)) {
+      res.json({
+        url: payment.proof_url,
+        filename: payment.proof_filename || null,
+        mimeType: payment.proof_mime_type || null,
+      });
+      return;
+    }
+
     // Normaliza o caminho: usa proof_path se existir, senão usa proof_url sem o prefixo "storage:"
     let path = payment.proof_path;
     if (!path && payment.proof_url) {
@@ -305,14 +316,14 @@ router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
 
     // Gera URL assinada. O provider (R2 ou Supabase) é detectado automaticamente
     // pelo createSignedStorageUrl com base no STORAGE_PROVIDER do .env.
-    // Como o bucket payment-proofs existe no Supabase Storage, a URL será gerada
-    // usando o provider adequado (R2 fallback ou Supabase direto).
     const signedUrl = await createSignedStorageUrl('payment-proofs', path, 3600);
 
-    if (!signedUrl) return res.status(500).json({ success: false, error: 'Não foi possível gerar URL do comprovativo.' });
+    // Fallback: se URL assinada falhar, tenta devolver proof_url directamente
+    const finalUrl = signedUrl || payment.proof_url || null;
+    if (!finalUrl) return res.status(500).json({ success: false, error: 'Não foi possível gerar URL do comprovativo.' });
 
     res.json({
-      url: signedUrl,
+      url: finalUrl,
       filename: payment.proof_filename || null,
       mimeType: payment.proof_mime_type || null,
     });
