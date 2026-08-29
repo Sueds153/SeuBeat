@@ -147,6 +147,8 @@ export async function downloadFile(url: string, destPath: string): Promise<void>
       headers: {
         'User-Agent': 'SeuBeat/1.0 (+https://seubeat.onrender.com)',
         'Accept': 'audio/*, */*',
+        'Referer': 'https://suno.com/',
+        'Origin': 'https://suno.com',
       }
     });
     if (!res.ok) throw new Error(`Falha ao descarregar arquivo: ${res.statusText}`);
