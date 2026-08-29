@@ -139,7 +139,7 @@ describe('Suno utility functions', () => {
   });
 
   describe('extractAudioUrl', () => {
-    it('prefers sourceAudioUrl and ignores Suno cover image URLs', () => {
+    it('prefers audioUrl over sourceAudioUrl (cdn1 returns 403)', () => {
       const payload = {
         data: {
           response: {
@@ -155,7 +155,7 @@ describe('Suno utility functions', () => {
         }
       };
 
-      expect(extractAudioUrl(payload)).toBe('https://cdn1.suno.ai/song-id.mp3');
+      expect(extractAudioUrl(payload)).toBe('https://tempfile.aiquickdraw.com/r/song-id.mp3');
     });
 
     it('does not return image URLs from generic URL fields', () => {

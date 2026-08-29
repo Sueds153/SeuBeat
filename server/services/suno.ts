@@ -199,10 +199,10 @@ export function extractBothAudioUrls(payload: unknown): { v1: string | null; v2:
   if (Array.isArray(sunoData) && sunoData.length > 0) {
     for (const item of sunoData) {
       const url = firstString(
-        (item as Record<string, unknown>)?.['sourceAudioUrl'] as string | undefined,
-        (item as Record<string, unknown>)?.['source_audio_url'] as string | undefined,
         (item as Record<string, unknown>)?.['audioUrl'] as string | undefined,
         (item as Record<string, unknown>)?.['audio_url'] as string | undefined,
+        (item as Record<string, unknown>)?.['sourceAudioUrl'] as string | undefined,
+        (item as Record<string, unknown>)?.['source_audio_url'] as string | undefined,
         (item as Record<string, unknown>)?.['streamAudioUrl'] as string | undefined,
         (item as Record<string, unknown>)?.['sourceStreamAudioUrl'] as string | undefined
       );
