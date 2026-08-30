@@ -9,6 +9,7 @@ interface UseAudioPlayerResult {
   isPlaying: boolean;
   isMuted: boolean;
   audioProgress: number;
+  audioDuration: number;
   togglePlay: () => void;
   toggleMute: () => void;
   setIsPlaying: React.Dispatch<React.SetStateAction<boolean>>;
@@ -18,6 +19,7 @@ export function useAudioPlayer({ audioUrl, textFallback }: UseAudioPlayerOptions
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const getUrl = useCallback(() => {
@@ -39,6 +41,9 @@ export function useAudioPlayer({ audioUrl, textFallback }: UseAudioPlayerOptions
         const url = getUrl();
         if (!url) return;
         const audio = new Audio(url);
+        audio.onloadedmetadata = () => {
+          setAudioDuration(audio.duration || 0);
+        };
         audio.ontimeupdate = () => {
           const current = audio.currentTime;
           const duration = audio.duration || 60;
@@ -72,5 +77,5 @@ export function useAudioPlayer({ audioUrl, textFallback }: UseAudioPlayerOptions
   const togglePlay = useCallback(() => setIsPlaying(prev => !prev), []);
   const toggleMute = useCallback(() => setIsMuted(prev => !prev), []);
 
-  return { isPlaying, isMuted, audioProgress, togglePlay, toggleMute, setIsPlaying };
+  return { isPlaying, isMuted, audioProgress, audioDuration, togglePlay, toggleMute, setIsPlaying };
 }

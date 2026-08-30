@@ -781,10 +781,6 @@ export async function rollbackSunoWorkflow(
   }
 }
 
-function normalizePhrase(phrase: string): string {
-  return phrase.trim().replace(/\s+/g, ' ').toLowerCase();
-}
-
 async function resolveVoiceSampleUrl(_supabase: NonNullable<ReturnType<typeof getAdminSupabase>>, urlOrPath: string): Promise<string> {
   if (urlOrPath.startsWith('http')) return urlOrPath;
   // É um path de storage — gerar signed URL para download (via storage.ts → R2 ou Supabase)
@@ -842,109 +838,58 @@ export async function processSunoVoice(
     // Se o cliente já leu a frase de validação no wizard (validation_task_id),
     // reutilizar essa task — a amostra aqui é a gravação da frase lida por ele.
     let validationTaskId: string | null = null;
-    let storedPhrase: string | null = null;
     try {
       const storedVoice = typeof voiceRequestData.elevenlabs_voice_id === 'string'
         ? JSON.parse(voiceRequestData.elevenlabs_voice_id)
         : null;
       if (storedVoice && typeof storedVoice.validation_task_id === 'string' && storedVoice.validation_task_id) {
         validationTaskId = storedVoice.validation_task_id;
-        storedPhrase = typeof storedVoice.phrase === 'string' ? storedVoice.phrase : null;
       }
     } catch {
       // JSON inválido — segue para o caminho de geração da frase
     }
 
-    if (validationTaskId) {
-      // A task foi criada no wizard (frase que o cliente leu/gravou). Antes de a
-      // reutilizar, confirma que ainda é válida — se a API a tiver expirado, o
-      // createCustomVoice falharia; recupera gerando uma nova frase a partir da
-      // gravação do cliente (pode ser rejeitada se a gravação não contiver a
-      // frase nova, mas é a única via automática e degrada com elegância).
-      try {
-        const phraseCheck = await waitForValidationPhrase(validationTaskId, 5);
-        if (
-          storedPhrase &&
-          phraseCheck.validateInfo &&
-          normalizePhrase(phraseCheck.validateInfo) !== normalizePhrase(storedPhrase)
-        ) {
-          logWarn(`[Suno Voice] Task de validação não corresponde à frase gravada pelo cliente`, {
-            taskId: validationTaskId,
-            requestId,
-          });
-          throw new Error('task_phrase_mismatch');
-        }
-      } catch (verifyErr) {
-        const reason = verifyErr instanceof Error ? verifyErr.message : String(verifyErr);
-        const createdAtMs = voiceRequestData.created_at ? new Date(voiceRequestData.created_at).getTime() : null;
-        const elapsedMin = createdAtMs ? Math.round((Date.now() - createdAtMs) / 60_000) : null;
-        logWarn(`[Suno Voice] Task de validação expirada/inválida — a tentar nova frase`, {
-          taskId: validationTaskId,
-          requestId,
-          reason,
-          elapsedMin,
-          storedPhrase: storedPhrase || null,
-        });
-        validationTaskId = null;
-      }
-    }
-
-    let publicVoiceUrlToUse = publicVoiceUrl;
+    // A gravação da frase de validação já está em publicVoiceUrl (voice_sample_url
+    // do wizard = o segundo recording do utilizador). Se existe validationTaskId
+    // do wizard, reutilizamos diretamente — a task foi criada há minutos e não
+    // expira tão cedo. Se não existe (fluxo legado ou sem wizard), geramos uma
+    // frase nova a partir da mesma gravação da frase (não da amostra livre),
+    // garantindo que verifyUrl sempre aponta para a gravação correta.
+    const langMap: Record<string, string> = {
+      'inglês': 'en',
+      'português': 'pt',
+      'kikongo': 'kg',
+      'lingala': 'ln',
+      'kimbundu': 'pt',
+      'umbundu': 'pt',
+    };
+    const voiceLang = langMap[voiceRequestData.language?.toLowerCase?.() || ''] || 'pt';
 
     if (validationTaskId) {
       logInfo(`[Suno Voice] Reutilizando frase de validação do wizard`, { taskId: validationTaskId, requestId });
       setProgress(requestId, { status: 'voice_processing', progress: 40, message: 'Frase de validação registada. A criar voz personalizada...' });
     } else {
-      // Fallback legado + recuperação de task expirada: gera a frase a partir da
-      // amostra livre se disponível, garantindo alinhamento perfeito.
-      if (voiceRequestData.voice_free_sample_url) {
-        try {
-          const resolvedFreeUrl = await resolveVoiceSampleUrl(supabase, voiceRequestData.voice_free_sample_url);
-          const tempFreeSamplePath = path.join(os.tmpdir(), `${requestId}_free_sample_raw`);
-          await downloadFile(resolvedFreeUrl, tempFreeSamplePath);
-          const tempFreeWavPath = path.join(os.tmpdir(), `${requestId}_free_converted.wav`);
-          await convertToWav(tempFreeSamplePath, tempFreeWavPath);
-          try { fs.unlinkSync(tempFreeSamplePath); } catch {}
-          const freePublicFilename = `sunovoice/${requestId}_free_${Date.now()}.wav`;
-          const uploadedFreeUrl = await uploadFileToStorage('preview', freePublicFilename, tempFreeWavPath, 'audio/wav');
-          try { fs.unlinkSync(tempFreeWavPath); } catch {}
-          if (uploadedFreeUrl) {
-            publicVoiceUrlToUse = uploadedFreeUrl;
-            logInfo(`[Suno Voice] Usando amostra livre para fallback de validação`, { requestId, publicVoiceUrlToUse });
-          }
-        } catch (freeErr) {
-          logWarn(`[Suno Voice] Falha ao processar amostra livre para fallback, usando amostra original`, { error: freeErr, requestId });
-        }
-      }
-
+      // Fallback legado: gera frase a partir da gravação da frase (publicVoiceUrl),
+      // NÃO da amostra livre. Assim verifyUrl (a gravação) contém a voz do
+      // utilizador para a frase gerada — Suno valida o conteúdo.
       setProgress(requestId, { status: 'voice_processing', progress: 25, message: 'A gerar frase de validação...' });
 
-      const langMap: Record<string, string> = {
-        'inglês': 'en',
-        'português': 'pt',
-        'kikongo': 'kg',
-        'lingala': 'ln',
-        'kimbundu': 'pt',
-        'umbundu': 'pt',
-      };
-      const voiceLang = langMap[voiceRequestData.language] || 'pt';
-      const validationResult = await generateValidationPhrase(publicVoiceUrlToUse, 0, 30, voiceLang);
-      logInfo(`[Suno Voice] Validation task created`, { taskId: validationResult.taskId, requestId });
+      const validationResult = await generateValidationPhrase(publicVoiceUrl, 0, 30, voiceLang);
+      logInfo(`[Suno Voice] Validation task created (fallback)`, { taskId: validationResult.taskId, requestId });
 
       setProgress(requestId, { status: 'voice_processing', progress: 40, message: 'A aguardar frase de validação...' });
 
-      // Step 2: Wait for validation phrase
       const phraseResult = await waitForValidationPhrase(validationResult.taskId);
-      logInfo(`[Suno Voice] Validation phrase received`, { requestId });
+      logInfo(`[Suno Voice] Validation phrase received (fallback)`, { requestId });
       validationTaskId = validationResult.taskId;
     }
 
     setProgress(requestId, { status: 'voice_processing', progress: 55, message: 'A criar voz personalizada...' });
 
-    // Step 3: Create custom voice using the phrase recording (verifyUrl)
+    // Step 3: Create custom voice — verifyUrl = publicVoiceUrl (gravação da frase)
     const voiceResult = await createCustomVoice(
       validationTaskId,
-      publicVoiceUrlToUse,
+      publicVoiceUrl,
       `SeuBeat_${requestId}`,
       'Custom voice from SeuBeat',
       '',

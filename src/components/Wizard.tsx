@@ -2593,7 +2593,20 @@ const ROTATING_MESSAGES = [
                 Fale de forma calma e natural durante 20 segundos — qualquer frase ou trecho serve.
                 No passo seguinte vamos pedir-te para <strong className="text-amber-400">gravar uma frase específica</strong> (de preferência a cantar) para validarmos o teu timbre.
               </p>
-              <span className="text-[9.5px] text-stone-500 font-mono block">Dica: Fale de forma calma, clara e natural, mantendo o telefone ou microfone próximo.</span>
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 space-y-1.5">
+                <span className="text-[9px] text-amber-400 font-mono uppercase tracking-wider block">⚡ Quanto melhor a gravação, mais a música vai parecer TU a cantar</span>
+                <div className="flex flex-col gap-1">
+                  <span className="text-stone-400 text-[10px] leading-snug flex items-start gap-1.5">
+                    <span className="text-amber-400 mt-px">→</span> Grava num local <strong className="text-stone-200">sem ruído</strong> (TV, vento, conversas)
+                  </span>
+                  <span className="text-stone-400 text-[10px] leading-snug flex items-start gap-1.5">
+                    <span className="text-amber-400 mt-px">→</span> Fala <strong className="text-stone-200">perto do microfone</strong> (10–15 cm)
+                  </span>
+                  <span className="text-stone-400 text-[10px] leading-snug flex items-start gap-1.5">
+                    <span className="text-amber-400 mt-px">→</span> Voz <strong className="text-stone-200">calma e clara</strong>, sem pressa
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Interactivity Control Center */}
@@ -2777,11 +2790,19 @@ const ROTATING_MESSAGES = [
                       <strong className="text-emerald-400">Boa!</strong> Gravaste a frase de validação. A tua voz será clonada a partir desta gravação.
                     </p>
                   ) : (
-                    <p className="text-stone-400 text-xs leading-relaxed">
-                      Agora <strong className="text-amber-400">grava a frase abaixo</strong> com a tua voz
-                      (de preferência a cantar). Usa o botão <strong className="text-stone-200">Gravar Frase de Validação</strong> acima
-                      para fazeres a nova gravação da frase.
-                    </p>
+                    <>
+                      <div className="bg-rose-500/10 border border-rose-500/25 rounded-xl p-3 space-y-1">
+                        <span className="text-[9px] text-rose-400 font-mono uppercase tracking-wider block">⚡ Esta é a gravação mais importante</span>
+                        <p className="text-stone-300 text-[10px] leading-snug">
+                          Lê a frase em voz alta e com clareza — <strong className="text-stone-100">de preferência a cantar</strong>.
+                          É <strong className="text-stone-100">esta gravação</strong> que define como a tua voz vai soar na música final.
+                        </p>
+                      </div>
+                      <p className="text-stone-400 text-xs leading-relaxed">
+                        Agora <strong className="text-amber-400">grava a frase abaixo</strong> com a tua voz.
+                        Usa o botão <strong className="text-stone-200">Gravar Frase de Validação</strong> acima.
+                      </p>
+                    </>
                   )}
                   <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 text-center">
                     <p className="text-[9px] text-amber-500 font-mono uppercase tracking-wider pb-2">FRASE DE VALIDAÇÃO — LEIA EM VOZ ALTA</p>

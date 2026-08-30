@@ -21,6 +21,7 @@ export interface SongDetails {
   lyrics: string[];
   audioUrl: string;
   audioUrlV2: string | null;
+  duration: number;
   status: string;
 }
 
@@ -76,6 +77,7 @@ function buildInitialFromParams(params: URLSearchParams, savedLocalPhoto: string
     lyrics: parsedLyrics,
     audioUrl: '',
     audioUrlV2: null,
+    duration: 0,
     status: '',
   };
 }
@@ -104,6 +106,7 @@ function buildInitialFromLocalStorage(savedLocalPhoto: string): SongDetails | nu
       lyrics: parsed.lyrics || [],
       audioUrl: '',
       audioUrlV2: null,
+      duration: 0,
       status: '',
     };
   } catch {
@@ -156,6 +159,7 @@ function applyFetchedSong(prev: SongDetails, dbSong: NonNullable<NonNullable<imp
     lyrics: normalizeLyrics(dbSong.lyrics) || prev.lyrics,
     audioUrl: dbSong.audioUrl || prev.audioUrl,
     audioUrlV2: dbSong.audioUrlV2 || prev.audioUrlV2,
+    duration: dbSong.duration || prev.duration,
     photoUrl,
     status: dbSong.status || prev.status,
   };

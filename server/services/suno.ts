@@ -154,7 +154,7 @@ const STYLE_MAP: Record<string, string> = {
   gospel: 'gospel, choral harmonies, organ, piano, inspirational, uplifting, powerful vocal, 80bpm',
   acoustic: 'acoustic, soft guitar, intimate vocals, unplugged, warm, gentle, stripped down, 80bpm',
   'romantic pop': 'romantic pop, emotional strings, modern radio ballad, synth pads, catchy chorus, 90bpm',
-  'r&b': 'contemporary R&B, slow jam, smooth soulful vocals, melisma, falsetto, electric piano, synth pads, 75bpm',
+  'r&b': 'contemporary R&B, slow jam, smooth soulful vocals, melisma, falsetto, electric piano, synth pads, 85bpm',
   hino: 'hino, orchestral, epic cinematic, choir, brass section, majestic, inspirational, 80bpm',
 };
 
@@ -237,11 +237,30 @@ const EMOTION_STYLE_MAP: Record<string, string> = {
   inspiração: 'uplifting, inspiring, hopeful',
 };
 
-// Sotaque angolano no canto. Fraseado só positivo (negações são pouco fiáveis
-// em prompts de áudio e podem dar efeito contrário). Desligável via env.
-// NOTA: mantido curto para não sobrepor o estilo musical (ex: R&B, Kizomba)
-const ANGOLAN_ACCENT_STYLE =
-  'Angolan Portuguese vocal, Luanda accent, African rhythm cadence';
+// Sotaque vocal por estilo. TODOS os estilos mantêm "Angolan Portuguese vocal"
+// pois os clientes são angolanos — o problema era "African rhythm cadence" que
+// distorcia o ritmo para Kizomba em géneros internacionais.
+// NOTA: mantido curto — o ritmo já vem do STYLE_MAP; aqui só paramos o vocal.
+const ACCENT_STYLE_MAP: Record<string, string> = {
+  // Africanos/Angolanos — sotaque + ritmo africano natural
+  kizomba: 'Angolan Portuguese vocal, Luanda accent, smooth sensual delivery',
+  semba: 'Angolan Portuguese vocal, Luanda accent, energetic rhythmic delivery',
+  zouk: 'Angolan Portuguese vocal, Luanda accent, romantic smooth delivery',
+  afrobeat: 'Angolan Portuguese vocal, energetic West African-influenced delivery',
+  funk: 'Angolan Portuguese vocal, urban energetic delivery',
+  // Internacionais — sotaque Angolano SEM "African rhythm cadence"
+  'r&b': 'Angolan Portuguese vocal, smooth soulful neo-soul delivery',
+  pop: 'Angolan Portuguese vocal, clean polished radio-friendly delivery',
+  trap: 'Angolan Portuguese vocal, modern urban hip hop delivery',
+  rap: 'Angolan Portuguese vocal, rhythmic hip hop delivery',
+  reggae: 'Angolan Portuguese vocal, relaxed Caribbean-influenced delivery',
+  balada: 'Angolan Portuguese vocal, emotional ballad delivery',
+  gospel: 'Angolan Portuguese vocal, powerful inspirational delivery',
+  acoustic: 'Angolan Portuguese vocal, intimate soft stripped-down delivery',
+  'romantic pop': 'Angolan Portuguese vocal, emotional romantic delivery',
+  samba: 'Angolan Portuguese vocal, festive rhythmic delivery',
+  hino: 'Angolan Portuguese vocal, majestic epic delivery',
+};
 const SUNO_ACCENT_ENABLED = process.env.SUNO_ACCENT_ENABLED !== 'false';
 const PORTUGUESE_TEXT_RE = /[àáâãéêíóôõúç]/i;
 
@@ -376,7 +395,8 @@ export async function startSunoMusic(lyrics: string[] | string, musicStyle: stri
   const isPortugueseLyrics = PORTUGUESE_TEXT_RE.test(lyricsText);
   const accentApplied = SUNO_ACCENT_ENABLED && isPortugueseLyrics;
   if (accentApplied) {
-    parts.push(ANGOLAN_ACCENT_STYLE);
+    const accentStyle = ACCENT_STYLE_MAP[musicStyle.trim().toLowerCase()];
+    if (accentStyle) parts.push(accentStyle);
   }
 
   const stylePrompt = parts.join(', ');

@@ -84,11 +84,10 @@ beforeEach(() => {
 });
 
 describe('processSunoVoice', () => {
-  it('reutiliza o validation_task_id do wizard (após verificar que a task é válida) e cria a voz a partir da gravação da frase', async () => {
+  it('reutiliza o validation_task_id do wizard diretamente (sem pre-check) e cria a voz', async () => {
     const row = { language: 'Português', elevenlabs_voice_id: '{"validation_task_id":"vt-1","phrase":"frase do wizard"}' };
     const { updateCalls, client } = buildSupabaseMock(row);
     (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(client);
-    (waitForValidationPhrase as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'vt-1', validateInfo: 'frase do wizard', status: 'success' });
     (createCustomVoice as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'create-1', voiceId: null, status: 'processing' });
     (waitForVoiceId as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'create-1', voiceId: 'voice-1', status: 'success' });
     (checkVoiceAvailability as ReturnType<typeof vi.fn>).mockResolvedValue({ isAvailable: true });
@@ -96,10 +95,11 @@ describe('processSunoVoice', () => {
     const result = await processSunoVoice('req-1', 'song-1', 'http://sample.example.com/x.wav');
 
     expect(result).toBe('voice-1');
+    // A task do wizard é reutilizada diretamente — sem pre-check nem geração de frase
     expect(generateValidationPhrase).not.toHaveBeenCalled();
-    expect(waitForValidationPhrase).toHaveBeenCalledTimes(1);
-    expect(waitForValidationPhrase).toHaveBeenCalledWith('vt-1', 5);
+    expect(waitForValidationPhrase).not.toHaveBeenCalled();
     expect(createCustomVoice).toHaveBeenCalledTimes(1);
+    // verifyUrl = publicVoiceUrl (a gravação da frase, NÃO a amostra livre)
     expect(createCustomVoice).toHaveBeenCalledWith(
       'vt-1',
       'https://public.example.com/sunovoice/sample.wav',
@@ -116,7 +116,7 @@ describe('processSunoVoice', () => {
     expect(typeof meta.ts).toBe('number');
   });
 
-  it('sem validation_task_id usa o fallback legado (gera a frase) mas continua a criar a voz', async () => {
+  it('sem validation_task_id usa o fallback legado (gera frase a partir da gravação da frase)', async () => {
     const row = { language: 'Português', elevenlabs_voice_id: null };
     const { client } = buildSupabaseMock(row);
     (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(client);
@@ -130,6 +130,13 @@ describe('processSunoVoice', () => {
 
     expect(result).toBe('voice-2');
     expect(generateValidationPhrase).toHaveBeenCalledTimes(1);
+    // Fallback gera frase a partir de publicVoiceUrl (a gravação), NÃO da amostra livre
+    expect(generateValidationPhrase).toHaveBeenCalledWith(
+      'https://public.example.com/sunovoice/sample.wav',
+      0,
+      30,
+      'pt'
+    );
     expect(createCustomVoice).toHaveBeenCalledWith(
       'val-1',
       'https://public.example.com/sunovoice/sample.wav',
@@ -144,25 +151,25 @@ describe('processSunoVoice', () => {
     const row = { language: 'Português', elevenlabs_voice_id: '{"validation_task_id":"vt-3"}' };
     const { updateCalls, client } = buildSupabaseMock(row);
     (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(client);
-    (waitForValidationPhrase as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'vt-3', validateInfo: 'alguma frase', status: 'success' });
     (createCustomVoice as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Suno Voice creation failed: it did not sound like the phrase'));
 
     const result = await processSunoVoice('req-3', 'song-3', 'http://sample.example.com/z.wav');
 
     expect(result).toBeNull();
+    // Sem pre-check — createCustomVoice é chamado diretamente com a task do wizard
+    expect(waitForValidationPhrase).not.toHaveBeenCalled();
+    expect(createCustomVoice).toHaveBeenCalledTimes(1);
     const failedUpdate = updateCalls.find((u) => u.table === 'song_requests');
     expect(failedUpdate).toBeDefined();
     expect(String((failedUpdate!.payload as Record<string, unknown>).elevenlabs_voice_id)).toContain('failed');
   });
 
-  it('recupera task de validação expirada gerando uma nova frase (fallback)', async () => {
-    const row = { language: 'Português', elevenlabs_voice_id: '{"validation_task_id":"vt-expired","phrase":"frase antiga"}' };
+  it('fallback gera frase sem sobrescrever verifyUrl com amostra livre', async () => {
+    const row = { language: 'Português', elevenlabs_voice_id: null, voice_free_sample_url: 'voices/free_sample.wav' };
     const { client } = buildSupabaseMock(row);
     (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(client);
-    (waitForValidationPhrase as ReturnType<typeof vi.fn>)
-      .mockRejectedValueOnce(new Error('Suno Voice validation phrase not ready after 5 attempts'))
-      .mockResolvedValueOnce({ taskId: 'val-fresh', validateInfo: 'frase nova', status: 'success' });
     (generateValidationPhrase as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'val-fresh' });
+    (waitForValidationPhrase as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'val-fresh', validateInfo: 'frase nova', status: 'success' });
     (createCustomVoice as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'create-4', voiceId: null, status: 'processing' });
     (waitForVoiceId as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'create-4', voiceId: 'voice-4', status: 'success' });
     (checkVoiceAvailability as ReturnType<typeof vi.fn>).mockResolvedValue({ isAvailable: true });
@@ -170,8 +177,8 @@ describe('processSunoVoice', () => {
     const result = await processSunoVoice('req-4', 'song-4', 'http://sample.example.com/w.wav');
 
     expect(result).toBe('voice-4');
-    expect(waitForValidationPhrase).toHaveBeenCalledTimes(2);
     expect(generateValidationPhrase).toHaveBeenCalledTimes(1);
+    // verifyUrl = publicVoiceUrl (a gravação), NUNCA a amostra livre
     expect(createCustomVoice).toHaveBeenCalledWith(
       'val-fresh',
       'https://public.example.com/sunovoice/sample.wav',
@@ -182,29 +189,24 @@ describe('processSunoVoice', () => {
     );
   });
 
-  it('descarta a task reutilizada quando a frase devolvida não corresponde à que o cliente gravou', async () => {
-    const row = { language: 'Português', elevenlabs_voice_id: '{"validation_task_id":"vt-mismatch","phrase":"frase A"}' };
+  it('idioma correto é passado ao generateValidationPhrase no fallback', async () => {
+    const row = { language: 'Inglês', elevenlabs_voice_id: null };
     const { client } = buildSupabaseMock(row);
     (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(client);
-    (waitForValidationPhrase as ReturnType<typeof vi.fn>)
-      .mockResolvedValueOnce({ taskId: 'vt-mismatch', validateInfo: 'frase B', status: 'success' })
-      .mockResolvedValueOnce({ taskId: 'val-fresh2', validateInfo: 'frase nova', status: 'success' });
-    (generateValidationPhrase as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'val-fresh2' });
-    (createCustomVoice as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'create-5', voiceId: null, status: 'processing' });
-    (waitForVoiceId as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'create-5', voiceId: 'voice-5', status: 'success' });
+    (generateValidationPhrase as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'val-en' });
+    (waitForValidationPhrase as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'val-en', validateInfo: 'hello world', status: 'success' });
+    (createCustomVoice as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'create-en', voiceId: null, status: 'processing' });
+    (waitForVoiceId as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'create-en', voiceId: 'voice-en', status: 'success' });
     (checkVoiceAvailability as ReturnType<typeof vi.fn>).mockResolvedValue({ isAvailable: true });
 
-    const result = await processSunoVoice('req-5', 'song-5', 'http://sample.example.com/v.wav');
+    const result = await processSunoVoice('req-en', 'song-en', 'http://sample.example.com/en.wav');
 
-    expect(result).toBe('voice-5');
-    expect(generateValidationPhrase).toHaveBeenCalledTimes(1);
-    expect(createCustomVoice).toHaveBeenCalledWith(
-      'val-fresh2',
+    expect(result).toBe('voice-en');
+    expect(generateValidationPhrase).toHaveBeenCalledWith(
       'https://public.example.com/sunovoice/sample.wav',
-      'SeuBeat_req-5',
-      'Custom voice from SeuBeat',
-      '',
-      'professional'
+      0,
+      30,
+      'en'
     );
   });
 });

@@ -27,7 +27,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
   const activeAudioUrl = selectedVersion === 'v2' && songDetails.audioUrlV2
     ? songDetails.audioUrlV2
     : songDetails.audioUrl;
-  const { isPlaying, isMuted, audioProgress, togglePlay, toggleMute } = useAudioPlayer({
+  const { isPlaying, isMuted, audioProgress, audioDuration, togglePlay, toggleMute } = useAudioPlayer({
     audioUrl: activeAudioUrl,
     textFallback: songDetails.letter || (songDetails.lyrics.length > 0 ? songDetails.lyrics.join(' ') : undefined),
   });
@@ -346,6 +346,8 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
         <SongPlayer
           ref={fileInputRef}
           audioProgress={audioProgress}
+          audioDuration={audioDuration}
+          dbDuration={songDetails.duration}
           isPlaying={isPlaying}
           isMuted={isMuted}
           hasAudio={!!activeAudioUrl}

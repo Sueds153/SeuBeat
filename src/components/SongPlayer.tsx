@@ -3,6 +3,8 @@ import { Play, Pause, Volume2, VolumeX, Download, FileText, Lock } from 'lucide-
 
 interface SongPlayerProps {
   audioProgress: number;
+  audioDuration: number;
+  dbDuration: number;
   isPlaying: boolean;
   isMuted: boolean;
   hasAudio: boolean;
@@ -19,15 +21,22 @@ interface SongPlayerProps {
 
 export default forwardRef<HTMLInputElement, SongPlayerProps>(function SongPlayer(props, _ref) {
   const {
-    audioProgress, isPlaying, isMuted, hasAudio, isFullUnlocked,
+    audioProgress, audioDuration, dbDuration, isPlaying, isMuted, hasAudio, isFullUnlocked,
     songTitle, recipientName, recipientNick, whereItHappened,
     onPlayPause, onToggleMute, onDownloadMP3, onDownloadLyrics,
   } = props;
 
-  const durationSeconds = isFullUnlocked ? 185 : 30;
-  const elapsed = Math.floor((audioProgress / 100) * durationSeconds);
-  const elapsedStr = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, '0')}`;
-  const totalStr = isFullUnlocked ? '3:05' : '0:30';
+  const formatTime = (sec: number): string => {
+    const s = Math.max(0, Math.floor(sec));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  };
+
+  const totalSeconds = isFullUnlocked
+    ? (audioDuration || dbDuration || 185)
+    : 30;
+  const elapsed = Math.floor((audioProgress / 100) * totalSeconds);
+  const elapsedStr = formatTime(elapsed);
+  const totalStr = formatTime(totalSeconds);
 
   const heights = [20,35,12,45,60,20,75,40,50,65,15,42,55,30,65,45,25,55,70,40,80,22,50,60,30,68,48,20,38,55,12,35,45,20,58,38,14,25,42,55];
 

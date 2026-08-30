@@ -5,6 +5,8 @@ import SongPlayer from '../components/SongPlayer';
 
 const defaultProps = {
   audioProgress: 50,
+  audioDuration: 0,
+  dbDuration: 185,
   isPlaying: false,
   isMuted: false,
   hasAudio: true,
