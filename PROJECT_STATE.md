@@ -1,6 +1,6 @@
 # SeuBeat — Estado do Projeto (atualizado a cada sessão)
 
-## Estado Atual (30/Ago 2026)
+## Estado Atual (31/Ago 2026)
 
 ### Stack
 - **Frontend**: React + Vite + Tailwind + TypeScript
@@ -17,7 +17,7 @@
 
 ### Produção
 - **URL**: https://seubeat.onrender.com
-- **Último deploy**: commit `aa1ab1c` (project memory + Jina MCP)
+- **Último deploy**: commit `31f00fd` (payment proof upload via FormData)
 - **Testes**: 372 passam (32 ficheiros), `tsc --noEmit` limpo
 
 ### DB Schema (tabelas principais)
@@ -41,12 +41,13 @@
 9. **Meta Ads** — configuração de campanhas ✅ funcional
 10. **WhatsApp** — estado de envios ✅ funcional
 
-### Bugs Corrigidos Hoje (30/Ago)
+### Bugs Corrigidos Hoje (30-31/Ago)
 1. Undo route retornava sucesso mesmo com erro na DB → fix: `if (undoError)` return 500
 2. Undo force_status sem tratamento de erros → fix: error checking em todos os caminhos
 3. force-voice `.maybeSingle().then()` engolia erros → fix: log de erros
 4. `handleForceStatus`/`handleUpdateStyle` sem `apiHeaders` no deps array → fix adicionado
 5. Approve flow sem guard `voice_processing` → fix adicionado
+6. Pagamento comprovativo: payload base64+JSON (~13MB) causava timeout no Render → fix: multer + FormData (binário, 25% menor), AbortController 90s, backward-compat JSON para testes
 
 ### Pendências Conhecidas
 - `auth_leaked_password_protection` — ativar manualmente no Dashboard Supabase

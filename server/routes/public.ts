@@ -53,6 +53,11 @@ router.use(globalLimiter);
 const paymentUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max (proof)
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/', 'audio/', 'application/pdf'];
+    if (allowed.some(p => file.mimetype.startsWith(p))) cb(null, true);
+    else cb(new multer.MulterError('LIMIT_UNEXPECTED_FILE', file.fieldname));
+  },
 }).fields([
   { name: 'proof', maxCount: 1 },
   { name: 'voiceSample', maxCount: 1 },
@@ -1059,7 +1064,7 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
 
     // Para multipart, os campos texto vêm como strings em req.body
     // Para JSON, tudo está em req.body (incluindo base64 strings)
-    const isMultipart = !!proofFileMulter;
+    const isMultipart = !!(proofFileMulter || voiceFileMulter || voiceFreeFileMulter) || req.is('multipart/form-data');
 
     // Construir body validável — multipart usa strings do FormData, JSON usa req.body direto
     const bodyForValidation = isMultipart
@@ -1072,7 +1077,7 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
           paymentMethod: req.body.paymentMethod || 'reference',
           voiceValidationTaskId: req.body.voiceValidationTaskId || null,
           voiceValidationPhrase: req.body.voiceValidationPhrase || null,
-          eventIds: req.body.eventIds ? JSON.parse(req.body.eventIds) : null,
+          eventIds: (() => { try { return req.body.eventIds ? JSON.parse(req.body.eventIds) : null; } catch { return null; } })(),
           // Campos base64 opcionais — para multipart não existem
           proofBase64: null,
           voiceSampleBase64: null,
