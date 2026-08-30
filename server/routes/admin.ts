@@ -30,7 +30,7 @@ import {
   normalizePhoneToE164, ABANDONED_BUCKET_ORDER,
   isAbandonedTimeRange, elapsedInRange,
 } from '../services/abandonedMessages';
-import { sendDeliveryWhatsApp, sendFeedbackRequestWhatsApp, sendPaymentApprovedWhatsApp, sendVideoUpsellWhatsApp } from '../services/whatsappSender';
+import { sendDeliveryWhatsApp, sendFeedbackRequestWhatsApp, sendPaymentApprovedWhatsApp, sendPaymentRejectedWhatsApp, sendVideoUpsellWhatsApp } from '../services/whatsappSender';
 import type { BulkClient } from '../services/whatsappSender';
 import { templateForBucket, enabledWhatsAppBuckets } from '../services/whatsappTemplates';
 import { getMetaAdsSpend } from '../services/metaAds';
@@ -542,7 +542,7 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
 
     const { data: payment } = await supabase
       .from('payments')
-      .select('user_email, request_id, status, proof_path')
+      .select('user_email, request_id, status, proof_path, song_requests(recipient_name, users(phone))')
       .eq('id', id)
       .eq('status', 'pending_verification')
       .single();
@@ -560,6 +560,20 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
     if (payment?.user_email) {
       logInfo('[Admin] Enviando email de rejeicao', { paymentId: id, userEmail: payment.user_email });
       sendPaymentRejectionEmail(payment.user_email, notes).catch(err => logError('[Admin] Falha ao enviar email de rejeicao', err, { userId: payment.user_email }));
+    }
+
+    // WhatsApp de rejeição — notifica o cliente que o comprovativo foi rejeitado
+    const songRequest = (payment as any)?.song_requests;
+    const phone = songRequest?.users?.phone || '';
+    const recipientName = songRequest?.recipient_name || '';
+    if (phone && payment?.request_id) {
+      logInfo('[Admin] Enviando WhatsApp de rejeição', { paymentId: id, requestId: payment.request_id });
+      sendPaymentRejectedWhatsApp({
+        requestId: payment.request_id,
+        phone,
+        recipientName,
+        reason: notes || 'comprovativo reprovado',
+      }).catch(err => logError('[Admin] Falha ao enviar WhatsApp de rejeição', err, { requestId: payment.request_id }));
     }
 
     res.json({ success: true, message: 'Pagamento rejeitado.' });

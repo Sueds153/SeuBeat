@@ -1,7 +1,7 @@
 import { getAdminSupabase } from './supabase';
 import { logInfo, logWarn, logError } from '../utils/logger';
 import { normalizePhoneToE164 } from './abandonedMessages';
-import { TEMPLATE_LANGUAGE, templateForBucket, listTemplates, enabledWhatsAppBuckets, DELIVERY_TEMPLATE_NAME, FEEDBACK_TEMPLATE_NAME, PAYMENT_APPROVED_TEMPLATE_NAME, VIDEO_UPSELL_TEMPLATE_NAME } from './whatsappTemplates';
+import { TEMPLATE_LANGUAGE, templateForBucket, listTemplates, enabledWhatsAppBuckets, DELIVERY_TEMPLATE_NAME, FEEDBACK_TEMPLATE_NAME, PAYMENT_APPROVED_TEMPLATE_NAME, PAYMENT_REJECTED_TEMPLATE_NAME, VIDEO_UPSELL_TEMPLATE_NAME } from './whatsappTemplates';
 
 // ─────────────────────────────────────────────────────────────
 // Envio de WhatsApp via WhatsApp Business Cloud API (Meta).
@@ -687,6 +687,41 @@ export async function sendPaymentApprovedWhatsApp(client: {
       templateName,
     });
     logInfo('[WhatsApp] Notificação de pagamento aprovado enviada (Standard)', { phone, requestId: client.requestId });
+    return 'sent';
+  }
+
+  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', error: res.error });
+  return 'failed';
+}
+
+// ─────────────────────────────────────────────────────────────
+// Notificação de rejeição de pagamento
+// Template: {{1}} = nome do destinatário, {{2}} = motivo (ou "reprovado")
+// ─────────────────────────────────────────────────────────────
+
+export async function sendPaymentRejectedWhatsApp(client: {
+  requestId: string;
+  phone?: string | null;
+  recipientName?: string | null;
+  reason?: string | null;
+}): Promise<'sent' | 'skipped' | 'failed' | 'unconfigured'> {
+  if (!isConfigured()) return 'unconfigured';
+  const phone = normalizePhoneToE164(client.phone || '');
+  if (!phone) return 'skipped';
+
+  const templateName = PAYMENT_REJECTED_TEMPLATE_NAME;
+  const params = [client.recipientName || 'Destinatário', client.reason || 'reprovado'];
+  const res = await sendTemplate(phone, templateName, params);
+
+  if (res.ok) {
+    await insertSendLog({
+      requestId: client.requestId,
+      phone,
+      status: 'sent',
+      messageId: res.messageId || undefined,
+      templateName,
+    });
+    logInfo('[WhatsApp] Notificação de pagamento rejeitado enviada', { phone, requestId: client.requestId });
     return 'sent';
   }
 
