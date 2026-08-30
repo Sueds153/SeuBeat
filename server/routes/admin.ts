@@ -498,7 +498,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
     // Precisa de gerar áudio ou processar voz clonada → workflow Suno
 
     // Evita iniciar um segundo workflow se já existe um em andamento
-    const isProcessing = songData.mureka_status === 'generating' || songData.mureka_status === 'processing' || (songData.mureka_task_id && !hasGeneratedAudio);
+    const isProcessing = songData.mureka_status === 'generating' || songData.mureka_status === 'processing' || songData.mureka_status === 'voice_processing' || (songData.mureka_task_id && !hasGeneratedAudio);
     if (isProcessing) {
       firePurchaseEvent();
       return res.json({ success: true, message: 'Música já está em processamento. A entrega será automática quando concluída.', alreadyProcessing: true });
@@ -1187,7 +1187,9 @@ router.post('/request/:id/force-voice', adminAuth, async (req, res) => {
     const voiceSampleUrl = requestData.voice_sample_url;
     processSunoVoice(id, songData.id, voiceSampleUrl).then(voiceId => {
       if (voiceId) {
-        supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', id).maybeSingle().then();
+        supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', id).then(({ error }) => {
+          if (error) logError('[Admin] Force-voice: falha ao setar music_processing', error, { requestId: id });
+        });
       }
     }).catch(err => logError('[Admin] Force Suno Voice falhou', err, { requestId: id }));
     res.json({ success: true, message: 'Processamento de voz Suno Voice forçado.' });
@@ -1381,6 +1383,10 @@ router.post('/undo', adminAuth, async (req, res) => {
             await supabase.from('song_requests').update({ status: 'payment_submitted' }).eq('id', pay.request_id).in('status', ['payment_rejected', 'approved', 'delivered', 'music_ready', 'music_processing', 'voice_processing']);
           }
         }
+        if (undoError) {
+          logAdminAction({ action: 'undo', entityType: 'payment', entityId, notes: `Undo falhou: ${undoError.message}` });
+          return res.status(500).json({ success: false, error: `Falha ao reverter pagamento: ${undoError.message}` });
+        }
         logAdminAction({ action: 'undo', entityType: 'payment', entityId, notes: `Undo: ${action}` });
         return res.json({ success: true, message: `Acção de "${action}" revertida. Pagamento voltou a "pending_verification".` });
       }
@@ -1395,12 +1401,14 @@ router.post('/undo', adminAuth, async (req, res) => {
         return res.status(400).json({ success: false, error: `previousStatus "${previousStatus}" inválido para "${entityType}". Permitidos: ${undoAllowed.join(', ')}` });
       }
       if (entityType === 'song_requests' || entityType === 'payments') {
-        await supabase.from(entityType).update({ status: previousStatus }).eq('id', entityId);
+        const { error: undoFsErr } = await supabase.from(entityType).update({ status: previousStatus }).eq('id', entityId);
+        if (undoFsErr) return res.status(500).json({ success: false, error: `Falha ao reverter ${entityType}: ${undoFsErr.message}` });
         logAdminAction({ action: 'undo', entityType, entityId, notes: `Undo force_status: revertido para ${previousStatus}` });
         return res.json({ success: true, message: `Estado revertido para "${previousStatus}".` });
       }
       if (entityType === 'songs') {
-        await supabase.from('songs').update({ mureka_status: previousStatus }).eq('id', entityId);
+        const { error: undoSongErr } = await supabase.from('songs').update({ mureka_status: previousStatus }).eq('id', entityId);
+        if (undoSongErr) return res.status(500).json({ success: false, error: `Falha ao reverter songs: ${undoSongErr.message}` });
         logAdminAction({ action: 'undo', entityType: 'songs', entityId, notes: `Undo force_status: revertido para ${previousStatus}` });
         return res.json({ success: true, message: `Estado revertido para "${previousStatus}".` });
       }

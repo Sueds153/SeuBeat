@@ -636,7 +636,7 @@ export default function AdminPanel() {
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
     fetchRequests(); fetchPayments(); fetchSongs();
-  }, [forceStatusModal, forceStatusValue, adminToken, expireSession]);
+  }, [forceStatusModal, forceStatusValue, apiHeaders, expireSession]);
 
   const handleUpdateStyle = useCallback(async (requestId: string, musicStyle?: string, voiceType?: string) => {
     setActionLoading(requestId + '_style');
@@ -651,7 +651,7 @@ export default function AdminPanel() {
       else showToast(data.error || 'Erro ao atualizar.', 'error');
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
-  }, [adminToken, expireSession]);
+  }, [apiHeaders, expireSession]);
 
   const handleSaveClient = useCallback(async () => {
     if (!editingClient) return;
