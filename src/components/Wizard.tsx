@@ -311,6 +311,18 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   // Estado do upload de comprovativo de pagamento
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreviewUrl, setProofPreviewUrl] = useState<string | null>(null);
+  const [proofMeta, setProofMeta] = useState<{ name: string; type: string; size: number } | null>(() => {
+    try {
+      const saved = localStorage.getItem('seubeat_wizard_progress');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.proofMeta && parsed.paymentSubmitted) {
+          return parsed.proofMeta;
+        }
+      }
+    } catch {}
+    return null;
+  });
 
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const [paymentSubmitted, setPaymentSubmitted] = useState(() => {
@@ -333,29 +345,8 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     } catch {}
     return 'pending';
   });
-  // Reconstruir proofFile do localStorage após refresh (quando paymentSubmitted veio de localStorage)
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('seubeat_wizard_progress');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.proofFile?.base64) {
-          const proofData = parsed.proofFile;
-          // Decodificar base64 e criar File object
-          const byteCharacters = atob(proofData.base64);
-          const byteNumbers = new Array(byteCharacters.length);
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-          }
-          const byteArray = new Uint8Array(byteNumbers);
-          const blob = new Blob([byteArray], { type: proofData.type || 'application/octet-stream' });
-          const file = new File([blob], proofData.name, { type: blob.type });
-          setProofFile(file);
-          setProofPreviewUrl(URL.createObjectURL(file));
-        }
-      }
-    } catch {}
-  }, [paymentSubmitted]); // dependency on paymentSubmitted triggers on refresh
+  // proofMeta: guardado em localStorage para saber se já submeteu (sem guardar o ficheiro inteiro)
+  // proofFile: null — não保存amos o ficheiro no localStorage (too large)
   const [paymentNotes, setPaymentNotes] = useState<string>('');
   const [paymentSubmitError, setPaymentSubmitError] = useState<string>('');
   // AI Song states powered by Claude
@@ -561,7 +552,8 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         validationTaskId,
         phraseRecorded,
         hasVoiceSample: !!clonedVoiceFile,
-        proofFile: null
+        proofFile: null,
+        proofMeta: proofMeta || (proofFile ? { name: proofFile.name, type: proofFile.type, size: proofFile.size } : null)
       }));
     } catch {}
   }, [
@@ -581,6 +573,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     selectedPlanID,
     voiceUpsellApplied,
     proofFile,
+    proofMeta,
     hasRecorded,
     validationPhrase,
     validationTaskId,
@@ -741,12 +734,14 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       return null;
     });
     setProofFile(null);
+    setProofMeta(null);
     // Also clear proof data from localStorage
     try {
       const saved = localStorage.getItem('seubeat_wizard_progress');
       if (saved) {
         const parsed = JSON.parse(saved);
         parsed.proofFile = null;
+        parsed.proofMeta = null;
         localStorage.setItem('seubeat_wizard_progress', JSON.stringify(parsed));
       }
     } catch {}
@@ -766,6 +761,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         return null;
       });
       setProofFile(file);
+      setProofMeta({ name: file.name, type: file.type, size: file.size });
       setProofPreviewUrl(URL.createObjectURL(file));
       setPaymentSubmitError('');
     }
@@ -785,150 +781,89 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     setPaymentSubmitting(true);
     setPaymentSubmitError('');
 
+    // AbortController: timeout de 90s para evitar spinner infinito em conexões lentas
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), 90_000);
+
     try {
-      // Ler arquivo de comprovativo como base64
-      const reader = new FileReader();
-      reader.readAsDataURL(proofFile);
-      reader.onloadend = async () => {
-        if (!proofMountedRef.current) {
-          setPaymentSubmitting(false);
-          setPaymentSubmitError('A página foi atualizada durante o envio. Por favor, tente novamente.');
-          return;
+      // Construir FormData — envia binário direto (sem base64 inflation)
+      const fd = new FormData();
+      fd.append('songRequestId', dbSongRequestId || '');
+      fd.append('userEmail', formData.email);
+      if (formData.phone) fd.append('phone', formData.phone);
+      fd.append('plan', selectedPlanID || 'standard');
+      fd.append('amount', String(getPriceNumber()));
+      fd.append('paymentMethod', paymentMethod);
+
+      // Ficheiro do comprovativo — upload direto, sem base64
+      fd.append('proof', proofFile, proofFile.name);
+
+      // EventIds do Meta CAPI
+      const checkoutEventId = generateEventId(dbSongRequestId, 'InitiateCheckout');
+      const addPaymentEventId = generateEventId(dbSongRequestId, 'AddPaymentInfo');
+      const submitAppEventId = generateEventId(dbSongRequestId, 'SubmitApplication');
+      fd.append('eventIds', JSON.stringify({
+        initiateCheckout: checkoutEventId,
+        addPaymentInfo: addPaymentEventId,
+        submitApplication: submitAppEventId,
+      }));
+
+      // Amostra de voz (Premium) — upload direto
+      if (clonedVoiceFile) {
+        fd.append('voiceSample', clonedVoiceFile, clonedVoiceFile.name);
+        if (clonedVoiceFreeSampleFile && clonedVoiceFreeSampleFile !== clonedVoiceFile) {
+          fd.append('voiceFreeSample', clonedVoiceFreeSampleFile, clonedVoiceFreeSampleFile.name);
         }
-        const base64Data = reader.result as string;
-
-        let voiceBase64 = null;
-        let voiceFilename = null;
-        let voiceMimeType = null;
-
-        const postPaymentData = async (
-          proofStr: string,
-          voiceStr: string | null,
-          voiceName: string | null,
-          voiceType: string | null,
-          freeVoiceStr?: string | null,
-          freeVoiceName?: string | null,
-          freeVoiceType?: string | null
-        ) => {
-          try {
-            // Generate deterministic eventIds for cross-device deduplication
-            const checkoutEventId = generateEventId(dbSongRequestId, 'InitiateCheckout');
-            const addPaymentEventId = generateEventId(dbSongRequestId, 'AddPaymentInfo');
-            const submitAppEventId = generateEventId(dbSongRequestId, 'SubmitApplication');
-            
-            const res = await fetch('/api/submit-payment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                songRequestId: dbSongRequestId || null,
-                userEmail: formData.email,
-                phone: formData.phone,
-                plan: selectedPlanID || 'standard',
-                amount: getPriceNumber(),
-                paymentMethod,
-                proofBase64: proofStr,
-                proofFilename: proofFile.name,
-                proofMimeType: proofFile.type,
-                voiceSampleBase64: voiceStr,
-                voiceSampleFilename: voiceName,
-                voiceSampleMimeType: voiceType,
-                voiceFreeSampleBase64: freeVoiceStr || null,
-                voiceFreeSampleFilename: freeVoiceName || null,
-                voiceFreeSampleMimeType: freeVoiceType || null,
-                voiceValidationTaskId: validationTaskId,
-                voiceValidationPhrase: validationPhrase,
-                eventIds: {
-                  initiateCheckout: checkoutEventId,
-                  addPaymentInfo: addPaymentEventId,
-                  submitApplication: submitAppEventId
-                }
-              })
-            });
-
-            const data = await res.json();
-            if (res.ok && data.success) {
-              setPaymentSubmitted(true);
-              setPaymentSubmitError('');
-              clearProof();
-              fbSetUserData(formData.email, formData.phone);
-              gaSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()));
-            } else if (res.status === 409) {
-              setPaymentSubmitted(true);
-              setPaymentSubmitError('Já existe um comprovativo pendente para este pedido.');
-            } else {
-              setPaymentSubmitError(data.error || 'Erro ao submeter o comprovativo.');
-            }
-          } catch (fetchErr: any) {
-            setPaymentSubmitError('O servidor demorou a responder, mas pode já ter recebido o seu comprovativo. Use o botão "Verificar Estado" abaixo para confirmar.');
-          } finally {
-            setPaymentSubmitting(false);
-          }
-        };
-
-        if (clonedVoiceFile) {
-          const voiceReader = new FileReader();
-          voiceReader.readAsDataURL(clonedVoiceFile);
-          voiceReader.onloadend = async () => {
-            if (!proofMountedRef.current) {
-              setPaymentSubmitting(false);
-              setPaymentSubmitError('A página foi atualizada durante o envio. Por favor, tente novamente.');
-              return;
-            }
-            voiceBase64 = voiceReader.result as string;
-            voiceFilename = clonedVoiceFile.name;
-            voiceMimeType = clonedVoiceFile.type;
-
-            let freeVoiceBase64: string | null = null;
-            let freeVoiceFilename: string | null = null;
-            let freeVoiceMimeType: string | null = null;
-
-            if (clonedVoiceFreeSampleFile && clonedVoiceFreeSampleFile !== clonedVoiceFile) {
-              try {
-                freeVoiceBase64 = await new Promise<string | null>((resolve) => {
-                  const fr = new FileReader();
-                  fr.onloadend = () => resolve(fr.result as string);
-                  fr.onerror = () => resolve(null);
-                  fr.readAsDataURL(clonedVoiceFreeSampleFile);
-                });
-                if (freeVoiceBase64) {
-                  freeVoiceFilename = clonedVoiceFreeSampleFile.name;
-                  freeVoiceMimeType = clonedVoiceFreeSampleFile.type;
-                }
-              } catch {}
-            }
-
-            await postPaymentData(
-              base64Data,
-              voiceBase64,
-              voiceFilename,
-              voiceMimeType,
-              freeVoiceBase64,
-              freeVoiceFilename,
-              freeVoiceMimeType
-            );
-          };
-          voiceReader.onerror = () => {
-            setPaymentSubmitError('Erro ao ler o ficheiro de voz.');
-            setPaymentSubmitting(false);
-          };
-        } else {
-          if (selectedPlanID === 'premium' || voiceUpsellApplied) {
-            setPaymentSubmitError('Para o pacote Premium, é obrigatório gravar a voz. Volte ao ecrã de gravação.');
-            setPaymentSubmitting(false);
-            setShowVoiceCloningScreen(true);
-            setIsDone(false);
-            return;
-          }
-          await postPaymentData(base64Data, null, null, null);
-        }
-      };
-      reader.onerror = () => {
-        setPaymentSubmitError('Erro ao ler o comprovativo.');
+        if (validationTaskId) fd.append('voiceValidationTaskId', validationTaskId);
+        if (validationPhrase) fd.append('voiceValidationPhrase', validationPhrase);
+      } else if (selectedPlanID === 'premium' || voiceUpsellApplied) {
+        setPaymentSubmitError('Para o pacote Premium, é obrigatório gravar a voz. Volte ao ecrã de gravação.');
         setPaymentSubmitting(false);
-      };
-    } catch (err: any) {
-      setPaymentSubmitError('Erro ao processar o ficheiro: ' + err.message);
+        clearTimeout(timeoutId);
+        setShowVoiceCloningScreen(true);
+        setIsDone(false);
+        return;
+      }
+
+      // Enriquecer com UTM params
+      const storedUtm = getStoredUtm();
+      if (storedUtm) {
+        Object.entries(storedUtm).forEach(([k, v]) => {
+          if (v) fd.append(k, v);
+        });
+      }
+
+      const res = await fetch('/api/submit-payment', {
+        method: 'POST',
+        body: fd,
+        signal: abortController.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPaymentSubmitted(true);
+        setPaymentSubmitError('');
+        clearProof();
+        fbSetUserData(formData.email, formData.phone);
+        gaSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()));
+      } else if (res.status === 409) {
+        setPaymentSubmitted(true);
+        setPaymentSubmitError('Já existe um comprovativo pendente para este pedido.');
+      } else {
+        setPaymentSubmitError(data.error || 'Erro ao submeter o comprovativo.');
+      }
+    } catch (fetchErr: unknown) {
+      clearTimeout(timeoutId);
+      if (fetchErr instanceof DOMException && fetchErr.name === 'AbortError') {
+        setPaymentSubmitError('O envio demorou demasiado tempo (>90s). Verifique a sua ligação e tente novamente.');
+      } else {
+        setPaymentSubmitError('O servidor demorou a responder, mas pode já ter recebido o seu comprovativo. Use o botão "Verificar Estado" abaixo para confirmar.');
+      }
+    } finally {
       setPaymentSubmitting(false);
+      clearTimeout(timeoutId);
     }
   };
 

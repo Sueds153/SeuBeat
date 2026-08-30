@@ -1,4 +1,5 @@
 import express from 'express';
+import multer from 'multer';
 import { randomUUID } from 'node:crypto';
 import fs from 'fs';
 import os from 'os';
@@ -46,6 +47,17 @@ import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 const router = express.Router();
 
 router.use(globalLimiter);
+
+// ─── Multer: upload multipart/form-data para comprovativos de pagamento ───
+// memoryStorage: buffers ficam em memória (já precisamos de Buffer para R2)
+const paymentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max (proof)
+}).fields([
+  { name: 'proof', maxCount: 1 },
+  { name: 'voiceSample', maxCount: 1 },
+  { name: 'voiceFreeSample', maxCount: 1 },
+]);
 
 function safeMessage(err: unknown) {
   return publicErrorMessage(err);
@@ -1019,20 +1031,67 @@ router.get('/stats/today-count', async (_req, res) => {
   }
 });
 
-router.post('/submit-payment', paymentLimiter, async (req, res) => {
+router.post('/submit-payment', paymentLimiter, (req, res, next) => {
+  // Aceitar multipart/form-data (upload direto) OU JSON (retrocompatibilidade)
+  if (req.is('multipart/form-data')) {
+    paymentUpload(req, res, (err) => {
+      if (err) {
+        if (err instanceof multer.MulterError) {
+          if (err.code === 'LIMIT_FILE_SIZE') {
+            return res.status(400).json({ success: false, error: 'Ficheiro demasiado grande. Máx. 10MB.' });
+          }
+          return res.status(400).json({ success: false, error: `Erro no upload: ${err.message}` });
+        }
+        return res.status(500).json({ success: false, error: 'Erro ao processar o upload.' });
+      }
+      next();
+    });
+  } else {
+    next();
+  }
+}, async (req, res) => {
   try {
-    const validation = validateInput(SubmitPaymentSchema, req.body);
+    // Aceitar multipart (req.files) OU JSON body (req.body com base64)
+    const files = req.files as Record<string, Express.Multer.File[]> | undefined;
+    const proofFileMulter = files?.proof?.[0];
+    const voiceFileMulter = files?.voiceSample?.[0];
+    const voiceFreeFileMulter = files?.voiceFreeSample?.[0];
+
+    // Para multipart, os campos texto vêm como strings em req.body
+    // Para JSON, tudo está em req.body (incluindo base64 strings)
+    const isMultipart = !!proofFileMulter;
+
+    // Construir body validável — multipart usa strings do FormData, JSON usa req.body direto
+    const bodyForValidation = isMultipart
+      ? {
+          songRequestId: req.body.songRequestId,
+          userEmail: req.body.userEmail,
+          phone: req.body.phone || undefined,
+          plan: req.body.plan,
+          amount: req.body.amount,
+          paymentMethod: req.body.paymentMethod || 'reference',
+          voiceValidationTaskId: req.body.voiceValidationTaskId || null,
+          voiceValidationPhrase: req.body.voiceValidationPhrase || null,
+          eventIds: req.body.eventIds ? JSON.parse(req.body.eventIds) : null,
+          // Campos base64 opcionais — para multipart não existem
+          proofBase64: null,
+          voiceSampleBase64: null,
+          voiceFreeSampleBase64: null,
+        }
+      : req.body;
+
+    const validation = validateInput(SubmitPaymentSchema, bodyForValidation);
     if (!validation.success) {
       return res.status(400).json({ success: false, error: 'Dados de pagamento inválidos', validation_errors: validationErrorsArray(validation.errors) });
     }
-    const { 
-      songRequestId, userEmail, phone, plan, amount, 
-      proofBase64, proofFilename, proofMimeType, 
+    const {
+      songRequestId, userEmail, phone, plan, amount,
+      proofBase64, proofFilename, proofMimeType,
       voiceSampleBase64, voiceSampleFilename, voiceSampleMimeType,
       voiceFreeSampleBase64, voiceFreeSampleFilename, voiceFreeSampleMimeType,
       voiceValidationTaskId, voiceValidationPhrase,
       paymentMethod,
-      eventIds 
+      eventIds
     } = validation.data;
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
@@ -1082,27 +1141,61 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
 
     let proofPath: string | null = null;
     let proofUrl: string | null = null;
-    if (proofBase64) {
+
+    // Upload do comprovativo: multipart (buffer direto) OU JSON (base64 decode)
+    if (proofFileMulter) {
+      const proofBuffer = proofFileMulter.buffer;
+      if (proofBuffer.length > 10 * 1024 * 1024) throw new Error('Comprovativo demasiado grande. Máx. 10MB.');
+      const resolvedMime = proofFileMulter.mimetype || 'application/octet-stream';
+      const sanitizedProofFilename = String(proofFileMulter.originalname || 'proof.bin').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filename = `proofs/${Date.now()}_${sanitizedProofFilename}`;
+      try {
+        const uploadedUrl = await uploadFileToStorage('payment-proofs', filename, proofBuffer, resolvedMime);
+        proofPath = filename;
+        proofUrl = uploadedUrl;
+        logInfo('[API] Comprovativo enviado (multipart)', { bucket: 'payment-proofs', filename, url: proofUrl, size: proofBuffer.length });
+      } catch (err) {
+        logError('[API] Falha no upload do comprovativo (multipart)', err, { filename });
+        throw new Error(`Upload do comprovativo falhou: ${err instanceof Error ? err.message : 'sem dados'}`);
+      }
+    } else if (proofBase64) {
       const resolvedMime = proofMimeType || 'application/octet-stream';
       const proofBuffer = decodeBase64Payload(proofBase64);
       if (proofBuffer.length > 10 * 1024 * 1024) throw new Error('Comprovativo demasiado grande. Máx. 10MB.');
-      
       const sanitizedProofFilename = String(proofFilename || 'proof.bin').replace(/[^a-zA-Z0-9._-]/g, '_');
       const filename = `proofs/${Date.now()}_${sanitizedProofFilename}`;
       try {
         const uploadedUrl = await uploadFileToStorage('payment-proofs', filename, proofBuffer, resolvedMime);
         proofPath = filename;
         proofUrl = uploadedUrl;
-        logInfo('[API] Comprovativo enviado para storage', { bucket: 'payment-proofs', filename, url: proofUrl, size: proofBuffer.length });
+        logInfo('[API] Comprovativo enviado (base64)', { bucket: 'payment-proofs', filename, url: proofUrl, size: proofBuffer.length });
       } catch (err) {
-        logError('[API] Falha no upload do comprovativo', err, { filename });
+        logError('[API] Falha no upload do comprovativo (base64)', err, { filename });
         throw new Error(`Upload do comprovativo falhou: ${err instanceof Error ? err.message : 'sem dados'}`);
       }
     }
 
     let voiceSampleUrl = null;
     const ALLOWED_VOICE_MIMES = ['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'audio/x-wav', 'audio/webm'];
-    if (voiceSampleBase64) {
+
+    // Upload da amostra de voz
+    if (voiceFileMulter) {
+      const resolvedVoiceMime = voiceFileMulter.mimetype || 'audio/wav';
+      if (!ALLOWED_VOICE_MIMES.includes(resolvedVoiceMime)) {
+        return res.status(400).json({ success: false, error: 'Formato de áudio inválido. Apenas WAV, MP3, MP4 ou OGG.' });
+      }
+      const voiceBuffer = voiceFileMulter.buffer;
+      if (voiceBuffer.length > 5 * 1024 * 1024) throw new Error('Amostra de voz demasiado grande. Máx. 5MB.');
+      if (voiceBuffer.length < 1024) throw new Error('Amostra de voz demasiado pequena. Grava pelo menos 3 segundos.');
+      const sanitizedVoiceFilename = String(voiceFileMulter.originalname || 'sample.wav').replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filename = `voices/${Date.now()}_${sanitizedVoiceFilename}`;
+      try {
+        await uploadFileToStorage('voice-samples', filename, voiceBuffer, resolvedVoiceMime);
+        voiceSampleUrl = `${filename}`;
+      } catch (err) {
+        throw new Error(`Upload da amostra de voz falhou: ${err instanceof Error ? err.message : 'sem dados'}`);
+      }
+    } else if (voiceSampleBase64) {
       const resolvedVoiceMime = voiceSampleMimeType || 'audio/wav';
       if (!ALLOWED_VOICE_MIMES.includes(resolvedVoiceMime)) {
         return res.status(400).json({ success: false, error: 'Formato de áudio inválido. Apenas WAV, MP3, MP4 ou OGG.' });
@@ -1114,14 +1207,33 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       const filename = `voices/${Date.now()}_${sanitizedVoiceFilename}`;
       try {
         await uploadFileToStorage('voice-samples', filename, voiceBuffer, resolvedVoiceMime);
-        voiceSampleUrl = `${filename}`; // Guarda o path em vez de public URL (bucket voice-samples é privado)
+        voiceSampleUrl = `${filename}`;
       } catch (err) {
         throw new Error(`Upload da amostra de voz falhou: ${err instanceof Error ? err.message : 'sem dados'}`);
       }
     }
 
     let voiceFreeSampleUrl = null;
-    if (voiceFreeSampleBase64) {
+
+    // Upload da amostra livre de voz
+    if (voiceFreeFileMulter) {
+      const resolvedFreeMime = voiceFreeFileMulter.mimetype || 'audio/wav';
+      if (!ALLOWED_VOICE_MIMES.includes(resolvedFreeMime)) {
+        return res.status(400).json({ success: false, error: 'Formato de áudio livre inválido.' });
+      }
+      const freeBuffer = voiceFreeFileMulter.buffer;
+      if (freeBuffer.length > 5 * 1024 * 1024) throw new Error('Amostra de voz livre demasiado grande. Máx. 5MB.');
+      if (freeBuffer.length >= 1024) {
+        const sanitizedFreeFilename = String(voiceFreeFileMulter.originalname || 'free_sample.wav').replace(/[^a-zA-Z0-9._-]/g, '_');
+        const freeFilename = `voices/${Date.now()}_free_${sanitizedFreeFilename}`;
+        try {
+          await uploadFileToStorage('voice-samples', freeFilename, freeBuffer, resolvedFreeMime);
+          voiceFreeSampleUrl = `${freeFilename}`;
+        } catch (err) {
+          logError('[API] Upload da amostra de voz livre falhou', err, { freeFilename });
+        }
+      }
+    } else if (voiceFreeSampleBase64) {
       const resolvedFreeMime = voiceFreeSampleMimeType || 'audio/wav';
       if (!ALLOWED_VOICE_MIMES.includes(resolvedFreeMime)) {
         return res.status(400).json({ success: false, error: 'Formato de áudio livre inválido.' });
@@ -1144,9 +1256,6 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
     if (voiceSampleUrl) updateData.voice_sample_url = voiceSampleUrl;
     if (voiceFreeSampleUrl) updateData.voice_free_sample_url = voiceFreeSampleUrl;
     if (voiceSampleUrl && voiceValidationTaskId && typeof voiceValidationTaskId === 'string' && voiceValidationTaskId.trim()) {
-      // Task da frase de validação gerada no wizard — reutilizada pelo processSunoVoice
-      // para criar a voz a partir da gravação da frase (verifyUrl). A frase é guardada
-      // para contexto/verificação (identidade da task e recuperação manual pelo admin).
       const voiceMeta: Record<string, string> = { validation_task_id: voiceValidationTaskId.trim() };
       if (typeof voiceValidationPhrase === 'string' && voiceValidationPhrase.trim()) {
         voiceMeta.phrase = voiceValidationPhrase.trim();
@@ -1170,10 +1279,10 @@ router.post('/submit-payment', paymentLimiter, async (req, res) => {
       payment_method: resolvedPaymentMethod,
       proof_url: proofUrl || (proofPath ? `storage:${proofPath}` : null),
       proof_path: proofPath,
-      proof_filename: proofFilename || proofPath?.split('/').pop() || null,
-      proof_mime_type: proofMimeType || null,
+      proof_filename: (isMultipart && proofFileMulter ? proofFileMulter.originalname : proofFilename) || proofPath?.split('/').pop() || null,
+      proof_mime_type: (isMultipart && proofFileMulter ? proofFileMulter.mimetype : proofMimeType) || null,
       status: 'pending_verification',
-      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15 minutes from now
+      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
     };
 
     let paymentRecord: { id?: string } | null = null;
