@@ -17,7 +17,7 @@
 
 ### Produção
 - **URL**: https://seubeat.onrender.com
-- **Último deploy**: commit `ef81a57` (fix admin error handling)
+- **Último deploy**: commit `aa1ab1c` (project memory + Jina MCP)
 - **Testes**: 372 passam (32 ficheiros), `tsc --noEmit` limpo
 
 ### DB Schema (tabelas principais)
@@ -60,6 +60,7 @@
 - `R2_*` — credenciais R2 no .env local
 - `DEEPSEEK_API_KEY` — provider principal de IA
 - `WHATSAPP_*` — configuração WhatsApp Cloud API
+- `JINA_API_KEY` — embeddings + MCP server (jina.ai, 1M tokens/mês grátis)
 
 ### Notas para Próxima Sessão
 - Sempre verificar estado atual da DB antes de fazer alterações

@@ -8,7 +8,14 @@ Refatorar e melhorar a segurança do SeuBeat (App React + Express + Supabase + S
 - Wizard.tsx e AdminPanel.tsx mantidos como estão (2982 e 3036 linhas) — risco de extração elevado, acordado manter.
 
 ## Estado Atual do Projeto
-- **`PROJECT_STATE.md`** contém snapshot atualizado do estado (DB, R2, pendências, arquitetura). Atualizar no final de cada sessão.
+- **`PROJECT_STATE.md`** contém snapshot atualizado do estado (DB, R2, pendências, arquitetura).
+
+## Auto-atualização do PROJECT_STATE.md
+- Atualizar `PROJECT_STATE.md` **após cada mudança significativa** (bugs fixes, features, migrations, config changes)
+- Atualizar **no final de cada sessão** (commit, deploy, mudanças de estado)
+- Manter conciso (~100 linhas máximo) — snapshot do estado atual, não histórico
+- Incluir: stack, estado DB, bugs corrigidos, pendências, env vars críticas
+- **NÃO pedir permissão** — atualizar automaticamente quando relevante
 
 ## Progress
 ### Done
