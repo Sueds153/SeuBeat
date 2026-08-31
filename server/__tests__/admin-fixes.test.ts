@@ -62,8 +62,8 @@ const PAYMENT_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const REQUEST_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const SONG_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 
-function buildPaymentRow(opts: { plan?: string; audioUrl?: string | null; voiceSample?: string | null; userEmail?: string } = {}) {
-  const { plan = 'standard', audioUrl = 'https://audio.full.mp3', voiceSample = null, userEmail = 'ze@z.pt' } = opts;
+function buildPaymentRow(opts: { plan?: string; audioUrl?: string | null; noAudio?: boolean; voiceSample?: string | null; userEmail?: string } = {}) {
+  const { plan = 'standard', audioUrl = 'https://audio.full.mp3', noAudio = false, voiceSample = null, userEmail = 'ze@z.pt' } = opts;
   return {
     id: PAYMENT_ID,
     request_id: REQUEST_ID,
@@ -86,8 +86,8 @@ function buildPaymentRow(opts: { plan?: string; audioUrl?: string | null; voiceS
       songs: [{
         id: SONG_ID,
         title: 'T',
-        full_song_url: audioUrl,
-        audio_url: audioUrl ? null : 'https://audio.alt.mp3',
+        full_song_url: noAudio ? null : audioUrl,
+        audio_url: noAudio ? null : (audioUrl ? null : 'https://audio.alt.mp3'),
         letter_text: 'Carta',
         mureka_status: 'completed',
       }],
@@ -198,6 +198,46 @@ describe('POST /api/admin/payment/:id/approve', () => {
     const updateCall = songRequestsUpdate.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(updateCall.status).toBe('delivered');
     expect(updateCall.delivered_at).toBeTruthy();
+  });
+
+  it('Premium com áudio pronto + voice sample: entrega direta (não lança Suno workflow)', async () => {
+    const base = await startServer();
+    const { songRequestsUpdate } = buildSupabaseMock({
+      paymentSingle: buildPaymentRow({ plan: 'premium', voiceSample: 'https://voice.sample.wav' }),
+    });
+
+    const res = await fetch(`${base}/api/admin/payment/${PAYMENT_ID}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.alreadyProcessing).toBeUndefined();
+
+    const updateCall = songRequestsUpdate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(updateCall.status).toBe('delivered');
+    expect(updateCall.delivered_at).toBeTruthy();
+  });
+
+  it('mureka_status completed sem áudio: retorna alreadyProcessing (não lança workflow redundante)', async () => {
+    const base = await startServer();
+    buildSupabaseMock({
+      paymentSingle: buildPaymentRow({ noAudio: true, voiceSample: null }),
+    });
+
+    const res = await fetch(`${base}/api/admin/payment/${PAYMENT_ID}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.alreadyProcessing).toBe(true);
   });
 
   it('devolve 409 quando o pagamento não está em pending_verification', async () => {

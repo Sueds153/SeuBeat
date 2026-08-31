@@ -295,8 +295,26 @@ router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
 
     if (error || !payment) return res.status(404).json({ success: false, error: 'Pagamento não encontrado.' });
 
-    // Se proof_url já é uma URL pública completa (R2 pub-*.r2.dev), usa directamente
-    // — evita problemas de CORS/Content-Type com URLs assinadas R2 em iframes.
+    // Normaliza o caminho: usa proof_path se existir, senão usa proof_url sem o prefixo "storage:"
+    let path = payment.proof_path;
+    if (!path && payment.proof_url) {
+      path = payment.proof_url.replace(/^storage:/, '');
+    }
+
+    // Prioriza URL assinada quando temos path (funciona com buckets privados R2/Supabase)
+    if (path) {
+      const signedUrl = await createSignedStorageUrl('payment-proofs', path, 3600);
+      if (signedUrl) {
+        res.json({
+          url: signedUrl,
+          filename: payment.proof_filename || null,
+          mimeType: payment.proof_mime_type || null,
+        });
+        return;
+      }
+    }
+
+    // Fallback: se proof_url é uma URL HTTP completa, usa directamente
     if (payment.proof_url && /^https?:\/\//.test(payment.proof_url)) {
       res.json({
         url: payment.proof_url,
@@ -306,19 +324,10 @@ router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
       return;
     }
 
-    // Normaliza o caminho: usa proof_path se existir, senão usa proof_url sem o prefixo "storage:"
-    let path = payment.proof_path;
-    if (!path && payment.proof_url) {
-      path = payment.proof_url.replace(/^storage:/, '');
-    }
-
     if (!path) return res.status(404).json({ success: false, error: 'Comprovativo não encontrado.' });
 
-    // Gera URL assinada. O provider (R2 ou Supabase) é detectado automaticamente
-    // pelo createSignedStorageUrl com base no STORAGE_PROVIDER do .env.
+    // Último recurso: gerar URL assinada sem path prévio
     const signedUrl = await createSignedStorageUrl('payment-proofs', path, 3600);
-
-    // Fallback: se URL assinada falhar, tenta devolver proof_url directamente
     const finalUrl = signedUrl || payment.proof_url || null;
     if (!finalUrl) return res.status(500).json({ success: false, error: 'Não foi possível gerar URL do comprovativo.' });
 
@@ -414,8 +423,9 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
     const hasVoiceSample = !!songRequest.voice_sample_url;
     const isStandard = planName === 'standard';
 
-    // Se já tem áudio E não tem voz clonada pendente, entrega diretamente
-    if (hasGeneratedAudio && !hasVoiceSample) {
+    // Se já tem áudio, entrega diretamente (voice_sample não bloqueia entrega —
+    // a clonagem de voz é feita antes da aprovação ou em paralelo)
+    if (hasGeneratedAudio) {
       const fullAudioUrl = songData.full_song_url || songData.audio_url;
 
       if (isStandard) {
@@ -498,7 +508,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
     // Precisa de gerar áudio ou processar voz clonada → workflow Suno
 
     // Evita iniciar um segundo workflow se já existe um em andamento
-    const isProcessing = songData.mureka_status === 'generating' || songData.mureka_status === 'processing' || songData.mureka_status === 'voice_processing' || (songData.mureka_task_id && !hasGeneratedAudio);
+    const isProcessing = songData.mureka_status === 'generating' || songData.mureka_status === 'processing' || songData.mureka_status === 'voice_processing' || songData.mureka_status === 'completed' || (songData.mureka_task_id && !hasGeneratedAudio);
     if (isProcessing) {
       firePurchaseEvent();
       return res.json({ success: true, message: 'Música já está em processamento. A entrega será automática quando concluída.', alreadyProcessing: true });
@@ -519,7 +529,7 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
         recipientName: songRequest.recipient_name,
       }).catch(err => logError('[Admin] Falha ao enviar WhatsApp de aprovacao (suno workflow)', err, { requestId }));
     }
-    await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', requestId).eq('status', 'approved');
+    await supabase.from('song_requests').update({ status: 'music_processing' }).eq('id', requestId).eq('status', 'payment_submitted');
     firePurchaseEvent();
     runBackgroundSunoWorkflow(requestId, songData.id, songRequest.music_style || 'Kizomba', songData.title || 'Música SeuBeat', songData.lyrics || [], {
       voiceType: songRequest.voice_type || undefined,

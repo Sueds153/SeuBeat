@@ -41,13 +41,17 @@
 9. **Meta Ads** — configuração de campanhas ✅ funcional
 10. **WhatsApp** — estado de envios ✅ funcional
 
-### Bugs Corrigidos Hoje (30-31/Ago)
+### Bugs Corrigidos Hoje (31/Ago)
 1. Undo route retornava sucesso mesmo com erro na DB → fix: `if (undoError)` return 500
 2. Undo force_status sem tratamento de erros → fix: error checking em todos os caminhos
 3. force-voice `.maybeSingle().then()` engolia erros → fix: log de erros
 4. `handleForceStatus`/`handleUpdateStyle` sem `apiHeaders` no deps array → fix adicionado
 5. Approve flow sem guard `voice_processing` → fix adicionado
 6. Pagamento comprovativo: payload base64+JSON (~13MB) causava timeout no Render → fix: multer + FormData (binário, 25% menor), AbortController 90s, backward-compat JSON para testes
+7. **Aprovação Premium ficava "processing"** — `admin.ts:418`: `hasGeneratedAudio && !hasVoiceSample` bloqueava entrega Premium com voz clonada. Fix: `hasGeneratedAudio` (remove `!hasVoiceSample`), agora Premium com áudio existente entrega direta
+8. **Guard errado no workflow Suno** — `admin.ts:522`: `.eq('status', 'approved')` mas status era `payment_submitted` → update silencioso 0 rows. Fix: `.eq('status', 'payment_submitted')`
+9. **isProcessing sem completed** — `admin.ts:501`: `mureka_status === 'completed'` não estava na lista,permitia workflow redundante. Fix: adicionado `completed`
+10. **Comprovativos não apareciam** — `admin.ts proof-url`: retornava URL R2 diretamente (pode ser privado). Fix: prioriza URL assinada quando `proof_path` existe, fallback URL HTTP
 
 ### Pendências Conhecidas
 - `auth_leaked_password_protection` — ativar manualmente no Dashboard Supabase
