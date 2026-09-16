@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   ArrowRight, ArrowLeft, Heart, Sparkles, Check, Upload,
-  Mic, Mail, Eye, Lock, RefreshCw, Play, AlertTriangle, ShieldCheck, Copy,
+  Mic, Mail, Eye, Lock, RefreshCw, AlertTriangle, ShieldCheck, Copy,
   Send, FileText, Cake, Heart as HeartIcon, GraduationCap, Home, Baby, Star, Sparkles as SparklesIcon, Calendar, Gift, Music, User, MessageSquare, Crown, PartyPopper, HelpCircle, ChevronDown, ChevronUp, Search, X,
   HeartOff, Users, Handshake, Briefcase, Plus, Guitar, TreePalm, Leaf, Landmark, Shuffle, Drum, Gem, Smile, Flame
 } from 'lucide-react';
@@ -18,18 +18,17 @@ import { validateStep as zodValidateStep, FieldErrors } from '../lib/validation'
 import WhatsAppHelp from './WhatsAppHelp';
 import LogoIcon from './LogoIcon';
 import { 
-  fbLead, fbSetUserData, fbStartWizard, fbWizardStep, fbLyricsGenerated, fbCheckoutView, parsePrice, generateEventId 
+  fbLead, fbSetUserData, fbStartWizard, fbWizardStep, fbLyricsGenerated, fbCheckoutView, fbPurchase, parsePrice, generateEventId 
 } from '../lib/metaPixel';
 import { 
   gaViewContent, gaLead, gaCompleteRegistration, gaAddPaymentInfo, gaSubmitApplication, gaWizardStep, gaPageView 
 } from '../lib/analytics';
-import { DEMO_SONGS } from '../constants/demoSongs';
 import { getStoredUtm } from '../lib/utm';
 import { useUtm } from '../hooks/useUtm';
 import { useSocialProof, formatMinutesAgo } from '../lib/socialProof';
 import { CURRENCY } from '../constants/currency';
 import { safeUUID } from '../lib/uuid';
-import { buildTeaser, loadTeaserEdits, saveTeaserEdits, clearTeaserEdits, isTeaserEnabled, resetTeaserEnabledCache } from '../lib/lyricsTeaser';
+import { buildTeaser, clearTeaserEdits, isTeaserEnabled } from '../lib/lyricsTeaser';
 import { compressImage } from '../lib/imageCompression';
 import LyricsTeaserPreview from './LyricsTeaserPreview';
 import { FAQ } from './FAQ';
@@ -201,11 +200,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       }
     : { text: '"A tua musica pode ser a proxima historia"', time: 'agora' };
 
-  // Demo preview player (Ecrã 1)
-  const [demoPlaying, setDemoPlaying] = useState(false);
-  const [demoProgress, setDemoProgress] = useState(0);
-  const demoAudioRef = useRef<HTMLAudioElement | null>(null);
-
   // Checkout & Upsell States
   const [selectedPlanID, setSelectedPlanID] = useState<'standard' | 'express' | 'premium' | null>(() => {
     try {
@@ -349,6 +343,9 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   // proofFile: null — não保存amos o ficheiro no localStorage (too large)
   const [paymentNotes, setPaymentNotes] = useState<string>('');
   const [paymentSubmitError, setPaymentSubmitError] = useState<string>('');
+  // Validacao de letras pos-pagamento
+  const [lyricsValidating, setLyricsValidating] = useState(false);
+  const [validatedLyrics, setValidatedLyrics] = useState('');
   // AI Song states powered by Claude
   const [aiSongTitle, setAiSongTitle] = useState(() => {
     try {
@@ -553,7 +550,9 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         phraseRecorded,
         hasVoiceSample: !!clonedVoiceFile,
         proofFile: null,
-        proofMeta: proofMeta || (proofFile ? { name: proofFile.name, type: proofFile.type, size: proofFile.size } : null)
+        proofMeta: proofMeta || (proofFile ? { name: proofFile.name, type: proofFile.type, size: proofFile.size } : null),
+        lyricsValidating,
+        validatedLyrics
       }));
     } catch {}
   }, [
@@ -578,7 +577,9 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     validationPhrase,
     validationTaskId,
     phraseRecorded,
-    clonedVoiceFile
+    clonedVoiceFile,
+    lyricsValidating,
+    validatedLyrics
   ]);
 
   // Polling automático: após refresh, verificar estado e continuar a vigiar
@@ -843,14 +844,18 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
       const data = await res.json();
       if (res.ok && data.success) {
-        setPaymentSubmitted(true);
+        setValidatedLyrics(Array.isArray(aiLyrics) ? aiLyrics.join('\n') : '');
+        setLyricsValidating(true);
         setPaymentSubmitError('');
         clearProof();
         fbSetUserData(formData.email, formData.phone);
+        fbPurchase(selectedPlanID || 'standard', parsePrice(getPrice()), CURRENCY, generateEventId(dbSongRequestId, 'Purchase'));
         gaSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()));
       } else if (res.status === 409) {
-        setPaymentSubmitted(true);
+        setValidatedLyrics(Array.isArray(aiLyrics) ? aiLyrics.join('\n') : '');
+        setLyricsValidating(true);
         setPaymentSubmitError('Já existe um comprovativo pendente para este pedido.');
+        fbPurchase(selectedPlanID || 'standard', parsePrice(getPrice()), CURRENCY, generateEventId(dbSongRequestId, 'Purchase'));
       } else {
         setPaymentSubmitError(data.error || 'Erro ao submeter o comprovativo.');
       }
@@ -1593,6 +1598,37 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     return `${num.toLocaleString('pt-PT')} Kz`;
   };
 
+  const handleConfirmValidation = async () => {
+    if (!dbSongId || !validatedLyrics.trim()) return;
+    try {
+      const res = await fetch(`/api/song/${dbSongId}/lyrics`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lyrics: validatedLyrics.split('\n').filter(l => l.trim()),
+          lyrics_snippet: validatedLyrics.slice(0, 200)
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAiLyrics(validatedLyrics.split('\n').filter(l => l.trim()));
+        setAiLyricsSnippet(validatedLyrics.slice(0, 200));
+        setLyricsValidating(false);
+        setPaymentSubmitted(true);
+        showToast('Letra confirmada com sucesso!', 'success');
+      } else {
+        showToast(data.error || 'Erro ao guardar letra.', 'error');
+      }
+    } catch {
+      showToast('Erro ao guardar letra. Tente novamente.', 'error');
+    }
+  };
+
+  const handleSkipValidation = () => {
+    setLyricsValidating(false);
+    setPaymentSubmitted(true);
+  };
+
   const handleSaveLyrics = async () => {
     if (!dbSongId || !editedLyrics.trim()) return;
     setSavingLyrics(true);
@@ -1675,87 +1711,6 @@ const ROTATING_MESSAGES = [
     'Musica de aniversario pronta',
     'Pedido de casamento a transformar-se em musica'
   ];
-
-  const getDemoByStyle = (style: string) => {
-    const map: Record<string, string> = {
-      Kizomba: 'kizomba-mae',
-      Semba: 'semba-avo',
-      Gospel: 'gospel-marido',
-      Afrobeat: 'kizomba-mae',
-      Zouk: 'kizomba-mae',
-      Acoustic: 'semba-avo',
-      'Romantic Pop': 'semba-avo',
-      Balada: 'semba-avo',
-      Pop: 'semba-avo',
-      Hino: 'gospel-marido',
-      Samba: 'kizomba-mae',
-      Reggae: 'kizomba-mae',
-      Trap: 'kizomba-mae',
-      Funk: 'kizomba-mae',
-      Rap: 'kizomba-mae',
-      'R&B': 'semba-avo',
-    };
-    const id = map[style] || 'kizomba-mae';
-    return DEMO_SONGS.find(d => d.id === id) || DEMO_SONGS[0];
-  };
-
-  const handleDemoPlayPause = () => {
-    if (demoPlaying) {
-      if (demoAudioRef.current) {
-        demoAudioRef.current.pause();
-      }
-      setDemoPlaying(false);
-    } else {
-      const demo = getDemoByStyle(formData.musicStyle);
-      if (demoAudioRef.current && demoAudioRef.current.dataset.songId === demo.id) {
-        demoAudioRef.current.play().catch(() => {});
-        setDemoPlaying(true);
-      } else {
-        if (demoAudioRef.current) {
-          demoAudioRef.current.pause();
-          demoAudioRef.current = null;
-        }
-        const audio = new Audio(demo.audioUrl);
-        audio.dataset.songId = demo.id;
-        audio.ontimeupdate = () => {
-          if (audio.currentTime >= 30) {
-            audio.pause();
-            setDemoPlaying(false);
-            setDemoProgress(30);
-          } else {
-            setDemoProgress(audio.currentTime);
-          }
-        };
-        audio.onended = () => {
-          setDemoPlaying(false);
-          setDemoProgress(30);
-        };
-        audio.play().catch(() => {});
-        demoAudioRef.current = audio;
-        setDemoPlaying(true);
-        setDemoProgress(0);
-      }
-    }
-  };
-
-  // Cleanup demo audio on unmount or when leaving Ecrã 1
-  useEffect(() => {
-    if (conversionStep !== 'preview' && demoAudioRef.current) {
-      demoAudioRef.current.pause();
-      demoAudioRef.current = null;
-      setDemoPlaying(false);
-      setDemoProgress(0);
-    }
-  }, [conversionStep]);
-
-  useEffect(() => {
-    return () => {
-      if (demoAudioRef.current) {
-        demoAudioRef.current.pause();
-        demoAudioRef.current = null;
-      }
-    };
-  }, []);
 
   return (
     <div className="min-h-screen bg-[#151210] text-stone-100 flex flex-col py-4 md:py-10 px-4 md:px-8 md:justify-between">
@@ -2047,49 +2002,10 @@ const ROTATING_MESSAGES = [
               </div>
             </div>
 
-            {/* Demo player — amostra real no estilo escolhido */}
-            <div className="bg-stone-900/30 p-3 rounded-xl border border-stone-800/60">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={handleDemoPlayPause}
-                  className="w-9 h-9 rounded-full bg-amber-500/20 hover:bg-amber-500/30 flex items-center justify-center shrink-0 transition-colors cursor-pointer"
-                  aria-label={demoPlaying ? 'Pausar demo' : 'Ouvir demo'}
-                >
-                  {demoPlaying ? (
-                    <div className="flex items-end gap-0.5 h-4">
-                      <span className="w-0.5 bg-amber-400 rounded-full animate-pulse h-3" />
-                      <span className="w-0.5 bg-amber-400 rounded-full animate-pulse h-4" />
-                      <span className="w-0.5 bg-amber-400 rounded-full animate-pulse h-2" />
-                    </div>
-                  ) : (
-                    <Play className="w-4 h-4 text-amber-400 ml-0.5" />
-                  )}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-mono text-amber-400/80 font-medium">
-                     {formData.musicStyle || 'Kizomba'} real · 30s sample
-                  </p>
-                  <div className="h-1 bg-stone-800 rounded-full mt-1.5 overflow-hidden">
-                    <div
-                      className="h-full bg-amber-500/60 rounded-full transition-all duration-300"
-                      style={{ width: `${(demoProgress / 30) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-              <p className="text-[9px] text-stone-600 font-mono text-center mt-1.5">
-                Ouve como vai soar o resultado final
-              </p>
-            </div>
-
             {/* Letra da música — Teaser ou Completa */}
             {teaserEnabled && lyricsTeaser ? (
               <LyricsTeaserPreview
                 teaser={lyricsTeaser}
-                requestId={dbSongRequestId}
-                onEditChange={(sectionLabel, lines) => {
-                  // Edits are saved to localStorage in the component
-                }}
                 onUnlockClick={() => {
                   setConversionStep('plans');
                   fbWizardStep('unlock_click', 0, safeUUID());
@@ -3105,7 +3021,43 @@ const ROTATING_MESSAGES = [
                     </p>
                   </div>
 
-                  {!paymentSubmitted ? (
+                  {lyricsValidating ? (
+                    <div className="space-y-4">
+                      <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl">
+                        <h3 className="text-amber-400 font-bold text-sm mb-2">
+                          Confirme a letra antes de gerarmos a música
+                        </h3>
+                        <p className="text-stone-400 text-xs leading-relaxed">
+                          Revise a letra abaixo. Pode editar manualmente se desejar alterar algo.
+                          A música será gerada com o texto que confirmar.
+                        </p>
+                      </div>
+
+                      <textarea
+                        value={validatedLyrics}
+                        onChange={(e) => setValidatedLyrics(e.target.value)}
+                        className="w-full h-64 bg-stone-950 text-stone-200 text-sm font-mono p-4 rounded-xl border border-stone-800 focus:border-amber-500 focus:outline-none resize-y"
+                        placeholder="Escreva a letra aqui..."
+                      />
+
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={handleSkipValidation}
+                          className="flex-1 py-3 px-4 bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-300 text-xs rounded-xl transition-colors cursor-pointer"
+                        >
+                          Pular — usar letra original
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleConfirmValidation}
+                          className="flex-1 py-3 px-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:opacity-95 text-stone-950 font-black text-xs rounded-xl flex items-center justify-center gap-2 tracking-wide uppercase cursor-pointer"
+                        >
+                          Confirmar e Gerar Música
+                        </button>
+                      </div>
+                    </div>
+                  ) : !paymentSubmitted ? (
                     <div className="space-y-4">
                       {paymentSubmitting ? (
                         <div className="flex flex-col items-center justify-center p-8 space-y-3">

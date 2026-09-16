@@ -101,44 +101,37 @@ export function buildTeaser(lyrics: string): LyricsTeaser {
 
   const totalLines = sections.reduce((sum, s) => sum + s.lines.length, 0);
 
-  const visibleSections: LyricSection[] = [];
-  const hiddenSections: LyricSection[] = [];
+  // Seleccao emocional: ponte > refrão > pré-refrão > primeira secção
+  const emotionalPriority: LyricSection['type'][] = ['bridge', 'chorus', 'pre-chorus'];
+  let bestSection = sections[0];
 
-  let visibleCount = 0;
-
-  for (let i = 0; i < sections.length; i++) {
-    const section = sections[i];
-    const isFirstOrChorus = i === 0 || section.type === 'chorus';
-    const shouldBeVisible = visibleCount < 2 && isFirstOrChorus;
-
-    if (shouldBeVisible) {
-      visibleSections.push({
-        ...section,
-        isVisible: true,
-        isEditable: true,
-      });
-      visibleCount += section.lines.length;
-    } else {
-      hiddenSections.push({
-        ...section,
-        isVisible: false,
-        isEditable: false,
-      });
+  for (const type of emotionalPriority) {
+    const found = sections.find(s => s.type === type);
+    if (found && found.lines.length > 0) {
+      bestSection = found;
+      break;
     }
   }
 
-  if (visibleSections.length === 0 && sections.length > 0) {
-    const first = sections[0];
-    visibleSections.push({ ...first, isVisible: true, isEditable: true });
-    visibleCount = first.lines.length;
-    sections.slice(1).forEach(s => hiddenSections.push({ ...s, isVisible: false, isEditable: false }));
-  }
+  // Mostrar só a secção emocional (máx 8 linhas para não ser demasiado)
+  const visibleLines = bestSection.lines.slice(0, 8);
+
+  const visibleSections: LyricSection[] = [{
+    ...bestSection,
+    lines: visibleLines,
+    isVisible: true,
+    isEditable: false,
+  }];
+
+  const hiddenSections = sections
+    .filter(s => s !== bestSection)
+    .map(s => ({ ...s, isVisible: false, isEditable: false }));
 
   return {
     visibleSections,
     hiddenSections,
     totalLines,
-    visibleLines: visibleCount,
+    visibleLines: visibleLines.length,
   };
 }
 
@@ -150,9 +143,9 @@ export function mergeTeaserEdits(
   const editedSections: LyricSection[] = [];
 
   for (const section of sections) {
-    const editKey = section.label.toLowerCase().replace(/\s+/g, '_');
-    if (teaserEdits[editKey]) {
-      editedSections.push({ ...section, lines: teaserEdits[editKey] });
+    // saveTeaserEdits guarda com section.label directamente (ex: "Verso 1")
+    if (teaserEdits[section.label]) {
+      editedSections.push({ ...section, lines: teaserEdits[section.label] });
     } else {
       editedSections.push(section);
     }
