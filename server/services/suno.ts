@@ -140,22 +140,22 @@ function collectAudioUrls(value: unknown, urls: string[] = []): string[] {
 }
 
 const STYLE_MAP: Record<string, string> = {
-  kizomba: 'kizomba, tarraxinha, angolan romantic, slow 70bpm, sensual rhythm, soft bass, romantic vocal',
-  semba: 'semba, traditional angolan rhythm, viola de fado, mid tempo 105bpm, energetic percussion, dance',
-  zouk: 'zouk, caribbean romantic, soft synth, sensual, mid tempo 90bpm',
-  samba: 'samba, carnival percussion, brazilian drums, festive, energetic 100bpm, tamborim, agogo',
-  afrobeat: 'afrobeat, upbeat percussion, energetic, nigerian afro pop, groovy bass, horns, dance 110bpm',
-  funk: 'kuduro funk, groovy bass, syncopated drums, upbeat, angolan dance, rhythmic guitar, 130bpm',
-  trap: 'trap, 808 bass, hi-hat rolls, dark atmosphere, urban, modern hip hop, 140bpm',
-  rap: 'rap, rhythmic flow, urban beats, lyrical, hip hop, 90bpm',
-  reggae: 'reggae, offbeat rhythm, bass heavy, jamaican vibe, relaxed, skank guitar, 80bpm',
-  pop: 'pop, catchy melody, polished production, radio friendly, upbeat, modern, 120bpm',
-  balada: 'ballad, slow 70bpm, piano-driven, emotional, orchestral, strings, powerful crescendo',
-  gospel: 'gospel, choral harmonies, organ, piano, inspirational, uplifting, powerful vocal, 80bpm',
-  acoustic: 'acoustic, soft guitar, intimate vocals, unplugged, warm, gentle, stripped down, 80bpm',
-  'romantic pop': 'romantic pop, emotional strings, modern radio ballad, synth pads, catchy chorus, 90bpm',
-  'r&b': 'contemporary R&B, slow jam, smooth soulful vocals, melisma, falsetto, electric piano, synth pads, 85bpm',
-  hino: 'hino, orchestral, epic cinematic, choir, brass section, majestic, inspirational, 80bpm',
+  kizomba: 'kizomba, Fender Stratocaster clean tone, deep smooth bass guitar, Roland TR-808 drum machine, warm synthesizer pads, intimate breathy vocal, sensual slow groove, 75bpm, professional studio mix, analog warmth',
+  semba: 'semba, acoustic nylon-string guitar, traditional angolan bateria percussion, cavaquinho, bright bass guitar, energetic rhythmic vocal, live band feel, 115bpm, warm analog recording, Luanda nightlife energy',
+  zouk: 'zouk, Caribbean romantic, synthesizer pads, electronic drums, smooth bass, electric guitar arpeggios, soft melodic vocal, 95bpm, polished studio production, island vibes',
+  samba: 'samba, surdo bass drum, caixa snare, pandeiro tambourine, tamborim, agogo bells, cavaquinho, energetic group vocal, carnival celebration, 125bpm, live percussion ensemble, festive Brazilian rhythm',
+  afrobeat: 'afrobeat, Fela Kuti style, tenor saxophone, trumpet section, electric guitar interlocking riffs, congas, shekere, talking drum, powerful commanding vocal, 110bpm, polyrhythmic layers, horn-driven groove',
+  funk: 'funk angolano, electronic beat, heavy 808 bass, synthesizer leads, scratchy rhythm guitar, syncopated drum machine, energetic party vocal, 125bpm, club-ready production, dance floor anthem',
+  trap: 'trap, 808 sub-bass, rolling hi-hats, dark synthesizer, snare rolls, ambient pads, autotuned vocal, 140bpm, modern hip hop production, atmospheric dark vibe',
+  rap: 'rap, boom bap drums, sampled piano loops, deep bass, vinyl crackle, raw lyrical vocal, 90bpm, underground hip hop feel, gritty street production',
+  reggae: 'reggae, offbeat guitar skank, deep bass guitar, Hammond organ, one-drop drums, relaxed grooving vocal, 80bpm, Jamaican studio vibe, warm analog sound',
+  pop: 'pop, catchy synthesizer hook, four-on-the-floor drums, polished bass, layered vocal harmonies, radio-ready production, 120bpm, modern studio sheen, sing-along chorus',
+  balada: 'ballad, Yamaha grand piano, orchestral strings, emotional crescendo, soft drums building to powerful, soulful ballad vocal, 70bpm, cinematic orchestration, tear-jerking emotion',
+  gospel: 'gospel, Hammond B3 organ, gospel piano, choir harmonies, powerful lead vocal, tambourine, 80bpm, church choir energy, spiritual uplifting, full rich sound',
+  acoustic: 'acoustic, fingerpicked nylon-string guitar, intimate close-mic vocal, minimal percussion, warm natural sound, 80bpm, stripped-down unplugged session, raw honest emotion',
+  'romantic pop': 'romantic pop, emotional piano, lush string arrangement, synthesizer pads, gentle drums, smooth melodic vocal, 90bpm, modern radio ballad, polished emotional production',
+  'r&b': 'contemporary R&B, Fender Rhodes electric piano, smooth synthesizer, deep bass, neo-soul drums, melismatic vocal runs, falsetto, 85bpm, slow jam groove, sensual intimate production',
+  hino: 'anthem, full orchestra, brass section, choir, timpani drums, epic cinematic, majestic powerful vocal, 80bpm, grandiose production, inspirational triumphant',
 };
 
 function extractTaskId(payload: unknown): string | null {
@@ -222,9 +222,9 @@ export function extractBothAudioUrls(payload: unknown): { v1: string | null; v2:
 }
 
 const VOICE_STYLE_MAP: Record<string, string> = {
-  masculina: 'male vocal, warm masculine tone',
-  feminina: 'female vocal, expressive feminine tone',
-  dueto: 'male and female duet, alternating vocals, harmonized voices',
+  masculina: 'male vocal, professional studio recording, warm baritone tone, natural vibrato, intimate breathy delivery, emotional depth, crisp clear articulation',
+  feminina: 'female vocal, professional studio recording, expressive soprano tone, natural vibrato, sensual breathy delivery, emotional range, crystal clear diction',
+  dueto: 'male and female duet, call and response, harmonized vocal layers, romantic interplay, professional studio recording, blended voices, emotional chemistry',
   'sem preferência': '',
 };
 
@@ -269,7 +269,7 @@ const ARTIST_STYLE_MAP: Record<string, string> = {
   'Matias Damásio': 'matias damasio style, poetic ballad, emotional vocal, orchestral strings, angolan romantic',
   'Gerilson Insrael': 'gerilson insrael style, afro pop, energetic rhythm, modern angolan, dance vibe',
   'Chelsea Dinorath': 'chelsea dinorath style, neo kizomba, r&b influence, smooth female vocal, sensual',
-  'Ary': 'ary style, semba rhythm, soulful vocal, traditional angolan with modern production',
+  'Ary': 'ary style, kizomba romantic, smooth vocal, modern angolan production, soulful melody',
   'Cef': 'cef style, ghetto zouk, romantic dance, catchy rhythm, angolan urban',
   'Nelson Freitas': 'nelson freitas style, zouk international, r&b fusion, smooth romantic, cabo love',
 };

@@ -43,7 +43,7 @@ export async function generateLyricsWithGPT(formData: WizardFormData): Promise<L
     const response = await openai.chat.completions.create({
       model: GPT_MODEL,
       max_tokens: 4000,
-      temperature: 0.8,
+      temperature: 0.65,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: `Gere a musica baseada nestes dados. Retorne apenas o JSON:\n\n${prompt}` }

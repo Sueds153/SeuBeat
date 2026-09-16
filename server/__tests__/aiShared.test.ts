@@ -242,11 +242,12 @@ describe('validateLyricsStructure', () => {
 });
 
 describe('validateCompositionStrict', () => {
-  it('returns the composition even with structure issues (diagnostic-only)', () => {
+  it('throws on missing critical markers (retry trigger)', () => {
     const comp = buildComposition();
     const lyrics = comp.lyrics.filter((line) => line !== '[Ponte Emocional]');
-    const out = validateCompositionStrict({ ...comp, lyrics }, 'Test');
-    expect(out.lyrics).toEqual(lyrics);
+    expect(() => validateCompositionStrict({ ...comp, lyrics }, 'Test')).toThrow(
+      /Estrutura da letra inválida/
+    );
   });
 
   it('still rejects malformed/short compositions (same as validateComposition)', () => {

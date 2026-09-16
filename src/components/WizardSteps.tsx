@@ -254,44 +254,59 @@ export function Step4Story({
     });
   };
 
+  const charCount = formData.whatMakesSpecial.length;
+  const charPercent = Math.min((charCount / 200) * 100, 100);
+
   return (
     <div className="space-y-4 pt-2">
       <div className="space-y-2">
         <label className="text-xs font-mono text-stone-300 block font-semibold flex items-center justify-between">
-          <span>Momentos & Recordações Inesquecíveis</span>
+          <span>A Nossa História</span>
           <span className="text-amber-400 font-mono text-[10px] uppercase font-bold tracking-wider">Obrigatório</span>
         </label>
         <textarea
           id="makes-special-textarea"
-          rows={5}
+          rows={6}
           maxLength={4000}
-          placeholder="Ex: Conta-nos um momento marcante, uma gargalhada ou o que torna esta pessoa única... Escreve à vontade, quanto mais detalhes contares, mais emocionante fica a canção."
+          placeholder="Conta-nos o que torna esta pessoa especial. Por exemplo:&#10;- O momento em que se conheceram&#10;- Uma gargalhada que nunca esqueceram&#10;- O hábito dela de cozinhar aos domingos&#10;- A forma como ele te apoia nos dias difíceis&#10;Quanto mais contares, mais emocionante fica a canção."
           value={formData.whatMakesSpecial}
           onChange={(e) => setFormData(prev => ({ ...prev, whatMakesSpecial: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
         />
-        <div className="space-y-1 pt-0.5">
-          <p className="text-[10px] text-stone-500 font-mono">Toque para adicionar ideias prontas em 1 segundo:</p>
-          <div className="flex flex-wrap gap-1.5">
-            {[
-              { label: 'Doce e Carinhosa', icon: <Sparkles className="w-3 h-3" />, append: 'É uma pessoa extremamente doce e carinhosa, com um coração gigante que acolhe todos à sua volta.' },
-              { label: 'Forte e Inspiradora', icon: <Flame className="w-3 h-3" />, append: 'É uma fonte inesgotável de força e inspiração, supera cada desafio com um sorriso que ilumina.' },
-              { label: 'Divertida e Alegre', icon: <Smile className="w-3 h-3" />, append: 'Traz alegria a cada momento com o seu sentido de humor único e gargalhada contagiante.' },
-              { label: 'Sábia e Conselheira', icon: <Feather className="w-3 h-3" />, append: 'Tem sempre a palavra certa na hora certa, uma sabedoria que admiro profundamente.' },
-              { label: 'Memória Inesquecível', icon: <HeartIcon className="w-3 h-3" />, append: 'Guardo com carinho o momento em que tudo começou, uma memória que aquece o coração e nunca mais esqueci.' },
-              { label: 'Primeiro Encontro', icon: <Eye className="w-3 h-3" />, append: 'No primeiro encontro percebi que era especial — os olhares cruzaram-se e tudo à nossa volta desapareceu.' },
-              { label: 'Passeio à Beira-Mar', icon: <Waves className="w-3 h-3" />, append: 'Aquele passeio à beira-mar sob o luar, partilhando segredos embalados pelo som das ondas.' },
-              { label: 'Cozinhando Juntos', icon: <CookingPot className="w-3 h-3" />, append: 'Quando cozinhámos juntos e o prato correu mal, mas acabámos a rir no chão com boa disposição.' },
-            ].map((pill, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => appendStory(pill.append)}
-                className="px-2.5 py-1 bg-stone-950 hover:bg-stone-850 border border-stone-800 hover:border-amber-500/50 text-[10px] text-stone-300 rounded-full font-medium transition-all cursor-pointer active:scale-95 flex items-center gap-1"
-              >
-                {pill.icon} {pill.label}
-              </button>
-            ))}
+        <div className="flex items-center justify-between">
+          <div className="space-y-1 pt-0.5 flex-1">
+            <p className="text-[10px] text-stone-500 font-mono">Toque para adicionar ideias:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { label: 'Momento Marcante', icon: <HeartIcon className="w-3 h-3" />, append: 'Lembro-me do momento em que tudo começou — uma memória que guardo com carinho e nunca mais esqueci.' },
+                { label: 'Gargalhada', icon: <Smile className="w-3 h-3" />, append: 'A sua gargalhada contagiante ilumina qualquer dia cinzento, traz alegria onde quer que esteja.' },
+                { label: 'Apoio Incondicional', icon: <ShieldCheck className="w-3 h-3" />, append: 'Nos momentos mais difíceis, sempre esteve ao meu lado com um abraço e a palavra certa.' },
+                { label: 'Detalhe Único', icon: <Sparkles className="w-3 h-3" />, append: 'Tem um detalhe que só ela tem — algo que me faz sorrir todos os dias sem exceção.' },
+                { label: 'Lugar Especial', icon: <MapPin className="w-3 h-3" />, append: 'Há um lugar que é só nosso — onde o tempo para e o mundo desaparece.' },
+                { label: 'Superação', icon: <Flame className="w-3 h-3" />, append: 'Enfrentou cada desafio com uma coragem que me inspira e me faz querer ser melhor.' },
+              ].map((pill, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => appendStory(pill.append)}
+                  className="px-2.5 py-1 bg-stone-950 hover:bg-stone-850 border border-stone-800 hover:border-amber-500/50 text-[10px] text-stone-300 rounded-full font-medium transition-all cursor-pointer active:scale-95 flex items-center gap-1"
+                >
+                  {pill.icon} {pill.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="ml-2 flex flex-col items-center">
+            <div className="w-8 h-8 rounded-full border-2 border-stone-800 flex items-center justify-center relative">
+              <svg className="w-8 h-8 -rotate-90" viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-stone-800" />
+                <circle cx="18" cy="18" r="16" fill="none" stroke="currentColor" strokeWidth="2"
+                  strokeDasharray={`${charPercent} 100`}
+                  className={charCount >= 50 ? 'text-green-500' : charCount >= 20 ? 'text-amber-500' : 'text-stone-700'} />
+              </svg>
+              <span className="absolute text-[8px] font-mono text-stone-400">{charCount}</span>
+            </div>
+            <span className="text-[8px] text-stone-600 font-mono mt-0.5">{charCount < 20 ? 'mais detalhe' : charCount < 50 ? 'bom' : 'excelente'}</span>
           </div>
         </div>
         {fieldErrors?.whatMakesSpecial && (

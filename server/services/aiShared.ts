@@ -229,8 +229,15 @@ export function validateCompositionStrict(
 ): LyricsComposition {
   const composition = validateComposition(value, label);
   const { issues, warnings } = validateLyricsStructure(composition, formData);
+
   if (issues.length > 0) {
-    logWarn(`[${label}] Estrutura da letra com problemas (entregue como está, sem rejeição)`, { issues });
+    const criticalIssues = issues.filter(i =>
+      i.includes('faltou o marcador') || i.includes('fora da ordem')
+    );
+    if (criticalIssues.length > 0) {
+      throw new Error(`[${label}] Estrutura da letra inválida: ${criticalIssues.join('; ')}`);
+    }
+    logWarn(`[${label}] Estrutura da letra com problemas (entregue como está)`, { issues });
   }
   if (warnings.length > 0) {
     logWarn(`[${label}] Personalização com avisos`, { warnings });

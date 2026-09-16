@@ -27,14 +27,13 @@ function getPromptFromFile(filename: string, fallback: string): string {
   return fallback;
 }
 
-function clean(value: unknown, fallback = 'Não informado'): string {
-  if (typeof value !== 'string') return fallback;
-  const trimmed = value.trim();
-  return trimmed || fallback;
+function clean(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value.trim();
 }
 
 function normalizeLower(value: unknown): string {
-  return clean(value, '')
+  return clean(value)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
@@ -52,136 +51,78 @@ function languageDisplayName(lang: string): string {
   return names[lang] || 'Português de Angola';
 }
 
-const ARTIST_LYRICAL_STYLES: Record<string, string> = {
-  'Anselmo Ralph': 'Use vocabulário romântico urbano, refrões fortes e repetitivos, linguagem direta ao coração. As letras devem soar como uma canção do Anselmo Ralph.',
-  'Matias Damásio': 'Use tom poético e nostálgico, metáforas sobre amor, perda e reencontro. Refrões emocionais. As letras devem soar como uma canção do Matias Damásio.',
-  'Gerilson Insrael': 'Use flow afro-pop, refrões contagiantes, linguagem jovem e atual com vibe dançante mas conteúdo romântico. As letras devem soar como uma canção do Gerilson Insrael.',
-  'Chelsea Dinorath': 'Use tom neo-kizomba moderno com influência R&B, voz suave e refrões melódicos envolventes. As letras devem soar como uma canção da Chelsea Dinorath.',
-  'Ary': 'Use batida rítmica de semba com alma, letra dançante mas com conteúdo emocional profundo e autêntico. As letras devem soar como uma canção do Ary.',
-  'Cef': 'Use flow ghetto zouk, refrões pegajosos e repetitivos, vibe romântica com batida dançante e linguagem acessível. As letras devem soar como uma canção do Cef.',
-  'Nelson Freitas': 'Use estilo zouk internacional com R&B, refrões que alternam português e inglês, produção lírica polida e romântica. As letras devem soar como uma canção do Nelson Freitas.',
-  'Outro': 'Crie uma letra original com identidade própria, adaptando o tom e vocabulário ao estilo musical escolhido sem se prender a um artista específico.',
-};
-
-const EMOTION_PROMPTS: Record<string, string> = {
-  amor: 'INSTRUÇÃO DE EMOÇÃO: "Amor" — Tom doce e íntimo. Foque em promessas de futuro, gestos quotidianos de carinho, admiração genuína. O refrão deve soar como uma declaração em voz alta.',
-  emoção: 'INSTRUÇÃO DE EMOÇÃO: "Emoção" — Tom intenso e profundo. Construído para provocar lágrimas. Use pausas dramáticas, versos quebrados, como se a voz estivesse embargada. O clímax deve ser avassalador.',
-  gratidão: 'INSTRUÇÃO DE EMOÇÃO: "Gratidão" — Tom caloroso e humilde. Reconhecimento sincero. Memórias de apoio, momentos em que a pessoa esteve presente. O refrão deve soar como um "obrigado" do fundo do peito.',
-  carinho: 'INSTRUÇÃO DE EMOÇÃO: "Carinho" — Tom suave e acolhedor, como um abraço. Detalhes de cuidado diário, gestos simples de amor. A letra deve confortar como uma mão quente.',
-  saudade: 'INSTRUÇÃO DE EMOÇÃO: "Saudade" — Tom nostálgico e agridoce. Memórias bonitas que aquecem o coração mas também apertam. O refrão deve equilibrar a dor da ausência com a beleza do que foi vivido. Termine com esperança de reencontro.',
-  inspiração: 'INSTRUÇÃO DE EMOÇÃO: "Inspiração" — Tom motivacional e edificante. Força interior, superação, resiliência. O refrão deve soar como um hino pessoal de vitória. Use linguagem de empoderamento.',
-};
-
-function emotionInstruction(desiredEmotion?: string): string {
-  if (!desiredEmotion) return '';
-  const key = desiredEmotion.trim().toLowerCase();
-  const instruction = EMOTION_PROMPTS[key];
-  if (instruction) return `- ${instruction}`;
-  return '';
-}
-
-const STYLE_LYRICAL_INSTRUCTIONS: Record<string, string> = {
-  kizomba: 'Use linguagem romântica e envolvente, ritmo lento e sensual, refrão repetitivo e cativante próprio da tarraxinha angolana. Incorpore expressões angolanas como "baza", "xé", "bué", "na boa" naturalmente se o tom permitir. Refira locais angolanos reais (Luanda, Ilha, Cabo Ledo, Benguela, Mussulo) para criar autenticidade cultural.',
-  semba: 'Use ritmo acelerado e alegre, linguagem dançante e tradicional angolana, refrão contagiante com guitarra viva. Faça referência ao musseque, ao bairro, à rádio comunitária, às festas de família angolanas. O semba é a alma musical de Angola.',
-  afrobeat: 'Use energia vibrante, percussão marcante, refrão poderoso e dançante, flow moderno afro-pop. Incorpore a energia dos palcos africanos, a fusão de ritmos que atravessa o continente.',
-  gospel: 'Use tom de fé e gratidão, linguagem inspiradora e edificante, coro emocionante com referências espirituais.',
-  acoustic: 'Use tom intimista e poético, letra simples mas profunda, voz suave e melodia minimalista.',
-  'romantic pop': 'Use romantismo radiofónico, refrão forte e memorável, linguagem universal e emocional com produção polida.',
-  zouk: 'Use romantismo caribenho com influência africana, sintetizadores suaves, refrão melódico e envolvente com vibe tropical.',
-  balada: 'Use tom emocional e orquestrado, piano e cordas, construção dramática com refrão explosivo.',
-  pop: 'Use melodia cativante, refrão pegajoso, linguagem acessível e produção moderna e radiofónica.',
-  'r&b': 'Use flow suave e sensual, groove envolvente, refrão com melisma e emoção profunda. Escreva como um slow jam: versos intimistas, pré-refrão que constrói tensão, refrão explosivo com vocal runs. Use imagens sensoriais (toque, calor, brilho dos olhos) em vez de declarações diretas. Evite ritmo acelerado — o R&B respira no espaço entre as notas.',
-  rap: 'Use flow ritmado, palavra poderosa, batida urbana, lírica afiada com consciência e autenticidade.',
-  funk: 'Use groove contagiante, batida dançante, percussão marcada, letra vibrante com swing e atitude.',
-  trap: 'Use flow moderno e atitude urbana, 808 pesado, refrão curto e impactante, linguagem jovem e autêntica.',
-  reggae: 'Use vibração positiva e descontraída, ritmo offbeat, bass profundo, linguagem relaxada com consciência.',
-  samba: 'Use gingado brasileiro, percussão festiva, alegria contagiante, letra que celebra a vida com energia carnavalesca.',
-  hino: 'Use tom épico e solene, linguagem corporativa e inspiradora, coro majestoso com estrutura de hino institucional.',
-};
-
-function styleLyricalInstruction(musicStyle?: string): string {
-  if (!musicStyle) return '';
-  const key = musicStyle.trim().toLowerCase();
-  const instruction = STYLE_LYRICAL_INSTRUCTIONS[key];
-  if (instruction) return `- INSTRUÇÃO ESPECÍFICA PARA "${musicStyle}": ${instruction}`;
-  return '';
-}
-
-function referenceArtistInstruction(artistName?: string): string {
-  if (!artistName || artistName === 'Outro') return '';
-  const instruction = ARTIST_LYRICAL_STYLES[artistName];
-  if (instruction) return `- ${instruction}.`;
-  return '';
-}
-
 function languageInstruction(lang?: string): string {
   const instructions: Record<string, string> = {
-    'português': 'Escreva a letra COMPLETAMENTE em português de Angola, com expressões naturais e autênticas. Use vocabulário angolano corrente quando o tom permitir (ex.: "bué", "xé", "baza", "bocado", "na boa", "fixe") e o tratamento "tu"/"nós". Evite expressões do português do Brasil (ex.: "a gente", "pô", "muito legal", "você" informal) e girias do português europeu. O texto deve ler-se e cantar-se com pronúncia e vocabulário angolanos.',
-    'kimbundu': 'Escreva a letra MESCLANDO português com palavras e expressões em Kimbundu (língua nacional angolana). Incorpore termos como "muene", "kota", "kibai", "ngana", "kizua" naturalmente na letra.',
-    'umbundu': 'Escreva a letra MESCLANDO português com palavras e expressões em UmBundu (língua nacional angolana). Incorpore termos como "ochi", "suku", "etu", "ociwa" naturalmente na letra.',
-    'kikongo': 'Escreva a letra MESCLANDO português com palavras e expressões em Kikongo (língua nacional angolana). Incorpore termos como "ngolo", "kiese", "zola", "kamba" naturalmente na letra.',
-    'lingala': 'Escreva a letra MESCLANDO português com palavras e expressões em Lingala. Incorpore termos como "bolingo", "moto", "kolela", "zala" naturalmente na letra.',
-    'inglês': 'Escreva a letra COMPLETAMENTE em INGLÊS. Use inglês natural, poético e autêntico.',
+    'português': 'Escreva em português de Angola autêntico. Use "tu" e "nós". Evite expressões do Brasil ("a gente", "pô", "você") e de Portugal ("giro", "bica").',
+    'kimbundu': 'Mescle português com Kimbundu. Use termos como "muene", "kota", "kibai", "ngana", "kizua" naturalmente.',
+    'umbundu': 'Mescle português com UmBundu. Use termos como "ochi", "suku", "etu", "ociwa" naturalmente.',
+    'kikongo': 'Mescle português com Kikongo. Use termos como "ngolo", "kiese", "zola", "kamba" naturalmente.',
+    'lingala': 'Mescle português com Lingala. Use termos como "bolingo", "moto", "kolela", "zala" naturalmente.',
+    'inglês': 'Escreva completamente em inglês. Natural, poético e autêntico.',
   };
-  return instructions[lang ?? 'português'] || 'Escreva a letra em português de Angola.';
+  return instructions[lang ?? 'português'] || instructions['português'];
 }
 
 function buildFormContext(formData: WizardFormData) {
-  const c = (val: unknown) => clean(val, 'Não informado');
   const sections = [
     { title: 'DADOS BIOGRÁFICOS', items: [
-      ['Nome do Destinatário', c(formData.recipientName)],
-      ['Género do Destinatário', c(formData.recipientGender)],
-      ['Relação com quem oferece', c(formData.recipientRelation)],
-      ['Apelido Carinhoso', c(formData.recipientNick)],
-      ['Como quem oferece gosta de ser chamado', c(formData.userNick)],
+      ['Nome do Destinatário', clean(formData.recipientName)],
+      ['Género do Destinatário', clean(formData.recipientGender)],
+      ['Relação com quem oferece', clean(formData.recipientRelation)],
     ]},
     { title: 'CONTEXTO DA MÚSICA', items: [
-      ['Ocasião Especial', c(formData.occasion)],
-      ['Motivo da criação hoje', c(formData.whyCreatedToday)],
-      ['Estilo Musical', c(formData.musicStyle)],
-      ['Tipo de Voz', c(formData.voiceType)],
+      ['Ocasião Especial', clean(formData.occasion)],
+      ['Estilo Musical', clean(formData.musicStyle)],
+      ['Tipo de Voz', clean(formData.voiceType)],
     ]},
     { title: 'HISTÓRIA DA RELAÇÃO', items: [
-      ['O que torna a pessoa especial', c(formData.whatMakesSpecial)],
-      ['Algo que só essa pessoa faz', c(formData.onlySheDoes)],
-      ['Memória inesquecível', c(formData.unforgettableMemory)],
-      ['Local da memória', c(formData.whereItHappened)],
+      ['O que torna a pessoa especial', clean(formData.whatMakesSpecial)],
+      ['Local da memória', clean(formData.whereItHappened)],
     ]},
     { title: 'MENSAGEM CENTRAL', items: [
-      ['O que nunca deve esquecer', c(formData.messageFromTheHeart)],
-      ['Variante do Idioma', languageDisplayName(c(formData.language))],
+      ['O que nunca deve esquecer', clean(formData.messageFromTheHeart)],
+      ['Idioma', languageDisplayName(clean(formData.language))],
     ]},
   ];
-  return sections.map(s =>
-    `-- ${s.title} --\n${s.items.map(([label, value]) => `- ${label}: ${value}`).join('\n')}`
-  ).join('\n\n');
+
+  return sections
+    .map(s => {
+      const validItems = s.items.filter(([, value]) => value.length > 0);
+      if (validItems.length === 0) return '';
+      return `-- ${s.title} --\n${validItems.map(([label, value]) => `- ${label}: ${value}`).join('\n')}`;
+    })
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 export function selectPrompt(formData: WizardFormData) {
   const relacao = normalizeLower(formData.recipientRelation);
   const ocasiao = normalizeLower(formData.occasion);
 
-  const promptMestre = getPromptFromFile('mestre.txt', `Você é um Compositor e Poeta nível Sênior, especializado em "Storytelling Musical" e letras altamente personalizadas em Português de Angola.
-Seu objetivo é criar uma canção que soe como um presente único, capturando a essência da relação e memórias compartilhadas, com sotaque angolano.
+  const promptMestre = getPromptFromFile('mestre.txt', `Voce e um compositor profissional especializado em musicas emocionais e personalizadas, em Portugues de Angola.
+Seu objetivo e criar uma musica que pareça ter sido escrita exclusivamente para uma unica pessoa.
 
-REGRAS DE OURO PARA COMPOSIÇÃO:
-1. PERSONALIZAÇÃO RADICAL: Use cada detalhe fornecido (nomes, apelidos, memórias, locais, trejeitos únicos). Se o formulário diz que a pessoa "faz um café incrível às 7h", isso deve estar na letra.
-2. EMOÇÃO AUTÊNTICA: Evite clichês como "amor eterno" ou "te amo demais" sem contexto. Prefira "a forma como sorris quando chegas do trabalho" ou "aquele abraço no Mussulo ao pôr do sol".
-3. SOTAQUE ANGOLANO: Escreva em português de Angola autêntico. Use expressões locais naturais (ex: "bué", "xé", "baza", "bocado", "na boa") quando o tom permitir e o tratamento "tu"/"nós". Evite expressões do português do Brasil ("a gente", "pô", "muito legal", "você" informal) e girias do português europeu ("giro", "bica"). O texto deve ler-se e cantar-se com pronúncia angolana.
-4. ESTRUTURA PROFISSIONAL (OBRIGATÓRIA, nesta ordem):
-   - [Verso 1]: Estabelece o cenário, o local ou uma memória inicial.
-   - [Pré-Refrão]: Cria tensão emocional, prepara para a mensagem principal.
-   - [Refrão]: A alma da música. Memorável, rítmico, contém o nome da pessoa ou o gancho.
-   - [Verso 2]: Aprofunda a história, traz detalhes novos ou o "detalhe único" que só essa pessoa faz.
-   - [Ponte Emocional]: Momento de reflexão, mudança de tom ou uma promessa para o futuro.
-   - [Refrão Final]: Explosão emocional, encerramento marcante.
-5. LINGUAGEM: Português natural, fluído e rítmico. Nada de "IA-speak" ou frases genéricas. Nenhuma linha repetida mais de 3 vezes.
-6. ESTILO: Adapte o vocabulário ao estilo musical escolhido (ex: mais urbano para Rap, mais doce para Balada, rítmico para Kizomba).
+REGRAS:
+1. Nunca escreva letras genericas — use os detalhes fornecidos pelo utilizador.
+2. Cada verso deve conter uma imagem sensorial (visao, som, cheiro, tato, paladar).
+3. Escreva como um compositor humano experiente, nao como uma IA.
+4. Portugues natural e fluido — sem forcar girias ou expressoes artificiais.
+5. Nenhuma linha repetida mais de 3 vezes.
 
-GANCHO (hook): Se for fornecida uma frase-gancho, o refrão DEVE incorporar ou girar em torno dela. É a mensagem que a pessoa nunca deve esquecer.
+ESTRUTURA (nesta ordem):
+[Verso 1] — Estabelece o cenario e a memoria inicial.
+[Pre-Refrão] — Tensao emocional crescente.
+[Refrão] — A alma da mensagem. Memoravel e ritmico.
+[Verso 2] — Aprofunda a historia com detalhes intimos.
+[Ponte Emocional] — Viragem ou promessa para o futuro.
+[Refrão Final] — Explosao emocional, encerramento marcante.
 
-DEDICATÓRIA (letterText): Escreva uma carta íntima, curta e poderosa em prosa, que resume o sentimento da música. Não repita a letra aqui.`);
+Cada marcador deve ter 2 a 4 linhas de verso.
+Total: 30 a 45 linhas (incluindo marcadores).
+
+GANCHO: Se fornecido, o refrão DEVE incorporar essa frase.
+
+DEDICATORIA: Carta curta (2-3 frases) em prosa, sem repetir a letra.`);
 
   const prompts = {
     romance: getPromptFromFile('romance.txt', 'Crie uma canção romântica sincera, focada na história do casal, memórias reais, pequenos gestos e futuro desejado.'),
@@ -225,19 +166,24 @@ DEDICATÓRIA (letterText): Escreva uma carta íntima, curta e poderosa em prosa,
   else if (relacao.includes('mim')) basePrompt = prompts.paramim;
   else if (relacao.includes('namorad') || relacao.includes('espos') || relacao.includes('marido') || relacao.includes('parceir')) basePrompt = prompts.romance;
 
+  const formContext = buildFormContext(formData);
+  const recipientName = clean(formData.recipientName);
+  const whereItHappened = clean(formData.whereItHappened);
+  const hookPhrase = clean(formData.hookPhrase);
+
   return `${promptMestre}
 
 ORIENTAÇÃO ESPECÍFICA PARA ESTA RELAÇÃO/OCASIÃO:
 ${basePrompt}
 
-DADOS DETALHADOS DO FORMULÁRIO A SEREM INTEGRADOS OBRIGATORIAMENTE (USE ESSAS INFORMAÇÕES REAIS PARA ESCREVER A LETRA):
-${buildFormContext(formData)}
+DADOS DO FORMULÁRIO (use estas informações reais para escrever a letra):
+${formContext}
 
-INSTRUÇÕES ADICIONAIS DE PERSONALIZAÇÃO E QUALIDADE:
-- A letra DEVE usar o nome do destinatário ("${formData.recipientName || 'Destinatário'}"), apelidos carinhosos ("${formData.recipientNick || ''}"), local ("${formData.whereItHappened || ''}") e memórias detalhadas ("${formData.unforgettableMemory || ''}") de forma natural e emocionante.
-- Evite letras genéricas. O tom e vocabulário devem refletir a emoção desejada ("${formData.desiredEmotion || 'Emocionante'}") e o estilo musical ("${formData.musicStyle || 'Kizomba'}").${emotionInstruction(formData.desiredEmotion) ? '\n' + emotionInstruction(formData.desiredEmotion) : ''}${referenceArtistInstruction(formData.referenceArtist) ? '\n' + referenceArtistInstruction(formData.referenceArtist) : ''}${styleLyricalInstruction(formData.musicStyle) ? '\n' + styleLyricalInstruction(formData.musicStyle) : ''}${formData.hookPhrase ? '\n- GANCHO PRINCIPAL (hook): O refrão DEVE incorporar ou girar em torno desta frase central: "' + formData.hookPhrase + '". Esta frase é a mensagem que a pessoa nunca deve esquecer. Construa o refrão a partir dela.' : ''}
-- O campo "letterText" é uma dedicatória CURTA (2-3 frases) em prosa emocionante, sem repetir a letra.
+INSTRUÇÕES FINAIS:
+- A letra DEVE usar o nome do destinatário${recipientName ? ` ("${recipientName}")` : ''} de forma natural e emocionante.
+${whereItHappened ? `- Refira o local ("${whereItHappened}") na letra quando fizer sentido.\n` : ''}${hookPhrase ? `- GANCHO: O refrão DEVE incorporar esta frase: "${hookPhrase}".\n` : ''}- Evite letras genéricas. O tom deve refletir o estilo musical escolhido.
+- O campo "letterText" é uma dedicatória CURTA (2-3 frases) em prosa, sem repetir a letra.
 
-INSTRUÇÃO DE IDIOMA (CUMPRA OBRIGATORIAMENTE):
+INSTRUÇÃO DE IDIOMA:
 ${languageInstruction(formData.language || 'português')}`;
 }

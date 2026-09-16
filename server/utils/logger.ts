@@ -2,15 +2,15 @@ import pino from 'pino';
 import fs from 'fs';
 import path from 'path';
 
-// Níveis customizados (alinhar com Winston: fatal=0, error=1, ..., trace=6)
+// Níveis customizados (pino padrão: maior = mais severo)
 const customLevels = {
-  fatal: 0,
-  error: 1,
-  warn: 2,
-  info: 3,
-  http: 4,
-  debug: 5,
-  trace: 6,
+  fatal: 60,
+  error: 50,
+  warn: 40,
+  info: 30,
+  http: 25,
+  debug: 20,
+  trace: 10,
 };
 
 // Garantir que a pasta de logs existe sem rebentar o arranque
@@ -53,7 +53,7 @@ if ((process.env.NODE_ENV === 'production' || process.env.DEBUG) && canWriteLogs
 }
 
 // Criar logger
-const defaultLogLevel = process.env.NODE_ENV === 'production' ? 'http' : 'info';
+const defaultLogLevel = process.env.NODE_ENV === 'production' ? 'info' : 'debug';
 const logger = pino({
   level: process.env.LOG_LEVEL || defaultLogLevel,
   customLevels,
