@@ -3,7 +3,10 @@ interface SongLyricsProps {
   audioProgress: number;
 }
 
+import { useEffect, useRef } from 'react';
+
 export default function SongLyrics({ lyrics, audioProgress }: SongLyricsProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const lines = lyrics.length > 0 ? lyrics : [
     'Desde o dia em que te conheci, querido(a),',
     'O meu peito rebate no compasso de um ritmo profundo.',
@@ -17,16 +20,27 @@ export default function SongLyrics({ lyrics, audioProgress }: SongLyricsProps) {
     'Do teu companheiro dedicado de verdade.'
   ];
 
+  const currentIdx = Math.min(Math.floor((audioProgress / 100) * lines.length), lines.length - 1);
+
+  // Auto-scroll to keep current line visible
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const currentLine = container.children[currentIdx] as HTMLElement | undefined;
+    if (currentLine) {
+      currentLine.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [currentIdx]);
+
   return (
     <div className="bg-[#181818] rounded-2xl border border-white/5 p-6 space-y-4">
       <div className="flex items-center justify-between border-b border-white/5 pb-3">
         <span className="text-xs font-bold text-white uppercase tracking-widest">Letra</span>
-        <span className="text-[10px] text-[#b3b3b3] font-mono">Sincronizada com o áudio</span>
+        <span className="text-[10px] text-[#b3b3b3] font-mono">Acompanha a reprodução</span>
       </div>
 
-      <div className="space-y-2 max-h-96 sm:max-h-72 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-[#535353] scrollbar-track-transparent">
+      <div ref={containerRef} className="space-y-2 max-h-96 sm:max-h-72 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-[#535353] scrollbar-track-transparent">
         {lines.map((line, idx) => {
-          const currentIdx = Math.min(Math.floor((audioProgress / 100) * lines.length), lines.length - 1);
           const isCurrent = idx === currentIdx;
           const isPast = idx < currentIdx;
 

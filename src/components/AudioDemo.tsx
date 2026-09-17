@@ -247,7 +247,7 @@ export default function AudioDemo({ onStartWizard }: AudioDemoProps) {
           </div>
 
           <div className="flex items-end justify-center gap-0.5 sm:gap-1.5 h-10 mb-4 px-2 sm:px-10">
-            {Array.from({ length: 28 }).map((_, i) => {
+            {Array.from({ length: 14 }).map((_, i) => {
               const randomHeight = isPlaying 
                 ? [20, 60, 40, 80, 50, 95, 30, 70, 20][(i + i * 3) % 9] 
                 : 15;

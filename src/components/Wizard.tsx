@@ -534,6 +534,19 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     setFieldErrors({});
   };
 
+  // Android back button support — go to previous step instead of navigating away
+  useEffect(() => {
+    if (isSubmitting || isDone) return;
+    const handler = () => {
+      if (step > 1) {
+        setStep(s => s - 1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    };
+    window.addEventListener('popstate', handler);
+    return () => window.removeEventListener('popstate', handler);
+  }, [step, isSubmitting, isDone]);
+
   // Persistir progresso no localStorage para sobreviver a refresh
   useEffect(() => {
     try {
@@ -1512,7 +1525,12 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   const handleNext = () => {
     const errors = zodValidateStep(step, formData as unknown as Record<string, unknown>);
     setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      setTimeout(() => {
+        document.querySelector('.text-red-400')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+      return;
+    }
 
     if (step < 5) {
       const nextStepNum = step + 1;

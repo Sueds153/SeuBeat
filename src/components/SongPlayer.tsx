@@ -38,7 +38,7 @@ export default forwardRef<HTMLInputElement, SongPlayerProps>(function SongPlayer
   const elapsedStr = formatTime(elapsed);
   const totalStr = formatTime(totalSeconds);
 
-  const heights = [20,35,12,45,60,20,75,40,50,65,15,42,55,30,65,45,25,55,70,40,80,22,50,60,30,68,48,20,38,55,12,35,45,20,58,38,14,25,42,55];
+  const heights = [20,35,12,45,60,20,75,40,50,65,15,42,55,30,65,45,25,55,70,40];
 
   return (
     <div className="bg-stone-900/40 rounded-2xl border border-stone-800/60 p-5 md:p-6 space-y-5">

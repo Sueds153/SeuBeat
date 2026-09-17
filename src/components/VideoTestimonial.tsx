@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Volume2, VolumeX, Heart, Share2, MessageCircle, Sparkles, Star, Quote, ArrowRight, Flag } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Heart, Sparkles, Star, Quote, ArrowRight, Flag } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LogoIcon from './LogoIcon';
 
@@ -36,8 +36,6 @@ interface VideoTestimonialProps {
 
 export default function VideoTestimonial({ onStartWizard }: VideoTestimonialProps) {
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
-  const [likesCount, setLikesCount] = useState(1420);
-  const [hasLiked, setHasLiked] = useState(false);
   const [isCustomLoaded, setIsCustomLoaded] = useState(false);
   const [videoSrc, setVideoSrc] = useState<string | null>('/assets/noite.mp4');
   const [videoError, setVideoError] = useState(false);
@@ -45,7 +43,6 @@ export default function VideoTestimonial({ onStartWizard }: VideoTestimonialProp
   const [progress, setProgress] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const blobUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -89,11 +86,6 @@ export default function VideoTestimonial({ onStartWizard }: VideoTestimonialProp
     video.addEventListener('timeupdate', handleTimeUpdate);
     return () => video.removeEventListener('timeupdate', handleTimeUpdate);
   }, [videoSrc]);
-
-  const handleLike = () => {
-    if (hasLiked) { setLikesCount(prev => prev - 1); setHasLiked(false); }
-    else { setLikesCount(prev => prev + 1); setHasLiked(true); }
-  };
 
   const t = TESTIMONIALS[currentTestimonial];
 
@@ -233,21 +225,6 @@ export default function VideoTestimonial({ onStartWizard }: VideoTestimonialProp
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 mt-2">
-                      <button aria-label="Gostar" onClick={handleLike} className="flex flex-col items-center cursor-pointer">
-                        <Heart className={`w-5 h-5 ${hasLiked ? 'text-rose-500 fill-rose-500' : 'text-stone-400'}`} />
-                        <span className="text-[10px] font-mono text-stone-500 mt-0.5">{likesCount}</span>
-                      </button>
-                      <button aria-label="Partilhar" className="flex flex-col items-center cursor-pointer">
-                        <Share2 className="w-5 h-5 text-stone-400" />
-                        <span className="text-[10px] font-mono text-stone-500 mt-0.5">184</span>
-                      </button>
-                      <button aria-label="Comentar" className="flex flex-col items-center cursor-pointer">
-                        <MessageCircle className="w-5 h-5 text-stone-400" />
-                        <span className="text-[10px] font-mono text-stone-500 mt-0.5">92</span>
-                      </button>
-                    </div>
-
                     {/* Dots navigation */}
                     <div className="flex items-center gap-2 mt-2">
                       {TESTIMONIALS.map((_, idx) => (
@@ -264,34 +241,6 @@ export default function VideoTestimonial({ onStartWizard }: VideoTestimonialProp
                 </AnimatePresence>
               )}
 
-              {/* Upload button */}
-              {(!videoSrc || videoError) && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="mt-3 flex items-center gap-1.5 px-3 py-1.5 bg-stone-800/80 hover:bg-stone-700/80 text-stone-400 rounded-xl text-[10px] font-mono transition-all border border-stone-700/50 cursor-pointer"
-                >
-                  Carregar vídeo real (.mp4)
-                </button>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="video/mp4,video/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-                  const url = URL.createObjectURL(file);
-                  blobUrlRef.current = url;
-                  setVideoSrc(url);
-                  setIsCustomLoaded(true);
-                  setVideoError(false);
-                  setTimeout(() => {
-                    if (videoRef.current) videoRef.current.play().then(() => setIsPlaying(true)).catch(() => {});
-                  }, 150);
-                }}
-              />
             </div>
           </div>
         </div>

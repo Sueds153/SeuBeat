@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  Heart, Sparkles, Upload, Image as ImageIcon, ArrowLeft, Music, PartyPopper, Video
+  Heart, Sparkles, Upload, Image as ImageIcon, ArrowLeft, Music, PartyPopper, Video, Lock, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSong } from '../hooks/useSong';
@@ -32,21 +32,26 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
     textFallback: songDetails.letter || (songDetails.lyrics.length > 0 ? songDetails.lyrics.join(' ') : undefined),
   });
 
-  const [likesCount, setLikesCount] = useState(382);
-  const [hasLiked, setHasLiked] = useState(false);
   const [photoLoadError, setPhotoLoadError] = useState(false);
+  const [isPhotoHovered, setIsPhotoHovered] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isFullUnlocked = songDetails.status === 'delivered' || songDetails.status === 'approved';
+
+  // Celebration banner on first delivery view
+  useEffect(() => {
+    if (isFullUnlocked && !sessionStorage.getItem('seubeat_celebration_seen')) {
+      setShowCelebration(true);
+      sessionStorage.setItem('seubeat_celebration_seen', '1');
+      const timer = setTimeout(() => setShowCelebration(false), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [isFullUnlocked]);
 
   // Reset photo error state when photo URL changes (e.g. user replaces photo)
   React.useEffect(() => {
     setPhotoLoadError(false);
   }, [songDetails.photoUrl]);
-
-  const handleLike = () => {
-    if (hasLiked) { setLikesCount(p => p - 1); setHasLiked(false); }
-    else { setLikesCount(p => p + 1); setHasLiked(true); }
-  };
 
   const generateLyricsText = () => {
     if (songDetails.lyrics.length > 0) return songDetails.lyrics;
@@ -188,7 +193,12 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
         <section className="flex flex-col sm:flex-row items-center sm:items-end gap-6 pt-10 pb-8">
 
           {/* Album Art */}
-          <div className="relative w-44 h-44 sm:w-52 sm:h-52 flex-shrink-0 group">
+          <div
+            className="relative w-44 h-44 sm:w-52 sm:h-52 flex-shrink-0"
+            onMouseEnter={() => setIsPhotoHovered(true)}
+            onMouseLeave={() => setIsPhotoHovered(false)}
+            onTouchStart={() => setIsPhotoHovered(p => !p)}
+          >
             <div className={`w-full h-full rounded-xl overflow-hidden shadow-2xl transition-shadow duration-700 ${
               isPlaying
                 ? 'shadow-lg shadow-amber-500/20 ring-2 ring-amber-500/50'
@@ -210,8 +220,8 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
                 </div>
               )}
             </div>
-            {/* Upload overlay */}
-            <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer rounded-xl gap-1">
+            {/* Upload overlay — works on mobile via onTouchStart */}
+            <label className={`absolute inset-0 bg-black/50 transition-opacity flex flex-col items-center justify-center cursor-pointer rounded-xl gap-1 ${isPhotoHovered ? 'opacity-100' : 'opacity-0'}`}>
               <Upload className="w-6 h-6 text-white" />
               <span className="text-[10px] font-bold text-white uppercase">Trocar foto</span>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleCustomPhoto} />
@@ -264,16 +274,46 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
                 </span>
               )}
             </div>
-            {/* Like */}
-            <button
-              onClick={handleLike}
-              className={`flex items-center gap-2 text-xs font-semibold transition-colors ${hasLiked ? 'text-rose-400' : 'text-stone-400 hover:text-white'}`}
-            >
-              <Heart className={`w-5 h-5 transition-all ${hasLiked ? 'fill-rose-500 text-rose-500 scale-110' : ''}`} />
-              {likesCount} gostos
-            </button>
+            <p className="text-[11px] text-stone-500 italic">
+              Esta música foi criada especialmente para ti com amor.
+            </p>
           </div>
         </section>
+
+        {/* ── CELEBRATION BANNER ── */}
+        <AnimatePresence>
+          {showCelebration && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -20, height: 0 }}
+              className="mb-8"
+            >
+              <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-rose-500/10 border border-amber-500/20 rounded-2xl p-5 text-center relative overflow-hidden">
+                <button onClick={() => setShowCelebration(false)} className="absolute top-2 right-2 text-stone-500 hover:text-stone-300 cursor-pointer">
+                  <X className="w-4 h-4" />
+                </button>
+                <p className="text-2xl mb-1">🎵</p>
+                <p className="text-sm font-bold text-amber-400">A tua música está pronta!</p>
+                <p className="text-[11px] text-stone-400 mt-1">Preparada com carinho só para ti.</p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── PAYMENT CTA (when preview only) ── */}
+        {!isFullUnlocked && activeAudioUrl && (
+          <section className="mb-8">
+            <a
+              href={`/wizard?resume=${songDetails.id}&step=payment`}
+              className="flex items-center justify-center gap-3 w-full px-6 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm rounded-2xl transition-all shadow-xl shadow-amber-500/20 hover:scale-[1.01] active:scale-95"
+            >
+              <Lock className="w-4 h-4" />
+              Desbloquear Música Completa
+            </a>
+            <p className="text-center text-[10px] text-stone-500 mt-2 font-mono">A partir de 7.900 Kz • Pagamento via Multicaixa</p>
+          </section>
+        )}
 
         {/* ── UPSELL BANNER (Only when approved/delivered) ── */}
         {isFullUnlocked && (
@@ -412,7 +452,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8, y: 20 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full overflow-hidden shadow-xl shadow-amber-500/20 ring-2 ring-amber-500/50 hover:ring-amber-400 hover:shadow-amber-500/40 transition-all cursor-pointer"
+            className="fixed bottom-20 right-4 z-50 w-12 h-12 rounded-full overflow-hidden shadow-xl shadow-amber-500/20 ring-2 ring-amber-500/50 hover:ring-amber-400 hover:shadow-amber-500/40 transition-all cursor-pointer"
             title="Ir para o topo"
           >
             <motion.img

@@ -275,7 +275,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           onClick={onStartWizard}
           className="px-5 py-3 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 text-xs md:text-sm font-extrabold rounded-full shadow-lg shadow-amber-500/10 active:scale-95 transition-all shrink-0 cursor-pointer"
         >
-          Criar Música
+          Criar Minha Música
         </button>
       </header>
 
@@ -829,7 +829,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               <p className="text-amber-400/60 text-xs font-mono italic">
                 Sabia que 9 em cada 10 pessoas choram ao ouvir a música que dedicaram?
               </p>
-              <p className="text-stone-600 text-[11px] font-mono italic mt-1 max-sm:hidden">
+              <p className="text-stone-600 text-[10px] sm:text-[11px] font-mono italic mt-1">
                 "Daqui a um ano, vai preferir ter feito esta música do que não a ter feito. As flores murcham. As memórias ficam. A dúvida é: vais querer ter essa memória?"
               </p>
           </div>
@@ -838,7 +838,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             onClick={onStartWizard}
             className="inline-flex items-center gap-3 px-6 sm:px-10 py-5 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-extrabold text-base md:text-lg rounded-full shadow-2xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer"
           >
-            <span className="inline-flex items-center gap-2"><Music2 className="w-5 h-5" />Criar a minha canção</span>
+            <span className="inline-flex items-center gap-2"><Music2 className="w-5 h-5" />Criar Minha Música</span>
             <ArrowRight className="w-5 h-5" />
           </button>
 

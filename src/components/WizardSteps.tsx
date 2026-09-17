@@ -250,12 +250,12 @@ export function Step4Story({
   const appendStory = (text: string) => {
     setFormData(prev => {
       const next = prev.whatMakesSpecial ? `${prev.whatMakesSpecial} ${text}` : text;
-      return { ...prev, whatMakesSpecial: next.slice(0, 4000) };
+      return { ...prev, whatMakesSpecial: next.slice(0, 800) };
     });
   };
 
   const charCount = formData.whatMakesSpecial.length;
-  const charPercent = Math.min((charCount / 200) * 100, 100);
+  const charPercent = Math.min((charCount / 80) * 100, 100);
 
   return (
     <div className="space-y-4 pt-2">
@@ -270,7 +270,7 @@ export function Step4Story({
         <textarea
           id="makes-special-textarea"
           rows={6}
-          maxLength={4000}
+          maxLength={800}
           placeholder="O que é que esta pessoa tem que ninguém mais tem?&#10;Uma memória que vos faz sorrir agora?&#10;Algo que ela faz sem saber que vos marca todos os dias?&#10;&#10;Quanto mais real for, mais a música vai parecer que foi feita só para vós."
           value={formData.whatMakesSpecial}
           onChange={(e) => setFormData(prev => ({ ...prev, whatMakesSpecial: e.target.value }))}
