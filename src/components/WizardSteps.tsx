@@ -261,29 +261,32 @@ export function Step4Story({
     <div className="space-y-4 pt-2">
       <div className="space-y-2">
         <label className="text-xs font-mono text-stone-300 block font-semibold flex items-center justify-between">
-          <span>A Nossa História</span>
-          <span className="text-amber-400 font-mono text-[10px] uppercase font-bold tracking-wider">Obrigatório</span>
+          <span>Conta-nos a vossa história</span>
+          <span className="text-amber-400/70 font-mono text-[10px] font-normal tracking-wide">(O que escrever é contigo)</span>
         </label>
+        <p className="text-[11px] text-stone-500 leading-relaxed">
+          Não precisa de ser perfeito. Não há errar. Escreva como se estivesse a contar a alguém de confiança.
+        </p>
         <textarea
           id="makes-special-textarea"
           rows={6}
           maxLength={4000}
-          placeholder="Conta-nos o que torna esta pessoa especial. Por exemplo:&#10;- O momento em que se conheceram&#10;- Uma gargalhada que nunca esqueceram&#10;- O hábito dela de cozinhar aos domingos&#10;- A forma como ele te apoia nos dias difíceis&#10;Quanto mais contares, mais emocionante fica a canção."
+          placeholder="O que é que esta pessoa tem que ninguém mais tem?&#10;Uma memória que vos faz sorrir agora?&#10;Algo que ela faz sem saber que vos marca todos os dias?&#10;&#10;Quanto mais real for, mais a música vai parecer que foi feita só para vós."
           value={formData.whatMakesSpecial}
           onChange={(e) => setFormData(prev => ({ ...prev, whatMakesSpecial: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
         />
         <div className="flex items-center justify-between">
           <div className="space-y-1 pt-0.5 flex-1">
-            <p className="text-[10px] text-stone-500 font-mono">Toque para adicionar ideias:</p>
+            <p className="text-[10px] text-stone-500 font-mono">Toque para começar a escrever:</p>
             <div className="flex flex-wrap gap-1.5">
               {[
-                { label: 'Momento Marcante', icon: <HeartIcon className="w-3 h-3" />, append: 'Lembro-me do momento em que tudo começou — uma memória que guardo com carinho e nunca mais esqueci.' },
-                { label: 'Gargalhada', icon: <Smile className="w-3 h-3" />, append: 'A sua gargalhada contagiante ilumina qualquer dia cinzento, traz alegria onde quer que esteja.' },
-                { label: 'Apoio Incondicional', icon: <ShieldCheck className="w-3 h-3" />, append: 'Nos momentos mais difíceis, sempre esteve ao meu lado com um abraço e a palavra certa.' },
-                { label: 'Detalhe Único', icon: <Sparkles className="w-3 h-3" />, append: 'Tem um detalhe que só ela tem — algo que me faz sorrir todos os dias sem exceção.' },
-                { label: 'Lugar Especial', icon: <MapPin className="w-3 h-3" />, append: 'Há um lugar que é só nosso — onde o tempo para e o mundo desaparece.' },
-                { label: 'Superação', icon: <Flame className="w-3 h-3" />, append: 'Enfrentou cada desafio com uma coragem que me inspira e me faz querer ser melhor.' },
+                { label: 'Primeiro encontro', icon: <HeartIcon className="w-3 h-3" />, append: 'O dia em que nos conhecemos...' },
+                { label: 'Admiro nela', icon: <Sparkles className="w-3 h-3" />, append: 'O que mais admiro nela é...' },
+                { label: 'Hábito que me faz sorrir', icon: <Smile className="w-3 h-3" />, append: 'Tem um hábito que me faz sorrir...' },
+                { label: 'Nos dias difíceis', icon: <ShieldCheck className="w-3 h-3" />, append: 'Nos dias difíceis, ela...' },
+                { label: 'Lugar só nosso', icon: <MapPin className="w-3 h-3" />, append: 'Há um lugar que é só nosso...' },
+                { label: 'Dizer-lhe uma coisa', icon: <Feather className="w-3 h-3" />, append: 'Se pudesse dizer-lhe uma coisa...' },
               ].map((pill, i) => (
                 <button
                   key={i}
@@ -312,6 +315,9 @@ export function Step4Story({
         {fieldErrors?.whatMakesSpecial && (
           <p className="text-red-400 text-xs mt-1 font-semibold">{fieldErrors.whatMakesSpecial}</p>
         )}
+        <p className="text-[10px] text-stone-500 italic">
+          Não há respostas erradas — escreva como se estivesse a falar com um amigo de confiança.
+        </p>
       </div>
 
       <div className="space-y-2 pt-3 border-t border-stone-900">
@@ -327,7 +333,7 @@ export function Step4Story({
             id="where-it-happened-input"
             type="text"
             maxLength={1000}
-            placeholder="A cidade, praia ou local onde o vosso mundo parou (Ex: Luanda, Benguela, Cabo Ledo...)"
+            placeholder="Luanda, Benguela, Cabo Ledo... ou um lugar que só vós dois conhecem"
             value={formData.whereItHappened}
             onChange={(e) => setFormData(prev => ({ ...prev, whereItHappened: e.target.value }))}
             className="w-full pl-10 pr-4 py-3.5 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700"
@@ -337,7 +343,7 @@ export function Step4Story({
           )}
         </div>
         <p className="text-xxs text-stone-500 italic mt-1 font-mono">
-          "Lugares reais ajudam a criar uma letra que toca a alma."
+          Lugares reais tornam a letra inesquecível — mas se não houver, tudo bem.
         </p>
       </div>
 
@@ -350,7 +356,7 @@ export function Step4Story({
           id="deep-message-textarea"
           rows={4}
           maxLength={4000}
-          placeholder="Se só pudesses dizer mais uma frase do fundo do coração antes da música tocar, qual seria?"
+          placeholder="A frase que ficaria para sempre. Mas se não souber, a música encontra-a por vós."
           value={formData.messageFromTheHeart}
           onChange={(e) => setFormData(prev => ({ ...prev, messageFromTheHeart: e.target.value }))}
           className="w-full px-4 py-3 bg-stone-950 border border-stone-800 focus:border-amber-500 rounded-xl text-stone-100 outline-none text-xs sm:text-sm font-medium duration-300 placeholder-stone-700 leading-relaxed resize-none"
@@ -359,12 +365,12 @@ export function Step4Story({
           <p className="text-red-400 text-xs mt-1">{fieldErrors.messageFromTheHeart}</p>
         )}
         <p className="text-xxs text-amber-400/80 italic mt-1 font-mono">
-          "Esta mensagem inspirará a estrofe mais marcante da canção."
+          Esta mensagem pode inspirar o refrão mais marcante da canção.
         </p>
       </div>
 
-      <p className="text-[10px] text-stone-600 font-mono text-center pt-2 border-t border-stone-900/40">
-        Os detalhes mais simples são os que geram as letras mais emocionantes — já transformámos centenas de histórias reais em canções inesquecíveis
+      <p className="text-[10px] text-stone-500 font-mono text-center pt-2 border-t border-stone-900/40">
+        Não precisa de escrever muito — basta escrever com o coração.
       </p>
     </div>
   );

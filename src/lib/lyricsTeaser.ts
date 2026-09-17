@@ -103,35 +103,46 @@ export function buildTeaser(lyrics: string): LyricsTeaser {
 
   // Seleccao emocional: ponte > refrão > pré-refrão > primeira secção
   const emotionalPriority: LyricSection['type'][] = ['bridge', 'chorus', 'pre-chorus'];
-  let bestSection = sections[0];
+  let primarySection = sections[0];
 
   for (const type of emotionalPriority) {
     const found = sections.find(s => s.type === type);
     if (found && found.lines.length > 0) {
-      bestSection = found;
+      primarySection = found;
       break;
     }
   }
 
-  // Mostrar só a secção emocional (máx 8 linhas para não ser demasiado)
-  const visibleLines = bestSection.lines.slice(0, 8);
+  // Segunda secção: verso adjacente ao primary (anterior ou seguinte)
+  const primaryIndex = sections.indexOf(primarySection);
+  let secondarySection: LyricSection | null = null;
+  if (primaryIndex > 0) {
+    secondarySection = sections[primaryIndex - 1];
+  } else if (sections.length > 1) {
+    secondarySection = sections[1];
+  }
 
-  const visibleSections: LyricSection[] = [{
-    ...bestSection,
-    lines: visibleLines,
-    isVisible: true,
-    isEditable: false,
-  }];
+  // Mostrar 2 secções — primary (máx 8 linhas) + secondary (máx 4 linhas como sneak peek)
+  const primaryLines = primarySection.lines.slice(0, 8);
+  const secondaryLines = secondarySection ? secondarySection.lines.slice(0, 4) : [];
 
+  const visibleSections: LyricSection[] = [
+    { ...primarySection, lines: primaryLines, isVisible: true, isEditable: false },
+    ...(secondarySection
+      ? [{ ...secondarySection, lines: secondaryLines, isVisible: true, isEditable: false }]
+      : []),
+  ];
+
+  const visibleSet = new Set(visibleSections.map(s => s.label));
   const hiddenSections = sections
-    .filter(s => s !== bestSection)
+    .filter(s => !visibleSet.has(s.label))
     .map(s => ({ ...s, isVisible: false, isEditable: false }));
 
   return {
     visibleSections,
     hiddenSections,
     totalLines,
-    visibleLines: visibleLines.length,
+    visibleLines: primaryLines.length + secondaryLines.length,
   };
 }
 

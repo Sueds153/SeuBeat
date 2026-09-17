@@ -1638,7 +1638,8 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lyrics: editedLyrics.split('\n').filter(l => l.trim()),
-          lyrics_snippet: editedLyrics.slice(0, 200)
+          lyrics_snippet: editedLyrics.slice(0, 200),
+          email: formData.email
         })
       });
       const data = await res.json();
