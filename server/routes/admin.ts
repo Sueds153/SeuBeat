@@ -15,9 +15,23 @@ import {
   processSunoVoice 
 } from '../services/workflow';
 import { sendPersonalizedEmail, sendPaymentRejectionEmail, sendConfirmationEmail, sendVideoUpsellOfferEmail } from '../services/email';
-import Anthropic from '@anthropic-ai/sdk';
-import OpenAI from 'openai';
-import { GoogleGenAI } from '@google/genai';
+// Lazy-loaded AI SDKs — only imported on first use (saves ~1-2s cold start)
+let AnthropicSDK: typeof import('@anthropic-ai/sdk')['default'] | null = null;
+let OpenAISDK: typeof import('openai')['default'] | null = null;
+let GoogleGenAISDK: typeof import('@google/genai')['GoogleGenAI'] | null = null;
+
+async function loadAnthropic() {
+  if (!AnthropicSDK) AnthropicSDK = (await import('@anthropic-ai/sdk')).default;
+  return AnthropicSDK;
+}
+async function loadOpenAI() {
+  if (!OpenAISDK) OpenAISDK = (await import('openai')).default;
+  return OpenAISDK;
+}
+async function loadGoogleGenAI() {
+  if (!GoogleGenAISDK) GoogleGenAISDK = (await import('@google/genai')).GoogleGenAI;
+  return GoogleGenAISDK;
+}
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { normalizeLyricsArray, querySunoTask } from '../services/suno';
 import { persistGeneratedSunoAudio } from '../services/workflow';
@@ -764,7 +778,8 @@ router.get('/credits', adminAuth, async (req, res) => {
         const apiKey = process.env.ANTHROPIC_API_KEY;
         if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY em falta' };
         try {
-          const client = new Anthropic({ apiKey });
+          const AnthropicClient = await loadAnthropic();
+          const client = new AnthropicClient({ apiKey });
           const response = await client.messages.create({
             model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022',
             max_tokens: 1,
@@ -784,7 +799,8 @@ router.get('/credits', adminAuth, async (req, res) => {
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) return { ok: false, error: 'OPENAI_API_KEY em falta' };
         try {
-          const openai = new OpenAI({ apiKey });
+          const OpenAIClient = await loadOpenAI();
+          const openai = new OpenAIClient({ apiKey });
           const models = await openai.models.list({ timeout: 5000 });
           const creditsRes = await fetch('https://api.openai.com/v1/dashboard/billing/credit_grants', {
             headers: { 'Authorization': `Bearer ${apiKey}` },
@@ -814,7 +830,8 @@ router.get('/credits', adminAuth, async (req, res) => {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey) return { ok: false, error: 'GEMINI_API_KEY em falta' };
         try {
-          const genAI = new GoogleGenAI({ apiKey });
+          const GoogleGenAIClient = await loadGoogleGenAI();
+          const genAI = new GoogleGenAIClient({ apiKey });
           const response = await genAI.models.generateContent({
             model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
             contents: [{ role: 'user', parts: [{ text: 'ping' }] }],
@@ -1021,7 +1038,8 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
         const apiKey = process.env.ANTHROPIC_API_KEY;
         if (!apiKey) return { ok: false, error: 'ANTHROPIC_API_KEY em falta' };
         try {
-          const client = new Anthropic({ apiKey });
+          const AnthropicClient = await loadAnthropic();
+          const client = new AnthropicClient({ apiKey });
           const response = await client.messages.create({
             model: process.env.CLAUDE_MODEL || 'claude-3-5-sonnet-20241022',
             max_tokens: 5,
@@ -1034,7 +1052,8 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
         const key = process.env.OPENAI_API_KEY;
         if (!key) return { ok: false, error: 'OPENAI_API_KEY em falta' };
         try {
-          const openai = new OpenAI({ apiKey: key });
+          const OpenAIClient = await loadOpenAI();
+          const openai = new OpenAIClient({ apiKey: key });
           await openai.models.list({ timeout: 5000 });
           return { ok: true };
         } catch (err: unknown) { return { ok: false, error: err instanceof Error ? err.message : String(err) }; }
@@ -1044,7 +1063,8 @@ router.get('/diagnostics', adminAuth, async (req, res) => {
         const key = process.env.GEMINI_API_KEY;
         if (!key) return { ok: false, error: 'GEMINI_API_KEY em falta' };
         try {
-          const genAI = new GoogleGenAI({ apiKey: key });
+          const GoogleGenAIClient = await loadGoogleGenAI();
+          const genAI = new GoogleGenAIClient({ apiKey: key });
           const response = await genAI.models.generateContent({
             model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
             contents: [{ role: 'user', parts: [{ text: 'ping' }] }],

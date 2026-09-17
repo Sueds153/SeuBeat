@@ -1,6 +1,6 @@
 # SeuBeat — Estado do Projeto (atualizado a cada sessão)
 
-## Estado Atual (31/Ago 2026)
+## Estado Atual (17/Set 2026)
 
 ### Stack
 - **Frontend**: React + Vite + Tailwind + TypeScript
@@ -17,8 +17,8 @@
 
 ### Produção
 - **URL**: https://seubeat.onrender.com
-- **Último deploy**: commit `31f00fd` (payment proof upload via FormData)
-- **Testes**: 372 passam (32 ficheiros), `tsc --noEmit` limpo
+- **Último deploy**: commit `90aa3d0` (fix teaser cache resiliente + loading guard)
+- **Testes**: 374 passam (32 ficheiros), `tsc --noEmit` limpo
 
 ### DB Schema (tabelas principais)
 - `song_requests` — pedido do cliente (status, dados wizard)
@@ -41,17 +41,14 @@
 9. **Meta Ads** — configuração de campanhas ✅ funcional
 10. **WhatsApp** — estado de envios ✅ funcional
 
-### Bugs Corrigidos Hoje (31/Ago)
-1. Undo route retornava sucesso mesmo com erro na DB → fix: `if (undoError)` return 500
-2. Undo force_status sem tratamento de erros → fix: error checking em todos os caminhos
-3. force-voice `.maybeSingle().then()` engolia erros → fix: log de erros
-4. `handleForceStatus`/`handleUpdateStyle` sem `apiHeaders` no deps array → fix adicionado
-5. Approve flow sem guard `voice_processing` → fix adicionado
-6. Pagamento comprovativo: payload base64+JSON (~13MB) causava timeout no Render → fix: multer + FormData (binário, 25% menor), AbortController 90s, backward-compat JSON para testes
-7. **Aprovação Premium ficava "processing"** — `admin.ts:418`: `hasGeneratedAudio && !hasVoiceSample` bloqueava entrega Premium com voz clonada. Fix: `hasGeneratedAudio` (remove `!hasVoiceSample`), agora Premium com áudio existente entrega direta
-8. **Guard errado no workflow Suno** — `admin.ts:522`: `.eq('status', 'approved')` mas status era `payment_submitted` → update silencioso 0 rows. Fix: `.eq('status', 'payment_submitted')`
-9. **isProcessing sem completed** — `admin.ts:501`: `mureka_status === 'completed'` não estava na lista,permitia workflow redundante. Fix: adicionado `completed`
-10. **Comprovativos não apareciam** — `admin.ts proof-url`: retornava URL R2 diretamente (pode ser privado). Fix: prioriza URL assinada quando `proof_path` existe, fallback URL HTTP
+### Bugs Corrigidos Hoje (17/Set)
+1. **Edição de letras bloqueada** — `handleSaveLyrics` não incluía `email` no body do PUT `/song/:id/lyrics`, server retornava 400 "Email requerido". Fix: adicionar `email: formData.email` ao request body
+2. **Preview teaser mostrava só 1 secção** — `buildTeaser()` selecionava só o refrão/ponte, utilizador via "só o refrão". Fix: mostrar 2 secções visíveis (emocional + adjacente) + mini-preview de 3ª secção na cortina
+3. **Teaser desaparecia após refresh/lento** — `isTeaserEnabled()` cacheava `false` permanentemente no primeiro falha de fetch do `/api/config`, desativando o teaser para toda a sessão. Fix: cache com localStorage + retry silencioso em background + loading skeleton
+
+### Melhorias Hoje (17/Set)
+1. **Step 4 emocional reescrito** — label "Conta-nos a vossa história" + badge "O que escrever é contigo" (não "Obrigatório"), placeholder com 3 perguntas abertas, pills como aberturas incompletas ("O dia em que nos conhecemos...", "O que mais admiro nela é..."), frase "não há respostas erradas", campos opcionais com reforço de que tudo bem não preencher
+2. **Prompts de IA limpos** (sessão anterior) — campos fantasma removidos, slang artificial eliminada, instruments/BPM corrigidos, temperature 0.65, validação reativa
 
 ### Pendências Conhecidas
 - `auth_leaked_password_protection` — ativar manualmente no Dashboard Supabase
@@ -73,3 +70,5 @@
 - R2 é o storage primário, Supabase Storage é fallback
 - Não gastar créditos Suno desnecessariamente — verificar se já existe áudio
 - Jina MCP disponível para busca web e leitura de documentação (usar `search_web`, `read_url`)
+- Wizard agora tem 5 passos (não 9) — não adicionar campos phantom ao Step 4
+- Feature flag `VITE_ENABLE_LYRICS_TEASER` controla teaser vs letras completas

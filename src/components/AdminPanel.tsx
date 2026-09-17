@@ -1666,6 +1666,8 @@ export default function AdminPanel() {
                         src={url}
                         alt="Comprovativo"
                         className="w-full rounded-xl object-contain max-h-[70vh]"
+                        loading="lazy"
+                        decoding="async"
                         onError={() => setProofImgError(true)}
                       />
                     </div>

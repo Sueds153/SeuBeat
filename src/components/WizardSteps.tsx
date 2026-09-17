@@ -409,6 +409,8 @@ export function Step5Finalize({
                   alt="Dedicatória Casal"
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
+                  loading="lazy"
+                  decoding="async"
                 />
                 <div className="absolute inset-0 bg-black/45 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <span className="text-xxs text-stone-300 font-semibold font-sans">Mudar imagem</span>

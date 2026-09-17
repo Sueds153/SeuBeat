@@ -13,10 +13,11 @@ import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification } f
 import { sendDeliveryWhatsApp } from '../services/whatsappSender';
 import { generateServerEventId } from '../services/metaPixelCapi';
 import { sendSubmitApplicationEvent, sendLeadEvent, sendCompleteRegistrationEvent, sendInitiateCheckoutEvent, sendAddPaymentInfoEvent } from '../services/metaPixelCapi';
-import DOMPurify from 'isomorphic-dompurify';
-
-function sanitize(str: string): string {
-  return DOMPurify.sanitize(str.trim().slice(0, 5000));
+// DOMPurify lazy-loaded (saves ~200-500ms cold start — jsdom is heavy)
+let dompurifyModule: typeof import('isomorphic-dompurify') | null = null;
+async function sanitize(str: string): Promise<string> {
+  if (!dompurifyModule) dompurifyModule = await import('isomorphic-dompurify');
+  return dompurifyModule.default.sanitize(str.trim().slice(0, 5000));
 }
 import { setProgress, updateRequestStatus, runBackgroundSunoWorkflow } from '../services/workflow';
 import { publicErrorMessage, getAppUrl, logRouteError, kzToUsd, toCamelCase } from '../utils/helpers';
@@ -98,7 +99,7 @@ function parseAngolanAmount(value: string): number {
 // gerar duplicatas (retries do cliente após falha de rede/timeout).
 const DEDUPE_WINDOW_MS = 10 * 60 * 1000;
 
-function lyricsRequestFingerprint(values: {
+async function lyricsRequestFingerprint(values: {
   recipientName?: string;
   recipientGender?: string;
   recipientNick?: string;
@@ -116,7 +117,7 @@ function lyricsRequestFingerprint(values: {
   whyCreatedToday?: string;
   onlySheDoes?: string;
   whereItHappened?: string;
-}): string {
+}): Promise<string> {
   const normalized: Array<string | null> = [
     values.recipientName || 'Destinatario',
     values.recipientGender || null,
@@ -126,15 +127,15 @@ function lyricsRequestFingerprint(values: {
     values.occasion || 'Homenagem',
     values.musicStyle || 'Kizomba',
     values.voiceType || 'masculina',
-    sanitize(values.whatMakesSpecial || ''),
-    sanitize(values.unforgettableMemory || ''),
-    sanitize(values.messageFromTheHeart || ''),
+    await sanitize(values.whatMakesSpecial || ''),
+    await sanitize(values.unforgettableMemory || ''),
+    await sanitize(values.messageFromTheHeart || ''),
     values.desiredEmotion || 'Amor',
     values.language || 'português',
     values.referenceArtist || null,
-    sanitize(values.whyCreatedToday || ''),
-    sanitize(values.onlySheDoes || ''),
-    sanitize(values.whereItHappened || ''),
+    await sanitize(values.whyCreatedToday || ''),
+    await sanitize(values.onlySheDoes || ''),
+    await sanitize(values.whereItHappened || ''),
   ];
   return JSON.stringify(normalized);
 }
@@ -159,7 +160,7 @@ async function findExistingLyricsRequest(
   }
 
   for (const req of existingRequests || []) {
-    const storedFingerprint = lyricsRequestFingerprint({
+    const storedFingerprint = await lyricsRequestFingerprint({
       recipientName: req.recipient_name || undefined,
       recipientGender: req.recipient_gender || undefined,
       recipientNick: req.recipient_nick || undefined,
@@ -212,7 +213,7 @@ async function dedupeLyricsRequest(
 
     const data: GenerateLyricsInput = validation.data;
     if (!data.email) return next();
-    const fingerprint = lyricsRequestFingerprint({
+    const fingerprint = await lyricsRequestFingerprint({
       recipientName: data.recipientName || undefined,
       recipientGender: data.recipientGender || undefined,
       recipientNick: data.recipientNick || undefined,
@@ -444,6 +445,15 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
 
     if (!userData?.id) throw new Error('Perfil de utilizador invalido.');
 
+    const [sanitizedWhy, sanitizedOnlyShe, sanitizedWhere, sanitizedSpecial, sanitizedMemory, sanitizedHeart] = await Promise.all([
+      sanitize(whyCreatedToday || ''),
+      sanitize(onlySheDoes || ''),
+      sanitize(whereItHappened || ''),
+      sanitize(whatMakesSpecial || ''),
+      sanitize(unforgettableMemory || ''),
+      sanitize(messageFromTheHeart || ''),
+    ]);
+
     const { data: requestData, error: requestError } = await supabase.from('song_requests').insert([{
       user_id: userData.id,
       recipient_name: recipientName || 'Destinatario',
@@ -452,15 +462,15 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
       relationship: recipientRelation || 'Parceiro',
       hook_phrase: hookPhrase || null,
       reference_artist: referenceArtist || null,
-      why_created_today: sanitize(whyCreatedToday || ''),
-      only_she_does: sanitize(onlySheDoes || ''),
-      where_it_happened: sanitize(whereItHappened || ''),
+      why_created_today: sanitizedWhy,
+      only_she_does: sanitizedOnlyShe,
+      where_it_happened: sanitizedWhere,
       occasion: occasion || 'Homenagem',
       music_style: musicStyle || 'Kizomba',
       voice_type: voiceType || 'masculina',
-      special_traits: sanitize(whatMakesSpecial || ''),
-      memory: sanitize(unforgettableMemory || ''),
-      heart_message: sanitize(messageFromTheHeart || ''),
+      special_traits: sanitizedSpecial,
+      memory: sanitizedMemory,
+      heart_message: sanitizedHeart,
       desired_emotion: desiredEmotion || 'Amor',
       language: language || 'português',
       email: userEmail,
@@ -833,12 +843,13 @@ router.put('/song/:id/lyrics', globalLimiter, async (req, res) => {
 
     const rawLyrics = validation.data.lyrics;
     const lyricsArray = Array.isArray(rawLyrics) ? rawLyrics : rawLyrics.split('\n').filter(l => l.trim().length > 0);
+    const sanitizedSnippet = validation.data.lyrics_snippet ? await sanitize(validation.data.lyrics_snippet) : null;
 
     const { error: updateError } = await supabase
       .from('songs')
       .update({
         lyrics: lyricsArray,
-        lyrics_snippet: validation.data.lyrics_snippet ? sanitize(validation.data.lyrics_snippet) : null,
+        lyrics_snippet: sanitizedSnippet,
         updated_at: new Date().toISOString()
       })
       .eq('id', id);
@@ -1012,8 +1023,15 @@ router.post('/song/:id/rebuild-audio', globalLimiter, async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/stats/today-count — Contador de músicas criadas hoje (prova social)
 // ─────────────────────────────────────────────────────────────────────────────
+let todayCountCache: { count: number; at: number } | null = null;
+const TODAY_COUNT_TTL_MS = 60_000;
+
 router.get('/stats/today-count', async (_req, res) => {
   try {
+    if (todayCountCache && Date.now() - todayCountCache.at < TODAY_COUNT_TTL_MS) {
+      return res.json({ count: todayCountCache.count });
+    }
+
     const supabase = getAdminSupabase();
     if (!supabase) return res.json({ count: 847 });
 
@@ -1030,7 +1048,9 @@ router.get('/stats/today-count', async (_req, res) => {
       return res.json({ count: 847 });
     }
 
-    res.json({ count: count || 0 });
+    const result = count || 0;
+    todayCountCache = { count: result, at: Date.now() };
+    res.json({ count: result });
   } catch {
     res.json({ count: 847 });
   }
@@ -1104,28 +1124,34 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
 
     const parsedAmount = typeof amount === 'number' && !isNaN(amount) ? amount : typeof amount === 'string' ? parseAngolanAmount(amount) : 0;
 
-    const { data: existingPayment } = await supabase
-      .from('payments')
-      .select('id, status')
-      .eq('request_id', songRequestId)
-      .eq('status', 'pending_verification')
-      .maybeSingle();
+    // Parallel guard queries (saves ~200ms vs sequential)
+    const [pendingResult, approvedResult, requestResult] = await Promise.all([
+      supabase
+        .from('payments')
+        .select('id, status')
+        .eq('request_id', songRequestId)
+        .eq('status', 'pending_verification')
+        .maybeSingle(),
+      supabase
+        .from('payments')
+        .select('id')
+        .eq('request_id', songRequestId)
+        .eq('status', 'approved')
+        .maybeSingle(),
+      supabase
+        .from('song_requests')
+        .select('status')
+        .eq('id', songRequestId)
+        .maybeSingle(),
+    ]);
+
+    const existingPayment = pendingResult.data;
+    const approvedPayment = approvedResult.data;
+    const requestGuard = requestResult.data;
+
     if (existingPayment) {
       return res.status(409).json({ success: false, error: 'Já existe um comprovativo pendente para este pedido.' });
     }
-
-    const { data: approvedPayment } = await supabase
-      .from('payments')
-      .select('id')
-      .eq('request_id', songRequestId)
-      .eq('status', 'approved')
-      .maybeSingle();
-
-    const { data: requestGuard } = await supabase
-      .from('song_requests')
-      .select('status')
-      .eq('id', songRequestId)
-      .maybeSingle();
 
     if (
       approvedPayment ||
@@ -2069,6 +2095,7 @@ router.post('/song/:id/voice-sample', async (req, res) => {
 // GET /api/config — configurações de runtime (feature flags)
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/config', (_req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600, must-revalidate');
   res.json({
     success: true,
     features: {

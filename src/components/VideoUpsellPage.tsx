@@ -205,7 +205,7 @@ export default function VideoUpsellPage({ requestId, email, onBackToLanding }: V
             {proofFile ? (
               <div className="bg-stone-900/50 border border-stone-800 rounded-xl p-4">
                 {proofPreview ? (
-                  <img src={proofPreview} alt="Preview" className="w-full h-32 object-cover rounded-lg mb-3" />
+                  <img src={proofPreview} alt="Preview" className="w-full h-32 object-cover rounded-lg mb-3" loading="lazy" decoding="async" />
                 ) : (
                   <div className="flex items-center gap-3 mb-3">
                     <CreditCard className="w-8 h-8 text-stone-500" />

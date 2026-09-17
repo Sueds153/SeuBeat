@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import { LyricsComposition, WizardFormData } from './types';
 import { selectPrompt } from './prompts';
 import { withAIServiceRetry, extractJSON, validateCompositionStrict } from './aiShared';
@@ -38,6 +37,7 @@ export async function generateLyricsWithDeepSeek(formData: WizardFormData): Prom
   }
 
   const prompt = selectPrompt(formData);
+  const OpenAI = (await import('openai')).default;
   const deepseek = new OpenAI({ apiKey, baseURL: 'https://api.deepseek.com' });
 
   return withAIServiceRetry('DeepSeek', async () => {

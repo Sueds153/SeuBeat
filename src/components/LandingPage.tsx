@@ -394,12 +394,16 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
               {/* Main photo */}
               <div className="relative rounded-3xl overflow-hidden shadow-2xl shadow-amber-900/20 border border-stone-800/60">
-                <img
-                  src="/assets/hero_couple.png"
-                  alt="Casal angolano emocionado ao ouvir música personalizada"
-                  className="w-full h-auto object-cover"
-                  loading="eager"
-                />
+                <picture>
+                  <source srcSet="/assets/hero_couple.webp" type="image/webp" />
+                  <img
+                    src="/assets/hero_couple.png"
+                    alt="Casal angolano emocionado ao ouvir música personalizada"
+                    className="w-full h-auto object-cover"
+                    loading="eager"
+                    decoding="async"
+                  />
+                </picture>
                 {/* Overlay gradient at bottom */}
                 <div className="absolute bottom-0 inset-x-0 h-32 bg-gradient-to-t from-stone-950/80 to-transparent" />
                 {/* Floating tag over photo */}

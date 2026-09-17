@@ -6,37 +6,46 @@ import { execFileSync, spawn } from 'child_process';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
 
-let FFMPEG_AVAILABLE = true;
-let FFPROBE_AVAILABLE = true;
+let FFMPEG_AVAILABLE: boolean | null = null; // null = not checked yet
+let FFPROBE_AVAILABLE: boolean | null = null;
 let FFPROBE_PATH: string | null = null;
 
-if (ffmpegInstaller) {
-  try {
-    ffmpeg.setFfmpegPath(ffmpegInstaller);
-    execFileSync(ffmpegInstaller, ['-version'], { stdio: 'pipe', timeout: 10000 });
-    console.log('✅ FFmpeg disponível e funcional');
-  } catch (err: unknown) {
-    console.warn(`⚠️ FFmpeg não disponível, processamento de áudio indisponível: ${err instanceof Error ? err.message : String(err)}`);
+function ensureFfmpeg(): boolean {
+  if (FFMPEG_AVAILABLE !== null) return FFMPEG_AVAILABLE;
+  if (ffmpegInstaller) {
+    try {
+      ffmpeg.setFfmpegPath(ffmpegInstaller);
+      execFileSync(ffmpegInstaller, ['-version'], { stdio: 'pipe', timeout: 10000 });
+      console.log('✅ FFmpeg disponível e funcional');
+      FFMPEG_AVAILABLE = true;
+    } catch (err: unknown) {
+      console.warn(`⚠️ FFmpeg não disponível: ${err instanceof Error ? err.message : String(err)}`);
+      FFMPEG_AVAILABLE = false;
+    }
+  } else {
+    console.warn('⚠️ ffmpeg-static não instalado');
     FFMPEG_AVAILABLE = false;
   }
-} else {
-  console.warn('⚠️ ffmpeg-static não instalado, processamento de áudio indisponível');
-  FFMPEG_AVAILABLE = false;
+  return FFMPEG_AVAILABLE;
 }
 
-// Verificar ffprobe disponibilidade (via ffprobe-static)
-if (ffprobeInstaller?.path) {
-  try {
-    execFileSync(ffprobeInstaller.path, ['-version'], { stdio: 'pipe', timeout: 5000 });
-    FFPROBE_PATH = ffprobeInstaller.path;
-    console.log('✅ FFprobe disponível e funcional');
-  } catch {
-    console.warn('⚠️ FFprobe não disponível, duração de áudio será detectada via stderr do ffmpeg');
+function ensureFfprobe(): boolean {
+  if (FFPROBE_AVAILABLE !== null) return FFPROBE_AVAILABLE;
+  if (ffprobeInstaller?.path) {
+    try {
+      execFileSync(ffprobeInstaller.path, ['-version'], { stdio: 'pipe', timeout: 5000 });
+      FFPROBE_PATH = ffprobeInstaller.path;
+      console.log('✅ FFprobe disponível e funcional');
+      FFPROBE_AVAILABLE = true;
+    } catch {
+      console.warn('⚠️ FFprobe não disponível, duração de áudio será detectada via stderr do ffmpeg');
+      FFPROBE_AVAILABLE = false;
+    }
+  } else {
+    console.warn('⚠️ ffprobe-static não instalado, duração de áudio será detectada via stderr do ffmpeg');
     FFPROBE_AVAILABLE = false;
   }
-} else {
-  console.warn('⚠️ ffprobe-static não instalado, duração de áudio será detectada via stderr do ffmpeg');
-  FFPROBE_AVAILABLE = false;
+  return FFPROBE_AVAILABLE;
 }
 
 const DOWNLOAD_TIMEOUT_MS = Number(process.env.DOWNLOAD_TIMEOUT_MS || 300000);
@@ -44,7 +53,7 @@ const DOWNLOAD_TIMEOUT_MS = Number(process.env.DOWNLOAD_TIMEOUT_MS || 300000);
 // Obter duração do áudio em segundos usando apenas o stderr do FFmpeg (não depende de ffprobe)
 export function getAudioDurationFfmpeg(inputPath: string): Promise<number> {
   return new Promise((resolve) => {
-    if (!FFMPEG_AVAILABLE || !ffmpegInstaller) {
+    if (!ensureFfmpeg() || !ffmpegInstaller) {
       resolve(0);
       return;
     }
@@ -80,12 +89,13 @@ export function getAudioDurationFfmpeg(inputPath: string): Promise<number> {
 
 // Obter duração do áudio em segundos (ffprobe se disponível, senão FFmpeg)
 export async function getAudioDuration(inputPath: string): Promise<number> {
-  if (!FFPROBE_AVAILABLE || !FFPROBE_PATH) {
+  if (!ensureFfprobe() || !FFPROBE_PATH) {
     return getAudioDurationFfmpeg(inputPath);
   }
 
+  const probePath = FFPROBE_PATH; // local copy for TS narrowing
   return new Promise((resolve) => {
-    const ffprobe = spawn(FFPROBE_PATH, [
+    const ffprobe = spawn(probePath, [
       '-v', 'error',
       '-show_entries', 'format=duration',
       '-of', 'default=noprint_wrappers=1:nokey=1',
@@ -117,7 +127,7 @@ export async function getAudioDuration(inputPath: string): Promise<number> {
 // Utilitário para aplicar apenas fade-in (para áudios curtos)
 function applyFadeInOnly(inputPath: string, outputPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (!FFMPEG_AVAILABLE) {
+    if (!ensureFfmpeg()) {
       reject(new Error('FFmpeg indisponível para aplicar fade-in.'));
       return;
     }
@@ -164,7 +174,7 @@ export async function downloadFile(url: string, destPath: string): Promise<void>
 
 // Aplica fade-in (3s) e fade-out (4s) no áudio completo
 export async function applyFades(inputPath: string, outputPath: string): Promise<void> {
-  if (!FFMPEG_AVAILABLE) {
+  if (!ensureFfmpeg()) {
     throw new Error('FFmpeg indisponível para aplicar fades.');
   }
 
@@ -220,7 +230,7 @@ export async function applyFades(inputPath: string, outputPath: string): Promise
 
 export function convertToWav(inputPath: string, outputPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (!FFMPEG_AVAILABLE) {
+    if (!ensureFfmpeg()) {
       reject(new Error('FFmpeg indisponível para converter áudio.'));
       return;
     }

@@ -8,14 +8,14 @@ import LandingPage from './components/LandingPage';
 import SocialProof from './components/SocialProof';
 import TermsPage from './components/TermsPage';
 import PrivacyPage from './components/PrivacyPage';
-import RecoverPage from './components/RecoverPage';
-import VoiceCapturePage from './components/VoiceCapturePage';
-import VideoUpsellPage from './components/VideoUpsellPage';
-import Wizard from './components/Wizard';
 import { useMetaPixel } from './hooks/useMetaPixel';
 import { fbPageView } from './lib/metaPixel';
 import { captureUtm } from './lib/utm';
 
+const Wizard = lazy(() => import('./components/Wizard'));
+const RecoverPage = lazy(() => import('./components/RecoverPage'));
+const VoiceCapturePage = lazy(() => import('./components/VoiceCapturePage'));
+const VideoUpsellPage = lazy(() => import('./components/VideoUpsellPage'));
 const PersonalizedSongPage = lazy(() => import('./components/PersonalizedSongPage'));
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 
@@ -124,14 +124,16 @@ export default function App() {
   }
   if (currentView === 'recover') {
     return (
-      <RecoverPage
-        onBackToLanding={backToLanding}
-        onResume={(requestId) => {
-          window.history.pushState({}, '', `/wizard?resume=${encodeURIComponent(requestId)}&step=payment`);
-          setCurrentView('wizard');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-      />
+      <Suspense fallback={loading}>
+        <RecoverPage
+          onBackToLanding={backToLanding}
+          onResume={(requestId) => {
+            window.history.pushState({}, '', `/wizard?resume=${encodeURIComponent(requestId)}&step=payment`);
+            setCurrentView('wizard');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      </Suspense>
     );
   }
 
@@ -141,11 +143,13 @@ export default function App() {
     const urlParams = new URLSearchParams(window.location.search);
     const emailParam = urlParams.get('email') || undefined;
     return (
-      <VoiceCapturePage
-        requestId={reqId}
-        email={emailParam}
-        onBackToLanding={backToLanding}
-      />
+      <Suspense fallback={loading}>
+        <VoiceCapturePage
+          requestId={reqId}
+          email={emailParam}
+          onBackToLanding={backToLanding}
+        />
+      </Suspense>
     );
   }
 
@@ -156,11 +160,13 @@ export default function App() {
     const reqId = pathReqId || urlParams.get('requestId') || '';
     const emailParam = urlParams.get('email') || undefined;
     return (
-      <VideoUpsellPage
-        requestId={reqId}
-        email={emailParam}
-        onBackToLanding={backToLanding}
-      />
+      <Suspense fallback={loading}>
+        <VideoUpsellPage
+          requestId={reqId}
+          email={emailParam}
+          onBackToLanding={backToLanding}
+        />
+      </Suspense>
     );
   }
 
@@ -178,7 +184,7 @@ export default function App() {
           {currentView === 'landing' ? (
             <LandingPage onStartWizard={startWizard} />
           ) : (
-            <Wizard onBackToLanding={backToLanding} />
+            <Suspense fallback={loading}><Wizard onBackToLanding={backToLanding} /></Suspense>
           )}
           <SocialProof />
         </>

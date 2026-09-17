@@ -2001,7 +2001,7 @@ const ROTATING_MESSAGES = [
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-amber-400 to-rose-500 flex items-center justify-center text-2xl font-bold text-white shrink-0 overflow-hidden">
                   {formData.photoUrl
-                    ? <img src={formData.photoUrl} alt="" className="w-full h-full object-cover rounded-xl" />
+                    ? <img src={formData.photoUrl} alt="" className="w-full h-full object-cover rounded-xl" loading="lazy" decoding="async" />
                     : <span className="text-3xl"></span>
                   }
                 </div>
@@ -2782,6 +2782,8 @@ const ROTATING_MESSAGES = [
                         alt={formData.recipientName || 'Foto'} 
                         className="w-full h-full object-cover rounded-full"
                         referrerPolicy="no-referrer"
+                        loading="lazy"
+                        decoding="async"
                       />
                     </div>
                     <div className="absolute -bottom-1 -right-1 bg-stone-900 border border-amber-500/40 rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-md">
@@ -3097,6 +3099,8 @@ const ROTATING_MESSAGES = [
                                     src={proofPreviewUrl}
                                     alt="Pré-visualização do comprovativo"
                                     className="w-full max-h-64 object-contain rounded-lg"
+                                    loading="lazy"
+                                    decoding="async"
                                   />
                                 ) : (
                                   <div className="flex items-center justify-center gap-2 p-6 text-stone-400 text-xs font-mono">
@@ -3599,7 +3603,7 @@ const ROTATING_MESSAGES = [
                     <div className="absolute inset-2.5 rounded-full border border-stone-850/80" />
                     <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-rose-950 to-amber-950 overflow-hidden flex items-center justify-center relative">
                       {formData.photoUrl ? (
-                        <img src={formData.photoUrl} alt="Vinyl mini" className="w-full h-full object-cover opacity-80" referrerPolicy="no-referrer" />
+                        <img src={formData.photoUrl} alt="Vinyl mini" className="w-full h-full object-cover opacity-80" referrerPolicy="no-referrer" loading="lazy" decoding="async" />
                       ) : (
                         <Heart className="w-5 h-5 text-rose-500 fill-rose-500" />
                       )}

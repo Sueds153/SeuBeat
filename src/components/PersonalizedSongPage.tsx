@@ -200,6 +200,8 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
                   alt="Capa"
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
+                  loading="lazy"
+                  decoding="async"
                   onError={() => setPhotoLoadError(true)}
                 />
               ) : (
