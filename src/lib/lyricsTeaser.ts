@@ -195,24 +195,65 @@ export function clearTeaserEdits(requestId: string): void {
   }
 }
 
+const TEASER_CACHE_KEY = 'seubeat_teaser_enabled';
 let teaserEnabledCache: boolean | null = null;
 
 export async function isTeaserEnabled(): Promise<boolean> {
+  // Se já temos cache em memória, usar
   if (teaserEnabledCache !== null) return teaserEnabledCache;
+
+  // Tentar ler do localStorage como fallback imediato (evita flash)
+  try {
+    const stored = localStorage.getItem(TEASER_CACHE_KEY);
+    if (stored !== null) {
+      teaserEnabledCache = stored === 'true';
+      // Ir buscar ao servidor em background para atualizar
+      fetchConfigSilently();
+      return teaserEnabledCache;
+    }
+  } catch {}
+
+  // Primera visita: ir buscar ao servidor
+  const result = await fetchConfig();
+  return result;
+}
+
+function fetchConfigSilently(): void {
+  fetch('/api/config')
+    .then(res => res.ok ? res.json() : null)
+    .then(data => {
+      if (data) {
+        const enabled = data.features?.lyricsTeaser === true;
+        teaserEnabledCache = enabled;
+        try { localStorage.setItem(TEASER_CACHE_KEY, String(enabled)); } catch {}
+      }
+    })
+    .catch(() => {
+      // Ignorar — manter cache anterior
+    });
+}
+
+async function fetchConfig(): Promise<boolean> {
   try {
     const res = await fetch('/api/config');
     if (res.ok) {
       const data = await res.json();
-      teaserEnabledCache = data.features?.lyricsTeaser === true;
-      return teaserEnabledCache;
+      const enabled = data.features?.lyricsTeaser === true;
+      teaserEnabledCache = enabled;
+      try { localStorage.setItem(TEASER_CACHE_KEY, String(enabled)); } catch {}
+      return enabled;
     }
-  } catch {
-    // ignore
-  }
-  teaserEnabledCache = false;
+  } catch {}
+  // Em caso de falha, NÃO cacheamos false permanentemente
+  // Devolver o último valor conhecido via localStorage ou false
+  try {
+    const stored = localStorage.getItem(TEASER_CACHE_KEY);
+    if (stored !== null) return stored === 'true';
+  } catch {}
   return false;
 }
 
 export function resetTeaserEnabledCache(): void {
   teaserEnabledCache = null;
+  try { localStorage.removeItem(TEASER_CACHE_KEY); } catch {}
 }

@@ -389,7 +389,14 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   });
   
   // Lyrics Teaser state (Fase 4)
-  const [teaserEnabled, setTeaserEnabled] = useState(false);
+  const [teaserEnabled, setTeaserEnabled] = useState(() => {
+    try {
+      const stored = localStorage.getItem('seubeat_teaser_enabled');
+      if (stored !== null) return stored === 'true';
+    } catch {}
+    return false;
+  });
+  const [teaserLoading, setTeaserLoading] = useState(true);
   const [lyricsTeaser, setLyricsTeaser] = useState<ReturnType<typeof buildTeaser> | null>(null);
 
   // Resume via /wizard?resume=<id> — aplicado uma única vez no mount
@@ -461,7 +468,10 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   useEffect(() => {
     let mounted = true;
     isTeaserEnabled().then(enabled => {
-      if (mounted) setTeaserEnabled(enabled);
+      if (mounted) {
+        setTeaserEnabled(enabled);
+        setTeaserLoading(false);
+      }
     });
     return () => { mounted = false; };
   }, []);
@@ -714,6 +724,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const fullLyrics = Array.isArray(rd.aiLyrics) ? rd.aiLyrics.join('\n') : '';
         const teaserOn = await isTeaserEnabled();
         setTeaserEnabled(teaserOn);
+        setTeaserLoading(false);
         if (teaserOn && fullLyrics) {
           setLyricsTeaser(buildTeaser(fullLyrics));
         }
@@ -1289,6 +1300,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           const fullLyrics = Array.isArray(data.lyrics) ? data.lyrics.join('\n') : data.lyrics || '';
           const teaserOn = await isTeaserEnabled();
           setTeaserEnabled(teaserOn);
+          setTeaserLoading(false);
           if (teaserOn && fullLyrics) {
             const teaser = buildTeaser(fullLyrics);
             setLyricsTeaser(teaser);
@@ -2004,7 +2016,17 @@ const ROTATING_MESSAGES = [
             </div>
 
             {/* Letra da música — Teaser ou Completa */}
-            {teaserEnabled && lyricsTeaser ? (
+            {teaserLoading ? (
+              // Loading skeleton — evita flash de letras completas
+              <div className="space-y-3 py-6">
+                <div className="h-4 bg-stone-900/60 rounded w-1/3 mx-auto animate-pulse" />
+                <div className="space-y-2 py-4">
+                  <div className="h-3 bg-stone-900/40 rounded w-3/4 mx-auto animate-pulse" />
+                  <div className="h-3 bg-stone-900/40 rounded w-2/3 mx-auto animate-pulse" />
+                  <div className="h-3 bg-stone-900/40 rounded w-4/5 mx-auto animate-pulse" />
+                </div>
+              </div>
+            ) : teaserEnabled && lyricsTeaser ? (
               <LyricsTeaserPreview
                 teaser={lyricsTeaser}
                 onUnlockClick={() => {
@@ -2047,8 +2069,8 @@ const ROTATING_MESSAGES = [
               </>
             )}
 
-            {/* Editar / Regenerar links (só quando não está a editar) */}
-            {!editingLyrics && (
+            {/* Editar / Regenerar links — só quando NÃO está teaser e não está a editar */}
+            {!teaserLoading && !(teaserEnabled && lyricsTeaser) && !editingLyrics && (
               <div className="flex items-center justify-center gap-4 text-xs">
                 <button
                   onClick={() => {
