@@ -15,6 +15,7 @@ import {
   processSunoVoice 
 } from '../services/workflow';
 import { sendPersonalizedEmail, sendPaymentRejectionEmail, sendConfirmationEmail, sendVideoUpsellOfferEmail } from '../services/email';
+import { verifyPaymentProof } from '../services/proofVerification';
 // Lazy-loaded AI SDKs — only imported on first use (saves ~1-2s cold start)
 let AnthropicSDK: typeof import('@anthropic-ai/sdk')['default'] | null = null;
 let OpenAISDK: typeof import('openai')['default'] | null = null;
@@ -607,7 +608,74 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
   }
 });
 
-// E. Admin list requests
+// F. Re-analyze payment proof with AI
+router.post('/payment/:id/re-analyze', adminAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const supabase = getAdminSupabase();
+    if (!supabase) return res.status(500).json({ success: false, error: 'DB não disponível' });
+
+    const { data: payment, error: fetchErr } = await supabase
+      .from('payments')
+      .select('id, proof_path, proof_url, proof_mime_type, plan_type, payment_method, status')
+      .eq('id', id)
+      .single();
+
+    if (fetchErr || !payment) {
+      return res.status(404).json({ success: false, error: 'Pagamento não encontrado.' });
+    }
+
+    if (!payment.proof_path && !payment.proof_url) {
+      return res.status(400).json({ success: false, error: 'Este pagamento não tem comprovativo para analisar.' });
+    }
+
+    // Download proof from storage
+    const proofUrl = payment.proof_url || payment.proof_path;
+    let proofBuffer: Buffer;
+    let proofMime = payment.proof_mime_type || 'image/jpeg';
+
+    if (proofUrl && proofUrl.startsWith('http')) {
+      const response = await fetch(proofUrl);
+      if (!response.ok) return res.status(500).json({ success: false, error: 'Falha ao download do comprovativo.' });
+      const arrayBuf = await response.arrayBuffer();
+      proofBuffer = Buffer.from(arrayBuf);
+      const contentType = response.headers.get('content-type');
+      if (contentType) proofMime = contentType.split(';')[0].trim();
+    } else {
+      return res.status(400).json({ success: false, error: 'Comprovativo não acessível.' });
+    }
+
+    const plan = payment.plan_type || 'standard';
+    const method = payment.payment_method || 'reference';
+
+    const result = await verifyPaymentProof(proofBuffer, proofMime, plan, method);
+
+    // Update verification result in DB
+    await supabase
+      .from('payments')
+      .update({
+        verification_result: {
+          confidence: result.confidence,
+          decision: result.decision,
+          extracted: result.extracted,
+          checks: result.checks,
+          provider: result.provider,
+          timestamp: new Date().toISOString(),
+          reanalyzed_by: 'admin',
+        },
+      })
+      .eq('id', id);
+
+    logAdminAction({ action: 're-analyze', entityType: 'payment', entityId: id, notes: `confidence=${result.confidence}, decision=${result.decision}` });
+
+    res.json({ success: true, result });
+  } catch (err: unknown) {
+    logRouteError(req, err);
+    res.status(500).json({ success: false, error: safeMessage(err) });
+  }
+});
+
+// G. Admin list requests
 router.get('/requests', adminAuth, async (req, res) => {
   try {
     const supabase = getAdminSupabase();

@@ -17,7 +17,7 @@
 
 ### Produção
 - **URL**: https://seubeat.onrender.com
-- **Último deploy**: commit `90aa3d0` (fix teaser cache resiliente + loading guard)
+- **Último deploy**: commit `499f52a` (performance optimization completa)
 - **Testes**: 374 passam (32 ficheiros), `tsc --noEmit` limpo
 
 ### DB Schema (tabelas principais)

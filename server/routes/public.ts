@@ -13,6 +13,7 @@ import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification } f
 import { sendDeliveryWhatsApp } from '../services/whatsappSender';
 import { generateServerEventId } from '../services/metaPixelCapi';
 import { sendSubmitApplicationEvent, sendLeadEvent, sendCompleteRegistrationEvent, sendInitiateCheckoutEvent, sendAddPaymentInfoEvent } from '../services/metaPixelCapi';
+import { verifyPaymentProof, type VerificationResult } from '../services/proofVerification';
 // DOMPurify lazy-loaded (saves ~200-500ms cold start — jsdom is heavy)
 let dompurifyModule: typeof import('isomorphic-dompurify') | null = null;
 async function sanitize(str: string): Promise<string> {
@@ -1172,6 +1173,27 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
 
     let proofPath: string | null = null;
     let proofUrl: string | null = null;
+    let proofVerification: VerificationResult | null = null;
+
+    // Capture proof buffer for AI verification BEFORE upload
+    let proofBufferForVerification: Buffer | null = null;
+    let proofMimeForVerification: string = 'image/jpeg';
+    if (proofFileMulter) {
+      proofBufferForVerification = proofFileMulter.buffer;
+      proofMimeForVerification = proofFileMulter.mimetype || 'image/jpeg';
+    } else if (proofBase64) {
+      proofBufferForVerification = decodeBase64Payload(proofBase64);
+      proofMimeForVerification = proofMimeType || 'image/jpeg';
+    }
+
+    // Run AI verification in parallel with upload (saves ~2-5s)
+    const verificationPromise = proofBufferForVerification && proofBufferForVerification.length > 0
+      ? verifyPaymentProof(proofBufferForVerification, proofMimeForVerification, plan, resolvedPaymentMethod)
+          .catch(err => {
+            logError('[API] AI verification falhou — fallback para manual', err, { songRequestId });
+            return null;
+          })
+      : Promise.resolve(null);
 
     // Upload do comprovativo: multipart (buffer direto) OU JSON (base64 decode)
     if (proofFileMulter) {
@@ -1283,6 +1305,45 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       }
     }
 
+    // ── AI Proof Verification (waits for parallel result) ────────────────────
+    proofVerification = await verificationPromise;
+
+    let paymentStatus = 'pending_verification';
+    let approvedAt: string | null = null;
+    let deliverAt: string | null = null;
+
+    if (proofVerification) {
+      if (proofVerification.decision === 'auto_approve') {
+        paymentStatus = 'approved';
+        approvedAt = new Date().toISOString();
+        deliverAt = plan === 'standard'
+          ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+          : new Date().toISOString();
+        logInfo('[API] Pagamento AUTO-APROVADO pela AI', {
+          songRequestId,
+          plan,
+          confidence: proofVerification.confidence,
+          provider: proofVerification.provider,
+        });
+      } else if (proofVerification.decision === 'auto_reject') {
+        paymentStatus = 'rejected';
+        logInfo('[API] Pagamento AUTO-REJEITADO pela AI', {
+          songRequestId,
+          plan,
+          confidence: proofVerification.confidence,
+          provider: proofVerification.provider,
+          reasons: proofVerification.checks.filter(c => !c.passed).map(c => c.name),
+        });
+      } else {
+        logInfo('[API] Pagamento encaminhado para review manual pela AI', {
+          songRequestId,
+          plan,
+          confidence: proofVerification.confidence,
+          provider: proofVerification.provider,
+        });
+      }
+    }
+
     const updateData: Record<string, unknown> = { status: 'payment_submitted' };
     if (voiceSampleUrl) updateData.voice_sample_url = voiceSampleUrl;
     if (voiceFreeSampleUrl) updateData.voice_free_sample_url = voiceFreeSampleUrl;
@@ -1312,16 +1373,34 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       proof_path: proofPath,
       proof_filename: (isMultipart && proofFileMulter ? proofFileMulter.originalname : proofFilename) || proofPath?.split('/').pop() || null,
       proof_mime_type: (isMultipart && proofFileMulter ? proofFileMulter.mimetype : proofMimeType) || null,
-      status: 'pending_verification',
-      expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+      status: paymentStatus,
+      ai_verified: proofVerification?.decision === 'auto_approve',
+      verification_result: proofVerification ? {
+        confidence: proofVerification.confidence,
+        decision: proofVerification.decision,
+        extracted: proofVerification.extracted,
+        checks: proofVerification.checks,
+        provider: proofVerification.provider,
+        timestamp: new Date().toISOString(),
+      } : null,
+      approved_at: approvedAt,
+      deliver_at: deliverAt,
+      expires_at: paymentStatus === 'pending_verification'
+        ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+        : null,
     };
 
     let paymentRecord: { id?: string } | null = null;
     let paymentError: unknown = null;
     if (rejectedPayment) {
+      const updatePayload: Record<string, unknown> = { ...paymentFields, notes: null };
+      // Only clear approved_at if NOT auto-approved by AI
+      if (paymentStatus !== 'approved') {
+        updatePayload.approved_at = null;
+      }
       const { error: rejectedUpdateError } = await supabase
         .from('payments')
-        .update({ ...paymentFields, notes: null, approved_at: null })
+        .update(updatePayload)
         .eq('id', rejectedPayment.id);
       paymentError = rejectedUpdateError;
       paymentRecord = { id: rejectedPayment.id };
@@ -1348,6 +1427,59 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
         logError('[API] Falha ao reverter estado do pedido após erro de pagamento', rollbackErr, { songRequestId, previousStatus });
       }
       throw paymentError;
+    }
+
+    // ── Auto-approve: update song_requests + notify customer + admin ────────
+    if (paymentStatus === 'approved' && paymentRecord?.id) {
+      try {
+        await supabase
+          .from('song_requests')
+          .update({ status: 'approved', deliver_at: deliverAt })
+          .eq('id', songRequestId);
+
+        sendConfirmationEmail(userEmail, plan, songRequestId).catch(err =>
+          logError('[API] Falha ao enviar email de confirmação (auto-approve)', err, { songRequestId })
+        );
+
+        const sendPurchaseEvent = (await import('../services/metaPixelCapi')).sendPurchaseEvent;
+        sendPurchaseEvent({
+          eventId: generateServerEventId(songRequestId, 'Purchase'),
+          email: userEmail,
+          phone: phone || undefined,
+          value: kzToUsd(parsedAmount),
+          currency: 'USD',
+          contentName: plan,
+          eventSourceUrl: (req.headers.referer as string) || undefined,
+          clientIp: req.ip || req.socket.remoteAddress || undefined,
+          clientUserAgent: req.headers['user-agent'],
+          externalId: userEmail,
+        }).catch(err =>
+          logError('[API] Meta CAPI Purchase event failed (auto-approve)', err, { paymentId: paymentRecord?.id })
+        );
+
+        sendAdminNotification(
+          'Pagamento AUTO-APROVADO pela AI',
+          `Cliente: ${userEmail}\nPlano: ${plan} (${parsedAmount} Kz)\nConfiança: ${(proofVerification!.confidence * 100).toFixed(0)}%\nProvider: ${proofVerification!.provider}\nPedido: ${songRequestId}\nPagamento: ${paymentRecord.id}\n\nVerificar: ${getAppUrl(req)}/admin?tab=payments`
+        ).catch(err =>
+          logError('[API] Falha ao notificar admin (auto-approve)', err, { paymentId: paymentRecord?.id })
+        );
+      } catch (autoErr) {
+        logError('[API] Falha no auto-approve — pagamento fica pendente', autoErr, { songRequestId, paymentId: paymentRecord?.id });
+        // Downgrade to manual review on failure
+        await supabase.from('payments').update({ status: 'pending_verification', ai_verified: false }).eq('id', paymentRecord.id);
+        paymentStatus = 'pending_verification';
+      }
+    }
+
+    // ── Auto-reject: notify customer ──────────────────────────────────────
+    if (paymentStatus === 'rejected' && proofVerification) {
+      const failedChecks = proofVerification.checks.filter(c => !c.passed).map(c => `• ${c.name}: esperado ${c.expected}, encontrado ${c.actual}`).join('\n');
+      sendAdminNotification(
+        'Pagamento AUTO-REJEITADO pela AI',
+        `Cliente: ${userEmail}\nPlano: ${plan} (${parsedAmount} Kz)\nConfiança: ${(proofVerification.confidence * 100).toFixed(0)}%\nRazões:\n${failedChecks}\n\nVerificar: ${getAppUrl(req)}/admin?tab=payments`
+      ).catch(err =>
+        logError('[API] Falha ao notificar admin (auto-reject)', err, { paymentId: paymentRecord?.id })
+      );
     }
 
     sendInitiateCheckoutEvent({
@@ -1395,15 +1527,24 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       logError('[API] Meta CAPI SubmitApplication event failed', err, { paymentId: paymentRecord?.id })
     );
 
-    // Notificar admin instantaneamente sobre novo comprovativo pendente
-    sendAdminNotification(
-      'Novo comprovativo pendente 📸',
-      `Cliente: ${userEmail}\nPlano: ${plan} (${parsedAmount} Kz)\nPedido: ${songRequestId}\nPagamento: ${paymentRecord?.id}\n\nVer no painel: ${getAppUrl(req)}/admin?tab=payments`
-    ).catch(err =>
-      logError('[API] Falha ao notificar admin', err, { paymentId: paymentRecord?.id })
-    );
+    // Notificar admin (só para pagamentos que precisam de review manual)
+    if (paymentStatus === 'pending_verification') {
+      sendAdminNotification(
+        'Novo comprovativo pendente',
+        `Cliente: ${userEmail}\nPlano: ${plan} (${parsedAmount} Kz)\nPedido: ${songRequestId}\nPagamento: ${paymentRecord?.id}\n\nVer no painel: ${getAppUrl(req)}/admin?tab=payments`
+      ).catch(err =>
+        logError('[API] Falha ao notificar admin', err, { paymentId: paymentRecord?.id })
+      );
+    }
 
-    res.json({ success: true, paymentId: paymentRecord?.id });
+    res.json({
+      success: true,
+      paymentId: paymentRecord?.id,
+      verification: proofVerification ? {
+        decision: proofVerification.decision,
+        confidence: proofVerification.confidence,
+      } : null,
+    });
   } catch (err: unknown) {
     logRouteError(req, err, {
       songRequestId: req.body?.songRequestId,

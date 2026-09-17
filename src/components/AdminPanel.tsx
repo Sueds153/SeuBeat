@@ -53,6 +53,30 @@ interface Payment {
   created_at: string;
   approved_at: string | null;
   video_upsell?: boolean;
+  ai_verified?: boolean;
+  verification_result?: {
+    confidence: number;
+    decision: 'auto_approve' | 'manual_review' | 'auto_reject';
+    extracted: {
+      amount: number | null;
+      recipientPhone: string | null;
+      entity: string | null;
+      reference: string | null;
+      date: string | null;
+      transactionId: string | null;
+      isMulticaixa: boolean;
+      rawText: string;
+    };
+    checks: Array<{
+      name: string;
+      passed: boolean;
+      expected: string;
+      actual: string;
+      weight: number;
+    }>;
+    provider: string;
+    timestamp: string;
+  } | null;
   song_requests?: {
     id: string;
     recipient_name: string;
@@ -261,6 +285,36 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${colorClass} whitespace-nowrap`}>
       {label}
+    </span>
+  );
+}
+
+function AIVerificationBadge({ payment }: { payment: Payment }) {
+  const vr = payment.verification_result;
+  if (!vr) return null;
+
+  const confidencePct = Math.round(vr.confidence * 100);
+  let colorClasses: string;
+  let label: string;
+  let icon: React.ReactNode;
+
+  if (vr.decision === 'auto_approve') {
+    colorClasses = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+    icon = <CheckCircle className="w-3 h-3" />;
+    label = `AI Aprovou ${confidencePct}%`;
+  } else if (vr.decision === 'auto_reject') {
+    colorClasses = 'bg-rose-500/15 text-rose-400 border-rose-500/30';
+    icon = <XCircle className="w-3 h-3" />;
+    label = `AI Rejeitou ${confidencePct}%`;
+  } else {
+    colorClasses = 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+    icon = <AlertTriangle className="w-3 h-3" />;
+    label = `AI Incerto ${confidencePct}%`;
+  }
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${colorClasses} whitespace-nowrap`}>
+      {icon} {label}
     </span>
   );
 }
@@ -2033,7 +2087,8 @@ export default function AdminPanel() {
                                 <p className="text-[10px] font-mono text-stone-500 truncate">{payment.plan} • {payment.amount} • {formatDate(payment.created_at)}</p>
                               </div>
                             </div>
-                            <div className="flex items-center gap-3 shrink-0">
+                            <div className="flex items-center gap-2 shrink-0">
+                              <AIVerificationBadge payment={payment} />
                               <StatusBadge status={payment.status} />
                               {expandedPayment === payment.id ? <ChevronDown className="w-4 h-4 text-stone-500" /> : <ChevronRight className="w-4 h-4 text-stone-500" />}
                             </div>
@@ -2106,6 +2161,81 @@ export default function AdminPanel() {
                                       <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
                                       Nenhum comprovativo anexado
                                     </div>
+                                  )}
+
+                                  {/* AI Verification Details */}
+                                  {payment.verification_result && (
+                                    <div className="space-y-2">
+                                      <p className="text-[10px] font-mono text-stone-500 uppercase tracking-wider">Verificacao AI:</p>
+                                      <div className="bg-stone-950 rounded-xl p-3 space-y-2 text-xs">
+                                        <div className="flex items-center gap-2">
+                                          <AIVerificationBadge payment={payment} />
+                                          <span className="text-stone-500 font-mono text-[10px]">via {payment.verification_result.provider}</span>
+                                        </div>
+                                        {payment.verification_result.extracted && (
+                                          <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                                            {payment.verification_result.extracted.amount != null && (
+                                              <div><span className="text-stone-500">Valor:</span> <span className="text-stone-300">{payment.verification_result.extracted.amount.toLocaleString('pt')} Kz</span></div>
+                                            )}
+                                            {payment.verification_result.extracted.recipientPhone && (
+                                              <div><span className="text-stone-500">Phone:</span> <span className="text-stone-300">{payment.verification_result.extracted.recipientPhone}</span></div>
+                                            )}
+                                            {payment.verification_result.extracted.entity && (
+                                              <div><span className="text-stone-500">Entidade:</span> <span className="text-stone-300">{payment.verification_result.extracted.entity}</span></div>
+                                            )}
+                                            {payment.verification_result.extracted.reference && (
+                                              <div><span className="text-stone-500">Referencia:</span> <span className="text-stone-300">{payment.verification_result.extracted.reference}</span></div>
+                                            )}
+                                            {payment.verification_result.extracted.date && (
+                                              <div><span className="text-stone-500">Data:</span> <span className="text-stone-300">{payment.verification_result.extracted.date}</span></div>
+                                            )}
+                                            <div><span className="text-stone-500">Multicaixa:</span> <span className={payment.verification_result.extracted.isMulticaixa ? 'text-emerald-400' : 'text-rose-400'}>{payment.verification_result.extracted.isMulticaixa ? 'Sim' : 'Nao'}</span></div>
+                                          </div>
+                                        )}
+                                        {payment.verification_result.checks.length > 0 && (
+                                          <div className="space-y-1 pt-1 border-t border-stone-800">
+                                            {payment.verification_result.checks.map((check, i) => (
+                                              <div key={i} className="flex items-center gap-2 text-[10px] font-mono">
+                                                {check.passed ? <CheckCircle className="w-3 h-3 text-emerald-400 shrink-0" /> : <XCircle className="w-3 h-3 text-rose-400 shrink-0" />}
+                                                <span className="text-stone-400">{check.name}:</span>
+                                                <span className={check.passed ? 'text-emerald-400' : 'text-rose-400'}>{check.actual}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Re-analyze button */}
+                                  {(payment.proof_path || payment.proof_url) && payment.status === 'pending_verification' && (
+                                    <button
+                                      onClick={async () => {
+                                        setActionLoading(payment.id + '_reanalyze');
+                                        try {
+                                          const res = await fetch(`/api/admin/payment/${payment.id}/re-analyze`, {
+                                            method: 'POST',
+                                            headers: apiHeaders,
+                                          });
+                                          if (res.status === 401) { expireSession(); return; }
+                                          const data = await res.json();
+                                          if (data.success) {
+                                            showToast(`Re-analise: ${data.result.decision} (${Math.round(data.result.confidence * 100)}%)`, data.result.decision === 'auto_approve' ? 'success' : 'error');
+                                            fetchPayments();
+                                          } else {
+                                            showToast(data.error || 'Falha na re-analise.', 'error');
+                                          }
+                                        } catch {
+                                          showToast('Erro de ligacao ao servidor.', 'error');
+                                        }
+                                        setActionLoading(null);
+                                      }}
+                                      disabled={actionLoading === payment.id + '_reanalyze'}
+                                      className="flex items-center gap-2 px-3 py-1.5 bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[11px] rounded-xl hover:bg-purple-500/20 transition-colors cursor-pointer disabled:opacity-50"
+                                    >
+                                      <RefreshCw className={`w-3 h-3 ${actionLoading === payment.id + '_reanalyze' ? 'animate-spin' : ''}`} />
+                                      Re-analisar com AI
+                                    </button>
                                   )}
 
                                   {/* WhatsApp notification */}
