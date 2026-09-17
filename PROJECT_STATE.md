@@ -17,13 +17,13 @@
 
 ### Produção
 - **URL**: https://seubeat.onrender.com
-- **Último deploy**: commit `499f52a` (performance optimization completa)
-- **Testes**: 374 passam (32 ficheiros), `tsc --noEmit` limpo
+- **Último deploy**: commit `1adcf1d` (auto payment proof verification com AI Vision)
+- **Testes**: 393 passam (33 ficheiros), `tsc --noEmit` limpo
 
 ### DB Schema (tabelas principais)
 - `song_requests` — pedido do cliente (status, dados wizard)
 - `songs` — música gerada (audio_url, audio_url_v2, mureka_status, mureka_task_id)
-- `payments` — pagamentos (status, proof_url, payment_method)
+- `payments` — pagamentos (status, proof_url, payment_method, verification_result, ai_verified)
 - `users` — clientes (email, phone, name)
 - `email_events` — tracking de emails
 - `whatsapp_send_log` — log de envios WhatsApp
@@ -31,7 +31,7 @@
 
 ### Admin Panel Tabs
 1. **Pedidos** — lista de song_requests com filtros ✅ funcional
-2. **Pagamentos** — lista de payments com aprovação/rejeição ✅ funcional
+2. **Pagamentos** — lista de payments com aprovação/rejeição + verificação AI ✅ funcional
 3. **Músicas** — lista de songs (515 not_started = esperando pagamento, by design) ✅ funcional
 4. **Clientes** — lista de users ✅ funcional
 5. **Abandonados** — leads sem pagamento, filtros por tempo ✅ funcional
