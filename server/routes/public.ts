@@ -67,6 +67,8 @@ const paymentUpload = multer({
 ]);
 
 function safeMessage(err: unknown) {
+  // TEMP debug — expose real error
+  if (err instanceof Error) return err.message;
   return publicErrorMessage(err);
 }
 
