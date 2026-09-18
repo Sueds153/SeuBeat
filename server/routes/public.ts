@@ -1389,21 +1389,24 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       proof_filename: (isMultipart && proofFileMulter ? proofFileMulter.originalname : proofFilename) || proofPath?.split('/').pop() || null,
       proof_mime_type: (isMultipart && proofFileMulter ? proofFileMulter.mimetype : proofMimeType) || null,
       status: paymentStatus,
-      ai_verified: proofVerification?.decision === 'auto_approve',
-      verification_result: proofVerification ? {
-        confidence: proofVerification.confidence,
-        decision: proofVerification.decision,
-        extracted: proofVerification.extracted,
-        checks: proofVerification.checks,
-        provider: proofVerification.provider,
-        timestamp: new Date().toISOString(),
-      } : null,
       approved_at: approvedAt,
       deliver_at: deliverAt,
       expires_at: paymentStatus === 'pending_verification'
         ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
         : null,
     };
+
+    const verificationFields = proofVerification ? {
+      ai_verified: proofVerification.decision === 'auto_approve',
+      verification_result: {
+        confidence: proofVerification.confidence,
+        decision: proofVerification.decision,
+        extracted: proofVerification.extracted,
+        checks: proofVerification.checks,
+        provider: proofVerification.provider,
+        timestamp: new Date().toISOString(),
+      },
+    } : null;
 
     let paymentRecord: { id?: string } | null = null;
     let paymentError: unknown = null;
@@ -1444,6 +1447,12 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       throw paymentError;
     }
 
+    // ── Persist AI verification result (fire-and-forget, after schema cache reload) ──
+    if (paymentRecord?.id && verificationFields) {
+      supabase.from('payments').update(verificationFields).eq('id', paymentRecord.id)
+        .catch(err => logError('[API] Falha ao gravar verificação AI (non-blocking)', err, { paymentId: paymentRecord.id }));
+    }
+
     // ── Auto-approve: update song_requests + notify customer + admin ────────
     if (paymentStatus === 'approved' && paymentRecord?.id) {
       try {
@@ -1481,7 +1490,7 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       } catch (autoErr) {
         logError('[API] Falha no auto-approve — pagamento fica pendente', autoErr, { songRequestId, paymentId: paymentRecord?.id });
         // Downgrade to manual review on failure
-        await supabase.from('payments').update({ status: 'pending_verification', ai_verified: false }).eq('id', paymentRecord.id);
+        await supabase.from('payments').update({ status: 'pending_verification' }).eq('id', paymentRecord.id);
         paymentStatus = 'pending_verification';
       }
     }
