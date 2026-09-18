@@ -67,7 +67,10 @@ const paymentUpload = multer({
 ]);
 
 function safeMessage(err: unknown) {
-  return publicErrorMessage(err);
+  // TEMP: expose real error for debugging
+  const msg = err instanceof Error ? err.message : String(err);
+  const supabaseMsg = typeof err === 'object' && err !== null && 'message' in err ? String((err as {message:unknown}).message) : '';
+  return supabaseMsg || msg || publicErrorMessage(err);
 }
 
 async function markRequestFailed(requestId: string, err: unknown) {
