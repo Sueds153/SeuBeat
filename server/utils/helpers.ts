@@ -1,6 +1,31 @@
 import { Request } from 'express';
-import { logError } from './logger';
+import { logError, logInfo } from './logger';
 import { ENV } from '../config/env';
+
+/**
+ * Execute raw SQL via direct Postgres connection (bypasses PostgREST schema cache).
+ * Used when PostgREST hasn't reloaded its schema after DDL changes.
+ * Lazy-loads `pg` to avoid import issues in bundled environments.
+ */
+export async function runRawSql(sql: string, params?: unknown[]): Promise<unknown> {
+  const { Client } = await import('pg');
+  const dbPassword = process.env.SUPABASE_DB_PASSWORD || process.env.DIRECT_URL;
+  if (!dbPassword) {
+    logInfo('[runRawSql] No DB password configured, skipping raw SQL');
+    return null;
+  }
+  const c = new Client({
+    connectionString: dbPassword,
+    ssl: { rejectUnauthorized: false },
+  });
+  try {
+    await c.connect();
+    const result = await c.query(sql, params);
+    return result;
+  } finally {
+    await c.end().catch(() => {});
+  }
+}
 
 export function logRouteError(req: Request | undefined, err: unknown, extra?: Record<string, unknown>): void {
   const method = req?.method || '?';
