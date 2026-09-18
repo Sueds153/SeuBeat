@@ -83,6 +83,18 @@ export function publicErrorMessage(err: unknown, fallback = 'Não foi possível 
   if (/fetch fail|ECONNREFUSED|ENETUNREACH|ENOTFOUND|ECONNRESET|network.*socket|Client network|connect.*fail/i.test(message)) {
     return 'O sistema não conseguiu contactar os servidores de IA. Verifique a sua ligação à internet e tente novamente.';
   }
+  if (/GEMINI_API_KEY|GoogleGenAI|google.*genai|genai.*error/i.test(message)) {
+    return 'A verificação do comprovativo está temporariamente indisponível. O pagamento será revisto manualmente pela equipa.';
+  }
+  if (/NoSuchBucket|AccessDenied|Access Denied|EntityTooLarge|SignatureDoesNotMatch|InvalidAccessKey|MissingAuth|aws.*s3|r2\.cloudflarestorage/i.test(message)) {
+    return 'Houve um erro ao guardar o comprovativo. Verifique a sua ligação e tente novamente.';
+  }
+  if (/Cannot read|TypeError|ReferenceError|is not a function|is not defined|null.*property|undefined.*property/i.test(message)) {
+    return 'Ocorreu um erro interno ao processar o pagamento. A sua segurança não foi comprometida — tente novamente ou contacte o suporte.';
+  }
+  if (/ENOSPC|disk.*full|no space|quota.*exceed/i.test(message)) {
+    return 'O sistema está temporariamente sem espaço. Tente novamente em instantes.';
+  }
 
   return fallback;
 }

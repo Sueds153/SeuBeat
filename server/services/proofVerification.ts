@@ -1,5 +1,11 @@
-import { GoogleGenAI } from '@google/genai';
 import { logInfo, logWarn, logError } from '../utils/logger';
+
+// Lazy-loaded Google GenAI SDK — avoids startup crash if package has issues
+let _GoogleGenAI: typeof import('@google/genai')['GoogleGenAI'] | null = null;
+async function loadGoogleGenAI() {
+  if (!_GoogleGenAI) _GoogleGenAI = (await import('@google/genai')).GoogleGenAI;
+  return _GoogleGenAI;
+}
 
 // ─── Pricing ────────────────────────────────────────────────────────────────
 const PLAN_PRICES: Record<string, number> = {
@@ -74,6 +80,7 @@ async function analyzeWithGemini(buffer: Buffer, mimeType: string): Promise<Extr
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY não configurada');
 
+  const GoogleGenAI = await loadGoogleGenAI();
   const genAI = new GoogleGenAI({ apiKey });
   const base64 = buffer.toString('base64');
   const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';

@@ -1087,6 +1087,15 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
     // Para JSON, tudo está em req.body (incluindo base64 strings)
     const isMultipart = !!(proofFileMulter || voiceFileMulter || voiceFreeFileMulter) || req.is('multipart/form-data');
 
+    // Defensivo: multipart sem body indica que multer falhou
+    if (isMultipart && !req.body?.songRequestId) {
+      logWarn('[API] submit-payment: multipart recebido mas body vazio — multer pode ter falhado', {
+        hasFiles: !!files,
+        contentType: req.headers['content-type'],
+      });
+      return res.status(400).json({ success: false, error: 'Dados de pagamento inválidos. Envie novamente o comprovativo.' });
+    }
+
     // Construir body validável — multipart usa strings do FormData, JSON usa req.body direto
     const bodyForValidation = isMultipart
       ? {
@@ -1174,6 +1183,12 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
     let proofPath: string | null = null;
     let proofUrl: string | null = null;
     let proofVerification: VerificationResult | null = null;
+
+    // Defensivo: multipart do client real sem ficheiro indica que multer falhou
+    if (isMultipart && !proofFileMulter && !voiceFileMulter && !voiceFreeFileMulter) {
+      logWarn('[API] submit-payment: multipart sem ficheiro — multer pode ter falhado', { songRequestId });
+      return res.status(400).json({ success: false, error: 'Envie um comprovativo de pagamento (imagem ou PDF).' });
+    }
 
     // Capture proof buffer for AI verification BEFORE upload
     let proofBufferForVerification: Buffer | null = null;
@@ -1546,10 +1561,14 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       } : null,
     });
   } catch (err: unknown) {
+    const errType = err instanceof Error ? err.constructor.name : typeof err;
+    const errMsg = err instanceof Error ? err.message : String(err);
     logRouteError(req, err, {
       songRequestId: req.body?.songRequestId,
       userEmail: req.body?.userEmail,
-      plan: req.body?.plan
+      plan: req.body?.plan,
+      errType,
+      errMsg: errMsg.slice(0, 500),
     });
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
