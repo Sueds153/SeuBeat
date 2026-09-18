@@ -37,6 +37,28 @@ describe('publicErrorMessage', () => {
       'Não foi possível concluir esta etapa. Tente novamente em instantes.'
     );
   });
+
+  it('handles Supabase error objects (non-Error instances)', () => {
+    const supabaseErr = { message: 'new row violates row-level security policy', code: '42501', details: '', hint: '' };
+    expect(publicErrorMessage(supabaseErr)).toBe(
+      'Houve um erro ao guardar os seus dados. Por favor, verifique a sua ligação e tente novamente.'
+    );
+  });
+
+  it('handles upload failure messages', () => {
+    expect(publicErrorMessage(new Error('Upload do comprovativo falhou: storage error'))).toBe(
+      'Houve um erro ao enviar o ficheiro. Verifique a sua ligação e tente novamente.'
+    );
+    expect(publicErrorMessage(new Error('Upload da amostra de voz falhou: timeout'))).toBe(
+      'Houve um erro ao enviar o ficheiro. Verifique a sua ligação e tente novamente.'
+    );
+  });
+
+  it('handles voice sample too small', () => {
+    expect(publicErrorMessage(new Error('Amostra de voz demasiado pequena. Grava pelo menos 3 segundos.'))).toBe(
+      'A foto excede o tamanho máximo permitido (10MB). Use um compressor de imagens online ou escolha uma foto menor.'
+    );
+  });
 });
 
 describe('kzToUsd', () => {

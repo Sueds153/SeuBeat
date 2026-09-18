@@ -17,7 +17,11 @@ export function logRouteError(req: Request | undefined, err: unknown, extra?: Re
 }
 
 export function publicErrorMessage(err: unknown, fallback = 'Não foi possível concluir esta etapa. Tente novamente em instantes.') {
-  const message = err instanceof Error ? err.message : String(err ?? '');
+  const message = err instanceof Error
+    ? err.message
+    : (typeof err === 'object' && err !== null && 'message' in err)
+      ? String((err as { message: unknown }).message)
+      : String(err ?? '');
 
   if (/ANTHROPIC_API_KEY/i.test(message)) {
     return 'A geração de letras está temporariamente indisponível (Erro de Configuração do Claude).';
@@ -34,7 +38,10 @@ export function publicErrorMessage(err: unknown, fallback = 'Não foi possível 
   if (/SUNO_API_KEY/i.test(message)) {
     return 'A geração de música está temporariamente indisponível (Erro de Configuração Suno).';
   }
-  if (/Supabase|database|DB|song_requests|songs|users|registrar.*banco.*dados|registar.*banco.*dados|banco de dados/i.test(message)) {
+  if (/upload.*falhou|falhou.*upload/i.test(message)) {
+    return 'Houve um erro ao enviar o ficheiro. Verifique a sua ligação e tente novamente.';
+  }
+  if (/Supabase|database|DB|song_requests|songs|users|registrar.*banco.*dados|registar.*banco.*dados|banco de dados|row-level|violates|RLS|postgrest|permission denied|relation|row.*security|policy|foreign key/i.test(message)) {
     return 'Houve um erro ao guardar os seus dados. Por favor, verifique a sua ligação e tente novamente.';
   }
   if (/timeout|excedeu|timed out|ETIMEDOUT|The operation was aborted|AbortError|TimeoutError/i.test(message)) {
@@ -55,7 +62,7 @@ export function publicErrorMessage(err: unknown, fallback = 'Não foi possível 
   if (/photos?.*bucket|storage.*bucket|not found|no such bucket/i.test(message)) {
     return 'Houve um erro ao guardar a foto. Contacte o suporte se o problema persistir.';
   }
-  if (/demasiado grande|excede.*(5|10)MB/i.test(message)) {
+  if (/demasiado grande|demasiado pequena|excede.*(5|10)MB/i.test(message)) {
     return 'A foto excede o tamanho máximo permitido (10MB). Use um compressor de imagens online ou escolha uma foto menor.';
   }
   if (/carregar a foto/i.test(message)) {
