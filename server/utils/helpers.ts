@@ -16,6 +16,7 @@ export async function runRawSql(sql: string, params?: unknown[]): Promise<unknow
   const c = new pg.Client({
     connectionString: dbPassword,
     ssl: { rejectUnauthorized: false },
+    prepare: false,
   });
   try {
     await c.connect();
