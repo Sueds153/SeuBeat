@@ -34,6 +34,15 @@ describe('publicErrorMessage', () => {
 
   it('falls back for unknown errors', () => {
     expect(publicErrorMessage(new Error('something weird'))).toBe(
+      'Erro ao processar pagamento: something weird'
+    );
+  });
+
+  it('falls back to default for empty or very long messages', () => {
+    expect(publicErrorMessage(new Error(''))).toBe(
+      'Não foi possível concluir esta etapa. Tente novamente em instantes.'
+    );
+    expect(publicErrorMessage(new Error('x'.repeat(300)))).toBe(
       'Não foi possível concluir esta etapa. Tente novamente em instantes.'
     );
   });

@@ -95,8 +95,11 @@ export function publicErrorMessage(err: unknown, fallback = 'Não foi possível 
   if (/ENOSPC|disk.*full|no space|quota.*exceed/i.test(message)) {
     return 'O sistema está temporariamente sem espaço. Tente novamente em instantes.';
   }
+  if (/invalid input|violates|constraint|not-null|unique.*constraint|check.*constraint|numeric.*out.*range/i.test(message)) {
+    return 'Dados de pagamento inválidos. Verifique o comprovativo e tente novamente.';
+  }
 
-  return fallback;
+  return message.length > 0 && message.length < 200 ? `Erro ao processar pagamento: ${message}` : fallback;
 }
 
 export function getAudioFileInfo(audioUrl: string) {
