@@ -1135,6 +1135,8 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
 
     const parsedAmount = typeof amount === 'number' && !isNaN(amount) ? amount : typeof amount === 'string' ? parseAngolanAmount(amount) : 0;
 
+    logInfo('[API] submit-payment debug', { songRequestId, userEmail, plan, parsedAmount, songRequestIdType: typeof songRequestId });
+
     // Parallel guard queries (saves ~200ms vs sequential)
     const [pendingResult, approvedResult, requestResult] = await Promise.all([
       supabase
@@ -1159,6 +1161,22 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
     const existingPayment = pendingResult.data;
     const approvedPayment = approvedResult.data;
     const requestGuard = requestResult.data;
+
+    logInfo('[API] submit-payment guard results', {
+      songRequestId,
+      hasRequest: !!requestGuard,
+      requestStatus: requestGuard?.status,
+      hasPendingPayment: !!existingPayment,
+      hasApprovedPayment: !!approvedPayment,
+      pendingError: pendingResult.error?.message,
+      approvedError: approvedResult.error?.message,
+      requestError: requestResult.error?.message,
+    });
+
+    if (!requestGuard) {
+      logError('[API] submit-payment: songRequestId not found in song_requests', new Error('FK guard triggered'), { songRequestId });
+      return res.status(400).json({ success: false, error: 'Pedido não encontrado. Verifique o link e tente novamente.', _debug: { songRequestId, exists: false } });
+    }
 
     if (existingPayment) {
       return res.status(409).json({ success: false, error: 'Já existe um comprovativo pendente para este pedido.' });
