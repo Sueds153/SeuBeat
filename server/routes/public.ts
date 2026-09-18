@@ -1454,6 +1454,17 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
         paymentRecord = { id: rejectedPayment.id };
       }
     } else {
+      // DEBUG: verify songRequestId exists via raw SQL before INSERT
+      const debugCheck = await runRawSql(
+        'SELECT id, status FROM song_requests WHERE id = $1',
+        [songRequestId]
+      ) as { rows?: { id: string; status: string }[] } | null;
+      logInfo('[API] submit-payment rawSQL check', {
+        songRequestId,
+        rawSQLCheckRows: debugCheck?.rows?.length ?? 'null',
+        rawSQLCheckData: debugCheck?.rows?.[0] ?? 'none',
+      });
+
       const insertResult = await runRawSql(
         `INSERT INTO payments (request_id, user_email, plan, amount, payment_method, proof_url, proof_path, proof_filename, status, approved_at, expires_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
