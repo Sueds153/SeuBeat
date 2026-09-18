@@ -37,6 +37,13 @@ vi.mock('../services/workflow', () => ({
   processSunoVoice: vi.fn(),
 }));
 
+// Mock runRawSql — used for payments INSERT/UPDATE (bypasses PostgREST)
+const mockRunRawSql = vi.hoisted(() => vi.fn());
+vi.mock('../utils/helpers', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('../utils/helpers')>();
+  return { ...orig, runRawSql: mockRunRawSql };
+});
+
 import { getAdminSupabase } from '../services/supabase';
 import { sendInitiateCheckoutEvent, sendAddPaymentInfoEvent, sendSubmitApplicationEvent } from '../services/metaPixelCapi';
 import publicRouter from '../routes/public';
@@ -62,6 +69,8 @@ afterAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: runRawSql succeeds with a returned row
+  mockRunRawSql.mockResolvedValue({ rows: [{ id: 'pay-1' }] });
 });
 
 interface SupabaseMockOpts {
@@ -201,9 +210,12 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.paymentId).toBe('pay-1');
-    expect(sb.updateCalls).toHaveLength(1);
-    expect(sb.updateCalls[0].payload).toMatchObject({ status: 'payment_submitted' });
-    expect(sb.insertCalls).toHaveLength(1);
+    const requestUpdates = sb.updateCalls.filter((u: {table: string}) => u.table === 'song_requests');
+    expect(requestUpdates).toHaveLength(1);
+    expect(requestUpdates[0].payload).toMatchObject({ status: 'payment_submitted' });
+    // Payment INSERT now goes through runRawSql
+    const paymentInsertCall = mockRunRawSql.mock.calls.find((c: unknown[]) => typeof c[0] === 'string' && c[0].includes('INSERT INTO payments'));
+    expect(paymentInsertCall).toBeDefined();
 
     const usdValue = 6.58;
     expect(sendInitiateCheckoutEvent).toHaveBeenCalledWith(expect.objectContaining({ value: usdValue, currency: 'USD' }));
@@ -221,6 +233,8 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
       insertResult: { data: null, error: { message: 'duplicate key value violates unique constraint' } },
     });
     (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+    // Make runRawSql fail for INSERT (first call)
+    mockRunRawSql.mockResolvedValueOnce(null);
 
     const res = await fetch(`${base}/api/submit-payment`, {
       method: 'POST',
@@ -257,16 +271,11 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.paymentId).toBe('pay-rej');
-    expect(sb.insertCalls).toHaveLength(0);
-    const paymentUpdate = sb.updateCalls.find((u) => u.table === 'payments');
-    expect(paymentUpdate).toBeDefined();
-    expect((paymentUpdate!.payload as Record<string, unknown>)).toMatchObject({
-      request_id: 'req-1',
-      status: 'pending_verification',
-      notes: null,
-      approved_at: null,
-    });
-    const requestUpdate = sb.updateCalls.find((u) => u.table === 'song_requests');
+    // Payment UPDATE now goes through runRawSql
+    const paymentUpdateCall = mockRunRawSql.mock.calls.find((c: unknown[]) => typeof c[0] === 'string' && c[0].includes('UPDATE payments'));
+    expect(paymentUpdateCall).toBeDefined();
+    expect(paymentUpdateCall![1]).toContain('pending_verification');
+    const requestUpdate = sb.updateCalls.find((u: {table: string}) => u.table === 'song_requests');
     expect(requestUpdate!.payload).toMatchObject({ status: 'payment_submitted' });
   });
 
@@ -378,8 +387,10 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     });
 
     expect(res.status).toBe(200);
-    const insertedRow = (sb.insertCalls[0] as Array<Record<string, unknown>>)[0];
-    expect(insertedRow.payment_method).toBe('express');
+    // Payment INSERT now goes through runRawSql — check the SQL params
+    const paymentInsertCall = mockRunRawSql.mock.calls.find((c: unknown[]) => typeof c[0] === 'string' && c[0].includes('INSERT INTO payments'));
+    expect(paymentInsertCall).toBeDefined();
+    expect(paymentInsertCall![1]).toContain('express');
   });
 
   it('usa payment_method=reference por omissão quando não é enviado (retrocompatibilidade)', async () => {
@@ -400,8 +411,9 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     });
 
     expect(res.status).toBe(200);
-    const insertedRow = (sb.insertCalls[0] as Array<Record<string, unknown>>)[0];
-    expect(insertedRow.payment_method).toBe('reference');
+    const paymentInsertCall = mockRunRawSql.mock.calls.find((c: unknown[]) => typeof c[0] === 'string' && c[0].includes('INSERT INTO payments'));
+    expect(paymentInsertCall).toBeDefined();
+    expect(paymentInsertCall![1]).toContain('reference');
   });
 
   it('rejeita paymentMethod inválido com 400', async () => {
@@ -442,8 +454,9 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     });
 
     expect(res.status).toBe(200);
-    const paymentUpdate = sb.updateCalls.find((u) => u.table === 'payments');
-    expect(paymentUpdate).toBeDefined();
-    expect((paymentUpdate!.payload as Record<string, unknown>).payment_method).toBe('express');
+    // Payment UPDATE now goes through runRawSql — check the SQL params
+    const paymentUpdateCall = mockRunRawSql.mock.calls.find((c: unknown[]) => typeof c[0] === 'string' && c[0].includes('UPDATE payments'));
+    expect(paymentUpdateCall).toBeDefined();
+    expect(paymentUpdateCall![1]).toContain('express');
   });
 });

@@ -67,10 +67,7 @@ const paymentUpload = multer({
 ]);
 
 function safeMessage(err: unknown) {
-  // TEMP: expose real error for debugging
-  const msg = err instanceof Error ? err.message : String(err);
-  const supabaseMsg = typeof err === 'object' && err !== null && 'message' in err ? String((err as {message:unknown}).message) : '';
-  return supabaseMsg || msg || publicErrorMessage(err);
+  return publicErrorMessage(err);
 }
 
 async function markRequestFailed(requestId: string, err: unknown) {
@@ -1416,20 +1413,46 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       if (paymentStatus !== 'approved') {
         updatePayload.approved_at = null;
       }
-      const { error: rejectedUpdateError } = await supabase
-        .from('payments')
-        .update(updatePayload)
-        .eq('id', rejectedPayment.id);
-      paymentError = rejectedUpdateError;
-      paymentRecord = { id: rejectedPayment.id };
+      const updateResult = await runRawSql(
+        `UPDATE payments SET 
+          request_id = $1, user_email = $2, plan = $3, amount = $4,
+          payment_method = $5, proof_url = $6, proof_path = $7, proof_filename = $8,
+          status = $9, approved_at = $10, expires_at = $11, notes = NULL
+         WHERE id = $12 RETURNING id`,
+        [
+          songRequestId, userEmail, plan, parsedAmount,
+          resolvedPaymentMethod, proofUrl || (proofPath ? `storage:${proofPath}` : null),
+          proofPath,
+          (isMultipart && proofFileMulter ? proofFileMulter.originalname : proofFilename) || proofPath?.split('/').pop() || null,
+          paymentStatus, approvedAt,
+          paymentStatus === 'pending_verification' ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null,
+          rejectedPayment.id,
+        ]
+      ) as { rows?: { id: string }[] } | null;
+      if (!updateResult?.rows?.length) {
+        paymentError = new Error('Failed to update rejected payment via raw SQL');
+      } else {
+        paymentRecord = { id: rejectedPayment.id };
+      }
     } else {
-      const { data: insertedPayment, error: insertErr } = await supabase
-        .from('payments')
-        .insert([paymentFields])
-        .select('id')
-        .single();
-      paymentRecord = insertedPayment;
-      paymentError = insertErr;
+      const insertResult = await runRawSql(
+        `INSERT INTO payments (request_id, user_email, plan, amount, payment_method, proof_url, proof_path, proof_filename, status, approved_at, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         RETURNING id`,
+        [
+          songRequestId, userEmail, plan, parsedAmount,
+          resolvedPaymentMethod, proofUrl || (proofPath ? `storage:${proofPath}` : null),
+          proofPath,
+          (isMultipart && proofFileMulter ? proofFileMulter.originalname : proofFilename) || proofPath?.split('/').pop() || null,
+          paymentStatus, approvedAt,
+          paymentStatus === 'pending_verification' ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null,
+        ]
+      ) as { rows?: { id: string }[] } | null;
+      if (!insertResult?.rows?.length) {
+        paymentError = new Error('Failed to insert payment via raw SQL');
+      } else {
+        paymentRecord = { id: insertResult.rows[0].id };
+      }
     }
     if (paymentError) {
       logError('[API] Falha ao gravar pagamento — a reverter estado do pedido', paymentError, {
@@ -1494,7 +1517,7 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       } catch (autoErr) {
         logError('[API] Falha no auto-approve — pagamento fica pendente', autoErr, { songRequestId, paymentId: paymentRecord?.id });
         // Downgrade to manual review on failure
-        await supabase.from('payments').update({ status: 'pending_verification' }).eq('id', paymentRecord.id);
+        await runRawSql('UPDATE payments SET status = $1 WHERE id = $2', ['pending_verification', paymentRecord.id]);
         paymentStatus = 'pending_verification';
       }
     }
@@ -1650,20 +1673,26 @@ router.post('/song/:id/video-upsell-payment', paymentLimiter, async (req, res) =
       expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
     };
 
-    const { data: paymentRecord, error: insertErr } = await supabase
-      .from('payments')
-      .insert([paymentFields])
-      .select('id')
-      .single();
+    const insertResult = await runRawSql(
+      `INSERT INTO payments (request_id, user_email, plan, amount, payment_method, proof_url, proof_path, proof_filename, status, video_upsell, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id`,
+      [requestId, userEmail, 'video_upsell', 2900, paymentMethod || 'reference',
+       proofUrl || (proofPath ? `storage:${proofPath}` : null), proofPath,
+       proofFilename || proofPath?.split('/').pop() || null,
+       'pending_verification', true,
+       new Date(Date.now() + 15 * 60 * 1000).toISOString()]
+    ) as { rows?: { id: string }[] } | null;
 
-    if (insertErr) throw insertErr;
+    if (!insertResult?.rows?.length) throw new Error('Failed to insert video upsell payment via raw SQL');
+    const paymentRecord = { id: insertResult.rows[0].id };
 
     // Notificar admin
     sendAdminNotification(
       'Novo pagamento de videoclipe pendente 🎬',
-      `Cliente: ${userEmail}\nVideoclipe: 2.900 Kz\nPedido: ${requestId}\nPagamento: ${paymentRecord?.id}\n\nVer no painel: ${getAppUrl(req)}/admin?tab=payments`
+      `Cliente: ${userEmail}\nVideoclipe: 2.900 Kz\nPedido: ${requestId}\nPagamento: ${paymentRecord.id}\n\nVer no painel: ${getAppUrl(req)}/admin?tab=payments`
     ).catch(err =>
-      logError('[API] Falha ao notificar admin (video upsell)', err, { paymentId: paymentRecord?.id })
+      logError('[API] Falha ao notificar admin (video upsell)', err, { paymentId: paymentRecord.id })
     );
 
     res.json({ success: true, paymentId: paymentRecord?.id });
