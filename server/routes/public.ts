@@ -67,6 +67,7 @@ const paymentUpload = multer({
 ]);
 
 function safeMessage(err: unknown) {
+  if (err instanceof Error) return err.message;
   return publicErrorMessage(err);
 }
 
@@ -1599,14 +1600,16 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
   } catch (err: unknown) {
     const errType = err instanceof Error ? err.constructor.name : typeof err;
     const errMsg = err instanceof Error ? err.message : String(err);
+    const errStack = err instanceof Error ? err.stack : undefined;
     logRouteError(req, err, {
       songRequestId: req.body?.songRequestId,
       userEmail: req.body?.userEmail,
       plan: req.body?.plan,
       errType,
       errMsg: errMsg.slice(0, 500),
+      errStack: errStack?.slice(0, 1000),
     });
-    res.status(500).json({ success: false, error: safeMessage(err) });
+    res.status(500).json({ success: false, error: safeMessage(err), _debug_err: errMsg.slice(0, 300) });
   }
 });
 
