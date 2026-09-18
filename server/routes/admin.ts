@@ -304,7 +304,7 @@ router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
 
     const { data: payment, error } = await supabase
       .from('payments')
-      .select('proof_path, proof_url, proof_filename, proof_mime_type')
+      .select('proof_path, proof_url, proof_filename')
       .eq('id', id)
       .single();
 
@@ -323,7 +323,7 @@ router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
         res.json({
           url: signedUrl,
           filename: payment.proof_filename || null,
-          mimeType: payment.proof_mime_type || null,
+          mimeType: payment.proof_filename?.endsWith('.pdf') ? 'application/pdf' : null,
         });
         return;
       }
@@ -334,7 +334,7 @@ router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
       res.json({
         url: payment.proof_url,
         filename: payment.proof_filename || null,
-        mimeType: payment.proof_mime_type || null,
+        mimeType: payment.proof_filename?.endsWith('.pdf') ? 'application/pdf' : null,
       });
       return;
     }
@@ -349,7 +349,7 @@ router.get('/payment/:id/proof-url', adminAuth, async (req, res) => {
     res.json({
       url: finalUrl,
       filename: payment.proof_filename || null,
-      mimeType: payment.proof_mime_type || null,
+      mimeType: payment.proof_filename?.endsWith('.pdf') ? 'application/pdf' : null,
     });
   } catch (err: unknown) {
     logRouteError(req, err);
@@ -617,7 +617,7 @@ router.post('/payment/:id/re-analyze', adminAuth, async (req, res) => {
 
     const { data: payment, error: fetchErr } = await supabase
       .from('payments')
-      .select('id, proof_path, proof_url, proof_mime_type, plan_type, payment_method, status')
+      .select('id, proof_path, proof_url, plan, payment_method, status')
       .eq('id', id)
       .single();
 
@@ -632,7 +632,7 @@ router.post('/payment/:id/re-analyze', adminAuth, async (req, res) => {
     // Download proof from storage
     const proofUrl = payment.proof_url || payment.proof_path;
     let proofBuffer: Buffer;
-    let proofMime = payment.proof_mime_type || 'image/jpeg';
+    let proofMime = 'image/jpeg';
 
     if (proofUrl && proofUrl.startsWith('http')) {
       const response = await fetch(proofUrl);
@@ -645,7 +645,7 @@ router.post('/payment/:id/re-analyze', adminAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Comprovativo não acessível.' });
     }
 
-    const plan = payment.plan_type || 'standard';
+    const plan = payment.plan || 'standard';
     const method = payment.payment_method || 'reference';
 
     const result = await verifyPaymentProof(proofBuffer, proofMime, plan, method);
