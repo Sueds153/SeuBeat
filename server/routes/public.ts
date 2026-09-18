@@ -1389,24 +1389,21 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       proof_filename: (isMultipart && proofFileMulter ? proofFileMulter.originalname : proofFilename) || proofPath?.split('/').pop() || null,
       proof_mime_type: (isMultipart && proofFileMulter ? proofFileMulter.mimetype : proofMimeType) || null,
       status: paymentStatus,
-      approved_at: approvedAt,
-      deliver_at: deliverAt,
-      expires_at: paymentStatus === 'pending_verification'
-        ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
-        : null,
-    };
-
-    const verificationFields = proofVerification ? {
-      ai_verified: proofVerification.decision === 'auto_approve',
-      verification_result: {
+      ai_verified: proofVerification?.decision === 'auto_approve',
+      verification_result: proofVerification ? {
         confidence: proofVerification.confidence,
         decision: proofVerification.decision,
         extracted: proofVerification.extracted,
         checks: proofVerification.checks,
         provider: proofVerification.provider,
         timestamp: new Date().toISOString(),
-      },
-    } : null;
+      } : null,
+      approved_at: approvedAt,
+      deliver_at: deliverAt,
+      expires_at: paymentStatus === 'pending_verification'
+        ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
+        : null,
+    };
 
     let paymentRecord: { id?: string } | null = null;
     let paymentError: unknown = null;
@@ -1447,10 +1444,16 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       throw paymentError;
     }
 
-    // ── Persist AI verification result (fire-and-forget, after schema cache reload) ──
-    if (paymentRecord?.id && verificationFields) {
-      supabase.from('payments').update(verificationFields).eq('id', paymentRecord.id)
-        .catch(err => logError('[API] Falha ao gravar verificação AI (non-blocking)', err, { paymentId: paymentRecord.id }));
+    // ── AI verification result: logged but NOT persisted via Supabase client
+    // (PostgREST schema cache doesn't have ai_verified/verification_result yet)
+    // TODO: re-enable UPDATE after PostgREST schema reload (Supabase Dashboard → SQL Editor)
+    if (paymentRecord?.id && proofVerification) {
+      logInfo('[API] Verificação AI registada (pendente de persistência na DB)', {
+        paymentId: paymentRecord.id,
+        aiVerified: proofVerification.decision === 'auto_approve',
+        decision: proofVerification.decision,
+        confidence: proofVerification.confidence,
+      });
     }
 
     // ── Auto-approve: update song_requests + notify customer + admin ────────
