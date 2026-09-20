@@ -2265,18 +2265,54 @@ export default function AdminPanel() {
                                     </div>
                                   )}
 
-                                  {/* AI Rejection Reason */}
-                                  {payment.status === 'rejected' && payment.verification_result?.decision === 'auto_reject' && (
-                                    <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-3 text-xs space-y-2">
-                                      <div className="flex items-center gap-2 text-rose-400 font-mono font-medium">
-                                        <XCircle className="w-4 h-4" />
-                                        <span>Motivo da Rejeição IA</span>
+                                  {/* AI Decision Summary — shows for all 3 decisions */}
+                                  {payment.verification_result && (
+                                    <div className={`border rounded-xl p-3 text-xs space-y-2 ${
+                                      payment.verification_result.decision === 'auto_approve'
+                                        ? 'bg-emerald-500/5 border-emerald-500/20'
+                                        : payment.verification_result.decision === 'auto_reject'
+                                          ? 'bg-rose-500/5 border-rose-500/20'
+                                          : 'bg-amber-500/5 border-amber-500/20'
+                                    }`}>
+                                      {/* Header */}
+                                      <div className={`flex items-center gap-2 font-mono font-medium ${
+                                        payment.verification_result.decision === 'auto_approve'
+                                          ? 'text-emerald-400'
+                                          : payment.verification_result.decision === 'auto_reject'
+                                            ? 'text-rose-400'
+                                            : 'text-amber-400'
+                                      }`}>
+                                        {payment.verification_result.decision === 'auto_approve' && <CheckCircle className="w-4 h-4" />}
+                                        {payment.verification_result.decision === 'auto_reject' && <XCircle className="w-4 h-4" />}
+                                        {payment.verification_result.decision === 'manual_review' && <AlertTriangle className="w-4 h-4" />}
+                                        <span>
+                                          {payment.verification_result.decision === 'auto_approve' && 'Aprovado Automaticamente pela IA'}
+                                          {payment.verification_result.decision === 'auto_reject' && 'Rejeitado pela IA'}
+                                          {payment.verification_result.decision === 'manual_review' && 'Enviado para Revisão Manual'}
+                                        </span>
                                         {payment.verification_result.confidence != null && (
-                                          <span className="text-[10px] text-rose-500/70 ml-auto">confiança {Math.round(payment.verification_result.confidence * 100)}%</span>
+                                          <span className={`text-[10px] ml-auto ${
+                                            payment.verification_result.decision === 'auto_approve' ? 'text-emerald-500/70'
+                                              : payment.verification_result.decision === 'auto_reject' ? 'text-rose-500/70'
+                                                : 'text-amber-500/70'
+                                          }`}>confiança {Math.round(payment.verification_result.confidence * 100)}%</span>
                                         )}
                                       </div>
+
+                                      {/* Explanation — why was this decision made? */}
+                                      {payment.verification_result.decision === 'manual_review' && (
+                                        <div className="text-[10px] font-mono text-stone-400 pl-5">
+                                          A confiança ficou entre 50%-84% — não é suficiente para aprovação automática (≥85%) nem para rejeição automática (&lt;50%).
+                                          {payment.verification_result.checks.filter(c => !c.passed).length > 0 && (
+                                            <span className="text-stone-500"> Verificações abaixo com falhas.</span>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {/* Failed checks */}
                                       {payment.verification_result.checks.filter(c => !c.passed).length > 0 && (
                                         <div className="space-y-1 pl-1">
+                                          <p className="text-stone-500 font-mono text-[9px] uppercase">Verificações com falha:</p>
                                           {payment.verification_result.checks.filter(c => !c.passed).map((check, i) => (
                                             <div key={i} className="flex items-start gap-2 text-[10px] font-mono">
                                               <XCircle className="w-3 h-3 text-rose-400 shrink-0 mt-0.5" />
@@ -2293,6 +2329,29 @@ export default function AdminPanel() {
                                           ))}
                                         </div>
                                       )}
+
+                                      {/* Passed checks (for approved + manual review) */}
+                                      {payment.verification_result.decision !== 'auto_reject' && payment.verification_result.checks.filter(c => c.passed).length > 0 && (
+                                        <div className="space-y-1 pl-1">
+                                          <p className="text-stone-500 font-mono text-[9px] uppercase">Verificações passadas:</p>
+                                          {payment.verification_result.checks.filter(c => c.passed).map((check, i) => (
+                                            <div key={i} className="flex items-start gap-2 text-[10px] font-mono">
+                                              <CheckCircle className="w-3 h-3 text-emerald-400 shrink-0 mt-0.5" />
+                                              <span className="text-stone-400">{check.name}:</span>
+                                              <span className="text-emerald-400/80">{check.actual}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      {/* Extracted data — provider */}
+                                      {payment.verification_result.provider && payment.verification_result.provider !== 'none' && (
+                                        <div className="text-[9px] font-mono text-stone-600">
+                                          via {payment.verification_result.provider}
+                                        </div>
+                                      )}
+
+                                      {/* rawText */}
                                       {payment.verification_result.extracted?.rawText && (
                                         <div className="pt-1 border-t border-stone-800">
                                           <p className="text-stone-500 text-[9px] uppercase mb-0.5">Texto extraído pela IA:</p>
