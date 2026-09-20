@@ -16,7 +16,8 @@ export async function runRawSql(sql: string, params?: unknown[]): Promise<unknow
   const c = new pg.Client({
     connectionString: dbPassword,
     ssl: { rejectUnauthorized: false },
-    prepare: false,
+    // disable prepared statements for PgBouncer transaction pooling
+    ...({ prepare: false } as Record<string, unknown>),
   });
   try {
     await c.connect();

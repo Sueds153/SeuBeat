@@ -21,7 +21,7 @@ async function sanitize(str: string): Promise<string> {
   return dompurifyModule.default.sanitize(str.trim().slice(0, 5000));
 }
 import { setProgress, updateRequestStatus, runBackgroundSunoWorkflow } from '../services/workflow';
-import { publicErrorMessage, getAppUrl, logRouteError, kzToUsd, toCamelCase, runRawSql } from '../utils/helpers';
+import { publicErrorMessage, getAppUrl, logRouteError, kzToUsd, toCamelCase } from '../utils/helpers';
 import { allFailuresTransient, LYRIC_GENERATION_QUEUED_MESSAGE } from '../utils/aiFailure';
 import { 
   GenerateLyricsSchema, 
@@ -67,7 +67,6 @@ const paymentUpload = multer({
 ]);
 
 function safeMessage(err: unknown) {
-  if (err instanceof Error) return err.message;
   return publicErrorMessage(err);
 }
 
@@ -1135,8 +1134,6 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
 
     const parsedAmount = typeof amount === 'number' && !isNaN(amount) ? amount : typeof amount === 'string' ? parseAngolanAmount(amount) : 0;
 
-    logInfo('[API] submit-payment debug', { songRequestId, userEmail, plan, parsedAmount, songRequestIdType: typeof songRequestId });
-
     // Parallel guard queries (saves ~200ms vs sequential)
     const [pendingResult, approvedResult, requestResult] = await Promise.all([
       supabase
@@ -1162,20 +1159,8 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
     const approvedPayment = approvedResult.data;
     const requestGuard = requestResult.data;
 
-    logInfo('[API] submit-payment guard results', {
-      songRequestId,
-      hasRequest: !!requestGuard,
-      requestStatus: requestGuard?.status,
-      hasPendingPayment: !!existingPayment,
-      hasApprovedPayment: !!approvedPayment,
-      pendingError: pendingResult.error?.message,
-      approvedError: approvedResult.error?.message,
-      requestError: requestResult.error?.message,
-    });
-
     if (!requestGuard) {
-      logError('[API] submit-payment: songRequestId not found in song_requests', new Error('FK guard triggered'), { songRequestId });
-      return res.status(400).json({ success: false, error: 'Pedido não encontrado. Verifique o link e tente novamente.', _debug: { songRequestId, exists: false } });
+      return res.status(400).json({ success: false, error: 'Pedido não encontrado. Verifique o link e tente novamente.' });
     }
 
     if (existingPayment) {
@@ -1428,60 +1413,30 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
     let paymentError: unknown = null;
     if (rejectedPayment) {
       const updatePayload: Record<string, unknown> = { ...paymentFields, notes: null };
-      // Only clear approved_at if NOT auto-approved by AI
       if (paymentStatus !== 'approved') {
         updatePayload.approved_at = null;
       }
-      const updateResult = await runRawSql(
-        `UPDATE payments SET 
-          request_id = $1, user_email = $2, plan = $3, amount = $4,
-          payment_method = $5, proof_url = $6, proof_path = $7, proof_filename = $8,
-          status = $9, approved_at = $10, expires_at = $11, notes = NULL
-         WHERE id = $12 RETURNING id`,
-        [
-          songRequestId, userEmail, plan, parsedAmount,
-          resolvedPaymentMethod, proofUrl || (proofPath ? `storage:${proofPath}` : null),
-          proofPath,
-          (isMultipart && proofFileMulter ? proofFileMulter.originalname : proofFilename) || proofPath?.split('/').pop() || null,
-          paymentStatus, approvedAt,
-          paymentStatus === 'pending_verification' ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null,
-          rejectedPayment.id,
-        ]
-      ) as { rows?: { id: string }[] } | null;
-      if (!updateResult?.rows?.length) {
-        paymentError = new Error('Failed to update rejected payment via raw SQL');
+      const { data: updatedPayment, error: updateErr } = await supabase
+        .from('payments')
+        .update(updatePayload)
+        .eq('id', rejectedPayment.id)
+        .select('id')
+        .single();
+      if (updateErr || !updatedPayment) {
+        paymentError = updateErr || new Error('Failed to update rejected payment');
       } else {
         paymentRecord = { id: rejectedPayment.id };
       }
     } else {
-      // DEBUG: verify songRequestId exists via raw SQL before INSERT
-      const debugCheck = await runRawSql(
-        'SELECT id, status FROM song_requests WHERE id = $1',
-        [songRequestId]
-      ) as { rows?: { id: string; status: string }[] } | null;
-      logInfo('[API] submit-payment rawSQL check', {
-        songRequestId,
-        rawSQLCheckRows: debugCheck?.rows?.length ?? 'null',
-        rawSQLCheckData: debugCheck?.rows?.[0] ?? 'none',
-      });
-
-      const insertResult = await runRawSql(
-        `INSERT INTO payments (request_id, user_email, plan, amount, payment_method, proof_url, proof_path, proof_filename, status, approved_at, expires_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-         RETURNING id`,
-        [
-          songRequestId, userEmail, plan, parsedAmount,
-          resolvedPaymentMethod, proofUrl || (proofPath ? `storage:${proofPath}` : null),
-          proofPath,
-          (isMultipart && proofFileMulter ? proofFileMulter.originalname : proofFilename) || proofPath?.split('/').pop() || null,
-          paymentStatus, approvedAt,
-          paymentStatus === 'pending_verification' ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null,
-        ]
-      ) as { rows?: { id: string }[] } | null;
-      if (!insertResult?.rows?.length) {
-        paymentError = new Error('Failed to insert payment via raw SQL');
+      const { data: newPayment, error: insertErr } = await supabase
+        .from('payments')
+        .insert(paymentFields)
+        .select('id')
+        .single();
+      if (insertErr || !newPayment) {
+        paymentError = insertErr || new Error('Failed to insert payment');
       } else {
-        paymentRecord = { id: insertResult.rows[0].id };
+        paymentRecord = { id: newPayment.id };
       }
     }
     if (paymentError) {
@@ -1500,14 +1455,15 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       throw paymentError;
     }
 
-    // ── AI verification result: persist via raw SQL (bypass PostgREST schema cache) ──
+    // ── AI verification result: persist (non-blocking) ──
     if (paymentRecord?.id && verificationData) {
-      runRawSql(
-        'UPDATE payments SET ai_verified = $1, verification_result = $2 WHERE id = $3',
-        [verificationData.ai_verified, verificationData.verification_result, paymentRecord.id]
-      ).catch(err =>
-        logError('[API] Falha ao gravar verificação AI via raw SQL (non-blocking)', err, { paymentId: paymentRecord!.id })
-      );
+      supabase
+        .from('payments')
+        .update({ ai_verified: verificationData.ai_verified, verification_result: verificationData.verification_result })
+        .eq('id', paymentRecord.id)
+        .then(({ error }) => {
+          if (error) logError('[API] Falha ao gravar verificação AI (non-blocking)', error, { paymentId: paymentRecord!.id });
+        });
     }
 
     // ── Auto-approve: update song_requests + notify customer + admin ────────
@@ -1547,7 +1503,7 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       } catch (autoErr) {
         logError('[API] Falha no auto-approve — pagamento fica pendente', autoErr, { songRequestId, paymentId: paymentRecord?.id });
         // Downgrade to manual review on failure
-        await runRawSql('UPDATE payments SET status = $1 WHERE id = $2', ['pending_verification', paymentRecord.id]);
+        await supabase.from('payments').update({ status: 'pending_verification' }).eq('id', paymentRecord.id);
         paymentStatus = 'pending_verification';
       }
     }
@@ -1638,7 +1594,7 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       errMsg: errMsg.slice(0, 500),
       errStack: errStack?.slice(0, 1000),
     });
-    res.status(500).json({ success: false, error: safeMessage(err), _debug_err: errMsg.slice(0, 300) });
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 
@@ -1705,19 +1661,14 @@ router.post('/song/:id/video-upsell-payment', paymentLimiter, async (req, res) =
       expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
     };
 
-    const insertResult = await runRawSql(
-      `INSERT INTO payments (request_id, user_email, plan, amount, payment_method, proof_url, proof_path, proof_filename, status, video_upsell, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-       RETURNING id`,
-      [requestId, userEmail, 'video_upsell', 2900, paymentMethod || 'reference',
-       proofUrl || (proofPath ? `storage:${proofPath}` : null), proofPath,
-       proofFilename || proofPath?.split('/').pop() || null,
-       'pending_verification', true,
-       new Date(Date.now() + 15 * 60 * 1000).toISOString()]
-    ) as { rows?: { id: string }[] } | null;
+    const { data: newPayment, error: insertErr } = await supabase
+      .from('payments')
+      .insert(paymentFields)
+      .select('id')
+      .single();
 
-    if (!insertResult?.rows?.length) throw new Error('Failed to insert video upsell payment via raw SQL');
-    const paymentRecord = { id: insertResult.rows[0].id };
+    if (insertErr || !newPayment) throw insertErr || new Error('Failed to insert video upsell payment');
+    const paymentRecord = { id: newPayment.id };
 
     // Notificar admin
     sendAdminNotification(

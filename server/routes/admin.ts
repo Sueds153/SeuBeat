@@ -36,7 +36,7 @@ async function loadGoogleGenAI() {
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { normalizeLyricsArray, querySunoTask } from '../services/suno';
 import { persistGeneratedSunoAudio } from '../services/workflow';
-import { publicErrorMessage, getAppUrl, logRouteError, kzToUsd, runRawSql } from '../utils/helpers';
+import { publicErrorMessage, getAppUrl, logRouteError, kzToUsd } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
 import { sendPurchaseEvent, generateServerEventId } from '../services/metaPixelCapi';
 import { adminLimiter, whatsappBulkLimiter } from '../middleware/rateLimiter';
@@ -650,10 +650,10 @@ router.post('/payment/:id/re-analyze', adminAuth, async (req, res) => {
 
     const result = await verifyPaymentProof(proofBuffer, proofMime, plan, method);
 
-    // Update verification result in DB via raw SQL (bypass PostgREST schema cache)
-    await runRawSql(
-      'UPDATE payments SET verification_result = $1 WHERE id = $2',
-      [JSON.stringify({
+    // Update verification result in DB
+    await supabase
+      .from('payments')
+      .update({ verification_result: JSON.stringify({
         confidence: result.confidence,
         decision: result.decision,
         extracted: result.extracted,
@@ -661,8 +661,8 @@ router.post('/payment/:id/re-analyze', adminAuth, async (req, res) => {
         provider: result.provider,
         timestamp: new Date().toISOString(),
         reanalyzed_by: 'admin',
-      }), id]
-    );
+      }) })
+      .eq('id', id);
 
     logAdminAction({ action: 're-analyze', entityType: 'payment', entityId: id, notes: `confidence=${result.confidence}, decision=${result.decision}` });
 
