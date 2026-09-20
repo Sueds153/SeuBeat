@@ -556,31 +556,21 @@ export default function AdminPanel() {
     [adminToken]
   );
 
-  const handleFetchError = useCallback(async (res: Response) => {
-    if (res.ok) return true;
-    if (res.status === 401) {
-      expireSession();
-      return false;
-    }
-    try {
-      const data = await res.json();
-      showToast(data.error || `Erro ${res.status}`, 'error');
-    } catch {
-      showToast(`Erro ${res.status}`, 'error');
-    }
-    return false;
-  }, [adminToken]);
-
   const apiFetch = useCallback(async (url: string, options: RequestInit = {}): Promise<any> => {
     try {
       const res = await fetch(url, { ...options, headers: { ...apiHeaders, ...options.headers } });
-      const ok = await handleFetchError(res);
-      return ok ? await res.json() : null;
-    } catch (e: any) {
+      if (res.ok) return await res.json();
+      if (res.status === 401) {
+        expireSession();
+        return null;
+      }
+      try { return { _error: true, ...(await res.json()) }; }
+      catch { return { _error: true, error: `Erro ${res.status}` }; }
+    } catch {
       showToast('Erro de ligação ao servidor.', 'error');
-      return null;
+      return { _error: true, error: 'Erro de ligação ao servidor.' };
     }
-  }, [adminToken, apiHeaders, handleFetchError]);
+  }, [adminToken, apiHeaders]);
 
   const expireSession = useCallback(() => {
     showToast('Sessão expirada. Faça login novamente.', 'error');
@@ -854,10 +844,12 @@ export default function AdminPanel() {
       method: 'POST',
       body: JSON.stringify({ method: waVerifyModal.method }),
     });
-    if (data?.success) {
+    if (data?._error) {
+      setWaVerifyModal(prev => ({ ...prev, loading: false, error: data.error || 'Falha ao pedir o código.' }));
+    } else if (data?.success) {
       setWaVerifyModal(prev => ({
         ...prev, loading: false,
-        message: `Código enviado por ${waVerifyModal.method === 'VOICE' ? 'chamada de voz' : 'SMS'} para o dono do número. Introduce-o abaixo.`,
+        message: `Código enviado por ${waVerifyModal.method === 'VOICE' ? 'chamada de voz' : 'SMS'} para o dono do número. Introduza-o abaixo.`,
       }));
     } else {
       setWaVerifyModal(prev => ({ ...prev, loading: false, error: data?.error || 'Falha ao pedir o código.' }));
@@ -871,7 +863,9 @@ export default function AdminPanel() {
       method: 'POST',
       body: JSON.stringify({ code: waVerifyModal.code.trim() }),
     });
-    if (data?.success) {
+    if (data?._error) {
+      setWaVerifyModal(prev => ({ ...prev, loading: false, error: data.error || 'Código inválido ou expirado.' }));
+    } else if (data?.success) {
       setWaVerificationStatus(data.codeVerificationStatus || 'VERIFIED');
       setWaVerifyModal(prev => ({ ...prev, loading: false, code: '', message: 'Número verificado com sucesso! Envios desbloqueados.' }));
       refreshWhatsAppConfig();
@@ -1599,6 +1593,10 @@ export default function AdminPanel() {
               {!waBlocked && waVerificationStatus && (
                 <p className="text-xs text-stone-400 leading-relaxed">O número está verificado — os envios a clientes reais estão desbloqueados.</p>
               )}
+
+              <p className="text-[10px] text-stone-500 leading-relaxed">
+                Nota: A verificação por SMS pode não estar disponível para números angolanos (+244). Se o envio de código falhar, contacte o suporte Meta ou testa o envio de template na aba "Verificar ligação" para confirmar se o token funciona.
+              </p>
 
               <div className="flex items-center gap-2">
                 <select

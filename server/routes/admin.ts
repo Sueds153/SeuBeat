@@ -2464,7 +2464,7 @@ router.post('/whatsapp/request-code', adminAuth, whatsappBulkLimiter, async (req
     const m: 'SMS' | 'VOICE' = method === 'VOICE' ? 'VOICE' : 'SMS';
     const lang = typeof language === 'string' && language ? language : 'en_US';
     const result = await wa.requestVerificationCode(m, lang);
-    if (!result.ok) return res.status(422).json({ success: false, error: result.error });
+    if (!result.ok) return res.status(422).json({ success: false, error: result.error, metaCode: result.metaCode, metaRaw: result.metaRaw });
     logInfo('[WhatsApp] Código de verificação pedido pelo admin', { method: m, language: lang });
     res.json({ success: true, method: m, language: lang });
   } catch (err: unknown) {

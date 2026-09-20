@@ -403,6 +403,33 @@ describe('whatsappSender (Cloud API)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('requestVerificationCode devolve metaRaw quando a Meta rejeita', async () => {
+    const wa = await importSender();
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: { code: 33, message: 'Unsupported phone number', type: 'OAuthException', error_subcode: 33 } }),
+    });
+    const r = await wa.requestVerificationCode('SMS', 'en_US');
+    expect(r.ok).toBe(false);
+    expect(r.error).toBeDefined();
+    expect(r.metaCode).toBe(33);
+    expect(r.metaRaw).toBeDefined();
+    expect((r.metaRaw as any).error.message).toBe('Unsupported phone number');
+  });
+
+  it('requestVerificationCode devolve metaRaw sem body quando a Meta retorna erro sem JSON', async () => {
+    const wa = await importSender();
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => { throw new Error('invalid json'); },
+    });
+    const r = await wa.requestVerificationCode('VOICE', 'pt_BR');
+    expect(r.ok).toBe(false);
+    expect(r.metaCode).toBeUndefined();
+  });
+
   it('isWhatsAppVerificationOk reflete o estado do número (cache e API)', async () => {
     const wa = await importSender();
     wa.setCachedVerificationStatus('NOT_VERIFIED');

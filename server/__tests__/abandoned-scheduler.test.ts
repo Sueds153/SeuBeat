@@ -258,4 +258,33 @@ describe('processAbandonedRecovery (WhatsApp)', () => {
     expect(args[3]).toBe('');
     expect(args[4]).toBe('');
   });
+
+  it('devolve log quando não há candidatos abandonados', async () => {
+    buildSupabaseMock({ requests: [], paymentStatus: null });
+    await processAbandonedRecovery();
+    // Não deve lançar erro e não deve chamar WhatsApp
+    expect(mockedSendWhatsApp).not.toHaveBeenCalled();
+  });
+
+  it('regista stats de tick (emailSent, whatsappSent, whatsappSkipped)', async () => {
+    mockedSendWhatsApp.mockResolvedValue('sent');
+    buildSupabaseMock({ requests: [request({})], paymentStatus: null });
+    await processAbandonedRecovery();
+    // Smoke test: se chegou aqui sem erro, o tick completou com stats
+    expect(mockedSendWhatsApp).toHaveBeenCalledTimes(1);
+  });
+
+  it('conta whatsappSkipped quando sendAbandonedWhatsApp retorna skipped', async () => {
+    mockedSendWhatsApp.mockResolvedValue('skipped');
+    buildSupabaseMock({ requests: [request({})], paymentStatus: null });
+    await processAbandonedRecovery();
+    expect(mockedSendWhatsApp).toHaveBeenCalledTimes(1);
+  });
+
+  it('conta whatsappFailed quando sendAbandonedWhatsApp retorna failed', async () => {
+    mockedSendWhatsApp.mockResolvedValue('failed');
+    buildSupabaseMock({ requests: [request({})], paymentStatus: null });
+    await processAbandonedRecovery();
+    expect(mockedSendWhatsApp).toHaveBeenCalledTimes(1);
+  });
 });

@@ -35,10 +35,14 @@ export async function processAbandonedRecovery(): Promise<void> {
     return;
   }
 
-  if (!abandoned || abandoned.length === 0) return;
+  if (!abandoned || abandoned.length === 0) {
+    logInfo('[AbandonedRecovery] Nenhum pedido abandonado elegivel encontrado');
+    return;
+  }
 
   const nowDate = new Date();
   const now = Date.now();
+  const tickStats = { emailSent: 0, whatsappSent: 0, whatsappFailed: 0, whatsappSkipped: 0 };
 
   function songTeaser(req: { songs?: unknown }): { songTitle: string; lyricsSnippet: string } {
     const songs = Array.isArray(req.songs) ? req.songs : req.songs ? [req.songs] : [];
@@ -65,22 +69,27 @@ export async function processAbandonedRecovery(): Promise<void> {
         await sendAbandonedFifthReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
         await supabase.from('song_requests').update({ abandoned_7d_sent_at: now }).eq('id', req.id);
         logInfo('[AbandonedRecovery] Quinto lembrete enviado (7 dias) por email', { requestId: req.id, email: req.email });
+        tickStats.emailSent++;
       } else if (diffMs >= 72 * 60 * 60 * 1000 && !req.abandoned_72h_sent_at) {
         await sendAbandonedFourthReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
         await supabase.from('song_requests').update({ abandoned_72h_sent_at: now }).eq('id', req.id);
         logInfo('[AbandonedRecovery] Quarto lembrete enviado (72h) por email', { requestId: req.id, email: req.email });
+        tickStats.emailSent++;
       } else if (diffMs >= 48 * 60 * 60 * 1000 && !req.abandoned_48h_sent_at) {
         await sendAbandonedThirdReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
         await supabase.from('song_requests').update({ abandoned_48h_sent_at: now }).eq('id', req.id);
         logInfo('[AbandonedRecovery] Terceiro lembrete enviado (48h) por email', { requestId: req.id, email: req.email });
+        tickStats.emailSent++;
       } else if (diffMs >= 24 * 60 * 60 * 1000 && !req.abandoned_24h_sent_at) {
         await sendAbandonedSecondReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
         await supabase.from('song_requests').update({ abandoned_24h_sent_at: now }).eq('id', req.id);
         logInfo('[AbandonedRecovery] Segundo lembrete enviado (24h) por email', { requestId: req.id, email: req.email });
+        tickStats.emailSent++;
       } else if (diffMs >= 30 * 60 * 1000 && !req.abandoned_30min_sent_at) {
         await sendAbandonedFirstReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
         await supabase.from('song_requests').update({ abandoned_30min_sent_at: now }).eq('id', req.id);
         logInfo('[AbandonedRecovery] Primeiro lembrete enviado (30min) por email', { requestId: req.id, email: req.email });
+        tickStats.emailSent++;
       }
 
       // --- WhatsApp para clientes não pagantes nos buckets habilitados ---
@@ -104,8 +113,14 @@ export async function processAbandonedRecovery(): Promise<void> {
             });
             if (result === 'sent') {
               logInfo('[AbandonedRecovery] WhatsApp enviado (bucket: {bucket}) para cliente não pagante', { requestId: req.id, email: req.email, bucket, phone });
+              tickStats.whatsappSent++;
             } else {
               logWarn('[AbandonedRecovery] WhatsApp não enviado (result: {result})', { requestId: req.id, email: req.email, bucket, result });
+              if (result === 'skipped' || result === 'window-closed' || result === 'cap-reached' || result === 'unconfigured') {
+                tickStats.whatsappSkipped++;
+              } else {
+                tickStats.whatsappFailed++;
+              }
             }
           }
         }
@@ -114,6 +129,14 @@ export async function processAbandonedRecovery(): Promise<void> {
       logError('[AbandonedRecovery] Falha ao processar pedido', err, { requestId: req.id, email: req.email });
     }
   }
+
+  logInfo('[AbandonedRecovery] Tick concluido', {
+    candidates: abandoned.length,
+    emailSent: tickStats.emailSent,
+    whatsappSent: tickStats.whatsappSent,
+    whatsappFailed: tickStats.whatsappFailed,
+    whatsappSkipped: tickStats.whatsappSkipped,
+  });
 }
 
 export async function checkPaymentStatus(requestId: string): Promise<boolean> {

@@ -159,7 +159,7 @@ export async function getPhoneNumberVerificationStatus(): Promise<PhoneNumberVer
 export async function requestVerificationCode(
   method: 'SMS' | 'VOICE' = 'SMS',
   language = 'en_US'
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; metaCode?: number; metaRaw?: unknown }> {
   if (!isConfigured()) return { ok: false, error: 'WhatsApp API não configurada.' };
   const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${PHONE_NUMBER_ID}/request_code?code_method=${method}&language=${encodeURIComponent(language)}`;
   try {
@@ -167,7 +167,13 @@ export async function requestVerificationCode(
     const data = await res.json().catch(() => null);
     if (!res.ok) {
       const mapped = mapWhatsAppApiError(res.status, data);
-      return { ok: false, error: mapped.message };
+      logWarn('[WhatsApp] request_code falhou', {
+        status: res.status,
+        metaCode: mapped.code,
+        metaMessage: mapped.message,
+        metaRaw: data,
+      });
+      return { ok: false, error: mapped.message, metaCode: mapped.code, metaRaw: data };
     }
     logInfo('[WhatsApp] Código de verificação pedido', { method, phoneNumberId: PHONE_NUMBER_ID });
     return { ok: true };
