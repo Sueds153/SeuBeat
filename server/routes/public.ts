@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -1179,7 +1179,7 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
 
     const { data: existingPaymentRecord } = await supabase
       .from('payments')
-      .select('id')
+      .select('id, proof_path')
       .eq('request_id', songRequestId)
       .in('status', ['rejected', 'failed'])
       .maybeSingle();
@@ -1203,6 +1203,40 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
     } else if (proofBase64) {
       proofBufferForVerification = decodeBase64Payload(proofBase64);
       proofMimeForVerification = proofMimeType || 'image/jpeg';
+    }
+
+    // ── Proof hash: compute SHA-256 for cross-request duplicate detection ──
+    let proofHash: string | null = null;
+    if (proofBufferForVerification && proofBufferForVerification.length > 0) {
+      proofHash = createHash('sha256').update(proofBufferForVerification).digest('hex');
+    }
+
+    // ── Cross-request duplicate checks (parallel, non-blocking) ─────────────
+    if (proofHash) {
+      const [hashDupeResult, pendingDupeResult] = await Promise.all([
+        supabase
+          .from('payments')
+          .select('id, request_id, status, user_email')
+          .eq('proof_hash', proofHash)
+          .neq('request_id', songRequestId)
+          .in('status', ['approved', 'pending_verification', 'delivered'])
+          .maybeSingle(),
+        // Also check for same transactionId once extracted (checked post-verification below)
+        Promise.resolve(null) as Promise<null>,
+      ]);
+
+      if (hashDupeResult.data) {
+        logWarn('[API] Comprovativo duplicado detetado — mesmo hash SHA-256', {
+          songRequestId,
+          duplicateOf: hashDupeResult.data.request_id,
+          duplicatePaymentId: hashDupeResult.data.id,
+          proofHash,
+        });
+        return res.status(409).json({
+          success: false,
+          error: 'Este comprovativo de pagamento já foi utilizado noutro pedido. Envia o comprovativo correto.',
+        });
+      }
     }
 
     // Run AI verification in parallel with upload (saves ~2-5s)
@@ -1392,6 +1426,7 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       proof_url: proofUrl || (proofPath ? `storage:${proofPath}` : null),
       proof_path: proofPath,
       proof_filename: (isMultipart && proofFileMulter ? proofFileMulter.originalname : proofFilename) || proofPath?.split('/').pop() || null,
+      proof_hash: proofHash,
       status: paymentStatus,
       approved_at: approvedAt,
       expires_at: paymentStatus === 'pending_verification'
@@ -1428,6 +1463,10 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
         paymentError = updateErr || new Error('Failed to update existing payment');
       } else {
         paymentRecord = { id: existingPaymentRecord.id };
+        // Clean orphan proof file from storage (non-blocking)
+        if (existingPaymentRecord.proof_path && proofPath && existingPaymentRecord.proof_path !== proofPath) {
+          deleteStorageFile('payment-proofs', existingPaymentRecord.proof_path).catch(() => {});
+        }
       }
     } else {
       const { data: newPayment, error: insertErr } = await supabase
@@ -1465,15 +1504,54 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       throw paymentError;
     }
 
-    // ── AI verification result: persist (non-blocking) ──
+    // ── AI verification result: persist (non-blocking) + transactionId dedup ──
     if (paymentRecord?.id && verificationData) {
+      const extractedTxId = proofVerification?.extracted?.transactionId || null;
+
       supabase
         .from('payments')
-        .update({ ai_verified: verificationData.ai_verified, verification_result: verificationData.verification_result })
+        .update({
+          ai_verified: verificationData.ai_verified,
+          verification_result: verificationData.verification_result,
+          transaction_id: extractedTxId,
+        })
         .eq('id', paymentRecord.id)
         .then(({ error }) => {
           if (error) logError('[API] Falha ao gravar verificação AI (non-blocking)', error, { paymentId: paymentRecord!.id });
         });
+
+      // ── TransactionId dedup: check if this transaction was already used ──
+      if (extractedTxId && paymentStatus !== 'rejected') {
+        Promise.resolve(
+          supabase
+            .from('payments')
+            .select('id, request_id, status, user_email')
+            .eq('transaction_id', extractedTxId)
+            .neq('request_id', songRequestId)
+            .in('status', ['approved', 'pending_verification', 'delivered'])
+            .maybeSingle()
+        ).then(({ data: txDupe }) => {
+            if (txDupe) {
+              logWarn('[API] Transaction ID duplicado detetado — rejeitando pagamento', {
+                paymentId: paymentRecord!.id,
+                transactionId: extractedTxId,
+                duplicateOf: txDupe.request_id,
+              });
+              // Downgrade: mark as rejected + notify admin
+              supabase
+                .from('payments')
+                .update({ status: 'rejected', notes: `Rejeitado: transaction ID ${extractedTxId} já utilizado no pedido ${txDupe.request_id}` })
+                .eq('id', paymentRecord!.id)
+                .then(() => {
+                  sendAdminNotification(
+                    'Pagamento rejeitado: transação duplicada',
+                    `Payment ID: ${paymentRecord!.id}\nTransaction ID: ${extractedTxId}\nDuplicado do pedido: ${txDupe.request_id}\nEmail: ${txDupe.user_email}\n\nVerificar: ${getAppUrl(req)}/admin?tab=payments`
+                  ).catch(() => {});
+                });
+            }
+          })
+          .catch(() => {}); // silent — non-critical
+      }
     }
 
     // ── Auto-approve: update song_requests + notify customer + admin ────────
@@ -1646,10 +1724,25 @@ router.post('/song/:id/video-upsell-payment', paymentLimiter, async (req, res) =
     // Upload do comprovativo
     let proofPath: string | null = null;
     let proofUrl: string | null = null;
+    let proofHash: string | null = null;
     if (proofBase64) {
       const resolvedMime = proofMimeType || 'application/octet-stream';
       const proofBuffer = decodeBase64Payload(proofBase64);
       if (proofBuffer.length > 10 * 1024 * 1024) throw new Error('Comprovativo demasiado grande. Máx. 10MB.');
+      proofHash = createHash('sha256').update(proofBuffer).digest('hex');
+
+      // Cross-request duplicate check
+      const { data: hashDupe } = await supabase
+        .from('payments')
+        .select('id, request_id, status')
+        .eq('proof_hash', proofHash)
+        .in('status', ['approved', 'pending_verification', 'delivered'])
+        .maybeSingle();
+      if (hashDupe) {
+        logWarn('[API] Video upsell: comprovativo duplicado detetado', { requestId, duplicateOf: hashDupe.request_id, proofHash });
+        return res.status(409).json({ success: false, error: 'Este comprovativo de pagamento já foi utilizado. Envia o comprovativo correto.' });
+      }
+
       const sanitizedProofFilename = String(proofFilename || 'proof.bin').replace(/[^a-zA-Z0-9._-]/g, '_');
       const filename = `proofs/video_${Date.now()}_${sanitizedProofFilename}`;
       try {
@@ -1673,6 +1766,7 @@ router.post('/song/:id/video-upsell-payment', paymentLimiter, async (req, res) =
       proof_url: proofUrl || (proofPath ? `storage:${proofPath}` : null),
       proof_path: proofPath,
       proof_filename: proofFilename || proofPath?.split('/').pop() || null,
+      proof_hash: proofHash,
       status: 'pending_verification',
       video_upsell: true,
       expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
@@ -1681,7 +1775,7 @@ router.post('/song/:id/video-upsell-payment', paymentLimiter, async (req, res) =
     // Check for existing payment with this request_id (UNIQUE constraint)
     const { data: existingVideoPayment } = await supabase
       .from('payments')
-      .select('id')
+      .select('id, proof_path')
       .eq('request_id', requestId)
       .maybeSingle();
 
@@ -1693,6 +1787,10 @@ router.post('/song/:id/video-upsell-payment', paymentLimiter, async (req, res) =
         .eq('id', existingVideoPayment.id);
       if (updateErr) throw updateErr;
       videoPaymentId = existingVideoPayment.id;
+      // Clean orphan proof file (non-blocking)
+      if (existingVideoPayment.proof_path && proofPath && existingVideoPayment.proof_path !== proofPath) {
+        deleteStorageFile('payment-proofs', existingVideoPayment.proof_path).catch(() => {});
+      }
     } else {
       const { data: newPayment, error: insertErr } = await supabase
         .from('payments')

@@ -71,6 +71,7 @@ interface SupabaseMockOpts {
   requestRow?: unknown;
   updateError?: unknown;
   insertResult?: { data: unknown; error: unknown };
+  existingHashPayment?: unknown;
 }
 
 function buildSupabaseMock(opts: SupabaseMockOpts) {
@@ -79,13 +80,18 @@ function buildSupabaseMock(opts: SupabaseMockOpts) {
 
   const createBuilder = (table: string) => {
     let filters: string[] = [];
+    let hasNeq = false;
 
     const resolveMaybeSingle = () => {
       if (table === 'payments') {
         if (filters.includes('status=pending_verification')) return { data: opts.pendingPayment ?? null, error: null };
-        if (filters.includes('status=approved')) return { data: opts.approvedPayment ?? null, error: null };
+        if (filters.includes('status=approved') && !hasNeq) return { data: opts.approvedPayment ?? null, error: null };
         if (filters.includes('status=rejected')) return { data: opts.rejectedPayment ?? null, error: null };
         if (filters.includes('in_status_rejected_failed')) return { data: opts.rejectedPayment ?? null, error: null };
+        // proof_hash dedup check: eq('proof_hash', ...) + neq('request_id', ...)
+        if (filters.some(f => f.startsWith('proof_hash=')) && hasNeq) {
+          return { data: opts.existingHashPayment ?? null, error: null };
+        }
       }
       if (table === 'song_requests') return { data: opts.requestRow ?? null, error: null };
       return { data: null, error: null };
@@ -95,6 +101,11 @@ function buildSupabaseMock(opts: SupabaseMockOpts) {
       select: () => builder,
       eq: (col: string, val: unknown) => {
         filters.push(`${col}=${val}`);
+        return builder;
+      },
+      neq: (col: string, val: unknown) => {
+        filters.push(`neq_${col}=${val}`);
+        hasNeq = true;
         return builder;
       },
       in: (col: string, values: unknown[]) => {
@@ -489,6 +500,58 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     expect(body.validation_errors).toBeDefined();
     expect(body.validation_errors.some((e: { field: string }) => e.field.includes('paymentMethod'))).toBe(true);
     expect(sb.insertCalls).toHaveLength(0);
+  });
+
+  it('devolve 409 quando o comprovativo já foi usado noutro pedido (mesmo proof_hash)', async () => {
+    const base = await startServer();
+    // Need proofBase64 to trigger hash computation
+    const proofBuf = Buffer.alloc(200, 0xab);
+    const proofBase64 = `data:application/octet-stream;base64,${proofBuf.toString('base64')}`;
+
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: { status: 'lyrics_ready' },
+      existingHashPayment: { id: 'pay-dup', request_id: 'other-request', status: 'approved', user_email: 'outro@test.com' },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), proofBase64 }),
+    });
+
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toContain('já foi utilizado');
+  });
+
+  it('grava proof_hash no INSERT do pagamento', async () => {
+    const base = await startServer();
+    const proofBuf = Buffer.alloc(200, 0xcd);
+    const proofBase64 = `data:application/octet-stream;base64,${proofBuf.toString('base64')}`;
+
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: { status: 'lyrics_ready' },
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), proofBase64 }),
+    });
+
+    expect(res.status).toBe(200);
+    const paymentInsert = sb.insertCalls.find((r: unknown) => (r as Record<string, unknown>).request_id === 'req-1') as Record<string, unknown> | undefined;
+    expect(paymentInsert).toBeDefined();
+    expect(typeof paymentInsert!.proof_hash).toBe('string');
+    expect((paymentInsert!.proof_hash as string)).toHaveLength(64);
   });
 
   it('grava payment_method no UPDATE de reenvio pós-rejeição', async () => {
