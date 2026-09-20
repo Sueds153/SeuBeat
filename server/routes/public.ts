@@ -1177,11 +1177,11 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       });
     }
 
-    const { data: rejectedPayment } = await supabase
+    const { data: existingPaymentRecord } = await supabase
       .from('payments')
       .select('id')
       .eq('request_id', songRequestId)
-      .eq('status', 'rejected')
+      .in('status', ['rejected', 'failed'])
       .maybeSingle();
 
     let proofPath: string | null = null;
@@ -1411,7 +1411,7 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
 
     let paymentRecord: { id?: string } | null = null;
     let paymentError: unknown = null;
-    if (rejectedPayment) {
+    if (existingPaymentRecord) {
       const updatePayload: Record<string, unknown> = { ...paymentFields, notes: null };
       if (paymentStatus !== 'approved') {
         updatePayload.approved_at = null;
@@ -1419,13 +1419,13 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       const { data: updatedPayment, error: updateErr } = await supabase
         .from('payments')
         .update(updatePayload)
-        .eq('id', rejectedPayment.id)
+        .eq('id', existingPaymentRecord.id)
         .select('id')
         .single();
       if (updateErr || !updatedPayment) {
-        paymentError = updateErr || new Error('Failed to update rejected payment');
+        paymentError = updateErr || new Error('Failed to update existing payment');
       } else {
-        paymentRecord = { id: rejectedPayment.id };
+        paymentRecord = { id: existingPaymentRecord.id };
       }
     } else {
       const { data: newPayment, error: insertErr } = await supabase
@@ -1440,6 +1440,14 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       }
     }
     if (paymentError) {
+      const errMsg = String((paymentError as Error)?.message || paymentError);
+      if (/unique.*constraint|duplicate key/i.test(errMsg)) {
+        logWarn('[API] UNIQUE constraint violation — payment já existe para este pedido', { songRequestId });
+        try {
+          await supabase.from('song_requests').update({ status: previousStatus }).eq('id', songRequestId);
+        } catch {}
+        return res.status(409).json({ success: false, error: 'Este pagamento já foi registado.' });
+      }
       logError('[API] Falha ao gravar pagamento — a reverter estado do pedido', paymentError, {
         songRequestId,
         userEmail,
@@ -1661,14 +1669,32 @@ router.post('/song/:id/video-upsell-payment', paymentLimiter, async (req, res) =
       expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
     };
 
-    const { data: newPayment, error: insertErr } = await supabase
+    // Check for existing payment with this request_id (UNIQUE constraint)
+    const { data: existingVideoPayment } = await supabase
       .from('payments')
-      .insert(paymentFields)
       .select('id')
-      .single();
+      .eq('request_id', requestId)
+      .maybeSingle();
 
-    if (insertErr || !newPayment) throw insertErr || new Error('Failed to insert video upsell payment');
-    const paymentRecord = { id: newPayment.id };
+    let videoPaymentId: string | null = null;
+    if (existingVideoPayment) {
+      const { error: updateErr } = await supabase
+        .from('payments')
+        .update({ ...paymentFields, notes: null })
+        .eq('id', existingVideoPayment.id);
+      if (updateErr) throw updateErr;
+      videoPaymentId = existingVideoPayment.id;
+    } else {
+      const { data: newPayment, error: insertErr } = await supabase
+        .from('payments')
+        .insert(paymentFields)
+        .select('id')
+        .single();
+      if (insertErr || !newPayment) throw insertErr || new Error('Failed to insert video upsell payment');
+      videoPaymentId = newPayment.id;
+    }
+
+    const paymentRecord = { id: videoPaymentId };
 
     // Notificar admin
     sendAdminNotification(

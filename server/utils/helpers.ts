@@ -67,6 +67,9 @@ export function publicErrorMessage(err: unknown, fallback = 'Não foi possível 
   if (/upload.*falhou|falhou.*upload/i.test(message)) {
     return 'Houve um erro ao enviar o ficheiro. Verifique a sua ligação e tente novamente.';
   }
+  if (/unique.*constraint|duplicate key|already exists/i.test(message)) {
+    return 'Este pagamento já foi registado. Se precisar de alterar algo, contacte o suporte.';
+  }
   if (/Supabase|database|DB|song_requests|songs|users|registrar.*banco.*dados|registar.*banco.*dados|banco de dados|row-level|violates|RLS|postgrest|permission denied|relation|row.*security|policy|foreign key/i.test(message)) {
     return 'Houve um erro ao guardar os seus dados. Por favor, verifique a sua ligação e tente novamente.';
   }

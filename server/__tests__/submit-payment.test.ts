@@ -85,6 +85,7 @@ function buildSupabaseMock(opts: SupabaseMockOpts) {
         if (filters.includes('status=pending_verification')) return { data: opts.pendingPayment ?? null, error: null };
         if (filters.includes('status=approved')) return { data: opts.approvedPayment ?? null, error: null };
         if (filters.includes('status=rejected')) return { data: opts.rejectedPayment ?? null, error: null };
+        if (filters.includes('in_status_rejected_failed')) return { data: opts.rejectedPayment ?? null, error: null };
       }
       if (table === 'song_requests') return { data: opts.requestRow ?? null, error: null };
       return { data: null, error: null };
@@ -96,7 +97,12 @@ function buildSupabaseMock(opts: SupabaseMockOpts) {
         filters.push(`${col}=${val}`);
         return builder;
       },
-      in: () => builder,
+      in: (col: string, values: unknown[]) => {
+        if (col === 'status' && Array.isArray(values) && values.includes('rejected') && values.includes('failed')) {
+          filters.push('in_status_rejected_failed');
+        }
+        return builder;
+      },
       order: () => builder,
       limit: () => builder,
       maybeSingle: () => Promise.resolve(resolveMaybeSingle()),
@@ -233,7 +239,7 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
       approvedPayment: null,
       requestRow: { status: 'lyrics_ready' },
       updateError: null,
-      insertResult: { data: null, error: { message: 'duplicate key value violates unique constraint' } },
+      insertResult: { data: null, error: { message: 'connection refused' } },
     });
     (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
 
@@ -277,6 +283,57 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     expect(paymentUpdates[0].payload).toMatchObject({ payment_method: 'reference' });
     const requestUpdate = sb.updateCalls.find((u: {table: string}) => u.table === 'song_requests');
     expect(requestUpdate!.payload).toMatchObject({ status: 'payment_submitted' });
+  });
+
+  it('re-envia comprovativo após pagamento failed faz UPDATE em vez de INSERT', async () => {
+    const base = await startServer();
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      rejectedPayment: { id: 'pay-fail' },
+      requestRow: { status: 'payment_submitted' },
+      updateError: null,
+      insertResult: { data: { id: 'pay-fail' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(validBody()),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.paymentId).toBe('pay-fail');
+    const paymentUpdates = sb.updateCalls.filter((u: {table: string}) => u.table === 'payments');
+    expect(paymentUpdates.length).toBeGreaterThanOrEqual(1);
+    expect(sb.insertCalls).toHaveLength(0);
+  });
+
+  it('devolve 409 quando insert falha com UNIQUE constraint violation', async () => {
+    const base = await startServer();
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      rejectedPayment: null,
+      requestRow: { status: 'lyrics_ready' },
+      updateError: null,
+      insertResult: { data: null, error: { message: 'duplicate key value violates unique constraint "payments_request_id_key"' } },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(validBody()),
+    });
+
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.error).toContain('pagamento já foi registado');
   });
 
   it('guarda o validation_task_id da voz no pedido quando há amostra + task', async () => {
