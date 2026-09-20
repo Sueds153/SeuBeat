@@ -1436,19 +1436,17 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       expires_at: paymentStatus === 'pending_verification'
         ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
         : null,
-    };
-
-    const verificationData = proofVerification ? {
-      ai_verified: proofVerification.decision === 'auto_approve',
-      verification_result: JSON.stringify({
+      ai_verified: proofVerification ? proofVerification.decision === 'auto_approve' : false,
+      verification_result: proofVerification ? JSON.stringify({
         confidence: proofVerification.confidence,
         decision: proofVerification.decision,
         extracted: proofVerification.extracted,
         checks: proofVerification.checks,
         provider: proofVerification.provider,
         timestamp: new Date().toISOString(),
-      }),
-    } : null;
+      }) : null,
+      transaction_id: proofVerification?.extracted?.transactionId || null,
+    };
 
     let paymentRecord: { id?: string } | null = null;
     let paymentError: unknown = null;
@@ -1524,23 +1522,9 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       throw paymentError;
     }
 
-    // ── AI verification result: persist (non-blocking) + transactionId dedup ──
-    if (paymentRecord?.id && verificationData) {
-      const extractedTxId = proofVerification?.extracted?.transactionId || null;
-
-      supabase
-        .from('payments')
-        .update({
-          ai_verified: verificationData.ai_verified,
-          verification_result: verificationData.verification_result,
-          transaction_id: extractedTxId,
-        })
-        .eq('id', paymentRecord.id)
-        .then(({ error }) => {
-          if (error) logError('[API] Falha ao gravar verificação AI (non-blocking)', error, { paymentId: paymentRecord!.id });
-        });
-
-      // ── TransactionId dedup: check if this transaction was already used ──
+    // ── TransactionId dedup: check if this transaction was already used (non-blocking) ──
+    if (paymentRecord?.id && proofVerification) {
+      const extractedTxId = proofVerification.extracted?.transactionId || null;
       if (extractedTxId && paymentStatus !== 'rejected') {
         Promise.resolve(
           supabase

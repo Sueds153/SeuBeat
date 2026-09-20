@@ -621,7 +621,15 @@ export default function AdminPanel() {
     if (!adminToken) return;
     setLoading(true);
     const d = await apiFetch('/api/admin/payments');
-    if (d) setPayments(d.payments || []);
+    if (d) {
+      const normalized = (d.payments || []).map((p: any) => {
+        if (p.verification_result && typeof p.verification_result === 'string') {
+          try { p.verification_result = JSON.parse(p.verification_result); } catch { p.verification_result = null; }
+        }
+        return p;
+      });
+      setPayments(normalized);
+    }
     setLoading(false);
   }, [adminToken, apiFetch]);
 
