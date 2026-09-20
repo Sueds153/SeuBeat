@@ -1,6 +1,6 @@
 # SeuBeat — Estado do Projeto (atualizado a cada sessão)
 
-## Estado Atual (18/Set 2026)
+## Estado Atual (20/Set 2026)
 
 ### Stack
 - **Frontend**: React + Vite + Tailwind + TypeScript
@@ -17,8 +17,8 @@
 
 ### Produção
 - **URL**: https://seubeat.onrender.com
-- **Último deploy**: commit `1adcf1d` (auto payment proof verification com AI Vision)
-- **Testes**: 397 passam (33 ficheiros), `tsc --noEmit` limpo
+- **Último deploy**: commit `7282f09` (plan_type/amount_kz fix + debug cleanup)
+- **Testes**: 399 passam (33 ficheiros), `tsc --noEmit` limpo
 
 ### DB Schema (tabelas principais)
 - `song_requests` — pedido do cliente (status, dados wizard)
@@ -41,7 +41,13 @@
 9. **Meta Ads** — configuração de campanhas ✅ funcional
 10. **WhatsApp** — estado de envios ✅ funcional
 
-### Bugs Corrigidos Hoje (18/Set)
+### Bugs Corrigidos Hoje (20/Set)
+1. **SUPABASE_URL em falta no Render** — variável `SUPABASE_URL` não existia no Render (só `VITE_SUPABASE_URL`). O admin client Supabase não conseguia inicializar corretamente, causando falhas silenciosas em queries. Fix: adicionar `SUPABASE_URL` e `SUPABASE_ANON_KEY` via Render API + redeploy.
+2. **NOT NULL violation em payments (23502)** — PostgREST schema cache tem colunas `plan_type` e `amount_kz` que são NOT NULL mas o código não as enviava no INSERT. Fix: adicionar `plan_type: plan` e `amount_kz: parsedAmount` em ambos os paths (`submit-payment` e `video-upsell`).
+3. **3 pedidos stuck em `payment_submitted`** — clientes que submeteram pagamento quando `SUPABASE_URL` não existia ficaram com status alterado mas sem registo de pagamento. Fix: reverter manualmente para `lyrics_ready` para poderem re-submeter.
+4. **E2E test confirmado** — fluxo completo criado: user → song_request → submit-payment → AI verification → payment gravado na DB. Funcionou com status 200, decision `manual_review` (esperado com imagem fake).
+
+### Bugs Corrigidos Anteriormente (18-19/Set)
 1. **500 no `/submit-payment` — colunas `ai_verified`/`verification_result` em falta na DB** — a migration `supabase_migration_proof_verification.sql` nunca foi aplicada em produção; o PostgREST devolvia "Could not find the 'ai_verified' column of 'payments' in the schema cache". Fix: migration aplicada via Postgres direto (pooler 5432); colunas criadas: `ai_verified boolean DEFAULT false` + `verification_result jsonb` + índice parcial.
 2. **Mensagem de erro genérica "Não foi possível concluir esta etapa"** — `publicErrorMessage()` em `server/utils/helpers.ts` não tratava objetos Supabase não-`Error` (produziam `String("[object Object]")`) e mensagens de falha de upload não tinham regex correspondente. Fix: extrair `.message` de objetos planos antes do regex; mover regex de upload antes do timeout; adicionar padrões Postgrest/RLS/`demasiado pequena`; catch-all que devolve mensagem truncada em vez de fallback genérico; testes unitários adicionados (397 total).
 
