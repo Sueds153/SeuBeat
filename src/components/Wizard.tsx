@@ -879,7 +879,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         setValidatedLyrics(Array.isArray(aiLyrics) ? aiLyrics.join('\n') : '');
         setLyricsValidating(true);
         setPaymentSubmitError('Já existe um comprovativo pendente para este pedido.');
-        fbPurchase(selectedPlanID || 'standard', parsePrice(getPrice()), CURRENCY, generateEventId(dbSongRequestId, 'Purchase'));
       } else {
         setPaymentSubmitError(data.error || 'Erro ao submeter o comprovativo.');
       }

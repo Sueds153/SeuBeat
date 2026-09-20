@@ -1488,22 +1488,6 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
           logError('[API] Falha ao enviar email de confirmação (auto-approve)', err, { songRequestId })
         );
 
-        const sendPurchaseEvent = (await import('../services/metaPixelCapi')).sendPurchaseEvent;
-        sendPurchaseEvent({
-          eventId: generateServerEventId(songRequestId, 'Purchase'),
-          email: userEmail,
-          phone: phone || undefined,
-          value: kzToUsd(parsedAmount),
-          currency: 'USD',
-          contentName: plan,
-          eventSourceUrl: (req.headers.referer as string) || undefined,
-          clientIp: req.ip || req.socket.remoteAddress || undefined,
-          clientUserAgent: req.headers['user-agent'],
-          externalId: userEmail,
-        }).catch(err =>
-          logError('[API] Meta CAPI Purchase event failed (auto-approve)', err, { paymentId: paymentRecord?.id })
-        );
-
         sendAdminNotification(
           'Pagamento AUTO-APROVADO pela AI',
           `Cliente: ${userEmail}\nPlano: ${plan} (${parsedAmount} Kz)\nConfiança: ${(proofVerification!.confidence * 100).toFixed(0)}%\nProvider: ${proofVerification!.provider}\nPedido: ${songRequestId}\nPagamento: ${paymentRecord.id}\n\nVerificar: ${getAppUrl(req)}/admin?tab=payments`
@@ -1526,6 +1510,27 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
         `Cliente: ${userEmail}\nPlano: ${plan} (${parsedAmount} Kz)\nConfiança: ${(proofVerification.confidence * 100).toFixed(0)}%\nRazões:\n${failedChecks}\n\nVerificar: ${getAppUrl(req)}/admin?tab=payments`
       ).catch(err =>
         logError('[API] Falha ao notificar admin (auto-reject)', err, { paymentId: paymentRecord?.id })
+      );
+    }
+
+    // ── Meta CAPI Purchase — fires for approved + pending_verification ─────
+    // Matches client-side fbPurchase (fires on any 200 success)
+    // NOT fired for rejected (payment is invalid)
+    if (paymentStatus !== 'rejected' && paymentRecord?.id) {
+      const sendPurchaseEvent = (await import('../services/metaPixelCapi')).sendPurchaseEvent;
+      sendPurchaseEvent({
+        eventId: generateServerEventId(songRequestId, 'Purchase'),
+        email: userEmail,
+        phone: phone || undefined,
+        value: kzToUsd(parsedAmount),
+        currency: 'USD',
+        contentName: plan,
+        eventSourceUrl: (req.headers.referer as string) || undefined,
+        clientIp: req.ip || req.socket.remoteAddress || undefined,
+        clientUserAgent: req.headers['user-agent'],
+        externalId: userEmail,
+      }).catch(err =>
+        logError('[API] Meta CAPI Purchase event failed', err, { paymentId: paymentRecord?.id, paymentStatus })
       );
     }
 
