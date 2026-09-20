@@ -10,3 +10,6 @@ CREATE INDEX IF NOT EXISTS idx_payments_proof_hash ON public.payments (proof_has
 ALTER TABLE public.payments ADD COLUMN IF NOT EXISTS transaction_id text;
 -- Indexed for fast cross-payment transaction dedup
 CREATE INDEX IF NOT EXISTS idx_payments_transaction_id ON public.payments (transaction_id) WHERE transaction_id IS NOT NULL;
+
+-- Reload PostgREST schema cache so the new columns are immediately available
+NOTIFY pgrst, 'reload schema';

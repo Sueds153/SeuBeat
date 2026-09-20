@@ -1213,29 +1213,33 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
 
     // ── Cross-request duplicate checks (parallel, non-blocking) ─────────────
     if (proofHash) {
-      const [hashDupeResult, pendingDupeResult] = await Promise.all([
-        supabase
-          .from('payments')
-          .select('id, request_id, status, user_email')
-          .eq('proof_hash', proofHash)
-          .neq('request_id', songRequestId)
-          .in('status', ['approved', 'pending_verification', 'delivered'])
-          .maybeSingle(),
-        // Also check for same transactionId once extracted (checked post-verification below)
-        Promise.resolve(null) as Promise<null>,
-      ]);
+      try {
+        const [hashDupeResult, pendingDupeResult] = await Promise.all([
+          supabase
+            .from('payments')
+            .select('id, request_id, status, user_email')
+            .eq('proof_hash', proofHash)
+            .neq('request_id', songRequestId)
+            .in('status', ['approved', 'pending_verification', 'delivered'])
+            .maybeSingle(),
+          // Also check for same transactionId once extracted (checked post-verification below)
+          Promise.resolve(null) as Promise<null>,
+        ]);
 
-      if (hashDupeResult.data) {
-        logWarn('[API] Comprovativo duplicado detetado — mesmo hash SHA-256', {
-          songRequestId,
-          duplicateOf: hashDupeResult.data.request_id,
-          duplicatePaymentId: hashDupeResult.data.id,
-          proofHash,
-        });
-        return res.status(409).json({
-          success: false,
-          error: 'Este comprovativo de pagamento já foi utilizado noutro pedido. Envia o comprovativo correto.',
-        });
+        if (hashDupeResult.data) {
+          logWarn('[API] Comprovativo duplicado detetado — mesmo hash SHA-256', {
+            songRequestId,
+            duplicateOf: hashDupeResult.data.request_id,
+            duplicatePaymentId: hashDupeResult.data.id,
+            proofHash,
+          });
+          return res.status(409).json({
+            success: false,
+            error: 'Este comprovativo de pagamento já foi utilizado noutro pedido. Envia o comprovativo correto.',
+          });
+        }
+      } catch (dedupErr) {
+        logWarn('[API] Dedup check falhou (schema cache?) — a ignorar dedup', { songRequestId, error: dedupErr instanceof Error ? dedupErr.message : String(dedupErr) });
       }
     }
 
@@ -1475,7 +1479,23 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
         .select('id')
         .single();
       if (insertErr || !newPayment) {
-        paymentError = insertErr || new Error('Failed to insert payment');
+        const insertMsg = String((insertErr as Error)?.message || insertErr);
+        if (/column.*proof_hash|column.*transaction_id|schema cache/i.test(insertMsg)) {
+          logWarn('[API] INSERT falhou por coluna em falta no schema cache — retry sem dedup fields', { songRequestId });
+          const { proof_hash: _ph, transaction_id: _ti, ...fallbackFields } = paymentFields;
+          const { data: retryPayment, error: retryErr } = await supabase
+            .from('payments')
+            .insert(fallbackFields)
+            .select('id')
+            .single();
+          if (retryErr || !retryPayment) {
+            paymentError = retryErr || new Error('Failed to insert payment (fallback)');
+          } else {
+            paymentRecord = { id: retryPayment.id };
+          }
+        } else {
+          paymentError = insertErr || new Error('Failed to insert payment');
+        }
       } else {
         paymentRecord = { id: newPayment.id };
       }
@@ -1732,15 +1752,19 @@ router.post('/song/:id/video-upsell-payment', paymentLimiter, async (req, res) =
       proofHash = createHash('sha256').update(proofBuffer).digest('hex');
 
       // Cross-request duplicate check
-      const { data: hashDupe } = await supabase
-        .from('payments')
-        .select('id, request_id, status')
-        .eq('proof_hash', proofHash)
-        .in('status', ['approved', 'pending_verification', 'delivered'])
-        .maybeSingle();
-      if (hashDupe) {
-        logWarn('[API] Video upsell: comprovativo duplicado detetado', { requestId, duplicateOf: hashDupe.request_id, proofHash });
-        return res.status(409).json({ success: false, error: 'Este comprovativo de pagamento já foi utilizado. Envia o comprovativo correto.' });
+      try {
+        const { data: hashDupe } = await supabase
+          .from('payments')
+          .select('id, request_id, status')
+          .eq('proof_hash', proofHash)
+          .in('status', ['approved', 'pending_verification', 'delivered'])
+          .maybeSingle();
+        if (hashDupe) {
+          logWarn('[API] Video upsell: comprovativo duplicado detetado', { requestId, duplicateOf: hashDupe.request_id, proofHash });
+          return res.status(409).json({ success: false, error: 'Este comprovativo de pagamento já foi utilizado. Envia o comprovativo correto.' });
+        }
+      } catch (dedupErr) {
+        logWarn('[API] Video upsell dedup check falhou (schema cache?) — a ignorar', { requestId, error: dedupErr instanceof Error ? dedupErr.message : String(dedupErr) });
       }
 
       const sanitizedProofFilename = String(proofFilename || 'proof.bin').replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -1797,8 +1821,24 @@ router.post('/song/:id/video-upsell-payment', paymentLimiter, async (req, res) =
         .insert(paymentFields)
         .select('id')
         .single();
-      if (insertErr || !newPayment) throw insertErr || new Error('Failed to insert video upsell payment');
-      videoPaymentId = newPayment.id;
+      if (insertErr || !newPayment) {
+        const insertMsg = String((insertErr as Error)?.message || insertErr);
+        if (/column.*proof_hash|column.*transaction_id|schema cache/i.test(insertMsg)) {
+          logWarn('[API] Video upsell INSERT falhou por coluna em falta — retry sem dedup fields', { requestId });
+          const { proof_hash: _ph, transaction_id: _ti, ...fallbackFields } = paymentFields;
+          const { data: retryPayment, error: retryErr } = await supabase
+            .from('payments')
+            .insert(fallbackFields)
+            .select('id')
+            .single();
+          if (retryErr || !retryPayment) throw retryErr || new Error('Failed to insert video upsell payment (fallback)');
+          videoPaymentId = retryPayment.id;
+        } else {
+          throw insertErr || new Error('Failed to insert video upsell payment');
+        }
+      } else {
+        videoPaymentId = newPayment.id;
+      }
     }
 
     const paymentRecord = { id: videoPaymentId };
