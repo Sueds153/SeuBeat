@@ -1604,7 +1604,7 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       errMsg: errMsg.slice(0, 500),
       errStack: errStack?.slice(0, 1000),
     });
-    res.status(500).json({ success: false, error: safeMessage(err), _debug: JSON.stringify(err).slice(0, 300) });
+    res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
 
