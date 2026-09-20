@@ -1484,7 +1484,7 @@ router.post('/undo', adminAuth, async (req, res) => {
         const targetStatus = action === 'approve' ? 'approved' : 'rejected';
         const { error: undoError } = await supabase
           .from('payments')
-          .update({ status: 'pending_verification', approved_at: null, notes: 'Desfeito pelo admin' })
+          .update({ status: 'pending_verification', approved_at: null, verification_result: null, ai_verified: false, notes: 'Desfeito pelo admin' })
           .eq('id', entityId)
           .eq('status', targetStatus);
         if (!undoError) {
