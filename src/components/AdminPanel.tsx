@@ -194,6 +194,7 @@ interface AbandonedClient {
   elapsedMs: number;
   reminders: string[];
   whatsappSent: string[];
+  whatsappLogs: { status: string; template: string; at: string }[];
   manualContactedAt: string | null;
   message: string;
   resumePath: string;
@@ -495,7 +496,6 @@ export default function AdminPanel() {
   const [waConfigLoading, setWaConfigLoading] = useState(false);
   const [waTestModal, setWaTestModal] = useState<{ open: boolean; phone: string; loading: boolean; result: { ok: boolean; message: string } | null }>({ open: false, phone: '', loading: false, result: null });
   const [waVerificationStatus, setWaVerificationStatus] = useState<string | null>(null);
-  const [waVerifyModal, setWaVerifyModal] = useState<{ open: boolean; method: 'SMS' | 'VOICE'; code: string; loading: boolean; message: string | null; error: string | null; metaCode?: number }>({ open: false, method: 'SMS', code: '', loading: false, message: null, error: null });
   const [abandonedRange, setAbandonedRange] = useState<string>('all');
   const [sendProgress, setSendProgress] = useState<SendProgress | null>(null);
   const [sendButtonLoading, setSendButtonLoading] = useState(false);
@@ -836,43 +836,6 @@ export default function AdminPanel() {
       }));
     }
   }, [adminToken, apiFetch]);
-
-  const requestWhatsAppVerifyCode = useCallback(async () => {
-    if (!adminToken) return;
-    setWaVerifyModal(prev => ({ ...prev, loading: true, message: null, error: null }));
-    const data = await apiFetch('/api/admin/whatsapp/request-code', {
-      method: 'POST',
-      body: JSON.stringify({ method: waVerifyModal.method }),
-    });
-    if (data?._error) {
-      setWaVerifyModal(prev => ({ ...prev, loading: false, error: data.error || 'Falha ao pedir o código.', metaCode: data.metaCode }));
-    } else if (data?.success) {
-      setWaVerifyModal(prev => ({
-        ...prev, loading: false, metaCode: undefined,
-        message: `Código enviado por ${waVerifyModal.method === 'VOICE' ? 'chamada de voz' : 'SMS'} para o dono do número. Introduza-o abaixo.`,
-      }));
-    } else {
-      setWaVerifyModal(prev => ({ ...prev, loading: false, error: data?.error || 'Falha ao pedir o código.', metaCode: data?.metaCode }));
-    }
-  }, [adminToken, apiFetch, waVerifyModal.method]);
-
-  const submitWhatsAppVerifyCode = useCallback(async () => {
-    if (!adminToken || !waVerifyModal.code.trim()) return;
-    setWaVerifyModal(prev => ({ ...prev, loading: true, message: null, error: null }));
-    const data = await apiFetch('/api/admin/whatsapp/verify-code', {
-      method: 'POST',
-      body: JSON.stringify({ code: waVerifyModal.code.trim() }),
-    });
-    if (data?._error) {
-      setWaVerifyModal(prev => ({ ...prev, loading: false, error: data.error || 'Código inválido ou expirado.' }));
-    } else if (data?.success) {
-      setWaVerificationStatus(data.codeVerificationStatus || 'VERIFIED');
-      setWaVerifyModal(prev => ({ ...prev, loading: false, code: '', message: 'Número verificado com sucesso! Envios desbloqueados.' }));
-      refreshWhatsAppConfig();
-    } else {
-      setWaVerifyModal(prev => ({ ...prev, loading: false, error: data?.error || 'Código inválido ou expirado.' }));
-    }
-  }, [adminToken, apiFetch, waVerifyModal.code, refreshWhatsAppConfig]);
 
   const fetchSendProgress = useCallback(async () => {
     if (!adminToken) return;
@@ -1547,114 +1510,6 @@ export default function AdminPanel() {
                 >
                   {waTestModal.loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
                   {waTestModal.loading ? 'A enviar...' : 'Enviar Teste'}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* WhatsApp verification modal */}
-      <AnimatePresence>
-        {waVerifyModal.open && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-stone-950/90 backdrop-blur flex items-center justify-center p-4"
-            onClick={() => setWaVerifyModal(prev => ({ ...prev, open: false }))}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 10 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 10 }}
-              className="max-w-md w-full bg-stone-900 rounded-2xl overflow-hidden border border-stone-800 p-6 space-y-4"
-              onClick={e => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between border-b border-stone-800 pb-3">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-amber-400" />
-                  <span className="font-mono text-xs text-stone-200 uppercase tracking-wider font-bold">Verificar Número WhatsApp</span>
-                </div>
-                <button onClick={() => setWaVerifyModal(prev => ({ ...prev, open: false }))} className="text-stone-500 hover:text-white p-2 cursor-pointer"><X className="w-4 h-4" /></button>
-              </div>
-
-              <div className={`p-3 rounded-xl text-xs font-mono ${waBlocked ? 'bg-rose-950/60 border border-rose-800/50 text-rose-300' : waVerificationStatus ? 'bg-emerald-950/60 border border-emerald-800/50 text-emerald-300' : 'bg-stone-800/60 border border-stone-700 text-stone-300'}`}>
-                Estado do número: <strong>{waVerificationStatus || 'desconhecido'}</strong>
-                {waVerifiedPhone ? ` · ${waVerifiedPhone}` : ''}
-              </div>
-
-              {waBlocked && (
-                <p className="text-xs text-stone-400 leading-relaxed">
-                  O número reporta <strong>NOT_VERIFIED</strong> na Meta. Contudo, os envios automáticos continuam <strong>operacionais</strong>. Se desejar verificar formalmente o número junto da Meta, peça o código via SMS/Voz abaixo.
-                </p>
-              )}
-
-              {!waBlocked && waVerificationStatus && (
-                <p className="text-xs text-stone-400 leading-relaxed">O número está verificado — os envios a clientes reais estão desbloqueados.</p>
-              )}
-
-              <p className="text-[10px] text-stone-500 leading-relaxed">
-                Nota: A verificação por SMS pode não estar disponível para números angolanos (+244). Se o envio de código falhar, contacte o suporte Meta ou testa o envio de template na aba "Verificar ligação" para confirmar se o token funciona.
-              </p>
-
-              <div className="flex items-center gap-2">
-                <select
-                  value={waVerifyModal.method}
-                  onChange={e => setWaVerifyModal(prev => ({ ...prev, method: e.target.value as 'SMS' | 'VOICE' }))}
-                  className="bg-stone-950 border border-stone-800 rounded-xl px-3 py-2.5 text-xs text-stone-100 font-mono focus:outline-none focus:border-emerald-500"
-                >
-                  <option value="SMS">SMS</option>
-                  <option value="VOICE">Chamada (voz)</option>
-                </select>
-                <button
-                  onClick={requestWhatsAppVerifyCode}
-                  disabled={waVerifyModal.loading}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl font-mono cursor-pointer flex items-center gap-2"
-                >
-                  {waVerifyModal.loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
-                  Pedir código
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-mono text-stone-400 block uppercase">Código de verificação (recebido no telemóvel)</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={waVerifyModal.code}
-                  onChange={e => setWaVerifyModal(prev => ({ ...prev, code: e.target.value }))}
-                  placeholder="123456"
-                  className="w-full bg-stone-950 border border-stone-800 rounded-xl px-4 py-2.5 text-xs text-stone-100 font-mono focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              {waVerifyModal.message && (
-                <div className="p-3 rounded-xl text-xs font-mono bg-emerald-950/60 border border-emerald-800/50 text-emerald-300">{waVerifyModal.message}</div>
-              )}
-              {waVerifyModal.error && (
-                <div className="p-3 rounded-xl text-xs font-mono bg-rose-950/60 border border-rose-800/50 text-rose-300">
-                  {waVerifyModal.error}
-                  {waVerifyModal.metaCode != null && (
-                    <span className="block mt-1 text-rose-400/70">Meta error code: {waVerifyModal.metaCode}</span>
-                  )}
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  onClick={() => setWaVerifyModal(prev => ({ ...prev, open: false }))}
-                  className="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs rounded-xl font-mono cursor-pointer"
-                >
-                  Fechar
-                </button>
-                <button
-                  onClick={submitWhatsAppVerifyCode}
-                  disabled={waVerifyModal.loading || !waVerifyModal.code.trim()}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl font-mono cursor-pointer flex items-center gap-2"
-                >
-                  {waVerifyModal.loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Shield className="w-3.5 h-3.5" />}
-                  {waVerifyModal.loading ? 'A confirmar...' : 'Confirmar código'}
                 </button>
               </div>
             </motion.div>
@@ -3614,14 +3469,6 @@ export default function AdminPanel() {
                       >
                         <Send className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Testar envio</span><span className="sm:hidden">Testar</span>
                       </button>
-                      <button
-                        onClick={() => setWaVerifyModal({ open: true, method: 'SMS', code: '', loading: false, message: null, error: null, metaCode: undefined })}
-                        disabled={!waLinked}
-                        className="flex items-center gap-2 text-xs text-stone-300 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-                        title="Verifica o estado de verificação do número WhatsApp na Meta e confirma o código (SMS/chamada) se necessário"
-                      >
-                        <Shield className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Verificar número</span><span className="sm:hidden">Verificar</span>
-                      </button>
                     </div>
                   </div>
 
@@ -3720,6 +3567,20 @@ export default function AdminPanel() {
                                     {client.whatsappSent.map((r) => (
                                       <span key={`wa-${r}`} className="text-[10px] font-mono text-green-300 bg-green-500/10 border border-green-500/20 px-1.5 py-0.5 rounded">wa {r}</span>
                                     ))}
+                                    {client.whatsappLogs.length > 0 && (
+                                      <>
+                                        {client.whatsappLogs.filter(l => l.status === 'sent').length > 0 && (
+                                          <span className="text-[10px] font-mono text-green-400 bg-green-500/10 border border-green-500/20 px-1.5 py-0.5 rounded">
+                                            {client.whatsappLogs.filter(l => l.status === 'sent').length} enviado{client.whatsappLogs.filter(l => l.status === 'sent').length > 1 ? 's' : ''}
+                                          </span>
+                                        )}
+                                        {client.whatsappLogs.filter(l => l.status === 'failed').length > 0 && (
+                                          <span className="text-[10px] font-mono text-red-400 bg-red-500/10 border border-red-500/20 px-1.5 py-0.5 rounded">
+                                            {client.whatsappLogs.filter(l => l.status === 'failed').length} falha{client.whatsappLogs.filter(l => l.status === 'failed').length > 1 ? 's' : ''}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
                                     {client.manualContactedAt && (
                                       <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded">contactado manualmente</span>
                                     )}

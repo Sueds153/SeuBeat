@@ -2270,6 +2270,21 @@ router.get('/abandoned', adminAuth, async (req, res) => {
 
     if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
 
+    const requestIds = (data || []).map(r => r.id);
+    const { data: sendLogs } = requestIds.length > 0
+      ? await supabase
+          .from('whatsapp_send_log')
+          .select('request_id, status, template_name, created_at')
+          .in('request_id', requestIds)
+          .order('created_at', { ascending: false })
+      : { data: [] };
+
+    const logsByRequest: Record<string, { status: string; template: string; at: string }[]> = {};
+    for (const log of sendLogs || []) {
+      if (!logsByRequest[log.request_id]) logsByRequest[log.request_id] = [];
+      logsByRequest[log.request_id].push({ status: log.status, template: log.template_name || '', at: log.created_at });
+    }
+
     const appUrl = getAppUrl(req);
     const now = Date.now();
     const bucketMap: Record<string, { key: string; label: string; clients: unknown[] }> = {};
@@ -2308,6 +2323,7 @@ router.get('/abandoned', adminAuth, async (req, res) => {
           row.whatsapp_72h_sent_at ? '72h' : null,
         ].filter((r): r is string => Boolean(r)),
         manualContactedAt: row.manual_contacted_at,
+        whatsappLogs: logsByRequest[row.id] || [],
         message: buildAbandonedMessage(bucket, row.recipient_name || '', `${appUrl}${resumePath}`),
         resumePath,
       };
