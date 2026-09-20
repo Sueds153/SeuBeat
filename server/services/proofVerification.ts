@@ -34,6 +34,18 @@ export interface ExtractedProof {
   rawText: string;
 }
 
+// ─── Timeout helper ───────────────────────────────────────────────────────────
+const AI_TIMEOUT_MS = 15_000;
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timeout after ${ms}ms`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
+
 export interface VerificationResult {
   verified: boolean;
   confidence: number;
@@ -267,14 +279,14 @@ export async function verifyPaymentProof(
   let extracted: ExtractedProof | null = null;
   let provider = 'none';
 
-  // Layer 1: AI Vision (try Gemini, fallback OpenAI)
+  // Layer 1: AI Vision (try Gemini, fallback OpenAI) — each with 15s timeout
   try {
-    extracted = await analyzeWithGemini(buffer, mimeType);
+    extracted = await withTimeout(analyzeWithGemini(buffer, mimeType), AI_TIMEOUT_MS, 'Gemini');
     provider = 'Gemini';
   } catch (geminiErr: unknown) {
     logWarn('[ProofVerification] Gemini vision falhou, a tentar OpenAI', { error: geminiErr instanceof Error ? geminiErr.message : String(geminiErr) });
     try {
-      extracted = await analyzeWithOpenAI(buffer, mimeType);
+      extracted = await withTimeout(analyzeWithOpenAI(buffer, mimeType), AI_TIMEOUT_MS, 'OpenAI');
       provider = 'OpenAI';
     } catch (openaiErr: unknown) {
       logError('[ProofVerification] Ambos os providers de vision falharam', openaiErr);
