@@ -495,7 +495,7 @@ export default function AdminPanel() {
   const [waConfigLoading, setWaConfigLoading] = useState(false);
   const [waTestModal, setWaTestModal] = useState<{ open: boolean; phone: string; loading: boolean; result: { ok: boolean; message: string } | null }>({ open: false, phone: '', loading: false, result: null });
   const [waVerificationStatus, setWaVerificationStatus] = useState<string | null>(null);
-  const [waVerifyModal, setWaVerifyModal] = useState<{ open: boolean; method: 'SMS' | 'VOICE'; code: string; loading: boolean; message: string | null; error: string | null }>({ open: false, method: 'SMS', code: '', loading: false, message: null, error: null });
+  const [waVerifyModal, setWaVerifyModal] = useState<{ open: boolean; method: 'SMS' | 'VOICE'; code: string; loading: boolean; message: string | null; error: string | null; metaCode?: number }>({ open: false, method: 'SMS', code: '', loading: false, message: null, error: null });
   const [abandonedRange, setAbandonedRange] = useState<string>('all');
   const [sendProgress, setSendProgress] = useState<SendProgress | null>(null);
   const [sendButtonLoading, setSendButtonLoading] = useState(false);
@@ -845,14 +845,14 @@ export default function AdminPanel() {
       body: JSON.stringify({ method: waVerifyModal.method }),
     });
     if (data?._error) {
-      setWaVerifyModal(prev => ({ ...prev, loading: false, error: data.error || 'Falha ao pedir o código.' }));
+      setWaVerifyModal(prev => ({ ...prev, loading: false, error: data.error || 'Falha ao pedir o código.', metaCode: data.metaCode }));
     } else if (data?.success) {
       setWaVerifyModal(prev => ({
-        ...prev, loading: false,
+        ...prev, loading: false, metaCode: undefined,
         message: `Código enviado por ${waVerifyModal.method === 'VOICE' ? 'chamada de voz' : 'SMS'} para o dono do número. Introduza-o abaixo.`,
       }));
     } else {
-      setWaVerifyModal(prev => ({ ...prev, loading: false, error: data?.error || 'Falha ao pedir o código.' }));
+      setWaVerifyModal(prev => ({ ...prev, loading: false, error: data?.error || 'Falha ao pedir o código.', metaCode: data?.metaCode }));
     }
   }, [adminToken, apiFetch, waVerifyModal.method]);
 
@@ -1633,7 +1633,12 @@ export default function AdminPanel() {
                 <div className="p-3 rounded-xl text-xs font-mono bg-emerald-950/60 border border-emerald-800/50 text-emerald-300">{waVerifyModal.message}</div>
               )}
               {waVerifyModal.error && (
-                <div className="p-3 rounded-xl text-xs font-mono bg-rose-950/60 border border-rose-800/50 text-rose-300">{waVerifyModal.error}</div>
+                <div className="p-3 rounded-xl text-xs font-mono bg-rose-950/60 border border-rose-800/50 text-rose-300">
+                  {waVerifyModal.error}
+                  {waVerifyModal.metaCode != null && (
+                    <span className="block mt-1 text-rose-400/70">Meta error code: {waVerifyModal.metaCode}</span>
+                  )}
+                </div>
               )}
 
               <div className="flex justify-end gap-2 pt-2">
@@ -3610,7 +3615,7 @@ export default function AdminPanel() {
                         <Send className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Testar envio</span><span className="sm:hidden">Testar</span>
                       </button>
                       <button
-                        onClick={() => setWaVerifyModal({ open: true, method: 'SMS', code: '', loading: false, message: null, error: null })}
+                        onClick={() => setWaVerifyModal({ open: true, method: 'SMS', code: '', loading: false, message: null, error: null, metaCode: undefined })}
                         disabled={!waLinked}
                         className="flex items-center gap-2 text-xs text-stone-300 hover:text-amber-400 bg-stone-900 border border-stone-800 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
                         title="Verifica o estado de verificação do número WhatsApp na Meta e confirma o código (SMS/chamada) se necessário"

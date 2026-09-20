@@ -264,6 +264,12 @@ export function mapWhatsAppApiError(status: number, body: unknown): { code?: num
       return { code, message: 'Formato do número inválido.' };
     case 130429:
       return { code, message: 'Limite de pedidos da WhatsApp API excedido (rate limit).' };
+    case 368:
+      return { code, message: `Número bloqueado temporariamente (demasiados pedidos de verificação). Aguarda 24h ou contacta suporte Meta. [${apiMessage}]` };
+    case 33:
+      return { code, message: `Número não elegível para verificação nesta região. [${apiMessage}]` };
+    case 100:
+      return { code, message: `Parâmetro inválido na verificação. O número pode não suportar SMS/voz. [${apiMessage}]` };
     default:
       return { code, message: details || apiMessage || `Erro WhatsApp API (${status}).` };
   }
