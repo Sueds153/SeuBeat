@@ -2,7 +2,7 @@ import { getAdminSupabase } from './supabase';
 import { sendPersonalizedEmail } from './email';
 import { getAppUrl } from '../utils/helpers';
 import { logInfo, logError, logWarn } from '../utils/logger';
-import { sendDeliveryWhatsApp, sendFeedbackRequestWhatsApp } from './whatsappSender';
+import { sendDeliveryWhatsApp, sendFeedbackRequestWhatsApp } from './whatsapp';
 
 const INTERVAL_MS = 10 * 60 * 1000;
 const FEEDBACK_INTERVAL_MS = 60 * 60 * 1000; // 1 hora

@@ -17,7 +17,7 @@ try {
 }
 
 import { createApp, startServer } from './server/config/app';
-import { logInfo, logWarn, logError } from './server/utils/logger';
+import { logInfo, logWarn, logError, logFatal } from './server/utils/logger';
 import { startDeliveryScheduler } from './server/services/deliveryScheduler';
 import { startAbandonedRecoveryScheduler } from './server/services/abandonedRecoveryScheduler';
 import { startFollowUpScheduler } from './server/services/followUpScheduler';
@@ -60,3 +60,11 @@ async function gracefulShutdown(signal: string) {
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+process.on('unhandledRejection', (reason) => {
+  logError('[Process] Unhandled Promise Rejection', reason instanceof Error ? reason : new Error(String(reason)));
+});
+
+process.on('uncaughtException', (err) => {
+  logFatal('[Process] Uncaught Exception — a encerrar', err);
+});

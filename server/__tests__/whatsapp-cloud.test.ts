@@ -49,14 +49,14 @@ async function importSender(overrides: Record<string, string> = {}) {
     ...overrides,
   };
   for (const [k, v] of Object.entries(env)) vi.stubEnv(k, v);
-  return import('../services/whatsappSender');
+  return import('../services/whatsapp');
 }
 
 async function importUnconfigured() {
   vi.resetModules();
   vi.stubEnv('WHATSAPP_API_TOKEN', '');
   vi.stubEnv('WHATSAPP_PHONE_NUMBER_ID', '');
-  return import('../services/whatsappSender');
+  return import('../services/whatsapp');
 }
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));

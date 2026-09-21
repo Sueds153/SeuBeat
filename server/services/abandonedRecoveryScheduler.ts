@@ -1,6 +1,6 @@
 import { getAdminSupabase } from './supabase';
 import { sendAbandonedFirstReminder, sendAbandonedSecondReminder, sendAbandonedThirdReminder, sendAbandonedFourthReminder, sendAbandonedFifthReminder } from './email';
-import { sendAbandonedWhatsApp } from '../services/whatsappSender';
+import { sendAbandonedWhatsApp } from './whatsapp';
 import { enabledWhatsAppBuckets, templateForBucket } from './whatsappTemplates';
 import { bucketForElapsed } from './abandonedMessages';
 import { logInfo, logError, logWarn } from '../utils/logger';

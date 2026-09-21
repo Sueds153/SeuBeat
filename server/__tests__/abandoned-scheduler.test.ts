@@ -15,12 +15,12 @@ vi.mock('../services/email', () => ({
   sendAbandonedFifthReminder: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock('../services/whatsappSender', () => ({
+vi.mock('../services/whatsapp', () => ({
   sendAbandonedWhatsApp: vi.fn(),
 }));
 
 import { getAdminSupabase } from '../services/supabase';
-import { sendAbandonedWhatsApp } from '../services/whatsappSender';
+import { sendAbandonedWhatsApp } from '../services/whatsapp';
 import { sendAbandonedFirstReminder } from '../services/email';
 import { checkPaymentStatus, processAbandonedRecovery } from '../services/abandonedRecoveryScheduler';
 

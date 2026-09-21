@@ -7,7 +7,7 @@ process.env.JWT_SECRET = 'test-secret-1234567890';
 process.env.ADMIN_PASSWORD = 'test-admin-password';
 process.env.WHATSAPP_ENABLED_BUCKETS = '30min';
 
-vi.mock('../services/whatsappSender', () => ({
+vi.mock('../services/whatsapp', () => ({
   getLinkStatus: vi.fn(),
   getSendProgress: vi.fn(),
   runSendBulk: vi.fn(),
@@ -19,7 +19,7 @@ vi.mock('../services/supabase', () => ({
   getPublicSupabase: vi.fn(),
 }));
 
-import { getLinkStatus, getSendProgress, runSendBulk, getConfigStatus } from '../services/whatsappSender';
+import { getLinkStatus, getSendProgress, runSendBulk, getConfigStatus } from '../services/whatsapp';
 import { getAdminSupabase } from '../services/supabase';
 import adminRouter from '../routes/admin';
 

@@ -45,8 +45,8 @@ import {
   normalizePhoneToE164, ABANDONED_BUCKET_ORDER,
   isAbandonedTimeRange, elapsedInRange,
 } from '../services/abandonedMessages';
-import { sendDeliveryWhatsApp, sendFeedbackRequestWhatsApp, sendPaymentApprovedWhatsApp, sendPaymentRejectedWhatsApp, sendVideoUpsellWhatsApp } from '../services/whatsappSender';
-import type { BulkClient } from '../services/whatsappSender';
+import { sendDeliveryWhatsApp, sendFeedbackRequestWhatsApp, sendPaymentApprovedWhatsApp, sendPaymentRejectedWhatsApp, sendVideoUpsellWhatsApp } from '../services/whatsapp';
+import type { BulkClient } from '../services/whatsapp';
 import { templateForBucket, enabledWhatsAppBuckets } from '../services/whatsappTemplates';
 import { getMetaAdsSpend } from '../services/metaAds';
 import { getDeepSeekApiKey } from '../services/deepseekConfig';
@@ -1215,7 +1215,7 @@ router.post('/request/:id/retry', adminAuth, async (req, res) => {
     res.json({ success: true, message: 'Reiniciado.' });
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    console.error('[Admin] retry ERRO:', errMsg, { requestId: req.params?.id });
+    logError('[Admin] retry ERRO', err instanceof Error ? err : new Error(errMsg), { requestId: req.params?.id });
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });
@@ -2345,7 +2345,7 @@ router.get('/abandoned', adminAuth, async (req, res) => {
     let waPhone: string | null = null;
     let codeVerificationStatus: string | null = null;
     try {
-      const wa = await import('../services/whatsappSender');
+      const wa = await import('../services/whatsapp');
       const st = await wa.getLinkStatus();
       linked = !!st.linked;
       waPhone = typeof st.phone === 'string' ? st.phone : null;
@@ -2371,7 +2371,7 @@ router.get('/abandoned', adminAuth, async (req, res) => {
 
 router.get('/abandoned/send-status', adminAuth, async (req, res) => {
   try {
-    const wa = await import('../services/whatsappSender');
+    const wa = await import('../services/whatsapp');
     res.json({ success: true, progress: wa.getSendProgress() });
   } catch (err: unknown) {
     logRouteError(req, err);
@@ -2401,7 +2401,7 @@ router.post('/abandoned/:id/mark-contacted', adminAuth, async (req, res) => {
 
 router.get('/whatsapp/config-status', adminAuth, async (req, res) => {
   try {
-    const wa = await import('../services/whatsappSender');
+    const wa = await import('../services/whatsapp');
     const status = await wa.getConfigStatus();
     res.json({ success: true, ...status });
   } catch (err: unknown) {
@@ -2419,7 +2419,7 @@ router.post('/whatsapp/test-send', adminAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Indica o número de destino para o teste (campo "phone").' });
     }
 
-    const wa = await import('../services/whatsappSender');
+    const wa = await import('../services/whatsapp');
     if (!wa.isConfigured()) {
       return res.status(400).json({
         success: false,
@@ -2455,7 +2455,7 @@ router.post('/whatsapp/test-send', adminAuth, async (req, res) => {
 
 router.get('/whatsapp/verification-status', adminAuth, async (req, res) => {
   try {
-    const wa = await import('../services/whatsappSender');
+    const wa = await import('../services/whatsapp');
     if (!wa.isConfigured()) {
       return res.status(400).json({ success: false, error: 'WhatsApp API não configurada. Define WHATSAPP_API_TOKEN e WHATSAPP_PHONE_NUMBER_ID no ambiente.' });
     }
@@ -2473,7 +2473,7 @@ router.get('/whatsapp/verification-status', adminAuth, async (req, res) => {
 router.post('/whatsapp/request-code', adminAuth, whatsappBulkLimiter, async (req, res) => {
   try {
     const { method, language } = (req.body || {}) as { method?: string; language?: string };
-    const wa = await import('../services/whatsappSender');
+    const wa = await import('../services/whatsapp');
     if (!wa.isConfigured()) {
       return res.status(400).json({ success: false, error: 'WhatsApp API não configurada. Define WHATSAPP_API_TOKEN e WHATSAPP_PHONE_NUMBER_ID no ambiente.' });
     }
@@ -2496,7 +2496,7 @@ router.post('/whatsapp/verify-code', adminAuth, whatsappBulkLimiter, async (req,
     if (!code || typeof code !== 'string' || !code.trim()) {
       return res.status(400).json({ success: false, error: 'Indica o código de verificação recebido (campo "code").' });
     }
-    const wa = await import('../services/whatsappSender');
+    const wa = await import('../services/whatsapp');
     if (!wa.isConfigured()) {
       return res.status(400).json({ success: false, error: 'WhatsApp API não configurada. Define WHATSAPP_API_TOKEN e WHATSAPP_PHONE_NUMBER_ID no ambiente.' });
     }
@@ -2562,7 +2562,7 @@ router.post('/abandoned/send-bulk', adminAuth, whatsappBulkLimiter, async (req, 
       return res.status(400).json({ success: false, error: 'Nenhum cliente com telefone válido para enviar.' });
     }
 
-    const wa = await import('../services/whatsappSender');
+    const wa = await import('../services/whatsapp');
     if (wa.getSendProgress().running) {
       return res.status(409).json({ success: false, error: 'Já existe um envio em curso.' });
     }
@@ -2714,7 +2714,7 @@ router.post('/recover-audio', adminAuth, async (req, res) => {
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
     const errStack = err instanceof Error ? err.stack : '';
-    console.error('[Admin] recover-audio ERRO:', errMsg, errStack, { requestId, taskId });
+    logError('[Admin] recover-audio ERRO', err instanceof Error ? err : new Error(errMsg), { requestId, taskId });
     res.status(500).json({ success: false, error: safeMessage(err) });
   }
 });

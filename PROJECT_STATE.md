@@ -1,6 +1,6 @@
 # SeuBeat — Estado do Projeto (atualizado a cada sessão)
 
-## Estado Atual (20/Set 2026)
+## Estado Atual (21/Set 2026)
 
 ### Stack
 - **Frontend**: React + Vite + Tailwind + TypeScript
@@ -13,6 +13,7 @@
 - **WhatsApp**: Cloud API Meta (WABA `2754160688292272`)
 - **Deploy**: Render (auto-deploy push main)
 - **Monitorização**: Sentry
+- **CI**: GitHub Actions (lint + test + audit + build + E2E)
 - **MCP Servers**: Supabase + Jina AI (busca web, embeddings, leitura de URLs)
 
 ### Produção
@@ -75,6 +76,13 @@
 ### Melhorias Hoje (17/Set)
 1. **Step 4 emocional reescrito** — label "Conta-nos a vossa história" + badge "O que escrever é contigo" (não "Obrigatório"), placeholder com 3 perguntas abertas, pills como aberturas incompletas ("O dia em que nos conhecemos...", "O que mais admiro nela é..."), frase "não há respostas erradas", campos opcionais com reforço de que tudo bem não preencher
 2. **Prompts de IA limpos** (sessão anterior) — campos fantasma removidos, slang artificial eliminada, instruments/BPM corrigidos, temperature 0.65, validação reativa
+
+### Melhorias Hoje (21/Set 2026)
+1. **Health & Observabilidade** — `unhandledRejection`/`uncaughtException` handlers em `server.ts`; httpLogger filtra `/health`, OPTIONS, assets estáticos; `console.*` substituídos por logger estruturado (audio.ts, env.ts, admin.ts, public.ts).
+2. **Segurança** — webhook token com `timingSafeEqual` (timing-safe comparison); `ADMIN_ALLOWED_IPS` adicionado ao `.env.example`.
+3. **CI/CD** — `npm audit --audit-level=high` no pipeline; Dependabot config (npm + github-actions); `SMTP_HOST` morto removido do CI.
+4. **Deps limpas** — `@types/qrcode` removido (dead); `@types/multer` movido para devDependencies; `package.json name` corrigido (`react-example` → `seubeat`).
+5. **Bug fix** — `ensureSentry` memoization (`null` vs `undefined`) — imports falhados eram re-tentados em cada chamada em vez de cacheados.
 
 ### Pendências Conhecidas
 - `auth_leaked_password_protection` — ativar manualmente no Dashboard Supabase

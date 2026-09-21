@@ -70,7 +70,7 @@ const logger = pino({
 let sentryModule: unknown = null;
 
 async function ensureSentry() {
-  if (sentryModule === undefined) {
+  if (sentryModule === null) {
     try {
       sentryModule = await import('@sentry/node');
     } catch {

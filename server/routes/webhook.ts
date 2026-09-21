@@ -1,6 +1,7 @@
 import express from 'express';
 import { getAdminSupabase } from '../services/supabase';
 import { logInfo, logWarn, logError } from '../utils/logger';
+import { timingSafeEqual } from 'crypto';
 
 const router = express.Router();
 
@@ -54,7 +55,7 @@ router.get('/webhooks/whatsapp', (req, res) => {
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
-  if (mode === 'subscribe' && token === WHATSAPP_WEBHOOK_VERIFY_TOKEN && typeof challenge === 'string') {
+  if (mode === 'subscribe' && typeof token === 'string' && typeof WHATSAPP_WEBHOOK_VERIFY_TOKEN === 'string' && WHATSAPP_WEBHOOK_VERIFY_TOKEN.length > 0 && token.length === WHATSAPP_WEBHOOK_VERIFY_TOKEN.length && timingSafeEqual(Buffer.from(token), Buffer.from(WHATSAPP_WEBHOOK_VERIFY_TOKEN)) && typeof challenge === 'string') {
     logInfo('[WhatsApp Webhook] Verificação aceite');
     res.status(200).send(challenge);
   } else {
@@ -68,7 +69,7 @@ router.post('/webhooks/whatsapp', async (req, res) => {
   res.status(200).json({ received: true });
 
   try {
-    const wa = await import('../services/whatsappSender');
+    const wa = await import('../services/whatsapp');
     await wa.handleDeliveryWebhook(req.body);
   } catch (err) {
     logError('[WhatsApp Webhook] Erro ao processar payload', err instanceof Error ? err : new Error(String(err)));

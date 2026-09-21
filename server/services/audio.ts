@@ -5,6 +5,7 @@ import fs from 'fs';
 import { execFileSync, spawn } from 'child_process';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
+import { logInfo, logWarn, logError } from '../utils/logger';
 
 let FFMPEG_AVAILABLE: boolean | null = null; // null = not checked yet
 let FFPROBE_AVAILABLE: boolean | null = null;
@@ -16,14 +17,14 @@ function ensureFfmpeg(): boolean {
     try {
       ffmpeg.setFfmpegPath(ffmpegInstaller);
       execFileSync(ffmpegInstaller, ['-version'], { stdio: 'pipe', timeout: 10000 });
-      console.log('✅ FFmpeg disponível e funcional');
+      logInfo('[Audio] FFmpeg disponível e funcional');
       FFMPEG_AVAILABLE = true;
     } catch (err: unknown) {
-      console.warn(`⚠️ FFmpeg não disponível: ${err instanceof Error ? err.message : String(err)}`);
+      logWarn(`[Audio] FFmpeg não disponível: ${err instanceof Error ? err.message : String(err)}`);
       FFMPEG_AVAILABLE = false;
     }
   } else {
-    console.warn('⚠️ ffmpeg-static não instalado');
+    logWarn('[Audio] ffmpeg-static não instalado');
     FFMPEG_AVAILABLE = false;
   }
   return FFMPEG_AVAILABLE;
@@ -35,14 +36,14 @@ function ensureFfprobe(): boolean {
     try {
       execFileSync(ffprobeInstaller.path, ['-version'], { stdio: 'pipe', timeout: 5000 });
       FFPROBE_PATH = ffprobeInstaller.path;
-      console.log('✅ FFprobe disponível e funcional');
+      logInfo('[Audio] FFprobe disponível e funcional');
       FFPROBE_AVAILABLE = true;
     } catch {
-      console.warn('⚠️ FFprobe não disponível, duração de áudio será detectada via stderr do ffmpeg');
+      logWarn('[Audio] FFprobe não disponível, duração de áudio será detectada via stderr do ffmpeg');
       FFPROBE_AVAILABLE = false;
     }
   } else {
-    console.warn('⚠️ ffprobe-static não instalado, duração de áudio será detectada via stderr do ffmpeg');
+    logWarn('[Audio] ffprobe-static não instalado, duração de áudio será detectada via stderr do ffmpeg');
     FFPROBE_AVAILABLE = false;
   }
   return FFPROBE_AVAILABLE;
@@ -136,11 +137,11 @@ function applyFadeInOnly(inputPath: string, outputPath: string): Promise<void> {
       .audioFilters('afade=t=in:ss=0:d=3')
       .output(outputPath)
       .on('end', () => {
-        console.log('✅ Fade-in aplicado (áudio curto - só fade-in)');
+        logInfo('[Audio] Fade-in aplicado (áudio curto - só fade-in)');
         resolve();
       })
       .on('error', (err) => {
-        console.error('❌ Erro no FFmpeg ao aplicar fade-in:', err);
+        logError('[Audio] Erro no FFmpeg ao aplicar fade-in', err);
         reject(err);
       })
       .run();
@@ -207,14 +208,14 @@ export async function applyFades(inputPath: string, outputPath: string): Promise
         if (settled) return;
         settled = true;
         clearTimeout(fadeTimer);
-        console.log(`✅ Fades aplicados com sucesso! (duração: ${duration.toFixed(1)}s, fade-out em ${fadeOutStart.toFixed(1)}s)`);
+        logInfo(`[Audio] Fades aplicados com sucesso! (duração: ${duration.toFixed(1)}s, fade-out em ${fadeOutStart.toFixed(1)}s)`);
         resolve();
       })
       .on('error', (err) => {
         if (settled) return;
         settled = true;
         clearTimeout(fadeTimer);
-        console.error('❌ Erro no FFmpeg ao aplicar fades:', err);
+        logError('[Audio] Erro no FFmpeg ao aplicar fades', err);
         reject(err);
       });
     cmd.run();
@@ -241,11 +242,11 @@ export function convertToWav(inputPath: string, outputPath: string): Promise<voi
       .audioFrequency(44100)
       .output(outputPath)
       .on('end', () => {
-        console.log('✅ Áudio convertido para WAV com sucesso!');
+        logInfo('[Audio] Áudio convertido para WAV com sucesso!');
         resolve();
       })
       .on('error', (err) => {
-        console.error('❌ Erro no FFmpeg ao converter para WAV:', err);
+        logError('[Audio] Erro no FFmpeg ao converter para WAV', err);
         reject(err);
       })
       .run();

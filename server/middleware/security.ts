@@ -60,7 +60,13 @@ export function permissionsPolicyMiddleware(_req: Request, res: Response, next: 
   next();
 }
 
+const SKIP_LOG_PATHS = ['/health', '/favicon.ico', '/robots.txt'];
+const SKIP_LOG_METHODS = ['OPTIONS'];
+
 export function httpLogger(req: Request, res: Response, next: NextFunction): void {
+  if (SKIP_LOG_METHODS.includes(req.method) || SKIP_LOG_PATHS.includes(req.path)) {
+    return next();
+  }
   const startTime = Date.now();
   res.on('finish', () => {
     logHttp(`${req.method} ${req.path}`, {

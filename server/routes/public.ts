@@ -10,7 +10,7 @@ import { convertToWav } from '../services/audio';
 import { getValidationPhrase } from '../services/suno-voice';
 import { generateLyrics } from '../services/ai';
 import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification } from '../services/email';
-import { sendDeliveryWhatsApp } from '../services/whatsappSender';
+import { sendDeliveryWhatsApp } from '../services/whatsapp';
 import { generateServerEventId } from '../services/metaPixelCapi';
 import { sendSubmitApplicationEvent, sendLeadEvent, sendCompleteRegistrationEvent, sendInitiateCheckoutEvent, sendAddPaymentInfoEvent } from '../services/metaPixelCapi';
 import { verifyPaymentProof, type VerificationResult } from '../services/proofVerification';
@@ -2163,7 +2163,7 @@ router.get('/payment-details', (_req, res) => {
 // Log client-side errors
 router.post('/log-error', (req, res) => {
   const { message: m, stack: s, componentStack, url: u, userAgent } = req.body;
-  console.error(`[ClientError] message="${m}" stack="${(s||'').slice(0,500)}" componentStack="${(componentStack||'').slice(0,500)}" url="${u}" ua="${userAgent}"`);
+  logError(`[ClientError] message="${m}" stack="${(s||'').slice(0,500)}" componentStack="${(componentStack||'').slice(0,500)}" url="${u}" ua="${userAgent}"`);
   res.json({ ok: true });
 });
 
