@@ -70,6 +70,15 @@ function safeMessage(err: unknown) {
   return publicErrorMessage(err);
 }
 
+function isSchemaCacheError(msg: string): boolean {
+  return /column.*schema cache|column.*proof_hash|column.*transaction_id|column.*ai_verified|column.*verification_result/i.test(msg);
+}
+
+function stripSchemaCacheFields<T extends Record<string, unknown>>(fields: T): T {
+  const { proof_hash: _ph, transaction_id: _ti, ai_verified: _av, verification_result: _vr, ...rest } = fields;
+  return rest as T;
+}
+
 async function markRequestFailed(requestId: string, err: unknown) {
   try {
     await updateRequestStatus(requestId, 'failed', err);
@@ -1462,7 +1471,23 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
         .select('id')
         .single();
       if (updateErr || !updatedPayment) {
-        paymentError = updateErr || new Error('Failed to update existing payment');
+        const updateMsg = String((updateErr as Error)?.message || updateErr);
+        if (isSchemaCacheError(updateMsg)) {
+          logWarn('[API] UPDATE falhou por schema cache — retry sem novas colunas', { songRequestId });
+          const fallbackPayload = stripSchemaCacheFields(updatePayload);
+          const { data: retryPayment, error: retryErr } = await supabase
+            .from('payments').update(fallbackPayload).eq('id', existingPaymentRecord.id).select('id').single();
+          if (retryErr || !retryPayment) {
+            paymentError = retryErr || new Error('Failed to update payment (schema cache fallback)');
+          } else {
+            paymentRecord = { id: existingPaymentRecord.id };
+            if (existingPaymentRecord.proof_path && proofPath && existingPaymentRecord.proof_path !== proofPath) {
+              deleteStorageFile('payment-proofs', existingPaymentRecord.proof_path).catch(() => {});
+            }
+          }
+        } else {
+          paymentError = updateErr || new Error('Failed to update existing payment');
+        }
       } else {
         paymentRecord = { id: existingPaymentRecord.id };
         // Clean orphan proof file from storage (non-blocking)
@@ -1478,9 +1503,9 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
         .single();
       if (insertErr || !newPayment) {
         const insertMsg = String((insertErr as Error)?.message || insertErr);
-        if (/column.*proof_hash|column.*transaction_id|schema cache/i.test(insertMsg)) {
-          logWarn('[API] INSERT falhou por coluna em falta no schema cache — retry sem dedup fields', { songRequestId });
-          const { proof_hash: _ph, transaction_id: _ti, ...fallbackFields } = paymentFields;
+        if (isSchemaCacheError(insertMsg)) {
+          logWarn('[API] INSERT falhou por schema cache — retry sem novas colunas', { songRequestId });
+          const fallbackFields = stripSchemaCacheFields(paymentFields);
           const { data: retryPayment, error: retryErr } = await supabase
             .from('payments')
             .insert(fallbackFields)
@@ -1807,9 +1832,9 @@ router.post('/song/:id/video-upsell-payment', paymentLimiter, async (req, res) =
         .single();
       if (insertErr || !newPayment) {
         const insertMsg = String((insertErr as Error)?.message || insertErr);
-        if (/column.*proof_hash|column.*transaction_id|schema cache/i.test(insertMsg)) {
-          logWarn('[API] Video upsell INSERT falhou por coluna em falta — retry sem dedup fields', { requestId });
-          const { proof_hash: _ph, transaction_id: _ti, ...fallbackFields } = paymentFields;
+        if (isSchemaCacheError(insertMsg)) {
+          logWarn('[API] Video upsell INSERT falhou por schema cache — retry sem novas colunas', { requestId });
+          const fallbackFields = stripSchemaCacheFields(paymentFields);
           const { data: retryPayment, error: retryErr } = await supabase
             .from('payments')
             .insert(fallbackFields)
