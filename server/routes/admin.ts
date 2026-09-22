@@ -686,18 +686,23 @@ router.get('/requests', adminAuth, async (req, res) => {
 
     if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
 
-    const requestIds = (requestsData || []).map(r => r.id).filter(Boolean);
     let paymentsMap: Record<string, any[]> = {};
 
-    if (requestIds.length > 0) {
-      const { data: paymentsData } = await supabase
+    {
+      const { data: paymentsData, error: paymentsError } = await supabase
         .from('payments')
-        .select('id, plan, amount, status, created_at, payment_reference, user_email, request_id, proof_url, proof_filename, notes, approved_at')
-        .in('request_id', requestIds);
+        .select('id, plan, plan_type, amount, status, created_at, payment_reference, user_email, request_id, proof_url, proof_filename, notes, approved_at')
+        .order('created_at', { ascending: false });
+
+      if (paymentsError) {
+        logWarn('[Admin] Falha ao carregar payments para /requests', { error: safeMessage(paymentsError) });
+      }
 
       for (const p of paymentsData || []) {
+        if (!p.request_id) continue;
+        const plan = p.plan || p.plan_type || null;
         if (!paymentsMap[p.request_id]) paymentsMap[p.request_id] = [];
-        paymentsMap[p.request_id].push(p);
+        paymentsMap[p.request_id].push({ ...p, plan });
       }
     }
 

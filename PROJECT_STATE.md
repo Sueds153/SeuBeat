@@ -19,7 +19,7 @@
 ### Produção
 - **URL**: https://seubeat.onrender.com
 - **Último deploy**: commit `3234ede` (schema cache fallback ai_verified/verification_result)
-- **Testes**: 419 passam (34 ficheiros), `tsc --noEmit` limpo, **32 E2E Playwright passam**
+- **Testes**: 431 passam (34 ficheiros), `tsc --noEmit` limpo, **32 E2E Playwright passam**
 
 ### DB Schema (tabelas principais)
 - `song_requests` — pedido do cliente (status, dados wizard)
@@ -79,6 +79,7 @@
 
 ### Melhorias Hoje (22/Set 2026)
 1. **Bug fix ESM crítico** — `env.ts` tinha `require()` num módulo ESM (commit `94da31e`), que impedia o servidor de arrancar (`ERR_AMBIGUOUS_MODULE_SYNTAX`). Fix: remover `logWarnLazy` e voltar a `console.warn` direto (startup warnings não precisam de logger estruturado).
+2. **Bug fix admin: cartão "Pagamento" sempre vazio** — rota `GET /api/admin/requests` fazia `.in('request_id', requestIds)` com ~1000 UUIDs → URL ~37KB → PostgREST 400 Bad Request **silencioso** (error ignorado) → `paymentsMap = {}` → frontend mostrava "—"/"Pendente" em todos os campos. Fix em `server/routes/admin.ts`: fetch completo da tabela `payments` (só 75 linhas, sem `.in()`), `logWarn` no erro, fallback `plan = plan || plan_type` (39/75 payments legacy têm `plan: null`). Shape da resposta inalterado; 431 testes + `tsc --noEmit` limpos.
 2. **E2E Playwright — 32/32 testes a passar** — 6 correções em testes desatualizados:
    - `landing.spec.ts` + `wizard.spec.ts`: "Transforme a sua história" é `<p>`, não heading — `getByRole('heading')` → `getByText()`
    - `full-flow.spec.ts` + `express-plan.spec.ts` + `payment-rejection.spec.ts`: ecrã de validação de letras (`lyricsValidating`) após pagamento — adicionado `skipLyricsValidation()` helper + mock `PUT /api/song/*/lyrics`
