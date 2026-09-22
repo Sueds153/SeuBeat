@@ -1,6 +1,6 @@
 # SeuBeat — Estado do Projeto (atualizado a cada sessão)
 
-## Estado Atual (21/Set 2026)
+## Estado Atual (22/Set 2026)
 
 ### Stack
 - **Frontend**: React + Vite + Tailwind + TypeScript
@@ -18,8 +18,8 @@
 
 ### Produção
 - **URL**: https://seubeat.onrender.com
-- **Último deploy**: commit `ea98b7d` (undo limpa AI verification)
-- **Testes**: 419 passam (34 ficheiros), `tsc --noEmit` limpo
+- **Último deploy**: commit `3234ede` (schema cache fallback ai_verified/verification_result)
+- **Testes**: 419 passam (34 ficheiros), `tsc --noEmit` limpo, **32 E2E Playwright passam**
 
 ### DB Schema (tabelas principais)
 - `song_requests` — pedido do cliente (status, dados wizard)
@@ -77,6 +77,20 @@
 1. **Step 4 emocional reescrito** — label "Conta-nos a vossa história" + badge "O que escrever é contigo" (não "Obrigatório"), placeholder com 3 perguntas abertas, pills como aberturas incompletas ("O dia em que nos conhecemos...", "O que mais admiro nela é..."), frase "não há respostas erradas", campos opcionais com reforço de que tudo bem não preencher
 2. **Prompts de IA limpos** (sessão anterior) — campos fantasma removidos, slang artificial eliminada, instruments/BPM corrigidos, temperature 0.65, validação reativa
 
+### Melhorias Hoje (22/Set 2026)
+1. **Bug fix ESM crítico** — `env.ts` tinha `require()` num módulo ESM (commit `94da31e`), que impedia o servidor de arrancar (`ERR_AMBIGUOUS_MODULE_SYNTAX`). Fix: remover `logWarnLazy` e voltar a `console.warn` direto (startup warnings não precisam de logger estruturado).
+2. **E2E Playwright — 32/32 testes a passar** — 6 correções em testes desatualizados:
+   - `landing.spec.ts` + `wizard.spec.ts`: "Transforme a sua história" é `<p>`, não heading — `getByRole('heading')` → `getByText()`
+   - `full-flow.spec.ts` + `express-plan.spec.ts` + `payment-rejection.spec.ts`: ecrã de validação de letras (`lyricsValidating`) após pagamento — adicionado `skipLyricsValidation()` helper + mock `PUT /api/song/*/lyrics`
+   - `resume-flow.spec.ts`: timeout por consumo de retries — resolveu-se com correções dos outros testes
+3. **E2E test helpers** — `mockLyricsConfirm()` + `skipLyricsValidation()` adicionados a `e2e/fixtures/mocks.ts`
+4. **Bug fix: upload de comprovativos** — investigação completa do bug do `eliassauimbo@gmail.com` (15.000 Kz, status `lyrics_ready`, zero payments):
+   - **Root cause**: a tabela `payments` em produção não tinha as 4 colunas (`proof_hash`, `transaction_id`, `ai_verified`, `verification_result`) apesar do código INSERT incluí-las. O schema cache fallback existente em `public.ts` (linhas 1506-1518) estava correto mas **o handler nunca chegava ao INSERT** — o Render proxy (timeout ~30s) cortava a conexão antes porque a verificação AI (Gemini 15s + OpenAI 15s = worst-case 30s) combinada com upload lento de Angola excedia o limite.
+   - **Fix 1**: Migration `supabase_migration_proof_verification.sql` + `supabase_migration_proof_dedup.sql` aplicadas via Postgres direto (pooler). 4 colunas + 4 índices criados + schema cache recarregado (`pg_notify pgrst`).
+   - **Fix 2**: `AI_TIMEOUT_MS` reduzido de 15s→10s em `proofVerification.ts` — worst-case do handler cai de ~35s para ~25s, dentro do limite de 30s do Render proxy.
+   - **Resultado**: 419 testes passam; `tsc --noEmit` limpo.
+5. **Pedido do utilizador mantém `lyrics_ready`** — o estado não está corrompido; o utilizador pode retentar o upload pelo Wizard normalmente.
+
 ### Melhorias Hoje (21/Set 2026)
 1. **Health & Observabilidade** — `unhandledRejection`/`uncaughtException` handlers em `server.ts`; httpLogger filtra `/health`, OPTIONS, assets estáticos; `console.*` substituídos por logger estruturado (audio.ts, env.ts, admin.ts, public.ts).
 2. **Segurança** — webhook token com `timingSafeEqual` (timing-safe comparison); `ADMIN_ALLOWED_IPS` adicionado ao `.env.example`.
@@ -109,3 +123,5 @@
 - Jina MCP disponível para busca web e leitura de documentação (usar `search_web`, `read_url`)
 - Wizard agora tem 5 passos (não 9) — não adicionar campos phantom ao Step 4
 - Feature flag `VITE_ENABLE_LYRICS_TEASER` controla teaser vs letras completas
+- E2E tests precisam de env vars dummy no .env local para o servidor arrancar (SUNO_API_KEY, BREVO_API_KEY, ADMIN_PASSWORD, JWT_SECRET) — **remover antes de commit**
+- Após pagamento submetido com sucesso, o wizard mostra ecrã `lyricsValidating` (confirmação de letras) — os E2E tests devem incluir `skipLyricsValidation()`

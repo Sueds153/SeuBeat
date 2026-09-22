@@ -23,6 +23,16 @@ function makeFakeBuffer(): Buffer {
   return Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]); // JPEG header
 }
 
+// Helper: recent date (within 48h)
+function recentDate(): string {
+  return new Date().toISOString().slice(0, 16).replace('T', ' ');
+}
+
+// Helper: old date (>48h ago)
+function oldDate(): string {
+  return '2026-09-15 14:30';
+}
+
 describe('proofVerification', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -45,7 +55,7 @@ describe('proofVerification', () => {
           recipientPhone: '244929423278',
           entity: null,
           reference: null,
-          date: '2026-09-17 14:30',
+          date: recentDate(),
           transactionId: 'TXN12345',
           isMulticaixa: true,
           rawText: 'Pagamento Multicaixa Express 9.900 Kz para 929423278 Confirmado',
@@ -69,8 +79,8 @@ describe('proofVerification', () => {
           recipientPhone: null,
           entity: '10116',
           reference: '929423278',
-          date: '2026-09-17 15:00',
-          transactionId: null,
+          date: recentDate(),
+          transactionId: 'REF78901',
           isMulticaixa: true,
           rawText: 'Pagamento Multicaixa Entidade 10116 Ref 929423278 Valor 7900 Kz',
         }),
@@ -91,8 +101,8 @@ describe('proofVerification', () => {
           recipientPhone: '929423278',
           entity: null,
           reference: null,
-          date: '2026-09-17',
-          transactionId: null,
+          date: recentDate(),
+          transactionId: 'TXN12345',
           isMulticaixa: true,
           rawText: 'Pagamento 5000 Kz',
         }),
@@ -136,7 +146,7 @@ describe('proofVerification', () => {
           recipientPhone: '+244 929 423 278',
           entity: null,
           reference: null,
-          date: '17/09/2026 14:30',
+          date: recentDate(),
           transactionId: 'ABC123',
           isMulticaixa: true,
           rawText: 'Transferencia Multicaixa Express 9.900 Kz',
@@ -164,7 +174,7 @@ describe('proofVerification', () => {
               recipientPhone: '929423278',
               entity: null,
               reference: null,
-              date: '2026-09-17',
+              date: recentDate(),
               transactionId: 'TXN999',
               isMulticaixa: true,
               rawText: 'Pagamento confirmado 9900 Kz',
@@ -204,8 +214,8 @@ describe('proofVerification', () => {
           recipientPhone: '929423278',
           entity: null,
           reference: null,
-          date: null,
-          transactionId: null,
+          date: recentDate(),
+          transactionId: 'TXN12345',
           isMulticaixa: false,
           rawText: 'Comprovativo de transferencia 9900 Kz',
         }),
@@ -224,8 +234,8 @@ describe('proofVerification', () => {
           recipientPhone: '929423278',
           entity: null,
           reference: null,
-          date: null,
-          transactionId: null,
+          date: recentDate(),
+          transactionId: 'TXN12345',
           isMulticaixa: true,
           rawText: 'Pagamento 15000 Kz',
         }),
@@ -244,8 +254,8 @@ describe('proofVerification', () => {
           recipientPhone: '929423278',
           entity: null,
           reference: null,
-          date: null,
-          transactionId: null,
+          date: recentDate(),
+          transactionId: 'TXN12345',
           isMulticaixa: true,
           rawText: 'Pagamento 50000 Kz',
         }),
@@ -264,8 +274,8 @@ describe('proofVerification', () => {
           recipientPhone: '929423278',
           entity: null,
           reference: null,
-          date: null,
-          transactionId: null,
+          date: recentDate(),
+          transactionId: 'TXN12345',
           isMulticaixa: true,
           rawText: 'hi',
         }),
@@ -288,8 +298,8 @@ describe('proofVerification', () => {
           recipientPhone: '+244 929 423 278',
           entity: null,
           reference: null,
-          date: null,
-          transactionId: null,
+          date: recentDate(),
+          transactionId: 'TXN12345',
           isMulticaixa: true,
           rawText: 'Pagamento 9900 Kz para +244 929 423 278',
         }),
@@ -307,8 +317,8 @@ describe('proofVerification', () => {
           recipientPhone: '929-423-278',
           entity: null,
           reference: null,
-          date: null,
-          transactionId: null,
+          date: recentDate(),
+          transactionId: 'TXN12345',
           isMulticaixa: true,
           rawText: 'Pagamento para 929-423-278',
         }),
@@ -326,8 +336,8 @@ describe('proofVerification', () => {
           recipientPhone: '123',
           entity: null,
           reference: null,
-          date: null,
-          transactionId: null,
+          date: recentDate(),
+          transactionId: 'TXN12345',
           isMulticaixa: true,
           rawText: 'Pagamento 9900 Kz',
         }),
@@ -336,6 +346,226 @@ describe('proofVerification', () => {
       const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
 
       expect(result.extracted.recipientPhone).toBeNull();
+    });
+  });
+
+  // ── Anti-fraud: Transaction ID ────────────────────────────────────────────
+
+  describe('anti-fraud: transaction ID', () => {
+    it('manual review when transaction ID is missing', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 9900,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: recentDate(),
+          transactionId: null,
+          isMulticaixa: true,
+          rawText: 'Pagamento Multicaixa Express 9900 Kz Confirmado',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      // Without transaction ID, max confidence is 1.0 - 0.15 = 0.85 → manual_review (boundary)
+      expect(result.decision).toBe('manual_review');
+      const txCheck = result.checks.find(c => c.name.includes('Transaction ID'));
+      expect(txCheck?.passed).toBe(false);
+    });
+
+    it('manual review when transaction ID is too short', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 9900,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: recentDate(),
+          transactionId: 'AB',
+          isMulticaixa: true,
+          rawText: 'Pagamento Multicaixa Express 9900 Kz Confirmado',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      expect(result.decision).toBe('manual_review');
+      const txCheck = result.checks.find(c => c.name.includes('Transaction ID'));
+      expect(txCheck?.passed).toBe(false);
+      expect(txCheck?.actual).toBe('AB');
+    });
+
+    it('passes when transaction ID is present and valid', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 9900,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: recentDate(),
+          transactionId: 'TXN12345678',
+          isMulticaixa: true,
+          rawText: 'Pagamento Multicaixa Express 9900 Kz Confirmado',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      const txCheck = result.checks.find(c => c.name.includes('Transaction ID'));
+      expect(txCheck?.passed).toBe(true);
+      expect(txCheck?.actual).toBe('TXN12345678');
+    });
+  });
+
+  // ── Anti-fraud: Date freshness ────────────────────────────────────────────
+
+  describe('anti-fraud: date freshness', () => {
+    it('passes when date is recent (< 48h)', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 9900,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: recentDate(),
+          transactionId: 'TXN12345',
+          isMulticaixa: true,
+          rawText: 'Pagamento Multicaixa Express 9900 Kz Confirmado',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      const dateCheck = result.checks.find(c => c.name.includes('Data recente'));
+      expect(dateCheck?.passed).toBe(true);
+    });
+
+    it('fails when date is old (> 48h)', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 9900,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: oldDate(),
+          transactionId: 'TXN12345',
+          isMulticaixa: true,
+          rawText: 'Pagamento Multicaixa Express 9900 Kz Confirmado',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      const dateCheck = result.checks.find(c => c.name.includes('Data recente'));
+      expect(dateCheck?.passed).toBe(false);
+      expect(dateCheck?.actual).toContain('>48h antigo');
+    });
+
+    it('fails when date is in the future', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 9900,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: '2027-01-01 12:00',
+          transactionId: 'TXN12345',
+          isMulticaixa: true,
+          rawText: 'Pagamento Multicaixa Express 9900 Kz Confirmado',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      const dateCheck = result.checks.find(c => c.name.includes('Data recente'));
+      expect(dateCheck?.passed).toBe(false);
+      expect(dateCheck?.actual).toContain('futuro');
+    });
+
+    it('fails when date is missing', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 9900,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: null,
+          transactionId: 'TXN12345',
+          isMulticaixa: true,
+          rawText: 'Pagamento Multicaixa Express 9900 Kz Confirmado',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      const dateCheck = result.checks.find(c => c.name.includes('Data recente'));
+      expect(dateCheck?.passed).toBe(false);
+      expect(dateCheck?.actual).toBe('Não lido');
+    });
+  });
+
+  // ── Anti-fraud: Amount consistency ────────────────────────────────────────
+
+  describe('anti-fraud: amount consistency', () => {
+    it('passes when amount matches plan price', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 9900,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: recentDate(),
+          transactionId: 'TXN12345',
+          isMulticaixa: true,
+          rawText: 'Pagamento Multicaixa Express 9900 Kz Confirmado',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      const consistCheck = result.checks.find(c => c.name.includes('consistente'));
+      expect(consistCheck?.passed).toBe(true);
+    });
+
+    it('fails when amount is wildly inconsistent (> 5x plan)', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 50000,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: recentDate(),
+          transactionId: 'TXN12345',
+          isMulticaixa: true,
+          rawText: 'Pagamento 50000 Kz',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      const consistCheck = result.checks.find(c => c.name.includes('consistente'));
+      expect(consistCheck?.passed).toBe(false);
+    });
+
+    it('passes when amount is slightly below (< 0.95x plan)', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 9000,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: recentDate(),
+          transactionId: 'TXN12345',
+          isMulticaixa: true,
+          rawText: 'Pagamento 9000 Kz',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      const consistCheck = result.checks.find(c => c.name.includes('consistente'));
+      expect(consistCheck?.passed).toBe(false); // 9000/9900 = 0.91x < 0.95x
     });
   });
 
@@ -355,7 +585,7 @@ describe('proofVerification', () => {
       expect(result.extracted.recipientPhone).toBeNull();
       expect(result.extracted.entity).toBeNull();
       expect(result.extracted.isMulticaixa).toBe(false);
-      // No Multicaixa, no amount, no phone → low confidence → auto_reject is correct
+      // No Multicaixa, no amount, no phone, no tx_id → low confidence → auto_reject
       expect(result.decision).toBe('auto_reject');
       expect(result.confidence).toBeLessThan(0.50);
     });
@@ -385,8 +615,8 @@ describe('proofVerification', () => {
           recipientPhone: '929423278',
           entity: null,
           reference: null,
-          date: null,
-          transactionId: null,
+          date: recentDate(),
+          transactionId: 'TXNPREM',
           isMulticaixa: true,
           rawText: 'Pagamento Premium 14900 Kz confirmado com sucesso Multicaixa Express',
         }),
@@ -405,8 +635,8 @@ describe('proofVerification', () => {
           recipientPhone: '929423278',
           entity: null,
           reference: null,
-          date: null,
-          transactionId: null,
+          date: recentDate(),
+          transactionId: 'TXNSTD',
           isMulticaixa: true,
           rawText: 'Pagamento Multicaixa Express 7900 Kz confirmado para 929423278',
         }),
@@ -417,6 +647,52 @@ describe('proofVerification', () => {
       expect(result.decision).toBe('auto_approve');
       const amountCheck = result.checks.find(c => c.name.includes('Valor'));
       expect(amountCheck?.passed).toBe(true);
+    });
+
+    it('returns 8 checks total', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 9900,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: recentDate(),
+          transactionId: 'TXN12345',
+          isMulticaixa: true,
+          rawText: 'Pagamento Multicaixa Express 9900 Kz Confirmado',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      expect(result.checks).toHaveLength(8);
+      // Weights sum to 1.00
+      const totalWeight = result.checks.reduce((sum, c) => sum + c.weight, 0);
+      expect(totalWeight).toBeCloseTo(1.00, 2);
+    });
+
+    it('normalizes new fields (senderPhone, txStatus, consistencyFlags)', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 9900,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: recentDate(),
+          transactionId: 'TXN12345',
+          isMulticaixa: true,
+          senderPhone: '+244 912 345 678',
+          txStatus: 'Concluído',
+          consistencyFlags: [],
+          rawText: 'Pagamento Multicaixa Express 9900 Kz Confirmado',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      expect(result.extracted.senderPhone).toBe('912345678');
+      expect(result.extracted.txStatus).toBe('Concluído');
+      expect(result.extracted.consistencyFlags).toEqual([]);
     });
   });
 });

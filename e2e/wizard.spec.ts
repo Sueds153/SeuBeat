@@ -36,5 +36,5 @@ test('back button returns to landing on step 1', async () => {
   await expect(page.getByText(/PASSO 1/)).toBeVisible({ timeout: 15000 });
   // Now back from step 1 goes to landing
   await page.locator('#wizard-back-btn').click();
-  await expect(page.getByRole('heading', { name: /Transforme a sua hist/ }).first()).toBeVisible();
+  await expect(page.getByText('Transforme a sua história').first()).toBeVisible();
 });

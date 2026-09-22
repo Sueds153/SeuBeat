@@ -3,7 +3,7 @@ import {
   mockBaseRoutes, mockGenerateLyricsSuccess, mockSongStatus,
   mockSubmitPaymentSuccess, mockPaymentStatus, mockPaymentDetails,
   completeWizardAndSubmit, clearAppState, MOCK_PAYMENT_DETAILS,
-  ensureTestProofPng,
+  ensureTestProofPng, skipLyricsValidation,
 } from './fixtures/mocks';
 
 test.describe.configure({ mode: 'serial' });
@@ -41,6 +41,9 @@ test('Express plan: express payment pre-selected with upsell decline', async ({ 
   await proofFile.setFiles(TEST_PNG);
   await page.waitForTimeout(1500);
   await page.locator('button:has-text("Enviar Comprovativo e Libertar a Música")').click();
+
+  // Skip lyrics validation step
+  await skipLyricsValidation(page);
 
   // Should show success
   await expect(page.getByText(/Ver dedicatória/i)).toBeVisible({ timeout: 30000 });

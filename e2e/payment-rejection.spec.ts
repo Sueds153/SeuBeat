@@ -4,7 +4,7 @@ import {
   mockSubmitPaymentError, mockSubmitPaymentSuccess, mockPaymentStatus,
   mockPaymentDetails,
   completeWizardAndSubmit, MOCK_PAYMENT_DETAILS,
-  ensureTestProofPng,
+  ensureTestProofPng, skipLyricsValidation,
 } from './fixtures/mocks';
 
 test.describe.configure({ mode: 'serial' });
@@ -55,6 +55,9 @@ test('payment rejection shows error + re-submit works', async ({ page }) => {
 
   // Re-submit
   await page.locator('button:has-text("Enviar Comprovativo e Libertar a Música")').click();
+
+  // Skip lyrics validation step
+  await skipLyricsValidation(page);
 
   // Should show success
   await expect(page.getByText(/Ver dedicatória/i)).toBeVisible({ timeout: 30000 });

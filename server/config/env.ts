@@ -1,13 +1,5 @@
 const REQUIRED_ENV = ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANON_KEY', 'SUNO_API_KEY', 'BREVO_API_KEY', 'ADMIN_PASSWORD', 'JWT_SECRET'] as const;
 
-let _logWarn: ((msg: string) => void) | null = null;
-function logWarnLazy(msg: string) {
-  if (!_logWarn) {
-    try { _logWarn = (m) => { const { logWarn } = require('../utils/logger'); logWarn(m); }; } catch { _logWarn = console.warn; }
-  }
-  _logWarn(msg);
-}
-
 export function validateEnv(): void {
   // Mapeamento automático de variáveis com prefixo VITE_ ou novos nomes do Supabase
   if (!process.env.SUPABASE_URL && process.env.VITE_SUPABASE_URL) {
@@ -35,7 +27,7 @@ export function validateEnv(): void {
   if (missing.length > 0) {
     const isTest = process.env.CI || process.env.NODE_ENV === 'test';
     if (isTest) {
-      logWarnLazy(`[WARN] Variaveis de ambiente em falta no arranque: ${missing.join(', ')}`);
+      console.warn(`[WARN] Variaveis de ambiente em falta no arranque: ${missing.join(', ')}`);
     } else {
       throw new Error(`[FATAL] Variaveis de ambiente obrigatorias em falta: ${missing.join(', ')}. Configure-as no .env ou no Render Dashboard.`);
     }
@@ -43,10 +35,10 @@ export function validateEnv(): void {
   const hasDeepSeekKey = !!(process.env.DEEPSEEK_API_KEY || process.env.DEEPSEEK_SECRET_KEY);
   if (!process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY && !process.env.GEMINI_API_KEY && !hasDeepSeekKey) {
     if (process.env.CI || process.env.NODE_ENV === 'test') {
-      logWarnLazy('[WARN] Nenhuma chave de IA configurada (DEEPSEEK_API_KEY/DEEPSEEK_SECRET_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY ou GEMINI_API_KEY)');
+      console.warn('[WARN] Nenhuma chave de IA configurada (DEEPSEEK_API_KEY/DEEPSEEK_SECRET_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY ou GEMINI_API_KEY)');
       return;
     }
-    logWarnLazy('[WARN] Nenhuma chave de IA configurada — a geração de letras não funcionará.');
+    console.warn('[WARN] Nenhuma chave de IA configurada — a geração de letras não funcionará.');
   }
 }
 

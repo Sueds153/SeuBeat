@@ -1374,6 +1374,15 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
     // ── AI Proof Verification (waits for parallel result) ────────────────────
     proofVerification = await verificationPromise;
 
+    // ── Anti-fraud: force manual_review if transaction_id not readable ─────
+    if (proofVerification && proofVerification.decision === 'auto_approve') {
+      const txId = proofVerification.extracted?.transactionId;
+      if (!txId || txId.length < 3) {
+        proofVerification.decision = 'manual_review';
+        logWarn('[API] Auto-approve bloqueado — transaction_id não lido', { songRequestId });
+      }
+    }
+
     let paymentStatus = 'pending_verification';
     let approvedAt: string | null = null;
     let deliverAt: string | null = null;

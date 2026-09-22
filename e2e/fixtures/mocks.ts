@@ -215,6 +215,29 @@ export async function mockSubmitPaymentSuccess(page: Page) {
   });
 }
 
+/** Mock PUT /api/song/:id/lyrics (lyrics confirmation after payment) */
+export async function mockLyricsConfirm(page: Page) {
+  await page.route('**/api/song/*/lyrics', async (route) => {
+    if (route.request().method() === 'PUT') {
+      await fulfill(route, { body: { success: true } });
+    } else {
+      await route.fulfill();
+    }
+  });
+}
+
+/** After payment submission, the wizard shows a lyrics validation screen.
+ *  This helper skips it by clicking "Pular — usar letra original". */
+export async function skipLyricsValidation(page: Page) {
+  const skipBtn = page.locator('button:has-text("Pular")');
+  try {
+    await skipBtn.waitFor({ state: 'visible', timeout: 10000 });
+    await skipBtn.click();
+  } catch {
+    // lyricsValidating may not appear (e.g. rejected payment flow)
+  }
+}
+
 /** Mock submit-payment returning error */
 export async function mockSubmitPaymentError(page: Page, status = 500, error = 'Erro no servidor') {
   await page.route('**/api/submit-payment', async (route) => {

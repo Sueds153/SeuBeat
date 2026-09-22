@@ -32,10 +32,13 @@ export interface ExtractedProof {
   transactionId: string | null;
   isMulticaixa: boolean;
   rawText: string;
+  senderPhone?: string | null;
+  txStatus?: string | null;
+  consistencyFlags?: string[];
 }
 
 // ─── Timeout helper ───────────────────────────────────────────────────────────
-const AI_TIMEOUT_MS = 15_000;
+const AI_TIMEOUT_MS = 10_000;
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(`${label} timeout after ${ms}ms`)), ms);
@@ -65,7 +68,7 @@ export interface CheckResult {
 }
 
 // ─── Vision Prompt ───────────────────────────────────────────────────────────
-const VISION_PROMPT = `Analisa este comprovativo de pagamento Multicaixa (Angola).
+const VISION_PROMPT = `Analisa este comprovativo de pagamento Multicaixa (Angola). Lê TODOS os dados visíveis e verifica consistência entre eles.
 
 Extrai EXATAMENTE estes dados em JSON (sem texto fora do JSON):
 {
@@ -74,16 +77,22 @@ Extrai EXATAMENTE estes dados em JSON (sem texto fora do JSON):
   "entity": "10116" ou null (entidade de pagamento),
   "reference": "929423278" ou null (referência de pagamento),
   "date": "YYYY-MM-DD HH:mm" ou null,
-  "transactionId": "nº da transação" ou null,
+  "transactionId": "nº da transação" ou null — OBRIGATÓRIO em comprovativos Multicaixa legítimos,
   "isMulticaixa": true/false (se é comprovativo Multicaixa),
+  "senderPhone": "phone do remetente" ou null (se visível),
+  "txStatus": "Concluído"/"Pendente"/"Falhado" ou null (estado da transação),
+  "consistencyFlags": ["inconsistências detetadas"] ou [],
   "rawText": "todo o texto visível no comprovativo, sem formatação"
 }
 
-Regras importantes:
+Regras IMPORTANTES:
 - O valor pode aparecer como "9.900 Kz", "9900", "9 900 Kz", etc — converte sempre para número inteiro
 - Se houver múltiplos valores, escolhe o VALOR PRINCIPAL da transação
 - O phone pode aparecer como "+244 929 423 278" ou "929423278" — normaliza para só dígitos
 - A data pode estar em formato "DD/MM/YYYY HH:mm" ou "DD-MM-YYYY"
+- transactionId: TODO comprovativo Multicaixa tem um nº de transação (ex: "TXN123456", "Ref: 123456"). Se não consegues ler, coloca null — mas indica no consistencyFlags
+- Verifica consistência: se o valor é muito diferente do esperado, ou se há múltiplos valores contraditórios, ou se o phone/entidade não parece válido — adiciona a consistencyFlags
+- Procura sinais de manipulação: fontes diferentes, layout quebrado, cores inconsistentes, texto sobreposto — adiciona a consistencyFlags
 - Se não consegues ler algo, coloca null — não inventes
 - isMulticaixa deve ser true se vires layout, cores ou logo da Multicaixa`;
 
@@ -165,6 +174,9 @@ function normalizeExtracted(raw: Record<string, unknown>, provider: string): Ext
     transactionId: typeof raw.transactionId === 'string' ? raw.transactionId : null,
     isMulticaixa: Boolean(raw.isMulticaixa),
     rawText: String(raw.rawText || '').slice(0, 2000),
+    senderPhone: normalizePhone(String(raw.senderPhone || '')),
+    txStatus: typeof raw.txStatus === 'string' ? raw.txStatus : null,
+    consistencyFlags: Array.isArray(raw.consistencyFlags) ? raw.consistencyFlags.filter(f => typeof f === 'string') : [],
     _provider: provider,
   } as ExtractedProof & { _provider: string };
 }
@@ -204,7 +216,7 @@ function runChecks(
     passed: extracted.isMulticaixa,
     expected: 'Sim',
     actual: extracted.isMulticaixa ? 'Sim' : 'Não',
-    weight: 0.25,
+    weight: 0.20,
   });
 
   // Check 2: Amount matches or exceeds plan price
@@ -214,7 +226,7 @@ function runChecks(
     passed: amountOk,
     expected: `≥ ${expectedAmount.toLocaleString('pt')} Kz`,
     actual: extracted.amount !== null ? `${extracted.amount.toLocaleString('pt')} Kz` : 'Não lido',
-    weight: 0.30,
+    weight: 0.20,
   });
 
   // Check 3: Recipient matches
@@ -226,7 +238,7 @@ function runChecks(
       passed: phoneOk,
       expected: EXPECTED_PHONE,
       actual: extracted.recipientPhone || 'Não lido',
-      weight: 0.25,
+      weight: 0.20,
     });
   } else {
     const entityOk = extracted.entity !== null && extracted.entity.includes(EXPECTED_ENTITY);
@@ -236,7 +248,7 @@ function runChecks(
       passed: entityOk && refOk,
       expected: `${EXPECTED_ENTITY} / ${EXPECTED_REFERENCE}`,
       actual: `${extracted.entity || '?'} / ${extracted.reference || '?'}`,
-      weight: 0.25,
+      weight: 0.20,
     });
   }
 
@@ -246,7 +258,7 @@ function runChecks(
     passed: extracted.rawText.length > 20,
     expected: 'Texto legível',
     actual: `${extracted.rawText.length} caracteres`,
-    weight: 0.10,
+    weight: 0.05,
   });
 
   // Check 5: Amount doesn't wildly exceed (possible overpay — still approve but note)
@@ -256,7 +268,64 @@ function runChecks(
     passed: amountReasonable,
     expected: `< ${(expectedAmount * 3).toLocaleString('pt')} Kz`,
     actual: extracted.amount !== null ? `${extracted.amount.toLocaleString('pt')} Kz` : 'Não lido',
+    weight: 0.05,
+  });
+
+  // Check 6: Transaction ID exists (critical for Multicaixa proofs)
+  const txId = extracted.transactionId;
+  const txIdOk = txId !== null && txId.length >= 3;
+  checks.push({
+    name: 'Transaction ID legível',
+    passed: txIdOk,
+    expected: 'Nº de transação presente',
+    actual: txId || 'Não lido',
+    weight: 0.15,
+  });
+
+  // Check 7: Date is recent (< 48h)
+  let dateOk = false;
+  let dateActual = 'Não lido';
+  if (extracted.date) {
+    const proofDate = new Date(extracted.date);
+    if (!isNaN(proofDate.getTime())) {
+      const now = Date.now();
+      const diffMs = now - proofDate.getTime();
+      const diffH = diffMs / (1000 * 60 * 60);
+      if (diffMs < 0) {
+        dateActual = `${extracted.date} (futuro)`;
+        dateOk = false;
+      } else if (diffH > 48) {
+        dateActual = `${extracted.date} (>48h antigo)`;
+        dateOk = false;
+      } else {
+        dateActual = `${extracted.date} (${Math.round(diffH)}h atrás)`;
+        dateOk = true;
+      }
+    } else {
+      dateActual = `${extracted.date} (data inválida)`;
+      dateOk = false;
+    }
+  }
+  checks.push({
+    name: 'Data recente (< 48h)',
+    passed: dateOk,
+    expected: 'Data das últimas 48h',
+    actual: dateActual,
     weight: 0.10,
+  });
+
+  // Check 8: Amount consistency with plan
+  let amountConsistent = true;
+  if (extracted.amount !== null && expectedAmount > 0) {
+    const ratio = extracted.amount / expectedAmount;
+    amountConsistent = ratio >= 0.95 && ratio <= 5;
+  }
+  checks.push({
+    name: 'Valor consistente com o plano',
+    passed: amountConsistent,
+    expected: '0.95x–5x o preço do plano',
+    actual: extracted.amount !== null ? `${(extracted.amount / expectedAmount).toFixed(1)}x (${extracted.amount.toLocaleString('pt')} Kz)` : 'Não lido',
+    weight: 0.05,
   });
 
   return checks;
@@ -295,7 +364,7 @@ export async function verifyPaymentProof(
         verified: false,
         confidence: 0,
         decision: 'manual_review',
-        extracted: { amount: null, recipientPhone: null, entity: null, reference: null, date: null, transactionId: null, isMulticaixa: false, rawText: '' },
+        extracted: { amount: null, recipientPhone: null, entity: null, reference: null, date: null, transactionId: null, isMulticaixa: false, rawText: '', senderPhone: null, txStatus: null, consistencyFlags: [] },
         checks: [],
         provider: 'none',
         error: `AI vision indisponível: ${geminiErr instanceof Error ? geminiErr.message : 'unknown'}`,
@@ -315,6 +384,15 @@ export async function verifyPaymentProof(
     decision = 'manual_review';
   } else {
     decision = 'auto_reject';
+  }
+
+  // Layer 4: Hard anti-fraud override — transaction_id is mandatory
+  if (decision === 'auto_approve') {
+    const txId = extracted.transactionId;
+    if (!txId || txId.length < 3) {
+      decision = 'manual_review';
+      logWarn('[ProofVerification] auto_approve bloqueado — transaction_id não lido');
+    }
   }
 
   const elapsed = Date.now() - startTime;

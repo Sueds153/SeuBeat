@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { ensureTestProofPng } from './fixtures/mocks';
+import { ensureTestProofPng, skipLyricsValidation } from './fixtures/mocks';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -62,6 +62,13 @@ test('completes wizard -> selects plan -> submits payment', async ({ page }) => 
   });
   await page.route('**/api/payment-status*', async (route) => {
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'approved', notes: null }) });
+  });
+  await page.route('**/api/song/*/lyrics', async (route) => {
+    if (route.request().method() === 'PUT') {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true }) });
+    } else {
+      await route.fulfill();
+    }
   });
 
   // Clear state
@@ -140,6 +147,9 @@ test('completes wizard -> selects plan -> submits payment', async ({ page }) => 
 
   // Submit payment
   await page.locator('button:has-text("Enviar Comprovativo e Libertar a Música")').click();
+
+  // Skip lyrics validation step (lyricsValidating screen)
+  await skipLyricsValidation(page);
 
   // Wait for approval success
   await expect(page.getByText(/Ver dedicatória/i)).toBeVisible({ timeout: 30000 });
