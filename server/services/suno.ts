@@ -139,23 +139,27 @@ function collectAudioUrls(value: unknown, urls: string[] = []): string[] {
   return urls;
 }
 
+// NOTA: entradas sem descritores de timbre vocal (ex.: "intimate breathy vocal",
+// "powerful commanding vocal") — o timbre/género é exclusivo de VOICE_STYLE_MAP,
+// que agora vem PRIMEIRO no stylePrompt (ver buildSunoStylePrompt). Descritores
+// de vocal aqui competiam com o token de género e afogavam-no no meio da string.
 const STYLE_MAP: Record<string, string> = {
-  kizomba: 'kizomba, Fender Stratocaster clean tone, deep smooth bass guitar, Roland TR-808 drum machine, warm synthesizer pads, intimate breathy vocal, sensual slow groove, 75bpm, professional studio mix, analog warmth',
-  semba: 'semba, acoustic nylon-string guitar, traditional angolan bateria percussion, cavaquinho, bright bass guitar, energetic rhythmic vocal, live band feel, 115bpm, warm analog recording, Luanda nightlife energy',
-  zouk: 'zouk, Caribbean romantic, synthesizer pads, electronic drums, smooth bass, electric guitar arpeggios, soft melodic vocal, 95bpm, polished studio production, island vibes',
-  samba: 'samba, surdo bass drum, caixa snare, pandeiro tambourine, tamborim, agogo bells, cavaquinho, energetic group vocal, carnival celebration, 125bpm, live percussion ensemble, festive Brazilian rhythm',
-  afrobeat: 'afrobeat, Fela Kuti style, tenor saxophone, trumpet section, electric guitar interlocking riffs, congas, shekere, talking drum, powerful commanding vocal, 110bpm, polyrhythmic layers, horn-driven groove',
-  funk: 'funk angolano, electronic beat, heavy 808 bass, synthesizer leads, scratchy rhythm guitar, syncopated drum machine, energetic party vocal, 125bpm, club-ready production, dance floor anthem',
-  trap: 'trap, 808 sub-bass, rolling hi-hats, dark synthesizer, snare rolls, ambient pads, autotuned vocal, 140bpm, modern hip hop production, atmospheric dark vibe',
-  rap: 'rap, boom bap drums, sampled piano loops, deep bass, vinyl crackle, raw lyrical vocal, 90bpm, underground hip hop feel, gritty street production',
-  reggae: 'reggae, offbeat guitar skank, deep bass guitar, Hammond organ, one-drop drums, relaxed grooving vocal, 80bpm, Jamaican studio vibe, warm analog sound',
-  pop: 'pop, catchy synthesizer hook, four-on-the-floor drums, polished bass, layered vocal harmonies, radio-ready production, 120bpm, modern studio sheen, sing-along chorus',
-  balada: 'ballad, Yamaha grand piano, orchestral strings, emotional crescendo, soft drums building to powerful, soulful ballad vocal, 70bpm, cinematic orchestration, tear-jerking emotion',
-  gospel: 'gospel, Hammond B3 organ, gospel piano, choir harmonies, powerful lead vocal, tambourine, 80bpm, church choir energy, spiritual uplifting, full rich sound',
-  acoustic: 'acoustic, fingerpicked nylon-string guitar, intimate close-mic vocal, minimal percussion, warm natural sound, 80bpm, stripped-down unplugged session, raw honest emotion',
-  'romantic pop': 'romantic pop, emotional piano, lush string arrangement, synthesizer pads, gentle drums, smooth melodic vocal, 90bpm, modern radio ballad, polished emotional production',
-  'r&b': 'contemporary R&B, Fender Rhodes electric piano, smooth synthesizer, deep bass, neo-soul drums, melismatic vocal runs, falsetto, 85bpm, slow jam groove, sensual intimate production',
-  hino: 'anthem, full orchestra, brass section, choir, timpani drums, epic cinematic, majestic powerful vocal, 80bpm, grandiose production, inspirational triumphant',
+  kizomba: 'kizomba, Fender Stratocaster clean tone, deep smooth bass guitar, Roland TR-808 drum machine, warm synthesizer pads, sensual slow groove, 75bpm, professional studio mix, analog warmth',
+  semba: 'semba, acoustic nylon-string guitar, traditional angolan bateria percussion, cavaquinho, bright bass guitar, live band feel, 115bpm, warm analog recording, Luanda nightlife energy',
+  zouk: 'zouk, Caribbean romantic, synthesizer pads, electronic drums, smooth bass, electric guitar arpeggios, 95bpm, polished studio production, island vibes',
+  samba: 'samba, surdo bass drum, caixa snare, pandeiro tambourine, tamborim, agogo bells, cavaquinho, carnival celebration, 125bpm, live percussion ensemble, festive Brazilian rhythm',
+  afrobeat: 'afrobeat, Fela Kuti style, tenor saxophone, trumpet section, electric guitar interlocking riffs, congas, shekere, talking drum, 110bpm, polyrhythmic layers, horn-driven groove',
+  funk: 'funk angolano, electronic beat, heavy 808 bass, synthesizer leads, scratchy rhythm guitar, syncopated drum machine, 125bpm, club-ready production, dance floor anthem',
+  trap: 'trap, 808 sub-bass, rolling hi-hats, dark synthesizer, snare rolls, ambient pads, 140bpm, modern hip hop production, atmospheric dark vibe',
+  rap: 'rap, boom bap drums, sampled piano loops, deep bass, vinyl crackle, 90bpm, underground hip hop feel, gritty street production',
+  reggae: 'reggae, offbeat guitar skank, deep bass guitar, Hammond organ, one-drop drums, 80bpm, Jamaican studio vibe, warm analog sound',
+  pop: 'pop, catchy synthesizer hook, four-on-the-floor drums, polished bass, radio-ready production, 120bpm, modern studio sheen, sing-along chorus',
+  balada: 'ballad, Yamaha grand piano, orchestral strings, emotional crescendo, soft drums building to powerful, 70bpm, cinematic orchestration, tear-jerking emotion',
+  gospel: 'gospel, Hammond B3 organ, gospel piano, choir harmonies, tambourine, 80bpm, church choir energy, spiritual uplifting, full rich sound',
+  acoustic: 'acoustic, fingerpicked nylon-string guitar, minimal percussion, warm natural sound, 80bpm, stripped-down unplugged session, raw honest emotion',
+  'romantic pop': 'romantic pop, emotional piano, lush string arrangement, synthesizer pads, gentle drums, 90bpm, modern radio ballad, polished emotional production',
+  'r&b': 'contemporary R&B, Fender Rhodes electric piano, smooth synthesizer, deep bass, neo-soul drums, 85bpm, slow jam groove, sensual intimate production',
+  hino: 'anthem, full orchestra, brass section, choir, timpani drums, epic cinematic, 80bpm, grandiose production, inspirational triumphant',
 };
 
 function extractTaskId(payload: unknown): string | null {
@@ -222,10 +226,13 @@ export function extractBothAudioUrls(payload: unknown): { v1: string | null; v2:
 }
 
 const VOICE_STYLE_MAP: Record<string, string> = {
-  masculina: 'male vocal, professional studio recording, warm baritone tone, natural vibrato, intimate breathy delivery, emotional depth, crisp clear articulation',
-  feminina: 'female vocal, professional studio recording, expressive soprano tone, natural vibrato, sensual breathy delivery, emotional range, crystal clear diction',
+  masculina: 'male vocal, professional studio recording, warm baritone tone, natural vibrato, emotional depth, crisp clear articulation',
+  feminina: 'female vocal, professional studio recording, expressive soprano tone, natural vibrato, emotional range, crystal clear diction',
   dueto: 'male and female duet, call and response, harmonized vocal layers, romantic interplay, professional studio recording, blended voices, emotional chemistry',
-  'sem preferência': '',
+  // Token explícito para 'sem preferência' — antes era '' (string vazia), o que
+  // resultava em NENHUM token de voz no stylePrompt (H1). Um lead vocal neutro
+  // mas forte dá um sinal de timbre claro sem pinar género.
+  'sem preferência': 'expressive lead vocal, professional studio recording, dynamic delivery, clear articulation',
 };
 
 const EMOTION_STYLE_MAP: Record<string, string> = {
@@ -263,6 +270,54 @@ const ACCENT_STYLE_MAP: Record<string, string> = {
 };
 const SUNO_ACCENT_ENABLED = process.env.SUNO_ACCENT_ENABLED !== 'false';
 const PORTUGUESE_TEXT_RE = /[àáâãéêíóôõúç]/i;
+
+/**
+ * Constrói o `style` enviado ao Suno. Ordem deliberada (P1 — timbre):
+ * 1. VOICE_STYLE_MAP primeiro — o token de género/timbre tem prioridade máxima
+ *    e não é afogado pelos ~500 chars do baseStyle.
+ * 2. baseStyle (instrumentação/ritmo) — sem descritores de timbre vocal
+ *    (removidos para não competirem com o token de género).
+ * 3. emoção, artista, sotaque (Angolan Portuguese vocal) — reforços finais.
+ */
+export function buildSunoStylePrompt(
+  lyricsText: string,
+  musicStyle: string,
+  extraParams?: { voiceType?: string; desiredEmotion?: string; referenceArtist?: string }
+): { stylePrompt: string; accentApplied: boolean } {
+  const parts: string[] = [];
+
+  // 1. Voz/género PRIMEIRO (maior peso para o modelo)
+  if (extraParams?.voiceType) {
+    const voiceStyle = VOICE_STYLE_MAP[extraParams.voiceType.trim().toLowerCase()];
+    if (voiceStyle) parts.push(voiceStyle);
+  }
+
+  // 2. Estilo base (instrumentação + ritmo)
+  const baseStyle = STYLE_MAP[musicStyle.trim().toLowerCase()] || 'romantic, emotional pop';
+  parts.push(baseStyle);
+
+  // 3. Emoção
+  if (extraParams?.desiredEmotion) {
+    const emotionStyle = EMOTION_STYLE_MAP[extraParams.desiredEmotion.trim().toLowerCase()];
+    if (emotionStyle) parts.push(emotionStyle);
+  }
+
+  // 4. Artista de referência
+  if (extraParams?.referenceArtist) {
+    const artistStyle = ARTIST_STYLE_MAP[extraParams.referenceArtist.trim()];
+    if (artistStyle) parts.push(artistStyle);
+  }
+
+  // 5. Sotaque Angolano (sempre em português)
+  const isPortugueseLyrics = PORTUGUESE_TEXT_RE.test(lyricsText);
+  const accentApplied = SUNO_ACCENT_ENABLED && isPortugueseLyrics;
+  if (accentApplied) {
+    const accentStyle = ACCENT_STYLE_MAP[musicStyle.trim().toLowerCase()];
+    if (accentStyle) parts.push(accentStyle);
+  }
+
+  return { stylePrompt: parts.join(', '), accentApplied };
+}
 
 const ARTIST_STYLE_MAP: Record<string, string> = {
   'Anselmo Ralph': 'anselmo ralph style, romantic kizomba, warm tenor vocal, soft brass, zouk',
@@ -374,32 +429,9 @@ export async function startSunoMusic(lyrics: string[] | string, musicStyle: stri
     // Falha na verificação de créditos não impede o fluxo
   }
 
-  const baseStyle = STYLE_MAP[musicStyle.trim().toLowerCase()] || 'romantic, emotional pop';
-  const parts = [baseStyle];
-
-  if (extraParams?.voiceType) {
-    const voiceStyle = VOICE_STYLE_MAP[extraParams.voiceType.trim().toLowerCase()];
-    if (voiceStyle) parts.push(voiceStyle);
-  }
-
-  if (extraParams?.desiredEmotion) {
-    const emotionStyle = EMOTION_STYLE_MAP[extraParams.desiredEmotion.trim().toLowerCase()];
-    if (emotionStyle) parts.push(emotionStyle);
-  }
-
-  if (extraParams?.referenceArtist) {
-    const artistStyle = ARTIST_STYLE_MAP[extraParams.referenceArtist.trim()];
-    if (artistStyle) parts.push(artistStyle);
-  }
-
-  const isPortugueseLyrics = PORTUGUESE_TEXT_RE.test(lyricsText);
-  const accentApplied = SUNO_ACCENT_ENABLED && isPortugueseLyrics;
-  if (accentApplied) {
-    const accentStyle = ACCENT_STYLE_MAP[musicStyle.trim().toLowerCase()];
-    if (accentStyle) parts.push(accentStyle);
-  }
-
-  const stylePrompt = parts.join(', ');
+  const stylePromptResult = buildSunoStylePrompt(lyricsText, musicStyle, extraParams);
+  const stylePrompt = stylePromptResult.stylePrompt;
+  const accentApplied = stylePromptResult.accentApplied;
 
   logInfo('[Suno] Submitting music generation task', {
     style: musicStyle,

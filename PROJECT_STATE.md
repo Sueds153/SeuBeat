@@ -19,7 +19,7 @@
 ### Produção
 - **URL**: https://seubeat.onrender.com
 - **Último deploy**: commit `3234ede` (schema cache fallback ai_verified/verification_result)
-- **Testes**: 435 passam (34 ficheiros), `tsc --noEmit` limpo, **32 E2E Playwright passam**
+- **Testes**: 450 passam (35 ficheiros), `tsc --noEmit` limpo, **32 E2E Playwright passam**
 
 ### DB Schema (tabelas principais)
 - `song_requests` — pedido do cliente (status, dados wizard)
@@ -87,6 +87,10 @@
     - **P2.6** `languageInstruction` idiomas nacionais suavizados ("não força a lista").
     - **Duplicações 15× corrigidas** (script temporário, já removido): `aiShared.ts` (const 1×), `LEIA-ME.txt` (secção 1×), `aiShared.test.ts` (testes 1×).
     - **Suite: 438 testes** (34 ficheiros) passam; `tsc --noEmit`/lint limpos.
+15. **P1+P2 timbre/voz — todas as músicas pareciam ter o mesmo timbre** (22/Set, sem commit — aguarda pedido):
+    - **P1** (`server/services/suno.ts`): `STYLE_MAP` sem descritores de timbre vocal (competiam com o token de género); `VOICE_STYLE_MAP['sem preferência']` deixou de ser `''`; nova `buildSunoStylePrompt()` — ordem: voz/género **primeiro** → baseStyle → emoção → artista → sotaque. `ACCENT_STYLE_MAP` intocado.
+    - **P2** (`server/services/workflow/voiceCloning.ts`): falha de clonagem Premium deixou de ser silenciosa — retry 1× só p/ transitórios (`Internal Error`, `not ready after N`), frase expirada do wizard → regenera frase nova e tenta de novo, e falha final grava `error_details` + **`sendAdminNotification`** ao admin (antes: 11/12 clonagens falhavam sem alerta).
+    - **Testes**: novo `suno-style.test.ts` (10) + `process-suno-voice.test.ts` 5→7 (retry transitório, fallback frase expirada, admin notification). **Suite: 450 testes** (35 ficheiros); `tsc`/lint limpos.
 14. **Teste real de geração DeepSeek validado** — script temporário `test-real-generation.ts` (removido) com formData realista (Ana, aniversário, Kizomba, Luanda):
     - Provider deepseek, **3.5s**, custo ~$0.003.
     - **0 issues, 0 warnings, 0 termos forçados, 0 marcadores em falta** (6/6 na ordem correta).

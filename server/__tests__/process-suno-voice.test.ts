@@ -46,6 +46,7 @@ import {
   waitForVoiceId,
   checkVoiceAvailability,
 } from '../services/suno-voice';
+import { sendAdminNotification } from '../services/email';
 import { processSunoVoice } from '../services/workflow';
 
 function buildSupabaseMock(row: unknown) {
@@ -162,6 +163,56 @@ describe('processSunoVoice', () => {
     const failedUpdate = updateCalls.find((u) => u.table === 'song_requests');
     expect(failedUpdate).toBeDefined();
     expect(String((failedUpdate!.payload as Record<string, unknown>).elevenlabs_voice_id)).toContain('failed');
+    // P2: admin é notificado quando a clonagem falha (não mais silencioso)
+    expect(sendAdminNotification).toHaveBeenCalledTimes(1);
+    const [subject, message] = (sendAdminNotification as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(subject).toContain('Clonagem de voz Premium falhou');
+    expect(message).toContain('req-3');
+  });
+
+  it('retry uma vez em erro transitório (Internal Error)', async () => {
+    vi.useFakeTimers();
+    try {
+      const row = { language: 'Português', elevenlabs_voice_id: '{"validation_task_id":"vt-t"}' };
+      const { client } = buildSupabaseMock(row);
+      (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(client);
+      (createCustomVoice as ReturnType<typeof vi.fn>)
+        .mockRejectedValueOnce(new Error('Internal Error, Please try again later'))
+        .mockResolvedValueOnce({ taskId: 'create-t', voiceId: null, status: 'processing' });
+      (waitForVoiceId as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'create-t', voiceId: 'voice-t', status: 'success' });
+      (checkVoiceAvailability as ReturnType<typeof vi.fn>).mockResolvedValue({ isAvailable: true });
+
+      const promise = processSunoVoice('req-t', 'song-t', 'http://sample.example.com/t.wav');
+      await vi.advanceTimersByTimeAsync(5100);
+      const result = await promise;
+
+      expect(result).toBe('voice-t');
+      expect(createCustomVoice).toHaveBeenCalledTimes(2);
+      expect(sendAdminNotification).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('frase do wizard expirada → regenera frase nova e tenta de novo', async () => {
+    const row = { language: 'Português', elevenlabs_voice_id: '{"validation_task_id":"vt-old"}' };
+    const { client } = buildSupabaseMock(row);
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(client);
+    (createCustomVoice as ReturnType<typeof vi.fn>)
+      .mockRejectedValueOnce(new Error('Verification phrase expired or not found'))
+      .mockResolvedValueOnce({ taskId: 'create-x', voiceId: null, status: 'processing' });
+    (waitForVoiceId as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'create-x', voiceId: 'voice-x', status: 'success' });
+    (generateValidationPhrase as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'val-new' });
+    (waitForValidationPhrase as ReturnType<typeof vi.fn>).mockResolvedValue({ taskId: 'val-new', validateInfo: 'frase nova', status: 'success' });
+    (checkVoiceAvailability as ReturnType<typeof vi.fn>).mockResolvedValue({ isAvailable: true });
+
+    const result = await processSunoVoice('req-x', 'song-x', 'http://sample.example.com/x2.wav');
+
+    expect(result).toBe('voice-x');
+    expect(generateValidationPhrase).toHaveBeenCalledTimes(1);
+    expect(createCustomVoice).toHaveBeenCalledTimes(2);
+    expect((createCustomVoice as ReturnType<typeof vi.fn>).mock.calls[1][0]).toBe('val-new');
+    expect(sendAdminNotification).not.toHaveBeenCalled();
   });
 
   it('fallback gera frase sem sobrescrever verifyUrl com amostra livre', async () => {
