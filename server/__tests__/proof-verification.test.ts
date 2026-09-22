@@ -503,6 +503,53 @@ describe('proofVerification', () => {
       expect(dateCheck?.passed).toBe(false);
       expect(dateCheck?.actual).toBe('Não lido');
     });
+
+    it('parses Angola DD/MM/YYYY recent date as pass', async () => {
+      // Day-first format used on Multicaixa receipts (e.g. 22/09/2026 = 22 Sep 2026)
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, '0');
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const yyyy = now.getFullYear();
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 15000,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: `${dd}/${mm}/${yyyy} 01:26`,
+          transactionId: 'TXN12345',
+          isMulticaixa: true,
+          rawText: 'Pagamento Multicaixa Express 15000 Kz Confirmado',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      const dateCheck = result.checks.find(c => c.name.includes('Data recente'));
+      expect(dateCheck?.passed).toBe(true);
+      expect(result.decision).toBe('auto_approve');
+    });
+
+    it('rejects old DD/MM/YYYY date as >48h antigo', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 9900,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: '15/09/2026 14:30',
+          transactionId: 'TXN12345',
+          isMulticaixa: true,
+          rawText: 'Pagamento Multicaixa Express 9900 Kz Confirmado',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      const dateCheck = result.checks.find(c => c.name.includes('Data recente'));
+      expect(dateCheck?.passed).toBe(false);
+      expect(dateCheck?.actual).toContain('>48h antigo');
+    });
   });
 
   // ── Anti-fraud: Amount consistency ────────────────────────────────────────

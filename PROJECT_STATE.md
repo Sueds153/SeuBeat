@@ -19,7 +19,7 @@
 ### Produção
 - **URL**: https://seubeat.onrender.com
 - **Último deploy**: commit `3234ede` (schema cache fallback ai_verified/verification_result)
-- **Testes**: 431 passam (34 ficheiros), `tsc --noEmit` limpo, **32 E2E Playwright passam**
+- **Testes**: 433 passam (34 ficheiros), `tsc --noEmit` limpo, **32 E2E Playwright passam**
 
 ### DB Schema (tabelas principais)
 - `song_requests` — pedido do cliente (status, dados wizard)
@@ -91,6 +91,11 @@
    - **Fix 2**: `AI_TIMEOUT_MS` reduzido de 15s→10s em `proofVerification.ts` — worst-case do handler cai de ~35s para ~25s, dentro do limite de 30s do Render proxy.
    - **Resultado**: 419 testes passam; `tsc --noEmit` limpo.
 5. **Pedido do utilizador mantém `lyrics_ready`** — o estado não está corrompido; o utilizador pode retentar o upload pelo Wizard normalmente.
+6. **Migrações payments re-aplicadas com sucesso (22/Set 15:45)** — `add_payment_verification_result_columns` + `add_payment_proof_dedup_columns` via MCP `supabase` (projeto `uqmqkntnpuecswcrtulz`). Colunas confirmadas: `verification_result jsonb`, `ai_verified boolean`, `proof_hash text`, `transaction_id text` + índices + `NOTIFY pgrst`.
+7. **Chaves AI em produção confirmadas** — `GET /health` devolve `gemini: ok` (`gemini-2.5-flash`, available) + `deepseek: ok` ($1.39 saldo) + `env.openai: true` / `env.gemini: true`. NOTA: `/health` não reporta saldo OpenAI (só presença da key).
+8. **Fix normalização de data AI** — `parseProofDate()` em `proofVerification.ts` aceita agora `DD/MM/YYYY [HH:mm]` (formato Multicaixa/Angola) além de ISO e `YYYY-MM-DD HH:mm`; valida ranges (mês 1–12, dia 1–31) e prefere day-first quando ambíguo. Antes: `new Date("22/09/2026 01:26")` → Invalid Date → check de data falhava → perdia 0.10 de confiança → comprovativos legítimos podiam cair em `manual_review` por engano. **Thresholds NÃO alterados** (`PROOF_AUTO_APPROVE_THRESHOLD=0.85`, `PROOF_AUTO_REJECT_THRESHOLD=0.50`); override de `transactionId` mantido estrito. +2 testes (31→33 no ficheiro; suite 431+2).
+9. **Causa `manual_review` no c4ca21cf (12/Set 12:02) concluída por código** — comprovativo sem Transaction ID legível (só `639182******5895` mascarado) → AI `transactionId: null` → conf. 0.85 → **override Layer 4 força `manual_review`** (`public.ts:1377-1384` + `proofVerification.ts:389-396`). Comprovativo: Express 15.000 Kz, phone 929423278 ✓, data 2026-09-22 01:26:55 ✓. Admin aprovou 12:07:18 (`notes: "Pagamento verificado e aprovado."`); delivered 12:10:02. Logs Render dessa janela não retidos (free tier).
+10. **`render_list_env_vars` indisponível** — tool não existe no MCP Render (só `render_update_environment_variables` / `render_get_service`). Verificação de keys AI em prod via `/health` (confirmado).
 
 ### Melhorias Hoje (21/Set 2026)
 1. **Health & Observabilidade** — `unhandledRejection`/`uncaughtException` handlers em `server.ts`; httpLogger filtra `/health`, OPTIONS, assets estáticos; `console.*` substituídos por logger estruturado (audio.ts, env.ts, admin.ts, public.ts).
@@ -107,6 +112,9 @@
 - WhatsApp verificação formal impossível para +244 (limitação Meta error 136024)
 - Pagamentos antigos com `verification_result` = NULL (re-analisar manualmente)
 - Re-analyze não atualiza `ai_verified` (inconsistência menor)
+- **Commit pendente** — fix de data (`parseProofDate`) + testes + PROJECT_STATE ainda não commitados (aguardar pedido do utilizador)
+- Cap PostgREST 1000 linhas — rota `/songs` (`admin.ts:738-752`) — não tocar (adiado)
+- `/health` não valida saldo OpenAI (só presença da key) — melhorar futuramente
 
 ### Env Vars Críticas (Render)
 - `SUPABASE_SERVICE_ROLE_KEY` — não está no .env local

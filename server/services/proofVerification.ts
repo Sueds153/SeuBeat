@@ -201,6 +201,41 @@ function normalizeDigits(s: string): string | null {
   return digits.length > 0 ? digits : null;
 }
 
+// Parse AI date strings robustly: ISO, "YYYY-MM-DD HH:mm", DD/MM/YYYY, DD-MM-YYYY.
+// Angola receipts use DD/MM/YYYY — prefer day-first when ambiguous (e.g. 05/09 = 5 Sep).
+// Returns a Date or null (null → check fails, same as before).
+function parseProofDate(raw: string): Date | null {
+  const s = raw.trim();
+  if (!s) return null;
+
+  // Already ISO-ish or "YYYY-MM-DD HH:mm" — Date handles both in V8
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const d = new Date(s.replace(' ', 'T'));
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // DD/MM/YYYY or DD-MM-YYYY [HH:mm[:ss]]
+  const m = s.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})(?:[ ,T]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if (m) {
+    const [, dd, mm, yyyy, hh, mi, ss] = m;
+    const day = Number(dd);
+    const month = Number(mm);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    const d = new Date(
+      Number(yyyy),
+      month - 1,
+      day,
+      Number(hh || 0),
+      Number(mi || 0),
+      Number(ss || 0),
+    );
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  const fallback = new Date(s);
+  return isNaN(fallback.getTime()) ? null : fallback;
+}
+
 // ─── Rule-based checks ──────────────────────────────────────────────────────
 function runChecks(
   extracted: ExtractedProof,
@@ -286,8 +321,8 @@ function runChecks(
   let dateOk = false;
   let dateActual = 'Não lido';
   if (extracted.date) {
-    const proofDate = new Date(extracted.date);
-    if (!isNaN(proofDate.getTime())) {
+    const proofDate = parseProofDate(extracted.date);
+    if (proofDate) {
       const now = Date.now();
       const diffMs = now - proofDate.getTime();
       const diffH = diffMs / (1000 * 60 * 60);
