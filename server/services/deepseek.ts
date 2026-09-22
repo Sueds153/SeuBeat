@@ -44,7 +44,7 @@ export async function generateLyricsWithDeepSeek(formData: WizardFormData): Prom
     const response = await deepseek.chat.completions.create({
       model: DEEPSEEK_MODEL,
       max_tokens: 4000,
-      temperature: 0.65,
+      temperature: 0.75,
       response_format: { type: 'json_object' },
       // DeepSeek: desliga o modo de raciocínio (thinking) para permitir temperatura
       // e reduzir custo/latência. `thinking` é um campo específico da API DeepSeek.

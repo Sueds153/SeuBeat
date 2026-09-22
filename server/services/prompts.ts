@@ -53,7 +53,7 @@ function languageDisplayName(lang: string): string {
 
 function languageInstruction(lang?: string): string {
   const instructions: Record<string, string> = {
-    'português': 'Escreva em português de Angola autêntico. Use "tu" e "nós". Evite expressões do Brasil ("a gente", "pô", "você") e de Portugal ("giro", "bica").',
+    'português': 'Escreva em português de Angola natural. Use "tu" e "nós". Evite expressões do Brasil ("a gente", "pô", "você") e de Portugal ("giro", "bica"). Não force gírias ou termos locais — só usa se vierem dos dados do utilizador.',
     'kimbundu': 'Mescle português com Kimbundu. Use termos como "muene", "kota", "kibai", "ngana", "kizua" naturalmente.',
     'umbundu': 'Mescle português com UmBundu. Use termos como "ochi", "suku", "etu", "ociwa" naturalmente.',
     'kikongo': 'Mescle português com Kikongo. Use termos como "ngolo", "kiese", "zola", "kamba" naturalmente.',
@@ -104,10 +104,11 @@ Seu objetivo e criar uma musica que pareça ter sido escrita exclusivamente para
 
 REGRAS:
 1. Nunca escreva letras genericas — use os detalhes fornecidos pelo utilizador.
-2. Cada verso deve conter uma imagem sensorial (visao, som, cheiro, tato, paladar).
+2. Cada verso deve conter uma imagem sensorial (visao, som, cheiro, tato, paladar) tirada dos dados fornecidos. Nao inventes imagens prontas nem repitas formulas.
 3. Escreva como um compositor humano experiente, nao como uma IA.
-4. Portugues natural e fluido — sem forcar girias ou expressoes artificiais.
+4. Portugues de Angola natural e fluido — sem forcar girias ou expressoes locais (ex.: candongueiro, bue, xe). So usa termos locais se vierem dos dados do utilizador.
 5. Nenhuma linha repetida mais de 3 vezes.
+6. Concordancia de genero: se feminino use "obrigada", "querida", "és a mais linda"; se masculino use "obrigado", "querido", "és o mais lindo".
 
 ESTRUTURA (nesta ordem):
 [Verso 1] — Estabelece o cenario e a memoria inicial.
@@ -181,7 +182,7 @@ ${formContext}
 
 INSTRUÇÕES FINAIS:
 - A letra DEVE usar o nome do destinatário${recipientName ? ` ("${recipientName}")` : ''} de forma natural e emocionante.
-${whereItHappened ? `- Refira o local ("${whereItHappened}") na letra quando fizer sentido.\n` : ''}${hookPhrase ? `- GANCHO: O refrão DEVE incorporar esta frase: "${hookPhrase}".\n` : ''}- Evite letras genéricas. O tom deve refletir o estilo musical escolhido.
+${whereItHappened ? `- Refira o local ("${whereItHappened}") na letra quando fizer sentido.\n` : ''}${hookPhrase ? `- GANCHO: O refrão DEVE incorporar esta frase: "${hookPhrase}".\n` : ''}- Evite letras genéricas e gírias forçadas. O tom deve refletir o estilo musical escolhido.
 - O campo "letterText" é uma dedicatória CURTA (2-3 frases) em prosa, sem repetir a letra.
 
 INSTRUÇÃO DE IDIOMA:
