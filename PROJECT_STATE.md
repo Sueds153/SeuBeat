@@ -19,7 +19,7 @@
 ### Produção
 - **URL**: https://seubeat.onrender.com
 - **Último deploy**: commit `3234ede` (schema cache fallback ai_verified/verification_result)
-- **Testes**: 433 passam (34 ficheiros), `tsc --noEmit` limpo, **32 E2E Playwright passam**
+- **Testes**: 435 passam (34 ficheiros), `tsc --noEmit` limpo, **32 E2E Playwright passam**
 
 ### DB Schema (tabelas principais)
 - `song_requests` — pedido do cliente (status, dados wizard)
@@ -96,6 +96,14 @@
 8. **Fix normalização de data AI** — `parseProofDate()` em `proofVerification.ts` aceita agora `DD/MM/YYYY [HH:mm]` (formato Multicaixa/Angola) além de ISO e `YYYY-MM-DD HH:mm`; valida ranges (mês 1–12, dia 1–31) e prefere day-first quando ambíguo. Antes: `new Date("22/09/2026 01:26")` → Invalid Date → check de data falhava → perdia 0.10 de confiança → comprovativos legítimos podiam cair em `manual_review` por engano. **Thresholds NÃO alterados** (`PROOF_AUTO_APPROVE_THRESHOLD=0.85`, `PROOF_AUTO_REJECT_THRESHOLD=0.50`); override de `transactionId` mantido estrito. +2 testes (31→33 no ficheiro; suite 431+2).
 9. **Causa `manual_review` no c4ca21cf (12/Set 12:02) concluída por código** — comprovativo sem Transaction ID legível (só `639182******5895` mascarado) → AI `transactionId: null` → conf. 0.85 → **override Layer 4 força `manual_review`** (`public.ts:1377-1384` + `proofVerification.ts:389-396`). Comprovativo: Express 15.000 Kz, phone 929423278 ✓, data 2026-09-22 01:26:55 ✓. Admin aprovou 12:07:18 (`notes: "Pagamento verificado e aprovado."`); delivered 12:10:02. Logs Render dessa janela não retidos (free tier).
 10. **`render_list_env_vars` indisponível** — tool não existe no MCP Render (só `render_update_environment_variables` / `render_get_service`). Verificação de keys AI em prod via `/health` (confirmado).
+11. **Opção B — Transaction IDs mascarados aceites sem afrouxar anti-fraud** (22/Set, commit pendente):
+    - **Problema**: screenshots Multicaixa mostram ID parcialmente mascarado (ex: `639182******5895`) → prompt antigo não instruía a extrair com asteriscos → AI devolvia `null` → Check 6 falhava (−0.15) mas conf. ficava exatamente 0.85, e o Layer 4 antigo (`length < 3`) forçava `manual_review` mesmo com 7/7 checks certos.
+    - **Fix** (`server/services/proofVerification.ts`):
+      - `VISION_PROMPT` reescrito: extrair o ID exatamente como visível (com asteriscos); `null` só se nenhum número visível; exemplo `639182******5895` documentado.
+      - Novo helper **`isTxIdAcceptable(txId)`** (exportado): null/curto → rejeita; **mascarado (contém `*`) exige ≥6 dígitos visíveis**; não-mascarado ≥3 dígitos ou ≥1 letra.
+      - **Check 6** e **Layer 4** (`proofVerification.ts`) e **override** (`public.ts:1377-1384`) agora usam o mesmo helper → invariante check6 == Layer4 restaurado (o Layer 4 nunca fica mais frouxo que o Check 6).
+    - **Anti-fraud intacto**: thresholds inalterados (0.85/0.50); IDs mascarados com <6 dígitos (ex: `12***34`) continuam a cair em `manual_review`; dedupe cross-request por `transaction_id` inalterado.
+    - **Testes**: +2 em `proof-verification.test.ts` (auto_approve com `639182******5895`; `12***34` → manual_review). **Suite: 435 testes** (34 ficheiros) passam; `tsc --noEmit` limpo.
 
 ### Melhorias Hoje (21/Set 2026)
 1. **Health & Observabilidade** — `unhandledRejection`/`uncaughtException` handlers em `server.ts`; httpLogger filtra `/health`, OPTIONS, assets estáticos; `console.*` substituídos por logger estruturado (audio.ts, env.ts, admin.ts, public.ts).
@@ -112,7 +120,7 @@
 - WhatsApp verificação formal impossível para +244 (limitação Meta error 136024)
 - Pagamentos antigos com `verification_result` = NULL (re-analisar manualmente)
 - Re-analyze não atualiza `ai_verified` (inconsistência menor)
-- **Commit pendente** — fix de data (`parseProofDate`) + testes + PROJECT_STATE ainda não commitados (aguardar pedido do utilizador)
+- **Commit pendente** — fix de data (`parseProofDate`) + Opção B (IDs mascarados, `isTxIdAcceptable`) + testes + PROJECT_STATE ainda não commitados (aguardar pedido do utilizador)
 - Cap PostgREST 1000 linhas — rota `/songs` (`admin.ts:738-752`) — não tocar (adiado)
 - `/health` não valida saldo OpenAI (só presença da key) — melhorar futuramente
 

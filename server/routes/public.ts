@@ -13,7 +13,7 @@ import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification } f
 import { sendDeliveryWhatsApp } from '../services/whatsapp';
 import { generateServerEventId } from '../services/metaPixelCapi';
 import { sendSubmitApplicationEvent, sendLeadEvent, sendCompleteRegistrationEvent, sendInitiateCheckoutEvent, sendAddPaymentInfoEvent } from '../services/metaPixelCapi';
-import { verifyPaymentProof, type VerificationResult } from '../services/proofVerification';
+import { verifyPaymentProof, isTxIdAcceptable, type VerificationResult } from '../services/proofVerification';
 // DOMPurify lazy-loaded (saves ~200-500ms cold start — jsdom is heavy)
 let dompurifyModule: typeof import('isomorphic-dompurify') | null = null;
 async function sanitize(str: string): Promise<string> {
@@ -1375,12 +1375,11 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
     proofVerification = await verificationPromise;
 
     // ── Anti-fraud: force manual_review if transaction_id not readable ─────
-    if (proofVerification && proofVerification.decision === 'auto_approve') {
-      const txId = proofVerification.extracted?.transactionId;
-      if (!txId || txId.length < 3) {
-        proofVerification.decision = 'manual_review';
-        logWarn('[API] Auto-approve bloqueado — transaction_id não lido', { songRequestId });
-      }
+    // Same rule as Check 6 / Layer 4 in proofVerification (isTxIdAcceptable).
+    if (proofVerification && proofVerification.decision === 'auto_approve'
+        && !isTxIdAcceptable(proofVerification.extracted?.transactionId)) {
+      proofVerification.decision = 'manual_review';
+      logWarn('[API] Auto-approve bloqueado — transaction_id não lido', { songRequestId });
     }
 
     let paymentStatus = 'pending_verification';

@@ -77,7 +77,9 @@ Extrai EXATAMENTE estes dados em JSON (sem texto fora do JSON):
   "entity": "10116" ou null (entidade de pagamento),
   "reference": "929423278" ou null (referência de pagamento),
   "date": "YYYY-MM-DD HH:mm" ou null,
-  "transactionId": "nº da transação" ou null — OBRIGATÓRIO em comprovativos Multicaixa legítimos,
+  "transactionId": "nº da transação" ou null — OBRIGATÓRIO em comprovativos Multicaixa legítimos.
+  Em screenshots a app mostra frequentemente o ID PARCIALMENTE MASCARADO (ex: "639182******5895").
+  Extrai-o EXATAMENTE como visível, incluindo os asteriscos. Não uses null se houver dígitos visíveis.,
   "isMulticaixa": true/false (se é comprovativo Multicaixa),
   "senderPhone": "phone do remetente" ou null (se visível),
   "txStatus": "Concluído"/"Pendente"/"Falhado" ou null (estado da transação),
@@ -90,7 +92,9 @@ Regras IMPORTANTES:
 - Se houver múltiplos valores, escolhe o VALOR PRINCIPAL da transação
 - O phone pode aparecer como "+244 929 423 278" ou "929423278" — normaliza para só dígitos
 - A data pode estar em formato "DD/MM/YYYY HH:mm" ou "DD-MM-YYYY"
-- transactionId: TODO comprovativo Multicaixa tem um nº de transação (ex: "TXN123456", "Ref: 123456"). Se não consegues ler, coloca null — mas indica no consistencyFlags
+- transactionId: TODO comprovativo Multicaixa tem um nº de transação (ex: "TXN123456", "639182******5895", "Ref: 123456").
+  Screenshots da app Multicaixa Express mostram o ID mascarado com asteriscos no meio — extrai-o tal e qual (ex: "639182******5895").
+  Só usa null se NÃO houver nenhum número de transação visível no comprovativo — e indica no consistencyFlags.
 - Verifica consistência: se o valor é muito diferente do esperado, ou se há múltiplos valores contraditórios, ou se o phone/entidade não parece válido — adiciona a consistencyFlags
 - Procura sinais de manipulação: fontes diferentes, layout quebrado, cores inconsistentes, texto sobreposto — adiciona a consistencyFlags
 - Se não consegues ler algo, coloca null — não inventes
@@ -164,6 +168,21 @@ async function analyzeWithOpenAI(buffer: Buffer, mimeType: string): Promise<Extr
 }
 
 // ─── Normalize extracted data ────────────────────────────────────────────────
+
+/**
+ * Whether an extracted transaction ID is acceptable for auto-approval.
+ * - null / empty / <3 chars → false
+ * - masked (contains `*`, ex: 639182******5895) → ≥6 visible digits required
+ * - plain → ≥3 digits or ≥1 letter
+ * Used by Check 6 AND Layer 4 (public.ts override) — keep in sync.
+ */
+export function isTxIdAcceptable(txId: string | null | undefined): boolean {
+  if (!txId || txId.length < 3) return false;
+  const digits = (txId.match(/\d/g) || []).length;
+  if (/\*/.test(txId)) return digits >= 6;
+  return digits >= 3 || /[A-Za-z]/.test(txId);
+}
+
 function normalizeExtracted(raw: Record<string, unknown>, provider: string): ExtractedProof {
   return {
     amount: typeof raw.amount === 'number' ? raw.amount : parseAmount(String(raw.amount || '')),
@@ -307,8 +326,9 @@ function runChecks(
   });
 
   // Check 6: Transaction ID exists (critical for Multicaixa proofs)
+  // Screenshots often show a masked ID (ex: 639182******5895) — see isTxIdAcceptable.
   const txId = extracted.transactionId;
-  const txIdOk = txId !== null && txId.length >= 3;
+  const txIdOk = isTxIdAcceptable(txId);
   checks.push({
     name: 'Transaction ID legível',
     passed: txIdOk,
@@ -421,13 +441,12 @@ export async function verifyPaymentProof(
     decision = 'auto_reject';
   }
 
-  // Layer 4: Hard anti-fraud override — transaction_id is mandatory
-  if (decision === 'auto_approve') {
-    const txId = extracted.transactionId;
-    if (!txId || txId.length < 3) {
-      decision = 'manual_review';
-      logWarn('[ProofVerification] auto_approve bloqueado — transaction_id não lido');
-    }
+  // Layer 4: Hard anti-fraud override — transaction_id must pass isTxIdAcceptable
+  // (same rule as Check 6; keeps check + override in sync so a failed Check 6
+  // at confidence=0.85 cannot slip through as auto_approve).
+  if (decision === 'auto_approve' && !isTxIdAcceptable(extracted.transactionId)) {
+    decision = 'manual_review';
+    logWarn('[ProofVerification] auto_approve bloqueado — transaction_id não lido');
   }
 
   const elapsed = Date.now() - startTime;

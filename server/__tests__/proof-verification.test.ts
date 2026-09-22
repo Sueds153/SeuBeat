@@ -416,6 +416,50 @@ describe('proofVerification', () => {
       expect(txCheck?.passed).toBe(true);
       expect(txCheck?.actual).toBe('TXN12345678');
     });
+
+    it('auto-approves masked transaction ID (639182******5895)', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 15000,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: recentDate(),
+          transactionId: '639182******5895',
+          isMulticaixa: true,
+          rawText: 'Pagamento Multicaixa Express 15000 Kz Confirmado Transaccao 639182******5895',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      const txCheck = result.checks.find(c => c.name.includes('Transaction ID'));
+      expect(txCheck?.passed).toBe(true);
+      expect(txCheck?.actual).toBe('639182******5895');
+      expect(result.decision).toBe('auto_approve');
+      expect(result.confidence).toBeGreaterThanOrEqual(0.85);
+    });
+
+    it('masked ID with too few digits still fails check 6', async () => {
+      mockGeminiGenerate.mockResolvedValue({
+        text: JSON.stringify({
+          amount: 9900,
+          recipientPhone: '929423278',
+          entity: null,
+          reference: null,
+          date: recentDate(),
+          transactionId: '12***34',
+          isMulticaixa: true,
+          rawText: 'Pagamento Multicaixa Express 9900 Kz Confirmado',
+        }),
+      });
+
+      const result = await verifyPaymentProof(makeFakeBuffer(), 'image/jpeg', 'express', 'express');
+
+      const txCheck = result.checks.find(c => c.name.includes('Transaction ID'));
+      expect(txCheck?.passed).toBe(false);
+      expect(result.decision).toBe('manual_review');
+    });
   });
 
   // ── Anti-fraud: Date freshness ────────────────────────────────────────────
