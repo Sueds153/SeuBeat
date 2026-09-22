@@ -1,12 +1,12 @@
 # ════════════════════════════════════════════════════════════
-#  SEUBEAT — GUIA DE EDIÇÃO DOS PROMPTS DA IA (CLAUDE)
+#  SEUBEAT — GUIA DE EDIÇÃO DOS PROMPTS DA IA
 # ════════════════════════════════════════════════════════════
 #
-#  Esta pasta contém as instruções que a IA (Claude) recebe
+#  Esta pasta contém as instruções que a IA recebe
 #  para compor a letra da música.
 #
 #  COMO LOCALIZAR NO CÓDIGO:
-#  Ficheiro de Lógica: server/services/claude.ts (função `selectPrompt`)
+#  Ficheiro de Lógica: server/services/prompts.ts (função `selectPrompt`)
 #
 #  COMO A IA DECIDE QUAL FICHEIRO USAR:
 #  1. Primeiro ela lê "mestre.txt" (Regras globais e estrutura Verso/Refrão).
@@ -26,6 +26,12 @@
 #  — só aparecem se vierem dos dados do utilizador. O style prompt do Suno também
 #  anexa tokens de sotaque quando a letra é em português (SUNO_ACCENT_ENABLED=false
 #  desliga).
+#
+#  ⚠️ WATCH DE REGRESSÃO (server/services/aiShared.ts, FORCED_LYRIC_TERMS):
+#  Após a geração, a validação diagnóstica sinaliza (só warning, nunca rejeita)
+#  se a letra contiver termos historicamente forçados: ecoa, candongueiro,
+#  bué, gargalhada. Se vir "termo(s) possivelmente forçado(s)" nos logs do
+#  Render, revise os prompts — não acrescente esses termos como exemplos.
 #
 #  POR OCASIÃO (Tem prioridade máxima):
 #  - Se a ocasião contiver "aniversario"     → Usa "aniversario.txt"

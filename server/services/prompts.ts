@@ -54,10 +54,10 @@ function languageDisplayName(lang: string): string {
 function languageInstruction(lang?: string): string {
   const instructions: Record<string, string> = {
     'português': 'Escreva em português de Angola natural. Use "tu" e "nós". Evite expressões do Brasil ("a gente", "pô", "você") e de Portugal ("giro", "bica"). Não force gírias ou termos locais — só usa se vierem dos dados do utilizador.',
-    'kimbundu': 'Mescle português com Kimbundu. Use termos como "muene", "kota", "kibai", "ngana", "kizua" naturalmente.',
-    'umbundu': 'Mescle português com UmBundu. Use termos como "ochi", "suku", "etu", "ociwa" naturalmente.',
-    'kikongo': 'Mescle português com Kikongo. Use termos como "ngolo", "kiese", "zola", "kamba" naturalmente.',
-    'lingala': 'Mescle português com Lingala. Use termos como "bolingo", "moto", "kolela", "zala" naturalmente.',
+    'kimbundu': 'Pode mesclear português com Kimbundu quando a história pedir (ex.: termos como "muene", "kota", "kibai"). Não forces a lista — usa só o que encaixar naturalmente.',
+    'umbundu': 'Pode mesclear português com UmBundu quando a história pedir (ex.: termos como "ochi", "suku", "etu"). Não forces a lista — usa só o que encaixar naturalmente.',
+    'kikongo': 'Pode mesclear português com Kikongo quando a história pedir (ex.: termos como "ngolo", "kiese", "zola"). Não forces a lista — usa só o que encaixar naturalmente.',
+    'lingala': 'Pode mesclear português com Lingala quando a história pedir (ex.: termos como "bolingo", "moto", "kolela"). Não forces a lista — usa só o que encaixar naturalmente.',
     'inglês': 'Escreva completamente em inglês. Natural, poético e autêntico.',
   };
   return instructions[lang ?? 'português'] || instructions['português'];
@@ -121,7 +121,7 @@ ESTRUTURA (nesta ordem):
 Cada marcador deve ter 2 a 4 linhas de verso.
 Total: 30 a 45 linhas (incluindo marcadores).
 
-GANCHO: Se fornecido, o refrão DEVE incorporar essa frase.
+GANCHO: Se fornecido, o refrão DEVE incorporar ou girar em torno dessa frase.
 
 DEDICATORIA: Carta curta (2-3 frases) em prosa, sem repetir a letra.`);
 
@@ -182,7 +182,7 @@ ${formContext}
 
 INSTRUÇÕES FINAIS:
 - A letra DEVE usar o nome do destinatário${recipientName ? ` ("${recipientName}")` : ''} de forma natural e emocionante.
-${whereItHappened ? `- Refira o local ("${whereItHappened}") na letra quando fizer sentido.\n` : ''}${hookPhrase ? `- GANCHO: O refrão DEVE incorporar esta frase: "${hookPhrase}".\n` : ''}- Evite letras genéricas e gírias forçadas. O tom deve refletir o estilo musical escolhido.
+${whereItHappened ? `- Refira o local ("${whereItHappened}") na letra quando fizer sentido.\n` : ''}${hookPhrase ? `- GANCHO: O refrão DEVE incorporar ou girar em torno desta frase: "${hookPhrase}".\n` : ''}- Evite letras genéricas e gírias forçadas. O tom deve refletir o estilo musical escolhido.
 - O campo "letterText" é uma dedicatória CURTA (2-3 frases) em prosa, sem repetir a letra.
 
 INSTRUÇÃO DE IDIOMA:

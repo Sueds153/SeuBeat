@@ -149,6 +149,12 @@ const MARKER_ALIASES: Record<string, string[]> = {
 
 const MAX_LINE_REPEATS = 3;
 
+// Watch diagnóstico de regressão: termos que a IA já "forçou" nas letras por
+// cópia de exemplos nos prompts (ecoa/candongueiro/bué/gargalhada — ver
+// PROJECT_STATE entrada 12/13). Só emite warning para observabilidade;
+// NUNCA rejeita nem volta a chamar a IA (0 créditos extra).
+const FORCED_LYRIC_TERMS = ['ecoa', 'candongueiro', 'bue', 'gargalhada'];
+
 function normalizeToken(text: string): string {
   return text
     .toLowerCase()
@@ -217,6 +223,12 @@ export function validateLyricsStructure(
     if (!searchable.includes(normalizeToken(recipientName))) {
       warnings.push(`nome do destinatário "${recipientName}" não aparece na letra nem no título`);
     }
+  }
+
+  const normLyric = normalizeToken(`${composition.songTitle}\n${fullText}`);
+  const forcedFound = FORCED_LYRIC_TERMS.filter(term => normLyric.includes(term));
+  if (forcedFound.length > 0) {
+    warnings.push(`termo(s) possivelmente forçado(s) na letra: ${forcedFound.map(t => `"${t}"`).join(', ')}`);
   }
 
   return { issues, warnings };

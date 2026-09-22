@@ -77,6 +77,22 @@
 1. **Step 4 emocional reescrito** — label "Conta-nos a vossa história" + badge "O que escrever é contigo" (não "Obrigatório"), placeholder com 3 perguntas abertas, pills como aberturas incompletas ("O dia em que nos conhecemos...", "O que mais admiro nela é..."), frase "não há respostas erradas", campos opcionais com reforço de que tudo bem não preencher
 2. **Prompts de IA limpos** (sessão anterior) — campos fantasma removidos, slang artificial eliminada, instruments/BPM corrigidos, temperature 0.65, validação reativa
 
+### Melhorias Hoje (22/Set 2026) — Sessão 2 (P1+P2 prompts + teste real)
+13. **P1+P2 refinamento de prompts completo** (após commit `27f10d6`):
+    - **P1.1** frases-exemplo removidas: `prompts/memorial.txt`, `prompts/paramim.txt`, `prompts/filho.txt`.
+    - **P1.2** `FORCED_LYRIC_TERMS` + warnings "termo(s) possivelmente forçado(s)" em `aiShared.ts` — watch de regressão diagnóstico (nunca rejeita).
+    - **P1.3** `prompts/LEIA-ME.txt`: docs corrigidos (sem "Claude"), secção WATCH única.
+    - **P2.4** GANCHO unificado em `prompts.ts` (fallback + dinâmico).
+    - **P2.5** OpenAI temperature 0.75 (alinha com DeepSeek).
+    - **P2.6** `languageInstruction` idiomas nacionais suavizados ("não força a lista").
+    - **Duplicações 15× corrigidas** (script temporário, já removido): `aiShared.ts` (const 1×), `LEIA-ME.txt` (secção 1×), `aiShared.test.ts` (testes 1×).
+    - **Suite: 438 testes** (34 ficheiros) passam; `tsc --noEmit`/lint limpos.
+14. **Teste real de geração DeepSeek validado** — script temporário `test-real-generation.ts` (removido) com formData realista (Ana, aniversário, Kizomba, Luanda):
+    - Provider deepseek, **3.5s**, custo ~$0.003.
+    - **0 issues, 0 warnings, 0 termos forçados, 0 marcadores em falta** (6/6 na ordem correta).
+    - Gancho "Tu és a minha vida" presente no refrão; personalização com nome/local/ocasião correta.
+    - Dedicatória e snippet válidos.
+
 ### Melhorias Hoje (22/Set 2026)
 1. **Bug fix ESM crítico** — `env.ts` tinha `require()` num módulo ESM (commit `94da31e`), que impedia o servidor de arrancar (`ERR_AMBIGUOUS_MODULE_SYNTAX`). Fix: remover `logWarnLazy` e voltar a `console.warn` direto (startup warnings não precisam de logger estruturado).
 2. **Bug fix admin: cartão "Pagamento" sempre vazio** — rota `GET /api/admin/requests` fazia `.in('request_id', requestIds)` com ~1000 UUIDs → URL ~37KB → PostgREST 400 Bad Request **silencioso** (error ignorado) → `paymentsMap = {}` → frontend mostrava "—"/"Pendente" em todos os campos. Fix em `server/routes/admin.ts`: fetch completo da tabela `payments` (só 75 linhas, sem `.in()`), `logWarn` no erro, fallback `plan = plan || plan_type` (39/75 payments legacy têm `plan: null`). Shape da resposta inalterado; 431 testes + `tsc --noEmit` limpos.

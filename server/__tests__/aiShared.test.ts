@@ -138,15 +138,15 @@ function buildComposition(linesOverride?: string[]): TestComposition {
   const lines = linesOverride ?? [
     '[Verso 1]', 'linha um do verso', 'linha dois do verso',
     '[Pré-Refrão]', 'linha pre refrao um', 'linha pre refrao dois',
-    '[Refrão]', 'o meu amor é bué forte', 'nunca mais te deixo ir',
+    '[Refrão]', 'o meu amor é tão forte', 'nunca mais te deixo ir',
     '[Verso 2]', 'linha verso dois um', 'linha verso dois dois',
     '[Ponte Emocional]', 'ponte emocional um', 'ponte emocional dois',
-    '[Refrão Final]', 'o meu amor é bué forte', 'nunca mais te deixo ir',
+    '[Refrão Final]', 'o meu amor é tão forte', 'nunca mais te deixo ir',
   ];
   return {
     songTitle: 'Canção Teste',
     lyrics: lines,
-    lyricsSnippet: 'o meu amor é bué forte',
+    lyricsSnippet: 'o meu amor é tão forte',
     letterText: 'Dedicatória de teste.',
   };
 }
@@ -208,7 +208,7 @@ describe('validateLyricsStructure', () => {
 
   it('does not flag a hook present in the lyric (chorus fallback)', () => {
     const result = validateLyricsStructure(buildComposition(), {
-      hookPhrase: 'o meu amor é bué forte',
+      hookPhrase: 'o meu amor é tão forte',
     });
     expect(result.issues.join(' ')).not.toContain('gancho');
   });
@@ -239,6 +239,29 @@ describe('validateLyricsStructure', () => {
     expect(result.warnings.join(' ')).toContain('Zulmira');
     expect(result.issues).toEqual([]);
   });
+
+
+  it('flags forced regression terms (ecoa/candongueiro/bué/gargalhada) as warning only', () => {
+    const comp = buildComposition();
+    const lines = comp.lyrics.map((line) =>
+      line === 'ponte emocional um' ? 'a tua gargalhada ecoa no candongueiro' : line
+    );
+    const result = validateLyricsStructure({ ...comp, lyrics: lines }, {});
+    expect(result.warnings.join(' ')).toContain('gargalhada');
+    expect(result.warnings.join(' ')).toContain('ecoa');
+    expect(result.warnings.join(' ')).toContain('candongueiro');
+    expect(result.issues).toEqual([]);
+  });
+
+  it('matches forced term with accent variation (bué → bue)', () => {
+    const comp = buildComposition();
+    const lines = comp.lyrics.map((line) =>
+      line === 'ponte emocional um' ? 'o amor é bué real' : line
+    );
+    const result = validateLyricsStructure({ ...comp, lyrics: lines }, {});
+    expect(result.warnings.join(' ')).toContain('"bue"');
+    expect(result.issues).toEqual([]);
+  });
 });
 
 describe('validateCompositionStrict', () => {
@@ -264,5 +287,14 @@ describe('validateCompositionStrict', () => {
     const out = validateCompositionStrict(comp, 'Test');
     expect(out.songTitle).toBe('Canção Teste');
     expect(out.lyrics).toHaveLength(comp.lyrics.length);
+  });
+
+
+  it('does not throw when forced terms are present (diagnostic only)', () => {
+    const comp = buildComposition();
+    const lines = comp.lyrics.map((line) =>
+      line === 'ponte emocional um' ? 'a gargalhada ecoa no candongueiro e no bué' : line
+    );
+    expect(() => validateCompositionStrict({ ...comp, lyrics: lines }, 'Test')).not.toThrow();
   });
 });
