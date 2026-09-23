@@ -38,7 +38,13 @@ vi.mock('../services/workflow', () => ({
 }));
 
 import { getAdminSupabase } from '../services/supabase';
-import { sendInitiateCheckoutEvent, sendAddPaymentInfoEvent, sendSubmitApplicationEvent } from '../services/metaPixelCapi';
+import {
+  sendInitiateCheckoutEvent,
+  sendAddPaymentInfoEvent,
+  sendSubmitApplicationEvent,
+  sendPurchaseEvent,
+  generateServerEventId,
+} from '../services/metaPixelCapi';
 import publicRouter from '../routes/public';
 
 let server: http.Server | null = null;
@@ -241,6 +247,21 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     expect(sendInitiateCheckoutEvent).toHaveBeenCalledWith(expect.objectContaining({ value: usdValue, currency: 'USD' }));
     expect(sendAddPaymentInfoEvent).toHaveBeenCalledWith(expect.objectContaining({ value: usdValue, currency: 'USD' }));
     expect(sendSubmitApplicationEvent).toHaveBeenCalledWith(expect.objectContaining({ value: usdValue, currency: 'USD' }));
+    // #2: response expõe paymentStatus p/ o browser condicionar fbPurchase
+    expect(body.paymentStatus).toBe('pending_verification');
+    // #1: CAPI Purchase usa eventID do songRequestId (dedup c/ browser) e grava flag
+    expect(generateServerEventId).toHaveBeenCalledWith('req-1', 'Purchase');
+    expect(sendPurchaseEvent).toHaveBeenCalledWith(expect.objectContaining({ eventId: 'evt-test' }));
+    await vi.waitFor(() => {
+      const flagUpdate = sb.updateCalls.find(
+        (u: { table: string; payload: unknown }) =>
+          u.table === 'payments' &&
+          typeof u.payload === 'object' &&
+          u.payload !== null &&
+          'meta_purchase_sent_at' in (u.payload as Record<string, unknown>)
+      );
+      expect(flagUpdate).toBeTruthy();
+    });
   });
 
   it('faz rollback do status para o estado anterior quando o insert do pagamento falha', async () => {

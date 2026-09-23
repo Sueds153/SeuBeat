@@ -1632,7 +1632,8 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
     // Matches client-side fbPurchase (fires on any 200 success)
     // NOT fired for rejected (payment is invalid)
     if (paymentStatus !== 'rejected' && paymentRecord?.id) {
-      const sendPurchaseEvent = (await import('../services/metaPixelCapi')).sendPurchaseEvent;
+      const { sendPurchaseEvent } = await import('../services/metaPixelCapi');
+      const purchasePaymentId = paymentRecord.id;
       sendPurchaseEvent({
         eventId: generateServerEventId(songRequestId, 'Purchase'),
         email: userEmail,
@@ -1644,9 +1645,20 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
         clientIp: req.ip || req.socket.remoteAddress || undefined,
         clientUserAgent: req.headers['user-agent'],
         externalId: userEmail,
-      }).catch(err =>
-        logError('[API] Meta CAPI Purchase event failed', err, { paymentId: paymentRecord?.id, paymentStatus })
-      );
+      })
+        .then(ok => {
+          // Marca para o admin approve não reenviar o mesmo Purchase
+          if (ok) {
+            return supabase
+              .from('payments')
+              .update({ meta_purchase_sent_at: new Date().toISOString() })
+              .eq('id', purchasePaymentId);
+          }
+          return undefined;
+        })
+        .catch(err =>
+          logError('[API] Meta CAPI Purchase event failed', err, { paymentId: paymentRecord?.id, paymentStatus })
+        );
     }
 
     sendInitiateCheckoutEvent({
@@ -1707,6 +1719,7 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
     res.json({
       success: true,
       paymentId: paymentRecord?.id,
+      paymentStatus,
       verification: proofVerification ? {
         decision: proofVerification.decision,
         confidence: proofVerification.confidence,
@@ -1859,6 +1872,35 @@ router.post('/song/:id/video-upsell-payment', paymentLimiter, async (req, res) =
     }
 
     const paymentRecord = { id: videoPaymentId };
+
+    // Meta CAPI Purchase (video upsell) — eventID = paymentId p/ dedup com o browser
+    if (videoPaymentId) {
+      const { sendPurchaseEvent } = await import('../services/metaPixelCapi');
+      const videoEventPaymentId = videoPaymentId;
+      sendPurchaseEvent({
+        eventId: generateServerEventId(videoEventPaymentId, 'Purchase'),
+        email: userEmail,
+        value: kzToUsd(2900),
+        currency: 'USD',
+        contentName: 'video_upsell',
+        eventSourceUrl: (req.headers.referer as string) || undefined,
+        clientIp: req.ip || req.socket.remoteAddress || undefined,
+        clientUserAgent: req.headers['user-agent'],
+        externalId: userEmail,
+      })
+        .then(ok => {
+          if (ok) {
+            return supabase
+              .from('payments')
+              .update({ meta_purchase_sent_at: new Date().toISOString() })
+              .eq('id', videoEventPaymentId);
+          }
+          return undefined;
+        })
+        .catch(err =>
+          logError('[API] Meta CAPI Purchase (video upsell) failed', err, { paymentId: videoEventPaymentId })
+        );
+    }
 
     // Notificar admin
     sendAdminNotification(

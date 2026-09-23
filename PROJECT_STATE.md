@@ -1,6 +1,6 @@
 # SeuBeat — Estado do Projeto (atualizado a cada sessão)
 
-## Estado Atual (22/Set 2026)
+## Estado Atual (23/Set 2026)
 
 ### Stack
 - **Frontend**: React + Vite + Tailwind + TypeScript
@@ -18,8 +18,8 @@
 
 ### Produção
 - **URL**: https://seubeat.onrender.com
-- **Último deploy**: commit `3234ede` (schema cache fallback ai_verified/verification_result)
-- **Testes**: 450 passam (35 ficheiros), `tsc --noEmit` limpo, **32 E2E Playwright passam**
+- **Último deploy**: commit `3234ede` (schema cache fallback ai_verified/verification_result) — **pendente push das correções Meta Purchase (23/Set)**
+- **Testes**: 457 passam (36 ficheiros, 1 skipped), `tsc --noEmit` limpo, **32 E2E Playwright passam**
 
 ### DB Schema (tabelas principais)
 - `song_requests` — pedido do cliente (status, dados wizard)
@@ -41,6 +41,13 @@
 8. **Lucratividade** — receita/custos ✅ funcional
 9. **Meta Ads** — configuração de campanhas ✅ funcional
 10. **WhatsApp** — estado de envios + stats de envio ✅ funcional
+
+### Melhorias Hoje (23/Set 2026) — Meta Purchase (CAPI + Pixel)
+1. **#1 Dupla contagem Purchase eliminada** — admin `firePurchaseEvent` usava `generateServerEventId(payment.id)` enquanto browser/submit usavam `songRequestId` → Meta contava 2×. Fix: admin usa `generateServerEventId(requestId)` (exceto `plan==='video_upsell'` → `payment.id`); `/submit-payment` grava `meta_purchase_sent_at` após CAPI ok (admin salta reenvio via flag já existente).
+2. **#2 Pixel Purchase em rejeitados** — servidor respondia `success:true` mesmo com `paymentStatus='rejected'` (auto-reject AI) → Wizard fazia `fbPurchase` incondicional. Fix: resposta inclui `paymentStatus`; `Wizard.tsx` só dispara `fbPurchase` se `paymentStatus !== 'rejected'`.
+3. **#4 Video-upsell sem Purchase** — rota `/song/:id/video-upsell-payment` e `VideoUpsellPage` não disparavam Purchase. Fix: server `sendPurchaseEvent` (eventID=`paymentId`, `contentName='video_upsell'`, value `kzToUsd(2900)`, flag `meta_purchase_sent_at`); client `fbPurchase` após sucesso com `generateEventId(paymentId,'Purchase')` (dedup).
+4. **#3 (moeda AOA/USD browser vs server) SALTADO** — a pedido do utilizador.
+5. **Testes**: +2 admin-fixes (eventID requestId / video payment.id / flag skip), +1 submit-payment (paymentStatus + CAPI flag), novo `video-upsell-payment.test.ts` (5). **Suite: 457 testes** (36 ficheiros); `tsc`/lint limpos.
 
 ### Melhorias Hoje (20/Set 2026)
 1. **Anti-fraude proof dedup** — SHA-256 hash + transaction_id cross-request dedup. Duplicados bloqueados com 409. Órfãos de storage limpos no reenvio. Aplicado em `submit-payment` e `video-upsell`.
@@ -152,6 +159,7 @@
 - Re-analyze não atualiza `ai_verified` (inconsistência menor)
 - Cap PostgREST 1000 linhas — rota `/songs` (`admin.ts:738-752`) — não tocar (adiado)
 - `/health` não valida saldo OpenAI (só presença da key) — melhorar futuramente
+- **Push pendente (23/Set)** — correções Meta Purchase (#1/#2/#4) commitadas localmente, aguardam push p/ deploy Render
 
 ### Env Vars Críticas (Render)
 - `SUPABASE_SERVICE_ROLE_KEY` — não está no .env local

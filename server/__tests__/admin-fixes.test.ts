@@ -31,7 +31,7 @@ vi.mock('../services/workflow', () => ({
 
 import { getAdminSupabase } from '../services/supabase';
 import { sendPaymentRejectionEmail, sendConfirmationEmail, sendPersonalizedEmail } from '../services/email';
-import { sendPurchaseEvent } from '../services/metaPixelCapi';
+import { sendPurchaseEvent, generateServerEventId } from '../services/metaPixelCapi';
 import adminRouter from '../routes/admin';
 
 let server: http.Server | null = null;
@@ -179,6 +179,42 @@ describe('POST /api/admin/payment/:id/approve', () => {
     expect(sendPurchaseEvent).toHaveBeenCalledWith(
       expect.objectContaining({ value: 4.17, currency: 'USD' })
     );
+    // EventID alinhado com o submit/browser (requestId) para Meta dedup
+    expect(generateServerEventId).toHaveBeenCalledWith(REQUEST_ID, 'Purchase');
+  });
+
+  it('video_upsell: Purchase usa payment.id como eventID (dedup com browser do video)', async () => {
+    const base = await startServer();
+    buildSupabaseMock({ paymentSingle: buildPaymentRow({ plan: 'video_upsell' }) });
+
+    const res = await fetch(`${base}/api/admin/payment/${PAYMENT_ID}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.status).toBe(200);
+    expect(sendPurchaseEvent).toHaveBeenCalledTimes(1);
+    expect(generateServerEventId).toHaveBeenCalledWith(PAYMENT_ID, 'Purchase');
+    expect(sendPurchaseEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ contentName: 'video_upsell' })
+    );
+  });
+
+  it('não reenvia Purchase quando meta_purchase_sent_at já está preenchido', async () => {
+    const base = await startServer();
+    buildSupabaseMock({
+      paymentSingle: { ...buildPaymentRow(), meta_purchase_sent_at: '2026-09-20T10:00:00Z' },
+    });
+
+    const res = await fetch(`${base}/api/admin/payment/${PAYMENT_ID}/approve`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+      body: JSON.stringify({}),
+    });
+
+    expect(res.status).toBe(200);
+    expect(sendPurchaseEvent).not.toHaveBeenCalled();
   });
 
   it('Express com áudio pronto: entrega imediata (delivered + delivered_at)', async () => {

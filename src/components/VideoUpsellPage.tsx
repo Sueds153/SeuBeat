@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Upload, Check, Loader2, Film, CreditCard, MessageCircle } from 'lucide-react';
+import { fbPurchase, fbSetUserData, generateEventId } from '../lib/metaPixel';
 
 interface VideoUpsellPageProps {
   requestId: string;
@@ -104,6 +105,8 @@ export default function VideoUpsellPage({ requestId, email, onBackToLanding }: V
 
       setSubmitted(true);
       clearProof();
+      if (email) fbSetUserData(email);
+      fbPurchase('video_upsell', 2900, 'AOA', generateEventId(data.paymentId, 'Purchase'));
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Erro ao submeter pagamento');
     } finally {

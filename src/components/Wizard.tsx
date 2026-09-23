@@ -873,7 +873,9 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         setPaymentSubmitError('');
         clearProof();
         fbSetUserData(formData.email, formData.phone);
-        fbPurchase(selectedPlanID || 'standard', parsePrice(getPrice()), CURRENCY, generateEventId(dbSongRequestId, 'Purchase'));
+        if (data.paymentStatus !== 'rejected') {
+          fbPurchase(selectedPlanID || 'standard', parsePrice(getPrice()), CURRENCY, generateEventId(dbSongRequestId, 'Purchase'));
+        }
         gaSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()));
       } else if (res.status === 409) {
         setValidatedLyrics(Array.isArray(aiLyrics) ? aiLyrics.join('\n') : '');
