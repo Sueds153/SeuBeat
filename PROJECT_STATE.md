@@ -18,7 +18,7 @@
 
 ### Produção
 - **URL**: https://seubeat.onrender.com
-- **Último deploy**: commit `3234ede` (schema cache fallback ai_verified/verification_result) — **pendente push das correções Meta Purchase (23/Set)**
+- **Último deploy**: pendente — commit `c009bfa` (Meta Purchase dedup) pushado, Render a buildar
 - **Testes**: 457 passam (36 ficheiros, 1 skipped), `tsc --noEmit` limpo, **32 E2E Playwright passam**
 
 ### DB Schema (tabelas principais)
@@ -159,7 +159,7 @@
 - Re-analyze não atualiza `ai_verified` (inconsistência menor)
 - Cap PostgREST 1000 linhas — rota `/songs` (`admin.ts:738-752`) — não tocar (adiado)
 - `/health` não valida saldo OpenAI (só presença da key) — melhorar futuramente
-- **Push pendente (23/Set)** — correções Meta Purchase (#1/#2/#4) commitadas localmente, aguardam push p/ deploy Render
+- **Deploy Meta Purchase (23/Set)** — commit `c009bfa` pushado; confirmar deploy Render + eventos em Events Manager
 
 ### Env Vars Críticas (Render)
 - `SUPABASE_SERVICE_ROLE_KEY` — não está no .env local
