@@ -1,6 +1,27 @@
 # SeuBeat — Estado do Projeto (atualizado a cada sessão)
 
-## Estado Atual (23/Set 2026)
+## Estado Atual (25/Set 2026)
+
+### Bugs Corrigidos Hoje (25/Set 2026) — Pagamento auto-aprovado pela AI nunca gerava a música
+- **Caso real**: pedido `62a31f31-1bd4-4c8a-b4be-b5ff577602b8` (premium pago, auto-approve AI 24/Set 00:11) → `approved`→`delivered` 00:21 **sem música** (`songs.audio_url=null`, `mureka_status=not_started`) → dedicatória servida sem áudio. Causa raiz: o bloco auto-approve de `POST /submit-payment` (`server/routes/public.ts`) fazia `status='approved'` **sem nunca chamar `runBackgroundSunoWorkflow`** (a aprovação manual do admin chama em `admin.ts:552`).
+- **Fix raiz** (`server/routes/public.ts`): auto-approve lê pedido + música (`songs(id,title,lyrics,audio_url,full_song_url,mureka_status,mureka_task_id)`); sem áudio → **`music_processing`** + `runBackgroundSunoWorkflow(...)` em background; com áudio → `approved` como antes; já em geração → `music_processing` sem workflow duplicado; email de confirmação usa `recipient_name` (antes: plan). Update único (`status`+`deliver_at`) evita race com deliveryScheduler; falha no fetch cai no caminho antigo (aprovação simples) sem downgrade.
+- **Guardas anti-entrega-sem-áudio**:
+  - `deliveryScheduler.ts`: não marca `delivered` sem (`final_mixed_audio_url`/`songs.audio_url`/`full_song_url`) → `logWarn 'Pedido aprovado sem áudio — entrega adiada'`; select inclui os 2 campos de áudio.
+  - `public.ts` `GET /api/song/:id` (auto-delivery): não entrega se não há `fullUrl` → `logWarn '[API] Auto-delivery adiada'`.
+  - `stuckMusicRecoveryScheduler.ts`: **3ª query** candidata recupera pedidos `approved`/`delivered` sem `audio_url` (staleness `songs.updated_at`); `recoverStuckSong` exige **payment `status='approved'`** (nunca música grátis) — erro na verificação aborta; dedupe por id.
+- **Testes +11**: `submit-payment.test.ts` +3 (auto-approve→`music_processing`+workflow+email `('cliente@test.com','Ana','req-1')`; com áudio→`approved` sem workflow; `mureka_status:generating`→sem duplicado; **novo mock `../services/proofVerification`** c/ defaults `null`/`true`), `stuck-music-recovery.test.ts` +4 (approved/delivered recuperam; sem payment não; erro payment aborta; mock estendido: `payment`, `currentTable`, `limit`), novo `delivery-scheduler.test.ts` (4: guard + entrega normal preservada + `final_mixed` + songId em falta). **Suite: 468 testes** (37 ficheiros, 1 skipped) passam; `tsc --noEmit`/lint limpos.
+- **Pós-deploy**: `POST /api/admin/request/62a31f31-1bd4-4c8a-b4be-b5ff577602b8/retry` → confirmar `audio_url` em `GET /api/song/b2785b07-6435-48a1-bb87-cd760e57958d`. (Pedidos `d2520959`/`89a03ad9` sem pagamento são casos distintos, fora de escopo.)
+
+
+### Ads / Criativos (23/Set 2026)
+- **Meta RT**: campaign `SeuBeat_Retargeting` `120250568225420708` PAUSED; adset `rt_checkout_14d` `120250568232860708` PAUSED (AO 22–65, PURCHASE) — **sem anúncio ainda**
+- **Audiências**: RT Checkout 14d `120250568224670708`, RT LeadWizard 30d `120250568224870708`, EXCL Compradores 180d `120250568225030708`, RT Visitantes 30d `120250568225150708`
+- Cold `120248973060170708` ACTIVE $10; pixel `1928777041139855`; conta `act_3968691273389952`; page `1186144217916410`
+- **Criativos**: `scripts/CREATIVOS_RT_IA.md` (UGC 9:16) + `scripts/CONCORRENTES_META.md` secção RT (~l.173)
+- **Demografia compradores** (n=57): 61% compra para mulher; ~82% cônjuges/namorados; Express 34 > Standard 14 > Premium 9; declaração/aniversário/agradecimento top; Luanda domina; pt-PT 100%
+- **Vídeo editado**: `editar01_final.mp4` — 1080×1920 H.264 yuv420p 30fps, 213.9s, **45.9 MB** (de 207 MB HEVC), 8 legendas 3ª pessoa centradas (`editar01.ass` Alignment 5); QC 8/8 OK. Fonte: `editar01.mp4`
+- **ScrapeGraphAI**: key no `.env` L62; ~267 créditos; usar `search` com `usePrompt: false`
+- Pendências Ads: anúncio RT, exclusão EXCL via API falha 1487916 (fazer no Ads Manager), decisão Shot 3 A/B/C, prompts avatar 10s em CREATIVOS_RT_IA.md
 
 ### Stack
 - **Frontend**: React + Vite + Tailwind + TypeScript
@@ -18,8 +39,8 @@
 
 ### Produção
 - **URL**: https://seubeat.onrender.com
-- **Último deploy**: pendente — commit `c009bfa` (Meta Purchase dedup) pushado, Render a buildar
-- **Testes**: 457 passam (36 ficheiros, 1 skipped), `tsc --noEmit` limpo, **32 E2E Playwright passam**
+- **Último deploy**: pendente — push 25/Set (bugfix auto-approve sem geração da música), Render a buildar
+- **Testes**: 468 passam (37 ficheiros, 1 skipped), `tsc --noEmit` limpo, **32 E2E Playwright passam**
 
 ### DB Schema (tabelas principais)
 - `song_requests` — pedido do cliente (status, dados wizard)
@@ -41,6 +62,23 @@
 8. **Lucratividade** — receita/custos ✅ funcional
 9. **Meta Ads** — configuração de campanhas ✅ funcional
 10. **WhatsApp** — estado de envios + stats de envio ✅ funcional
+
+### Melhorias Hoje (23/Set 2026) — Retargeting Meta ($2/dia) + Meta Purchase + ScrapeGraphAI
+1. **Campanha Retargeting criada (PAUSED, $2/dia)** — `scripts/meta-direct.mjs create-retargeting --live`:
+   - **Campaign** `SeuBeat_Retargeting` `120250568225420708` — OUTCOME_SALES, AUCTION, daily $2, PAUSED, intocado cold `120248973060170708`.
+   - **Adset** `rt_checkout_14d` `120250568232860708` — inclusion `RT - Checkout 14d`, age 22–65, AO, OFFSITE_CONVERSIONS→PURCHASE, attribution 7d click/1d view/1d engaged video (igual cold), `targeting_relaxation_types` off, **PAUSED, sem ad** (criativo = utilizador).
+   - **4 audiências Website** (regras no pixel `1928777041139855`): `RT - Checkout 14d` `120250568224670708`, `RT - LeadWizard 30d` `120250568224870708`, `EXCL - Compradores 180d` `120250568225030708`, `RT - Visitantes 30d` `120250568225150708`.
+   - **Exclusão de compradores**: API rejeita `targeting.exclusions` (erro "campos duplicados" 1487916); POST top-level devolveu `success:true` mas GET não expõe o campo — **confirmar no Ads Manager** e, se faltar, adicionar `EXCL - Compradores 180d` à mão antes de publicar.
+   - Script `scripts/meta-direct.mjs` reconstruído (ações `create-retargeting`/`verify`/`pause`/`attribution`, load `.env`, retry rate-limit 613). Audiências antigas da conta continuam inválidas (template ALL_VISITORS sem filtro).
+2. **Cold 3d (verify 20–23/Set)**: spend $15.68, **0 compras** — `teste_casamento` $5.60/0pur é o maior queimador (regra freio: >$6.50+>$15 → pausar); vencedores 30d (`wife_gestada`, `avô 02`) sem pur em 3d. Regra dia 5–7 de RT mantida.
+3. **Meta Purchase (CAPI + Pixel)** — ver secção abaixo (commit `c009bfa`).
+4. **ScrapeGraphAI — análise de concorrentes (criativos/ângulos)**:
+   - Key `SGAI_API_KEY` em `.env` + `.env.example` (Free Plan; **~267 créditos** após rt-hooks).
+   - Script `scripts/sgai-competitors.mjs` (ações `credits`/`analyze [pages|search]`/`extract`/`search`; base v2, header `SGAI-APIKEY`; fallback scrape→markdown; checkpoint incremental em `sgai-competitors-state.json`).
+   - Relatório: `scripts/CONCORRENTES_META.md` — MakeCustomSong (R$179, 10 min) + Muz.cam (R$289–949) extraídos OK; **Songfinch landing bloqueada** (502 fetch_failed anti-bot) mas ângulo real do anúncio captado via FB video: *prova social "350k clientes / ~10 anos"* em vídeo institucional.
+   - **9 ângulos imitáveis** para SeuBeat (síntese no fim do relatório): reacção da esposa, presente perfeito, preço acessível vs presentes caros, "sem ideias", UGC selfie, WhatsApp+Multicaixa, personalização profunda, surpresa emocional, credibilidade numérica.
+   - **Ação `rt-hooks`** no script: 3 buscas raw (2 cr/result) + 1 busca LLM AO; síntese RT em `CONCORRENTES_META.md` (6 hooks + 6 gatilhos AO + copy Primary A/B/C). **~267 créditos** restantes. Aprendizagem: search com prompt+schema estoura timeout 180s no free plan (cobrar no servidor apesar do abort do cliente) → usar raw e sintetizar local.
+5. **Pack criativos RT IA** — `scripts/CREATIVOS_RT_IA.md`: preset UGC 9:16, 1 persona × 3 hooks (continuidade / reação / confiança Multicaixa), estrutura CapCut, copy Meta ad, checklist AI label Meta, próximos passos Kling → ad PAUSED. Vídeo **ainda não gerado**; adset `rt_checkout_14d` continua sem anúncio.
 
 ### Melhorias Hoje (23/Set 2026) — Meta Purchase (CAPI + Pixel)
 1. **#1 Dupla contagem Purchase eliminada** — admin `firePurchaseEvent` usava `generateServerEventId(payment.id)` enquanto browser/submit usavam `songRequestId` → Meta contava 2×. Fix: admin usa `generateServerEventId(requestId)` (exceto `plan==='video_upsell'` → `payment.id`); `/submit-payment` grava `meta_purchase_sent_at` após CAPI ok (admin salta reenvio via flag já existente).
@@ -160,6 +198,9 @@
 - Cap PostgREST 1000 linhas — rota `/songs` (`admin.ts:738-752`) — não tocar (adiado)
 - `/health` não valida saldo OpenAI (só presença da key) — melhorar futuramente
 - **Deploy Meta Purchase (23/Set)** — commit `c009bfa` pushado; confirmar deploy Render + eventos em Events Manager
+- **RT publish pendente** — `SeuBeat_Retargeting` criada PAUSED sem anúncio: gerar vídeo com prompts em `scripts/CREATIVOS_RT_IA.md` (Kling), utilizador mete criativo, confirma exclusão compradores no adset, publica; regra freio CPA >$6.50 / >$10 gasto
+- **SGAI** — ~267 créditos free; evitar search com prompt+schema (timeout) — preferir raw ou extract
+- **Sem LAL nesta ronda** — decisão; Lookalike só se RT escalar com CPA ≤$5 (dia 5–7)
 
 ### Env Vars Críticas (Render)
 - `SUPABASE_SERVICE_ROLE_KEY` — não está no .env local

@@ -16,7 +16,8 @@ interface PendingRequest {
   email?: string | null;
   phone?: string | null;
   recipient_name?: string | null;
-  songs?: Array<{ id?: string | null; letter_text?: string | null; title?: string | null }> | null;
+  final_mixed_audio_url?: string | null;
+  songs?: Array<{ id?: string | null; letter_text?: string | null; title?: string | null; audio_url?: string | null; full_song_url?: string | null }> | null;
 }
 
 function makeSlug(name: string): string {
@@ -42,6 +43,15 @@ async function deliverWithRetry(req: PendingRequest, now: string, attempt = 0): 
 
   if (!songId) {
     logWarn('[DeliveryScheduler] songId em falta', { requestId: req.id });
+    return;
+  }
+
+  // Guarda: nunca entregar uma dedicatória sem música printa. Pedidos pagos
+  // sem áudio (ex.: auto-approve sem workflow) ficam à espera do
+  // stuckMusicRecoveryScheduler os gerar — depois a entrega segue normalmente.
+  const hasAudio = !!(req.final_mixed_audio_url || songData?.audio_url || songData?.full_song_url);
+  if (!hasAudio) {
+    logWarn('[DeliveryScheduler] Pedido aprovado sem áudio — entrega adiada', { requestId: req.id, songId });
     return;
   }
 
@@ -148,7 +158,7 @@ async function deliverPendingSongs(): Promise<void> {
 
   const { data: pending, error } = await supabase
     .from('song_requests')
-    .select('id, recipient_name, status, deliver_at, email, phone, final_mixed_audio_url, songs(id, title, letter_text)')
+    .select('id, recipient_name, status, deliver_at, email, phone, final_mixed_audio_url, songs(id, title, letter_text, audio_url, full_song_url)')
     .eq('status', 'approved')
     .lte('deliver_at', now)
     .not('deliver_at', 'is', null);

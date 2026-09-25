@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import express from 'express';
 import type http from 'node:http';
 
@@ -32,12 +32,21 @@ vi.mock('../services/ai', () => ({ generateLyrics: vi.fn() }));
 vi.mock('../services/workflow', () => ({
   setProgress: vi.fn(),
   updateRequestStatus: vi.fn().mockResolvedValue(undefined),
-  runBackgroundSunoWorkflow: vi.fn(),
+  runBackgroundSunoWorkflow: vi.fn().mockResolvedValue(undefined),
   resumeSunoTaskWorkflow: vi.fn(),
   processSunoVoice: vi.fn(),
 }));
+vi.mock('../services/proofVerification', () => ({
+  // Default: sem verificação (comportamento equivalente a manual_review →
+  // pending). Testes que precisam de auto_approve configuram mockResolvedValue.
+  verifyPaymentProof: vi.fn(() => Promise.resolve(null)),
+  isTxIdAcceptable: vi.fn(() => true),
+}));
 
 import { getAdminSupabase } from '../services/supabase';
+import { verifyPaymentProof, isTxIdAcceptable, type VerificationResult } from '../services/proofVerification';
+import { runBackgroundSunoWorkflow } from '../services/workflow';
+import { sendConfirmationEmail } from '../services/email';
 import {
   sendInitiateCheckoutEvent,
   sendAddPaymentInfoEvent,
@@ -597,5 +606,153 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     const paymentUpdates = sb.updateCalls.filter((u: {table: string}) => u.table === 'payments');
     expect(paymentUpdates.length).toBeGreaterThanOrEqual(1);
     expect(paymentUpdates[0].payload).toMatchObject({ payment_method: 'express' });
+  });
+});
+
+describe('POST /api/submit-payment — auto-approve pela AI inicia geração da música', () => {
+  function autoApproveResult(): VerificationResult {
+    return {
+      decision: 'auto_approve',
+      confidence: 0.9,
+      provider: 'test',
+      checks: [],
+      extracted: { transactionId: 'TX-AUTO-1' },
+    } as unknown as VerificationResult;
+  }
+
+  function proofBody() {
+    const proofBuf = Buffer.alloc(200, 0xef);
+    return {
+      proofBase64: `data:application/octet-stream;base64,${proofBuf.toString('base64')}`,
+    };
+  }
+
+  function songRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'song-1',
+      title: 'Para Ana',
+      lyrics: ['linha 1'],
+      audio_url: null,
+      full_song_url: null,
+      mureka_status: 'not_started',
+      mureka_task_id: null,
+      ...overrides,
+    };
+  }
+
+  function autoRequestRow(songOverrides: Record<string, unknown> = {}) {
+    return {
+      status: 'lyrics_ready',
+      recipient_name: 'Ana',
+      music_style: 'Semba',
+      voice_type: 'Feminina',
+      desired_emotion: 'Feliz',
+      songs: songRow(songOverrides),
+    };
+  }
+
+  afterEach(() => {
+    // Restaura os defaults da fábrica (null/true) para testes futuros.
+    vi.mocked(verifyPaymentProof).mockReset();
+    vi.mocked(isTxIdAcceptable).mockReset();
+  });
+
+  it('sem áudio: marca music_processing e dispara runBackgroundSunoWorkflow', async () => {
+    const base = await startServer();
+    vi.mocked(verifyPaymentProof).mockResolvedValue(autoApproveResult());
+    vi.mocked(isTxIdAcceptable).mockReturnValue(true);
+
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: autoRequestRow(),
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), ...proofBody() }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.paymentStatus).toBe('approved');
+
+    const autoUpdate = sb.updateCalls.find(
+      (u) => u.table === 'song_requests' && (u.payload as Record<string, unknown>).status === 'music_processing'
+    );
+    expect(autoUpdate).toBeTruthy();
+    expect(autoUpdate!.payload).toMatchObject({ status: 'music_processing' });
+
+    expect(runBackgroundSunoWorkflow).toHaveBeenCalledTimes(1);
+    expect(runBackgroundSunoWorkflow).toHaveBeenCalledWith(
+      'req-1',
+      'song-1',
+      'Semba',
+      'Para Ana',
+      ['linha 1'],
+      { voiceType: 'Feminina', desiredEmotion: 'Feliz' }
+    );
+    expect(sendConfirmationEmail).toHaveBeenCalledWith('cliente@test.com', 'Ana', 'req-1');
+  });
+
+  it('já com áudio: aprova sem novo workflow (deliveryScheduler entrega)', async () => {
+    const base = await startServer();
+    vi.mocked(verifyPaymentProof).mockResolvedValue(autoApproveResult());
+    vi.mocked(isTxIdAcceptable).mockReturnValue(true);
+
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: autoRequestRow({
+        audio_url: 'https://cdn.example.com/full.mp3',
+        full_song_url: 'https://cdn.example.com/full.mp3',
+        mureka_status: 'completed',
+      }),
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), ...proofBody() }),
+    });
+
+    expect(res.status).toBe(200);
+    const autoUpdate = sb.updateCalls.find(
+      (u) => u.table === 'song_requests' && (u.payload as Record<string, unknown>).status === 'approved'
+    );
+    expect(autoUpdate).toBeTruthy();
+    expect(runBackgroundSunoWorkflow).not.toHaveBeenCalled();
+  });
+
+  it('música já em geração: marca music_processing sem disparar workflow duplicado', async () => {
+    const base = await startServer();
+    vi.mocked(verifyPaymentProof).mockResolvedValue(autoApproveResult());
+    vi.mocked(isTxIdAcceptable).mockReturnValue(true);
+
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: autoRequestRow({ mureka_status: 'generating', mureka_task_id: 'task-9' }),
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), ...proofBody() }),
+    });
+
+    expect(res.status).toBe(200);
+    const autoUpdate = sb.updateCalls.find(
+      (u) => u.table === 'song_requests' && (u.payload as Record<string, unknown>).status === 'music_processing'
+    );
+    expect(autoUpdate).toBeTruthy();
+    expect(runBackgroundSunoWorkflow).not.toHaveBeenCalled();
   });
 });

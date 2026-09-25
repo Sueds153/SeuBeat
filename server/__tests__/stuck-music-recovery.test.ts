@@ -43,18 +43,24 @@ interface MockResult {
 interface SupabaseConfig {
   candidates?: MockResult;
   claim?: MockResult;
+  payment?: MockResult;
 }
 
 function buildSupabaseMock(config: SupabaseConfig = {}) {
   const results: Record<string, MockResult> = {
     candidates: { data: [], error: null },
     claim: { data: { id: 'claimed' }, error: null },
+    payment: { data: { id: 'pay-1' }, error: null },
     ...config,
   };
   let lastOp = 'select';
+  let currentTable = '';
 
   let chain!: Record<string, unknown>;
-  const from = vi.fn(() => chain);
+  const from = vi.fn((table: string) => {
+    currentTable = table;
+    return chain;
+  });
   const update = vi.fn((..._args: unknown[]) => chain);
 
   chain = {
@@ -71,8 +77,9 @@ function buildSupabaseMock(config: SupabaseConfig = {}) {
       lastOp = 'candidates';
       return chain;
     },
+    limit: () => chain,
     update,
-    maybeSingle: () => Promise.resolve(results.claim),
+    maybeSingle: () => Promise.resolve(currentTable === 'payments' ? results.payment : results.claim),
     then: (resolve: (v: MockResult) => unknown) => resolve(results[lastOp]),
   };
 
@@ -215,5 +222,88 @@ describe('processStuckMusicRecovery', () => {
 
     expect(mocks.runBackgroundSunoWorkflow).not.toHaveBeenCalled();
     expect(mocks.resumeSunoTaskWorkflow).not.toHaveBeenCalled();
+  });
+
+  it('recupera pedido pago (approved) sem áudio — gera a música', async () => {
+    const row = baseRow({
+      mureka_status: 'not_started',
+      mureka_task_id: null,
+      song_requests: [
+        { id: 'req-1', status: 'approved', music_style: 'kizomba', voice_type: 'Feminina', desired_emotion: 'Feliz', deleted_at: null },
+      ],
+    });
+    buildSupabaseMock({ candidates: { data: [row], error: null } });
+    mocks.runBackgroundSunoWorkflow.mockResolvedValue(undefined);
+
+    await processStuckMusicRecovery();
+
+    expect(mocks.runBackgroundSunoWorkflow).toHaveBeenCalledTimes(1);
+    expect(mocks.runBackgroundSunoWorkflow).toHaveBeenCalledWith(
+      'req-1',
+      'song-1',
+      'kizomba',
+      'Nair, Minha Benguela',
+      ['linha 1', 'linha 2'],
+      { voiceType: 'Feminina', desiredEmotion: 'Feliz' }
+    );
+    expect(mocks.resumeSunoTaskWorkflow).not.toHaveBeenCalled();
+  });
+
+  it('recupera pedido entregue (delivered) sem áudio — estado atual do pedido 62a31f31', async () => {
+    const row = baseRow({
+      mureka_status: 'not_started',
+      mureka_task_id: null,
+      song_requests: [
+        { id: 'req-1', status: 'delivered', music_style: 'kizomba', voice_type: 'Feminina', desired_emotion: 'Feliz', deleted_at: null },
+      ],
+    });
+    buildSupabaseMock({ candidates: { data: [row], error: null } });
+    mocks.runBackgroundSunoWorkflow.mockResolvedValue(undefined);
+
+    await processStuckMusicRecovery();
+
+    expect(mocks.runBackgroundSunoWorkflow).toHaveBeenCalledTimes(1);
+  });
+
+  it('NÃO recupera pedido pago quando não há pagamento aprovado (não darmos música grátis)', async () => {
+    const row = baseRow({
+      mureka_status: 'not_started',
+      mureka_task_id: null,
+      song_requests: [
+        { id: 'req-1', status: 'approved', music_style: 'kizomba', voice_type: 'Feminina', desired_emotion: 'Feliz', deleted_at: null },
+      ],
+    });
+    buildSupabaseMock({
+      candidates: { data: [row], error: null },
+      payment: { data: null, error: null },
+    });
+
+    await processStuckMusicRecovery();
+
+    expect(mocks.runBackgroundSunoWorkflow).not.toHaveBeenCalled();
+    expect(mocks.resumeSunoTaskWorkflow).not.toHaveBeenCalled();
+  });
+
+  it('marca failed e não recupera quando a verificação de pagamento falha (erro na BD)', async () => {
+    const row = baseRow({
+      mureka_status: 'not_started',
+      mureka_task_id: null,
+      song_requests: [
+        { id: 'req-1', status: 'approved', music_style: 'kizomba', deleted_at: null },
+      ],
+    });
+    buildSupabaseMock({
+      candidates: { data: [row], error: null },
+      payment: { data: null, error: { message: 'boom' } },
+    });
+
+    await processStuckMusicRecovery();
+
+    expect(mocks.runBackgroundSunoWorkflow).not.toHaveBeenCalled();
+    expect(mocks.logError).toHaveBeenCalledWith(
+      '[StuckMusicRecovery] Falha ao verificar pagamento aprovado',
+      { message: 'boom' },
+      { requestId: 'req-1' }
+    );
   });
 });

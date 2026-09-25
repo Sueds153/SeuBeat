@@ -12,6 +12,9 @@ const STALE_THRESHOLD_MS = Number(process.env.STUCK_RECOVERY_THRESHOLD_MS || 15 
 const MAX_RECOVERY_ATTEMPTS = 5;
 // Estados do pedido em que a geração de áudio está de facto a correr.
 const ACTIVE_REQUEST_STATUSES = ['music_processing', 'voice_processing', 'processing'];
+// Estados pagos em que o áudio DEVIA existir mas não existe (ex.: auto-approve
+// pela AI sem workflow — bug 24/Set). Só recupera se houver payment aprovado.
+const PAID_REQUEST_STATUSES = ['approved', 'delivered'];
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
 
 interface StuckSongRow {
@@ -45,7 +48,23 @@ async function recoverStuckSong(
   if (!req || !row.request_id) return;
   if (req.deleted_at) return;
   const reqStatus = String(req.status || '');
-  if (!ACTIVE_REQUEST_STATUSES.includes(reqStatus)) return;
+  if (!ACTIVE_REQUEST_STATUSES.includes(reqStatus)) {
+    if (!PAID_REQUEST_STATUSES.includes(reqStatus)) return;
+    // Pedido pago mas sem áudio: exige payment aprovado antes de gerar
+    // (nunca darmos música grátis a pedidos não pagos).
+    const { data: paid, error: paidErr } = await supabase
+      .from('payments')
+      .select('id')
+      .eq('request_id', row.request_id)
+      .eq('status', 'approved')
+      .maybeSingle();
+    if (paidErr) {
+      logError('[StuckMusicRecovery] Falha ao verificar pagamento aprovado', paidErr, { requestId: row.request_id });
+      return;
+    }
+    if (!paid) return;
+    logInfo('[StuckMusicRecovery] Pedido pago sem áudio — a recuperar geração', { requestId: row.request_id, songId: row.id, reqStatus });
+  }
 
   const requestId = row.request_id;
   const songId = row.id;
@@ -135,10 +154,12 @@ export async function processStuckMusicRecovery(): Promise<void> {
 
   const staleSince = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
 
-  // Dois queries para cobrir dois cenários:
+  // Três queries para cobrir três cenários:
   // 1. Songs com task_id mas presas há >15min (stale)
   // 2. Songs sem task_id (workflow nunca completou ou task perdida) — recover regardless de updated_at
-  const [staleResult, tasklessResult] = await Promise.all([
+  // 3. Pedidos PAGOS (approved/delivered) sem áudio — ex.: auto-approve pela AI
+  //    sem workflow (bug 24/Set). O pagamento é verificado em código por segurança.
+  const [staleResult, tasklessResult, paidResult] = await Promise.all([
     supabase
       .from('songs')
       .select('id, request_id, title, lyrics, mureka_task_id, mureka_status, updated_at, regeneration_count, song_requests!inner(*)')
@@ -154,6 +175,14 @@ export async function processStuckMusicRecovery(): Promise<void> {
       .is('audio_url', null)
       .is('mureka_task_id', null)
       .order('updated_at', { ascending: true }),
+    supabase
+      .from('songs')
+      .select('id, request_id, title, lyrics, mureka_task_id, mureka_status, updated_at, regeneration_count, song_requests!inner(*)')
+      .in('song_requests.status', ['approved', 'delivered'])
+      .is('audio_url', null)
+      .lt('updated_at', staleSince)
+      .order('updated_at', { ascending: true })
+      .limit(10),
   ]);
 
   if (staleResult.error) {
@@ -164,11 +193,14 @@ export async function processStuckMusicRecovery(): Promise<void> {
     logError('[StuckMusicRecovery] Erro ao consultar músicas presas (taskless)', tasklessResult.error);
     return;
   }
+  if (paidResult.error) {
+    logError('[StuckMusicRecovery] Erro ao consultar pedidos pagos sem áudio', paidResult.error);
+  }
 
   // Merge e dedup por id
   const seen = new Set<string>();
   const rows: StuckSongRow[] = [];
-  for (const r of [...(staleResult.data || []), ...(tasklessResult.data || [])]) {
+  for (const r of [...(staleResult.data || []), ...(tasklessResult.data || []), ...(paidResult.data || [])]) {
     if (!seen.has(r.id)) { seen.add(r.id); rows.push(r as StuckSongRow); }
   }
 

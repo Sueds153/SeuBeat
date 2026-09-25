@@ -691,7 +691,11 @@ router.get('/song/:id', getSongLimiter, async (req, res) => {
     // Auto-delivery: se status='approved' e deliver_at já passou, entrega automaticamente
     if (requestStatus === 'approved' && deliverAt && new Date(deliverAt) <= new Date()) {
       const fullUrl = sr?.final_mixed_audio_url || songData.full_song_url || songData.audio_url;
-      if (adminSupabase) {
+      if (!fullUrl) {
+        // Nunca marcar 'delivered' sem áudio — o stuckMusicRecoveryScheduler
+        // gera a música e a entrega acontece depois (scheduler ou este caminho).
+        logWarn('[API] Auto-delivery adiada — pedido aprovado sem áudio', { songId: id, requestId: songData.request_id });
+      } else if (adminSupabase) {
         const { error: deliveryError } = await adminSupabase
           .from('song_requests')
           .update({ status: 'delivered', deliver_at: null, delivered_at: new Date().toISOString() })
@@ -1594,12 +1598,63 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
     // ── Auto-approve: update song_requests + notify customer + admin ────────
     if (paymentStatus === 'approved' && paymentRecord?.id) {
       try {
+        // Ler pedido + música para decidir: sem áudio → pôr em geração (igual à
+        // aprovação manual do admin); com áudio → aprovar e deixar o
+        // deliveryScheduler entregar. Sem este passo, pedidos auto-aprovados
+        // ficavam 'approved' sem música nunca gerada (bug 24/Set, pedido 62a31f31).
+        let autoReq: Record<string, unknown> | null = null;
+        let autoSong: Record<string, unknown> | null = null;
+        try {
+          const { data: autoReqRow } = await supabase
+            .from('song_requests')
+            .select('*, songs(id, title, lyrics, audio_url, full_song_url, mureka_status, mureka_task_id)')
+            .eq('id', songRequestId)
+            .maybeSingle();
+          autoReq = (autoReqRow as Record<string, unknown>) ?? null;
+          const songsRel = autoReq?.songs;
+          autoSong = ((Array.isArray(songsRel) ? songsRel[0] : songsRel) as Record<string, unknown> | null) ?? null;
+        } catch (fetchErr: unknown) {
+          logError('[API] Auto-approve: falha ao ler pedido/música — a seguir para aprovação simples', fetchErr, { songRequestId });
+        }
+
+        const hasGeneratedAudio = !!(autoSong?.full_song_url || autoSong?.audio_url);
+        const isProcessing = !!autoSong && (
+          ['generating', 'processing', 'voice_processing', 'completed'].includes(String(autoSong.mureka_status)) ||
+          (!!autoSong.mureka_task_id && !hasGeneratedAudio)
+        );
+        // Sem áudio → nunca 'approved' (o deliveryScheduler entregaria uma
+        // dedicatória sem música). 'music_processing' exclui-o de entrega até
+        // o workflow terminar e gravar o áudio.
+        const nextStatus = autoSong && !hasGeneratedAudio ? 'music_processing' : 'approved';
+        const startGeneration = !!autoSong && !hasGeneratedAudio && !isProcessing;
+
         await supabase
           .from('song_requests')
-          .update({ status: 'approved', deliver_at: deliverAt })
+          .update({ status: nextStatus, deliver_at: deliverAt })
           .eq('id', songRequestId);
 
-        sendConfirmationEmail(userEmail, plan, songRequestId).catch(err =>
+        if (startGeneration) {
+          logInfo('[API] Auto-approve: a iniciar geração Suno em background', {
+            songRequestId,
+            songId: autoSong!.id,
+            plan,
+          });
+          runBackgroundSunoWorkflow(
+            songRequestId,
+            String(autoSong!.id),
+            String(autoReq?.music_style || 'Kizomba'),
+            String(autoSong!.title || 'Música SeuBeat'),
+            (autoSong!.lyrics as string[] | string) || [],
+            {
+              voiceType: String(autoReq?.voice_type || '') || undefined,
+              desiredEmotion: String(autoReq?.desired_emotion || '') || undefined,
+            }
+          ).catch(err => logError('[API] Auto-approve: workflow Suno falhou', err, { songRequestId }));
+        } else if (!autoSong) {
+          logWarn('[API] Auto-approve: linha de música em falta — aprovação sem geração', { songRequestId });
+        }
+
+        sendConfirmationEmail(userEmail, String(autoReq?.recipient_name || userEmail), songRequestId).catch(err =>
           logError('[API] Falha ao enviar email de confirmação (auto-approve)', err, { songRequestId })
         );
 
