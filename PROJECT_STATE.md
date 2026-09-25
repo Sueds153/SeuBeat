@@ -10,7 +10,7 @@
   - `public.ts` `GET /api/song/:id` (auto-delivery): não entrega se não há `fullUrl` → `logWarn '[API] Auto-delivery adiada'`.
   - `stuckMusicRecoveryScheduler.ts`: **3ª query** candidata recupera pedidos `approved`/`delivered` sem `audio_url` (staleness `songs.updated_at`); `recoverStuckSong` exige **payment `status='approved'`** (nunca música grátis) — erro na verificação aborta; dedupe por id.
 - **Testes +11**: `submit-payment.test.ts` +3 (auto-approve→`music_processing`+workflow+email `('cliente@test.com','Ana','req-1')`; com áudio→`approved` sem workflow; `mureka_status:generating`→sem duplicado; **novo mock `../services/proofVerification`** c/ defaults `null`/`true`), `stuck-music-recovery.test.ts` +4 (approved/delivered recuperam; sem payment não; erro payment aborta; mock estendido: `payment`, `currentTable`, `limit`), novo `delivery-scheduler.test.ts` (4: guard + entrega normal preservada + `final_mixed` + songId em falta). **Suite: 468 testes** (37 ficheiros, 1 skipped) passam; `tsc --noEmit`/lint limpos.
-- **Pós-deploy**: `POST /api/admin/request/62a31f31-1bd4-4c8a-b4be-b5ff577602b8/retry` → confirmar `audio_url` em `GET /api/song/b2785b07-6435-48a1-bb87-cd760e57958d`. (Pedidos `d2520959`/`89a03ad9` sem pagamento são casos distintos, fora de escopo.)
+- **Pós-deploy CONCLUÍDO (25/Set 09:42–09:48)**: sem ação manual — o **stuckMusicRecovery** (3ª query) recuperou `62a31f31` no boot do deploy (`regeneration_count=1`, task `e5788bcb…`, `voice_processing`→`generating`→`completed` **234s**); request `delivered`; `GET /api/song/b2785b07-…` serve `audioUrl` (R2 200, 3.75 MB). Nota: `elevenlabsVoiceId={"failed":true}` (clonagem falhou → degradação controlada, conhecida). (Pedidos `d2520959`/`89a03ad9` sem pagamento são casos distintos, fora de escopo.)
 
 
 ### Ads / Criativos (23/Set 2026)
@@ -39,7 +39,7 @@
 
 ### Produção
 - **URL**: https://seubeat.onrender.com
-- **Último deploy**: pendente — push 25/Set (bugfix auto-approve sem geração da música), Render a buildar
+- **Último deploy**: `d5004d2` (25/Set ~09:41) **LIVE e verificado** (`/health` ok)
 - **Testes**: 468 passam (37 ficheiros, 1 skipped), `tsc --noEmit` limpo, **32 E2E Playwright passam**
 
 ### DB Schema (tabelas principais)
