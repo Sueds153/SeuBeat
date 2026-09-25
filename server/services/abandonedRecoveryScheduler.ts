@@ -41,8 +41,22 @@ export async function processAbandonedRecovery(): Promise<void> {
   }
 
   const nowDate = new Date();
-  const now = Date.now();
+  const nowIso = nowDate.toISOString();
   const tickStats = { emailSent: 0, whatsappSent: 0, whatsappFailed: 0, whatsappSkipped: 0 };
+
+  // Flags de email são colunas timestamptz — gravar Date.now() (número) faz o
+  // PostgREST rejeitar o update em silêncio e o dedupe morre (reenvio a cada tick).
+  const db = supabase;
+  async function markEmailFlag(flag: 'abandoned_7d_sent_at' | 'abandoned_72h_sent_at' | 'abandoned_48h_sent_at' | 'abandoned_24h_sent_at' | 'abandoned_30min_sent_at', requestId: string): Promise<void> {
+    try {
+      const { error: flagError } = await db.from('song_requests').update({ [flag]: nowIso }).eq('id', requestId);
+      if (flagError) {
+        logError(`[AbandonedRecovery] Falha ao marcar flag ${flag}`, flagError, { requestId });
+      }
+    } catch (err) {
+      logError(`[AbandonedRecovery] Falha ao marcar flag ${flag}`, err instanceof Error ? err : new Error(String(err)), { requestId });
+    }
+  }
 
   function songTeaser(req: { songs?: unknown }): { songTitle: string; lyricsSnippet: string } {
     const songs = Array.isArray(req.songs) ? req.songs : req.songs ? [req.songs] : [];
@@ -67,27 +81,27 @@ export async function processAbandonedRecovery(): Promise<void> {
       // o 4º lembrete (ou já o receberam há dias) são reativados agora.
       if (diffMs >= 7 * 24 * 60 * 60 * 1000 && !req.abandoned_7d_sent_at) {
         await sendAbandonedFifthReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
-        await supabase.from('song_requests').update({ abandoned_7d_sent_at: now }).eq('id', req.id);
+        await markEmailFlag('abandoned_7d_sent_at', req.id);
         logInfo('[AbandonedRecovery] Quinto lembrete enviado (7 dias) por email', { requestId: req.id, email: req.email });
         tickStats.emailSent++;
       } else if (diffMs >= 72 * 60 * 60 * 1000 && !req.abandoned_72h_sent_at) {
         await sendAbandonedFourthReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
-        await supabase.from('song_requests').update({ abandoned_72h_sent_at: now }).eq('id', req.id);
+        await markEmailFlag('abandoned_72h_sent_at', req.id);
         logInfo('[AbandonedRecovery] Quarto lembrete enviado (72h) por email', { requestId: req.id, email: req.email });
         tickStats.emailSent++;
       } else if (diffMs >= 48 * 60 * 60 * 1000 && !req.abandoned_48h_sent_at) {
         await sendAbandonedThirdReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
-        await supabase.from('song_requests').update({ abandoned_48h_sent_at: now }).eq('id', req.id);
+        await markEmailFlag('abandoned_48h_sent_at', req.id);
         logInfo('[AbandonedRecovery] Terceiro lembrete enviado (48h) por email', { requestId: req.id, email: req.email });
         tickStats.emailSent++;
       } else if (diffMs >= 24 * 60 * 60 * 1000 && !req.abandoned_24h_sent_at) {
         await sendAbandonedSecondReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
-        await supabase.from('song_requests').update({ abandoned_24h_sent_at: now }).eq('id', req.id);
+        await markEmailFlag('abandoned_24h_sent_at', req.id);
         logInfo('[AbandonedRecovery] Segundo lembrete enviado (24h) por email', { requestId: req.id, email: req.email });
         tickStats.emailSent++;
       } else if (diffMs >= 30 * 60 * 1000 && !req.abandoned_30min_sent_at) {
         await sendAbandonedFirstReminder(req.email, req.recipient_name || '', req.id, songTitle, lyricsSnippet);
-        await supabase.from('song_requests').update({ abandoned_30min_sent_at: now }).eq('id', req.id);
+        await markEmailFlag('abandoned_30min_sent_at', req.id);
         logInfo('[AbandonedRecovery] Primeiro lembrete enviado (30min) por email', { requestId: req.id, email: req.email });
         tickStats.emailSent++;
       }

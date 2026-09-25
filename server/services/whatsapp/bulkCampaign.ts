@@ -129,7 +129,7 @@ async function sendBulk(clients: BulkClient[]) {
     if (!phone) {
       progress.skippedNoWhatsApp++;
       progress.processed++;
-      await insertSendLog({ requestId: client.requestId, phone: client.phone || '', status: 'skipped', error: 'sem telefone' });
+      await insertSendLog({ requestId: client.requestId, phone: client.phone || '', status: 'skipped', bucket: client.bucket, error: 'sem telefone' });
       continue;
     }
 
@@ -145,7 +145,7 @@ async function sendOne(client: BulkClient, phone: string): Promise<'sent' | 'ski
   if (!templateName) {
     progress.failed++;
     progress.processed++;
-    await insertSendLog({ requestId: client.requestId, phone, status: 'failed', error: 'Sem template definido para este bucket.' });
+    await insertSendLog({ requestId: client.requestId, phone, status: 'failed', bucket: client.bucket, error: 'Sem template definido para este bucket.' });
     return 'failed';
   }
 
@@ -159,6 +159,7 @@ async function sendOne(client: BulkClient, phone: string): Promise<'sent' | 'ski
       requestId: client.requestId,
       phone,
       status: 'sent',
+      bucket: client.bucket,
       messageId: result.messageId || undefined,
       templateName,
     });
@@ -168,11 +169,11 @@ async function sendOne(client: BulkClient, phone: string): Promise<'sent' | 'ski
 
   if (result.code === 131030) {
     progress.skippedNoWhatsApp++;
-    await insertSendLog({ requestId: client.requestId, phone, status: 'skipped', error: result.error });
+    await insertSendLog({ requestId: client.requestId, phone, status: 'skipped', bucket: client.bucket, error: result.error });
     return 'skipped';
   }
 
   progress.failed++;
-  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', error: result.error });
+  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', bucket: client.bucket, error: result.error });
   return 'failed';
 }

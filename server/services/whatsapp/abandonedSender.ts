@@ -45,14 +45,14 @@ export async function sendAbandonedWhatsApp(client: BulkClient): Promise<Abandon
 
   const phone = normalizePhoneToE164(client.phone || '');
   if (!phone) {
-    await insertSendLog({ requestId: client.requestId, phone: client.phone || '', status: 'skipped', error: 'sem telefone' });
+    await insertSendLog({ requestId: client.requestId, phone: client.phone || '', status: 'skipped', bucket: client.bucket, error: 'sem telefone' });
     return 'skipped';
   }
 
   const def = templateForBucket(client.bucket);
   const templateName = client.templateName || def?.name || '';
   if (!templateName) {
-    await insertSendLog({ requestId: client.requestId, phone, status: 'failed', error: 'Sem template definido para este bucket.' });
+    await insertSendLog({ requestId: client.requestId, phone, status: 'failed', bucket: client.bucket, error: 'Sem template definido para este bucket.' });
     return 'failed';
   }
 
@@ -67,6 +67,7 @@ export async function sendAbandonedWhatsApp(client: BulkClient): Promise<Abandon
       requestId: client.requestId,
       phone,
       status: 'sent',
+      bucket: client.bucket,
       messageId: result.messageId || undefined,
       templateName,
     });
@@ -74,10 +75,10 @@ export async function sendAbandonedWhatsApp(client: BulkClient): Promise<Abandon
   }
 
   if (result.code === 131030) {
-    await insertSendLog({ requestId: client.requestId, phone, status: 'skipped', error: result.error });
+    await insertSendLog({ requestId: client.requestId, phone, status: 'skipped', bucket: client.bucket, error: result.error });
     return 'skipped';
   }
 
-  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', error: result.error });
+  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', bucket: client.bucket, error: result.error });
   return 'failed';
 }

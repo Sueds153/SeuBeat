@@ -76,13 +76,15 @@ async function completeSunoWorkflowFromAudio(
   const isStandard = approvedPayment && approvedPayment.plan === 'standard';
   const paymentCreatedAt = approvedPayment?.created_at || new Date().toISOString();
   const deliverAt = isStandard ? new Date(new Date(paymentCreatedAt).getTime() + 24 * 60 * 60 * 1000).toISOString() : null;
+  const nextStatus = approvedPayment ? (isStandard ? 'approved' : 'delivered') : 'music_ready';
 
   await supabase
     .from('song_requests')
     .update({
-      status: approvedPayment ? (isStandard ? 'approved' : 'delivered') : 'music_ready',
+      status: nextStatus,
       deliver_at: deliverAt,
-      final_mixed_audio_url: fullAudioUrl
+      final_mixed_audio_url: fullAudioUrl,
+      ...(nextStatus === 'delivered' ? { delivered_at: new Date().toISOString() } : {}),
     })
     .eq('id', requestId);
 
@@ -378,6 +380,7 @@ export async function runBackgroundSunoWorkflow(
         final_mixed_audio_url: fullAudioUrl,
         status: nextStatus,
         deliver_at: deliverAt,
+        ...(nextStatus === 'delivered' ? { delivered_at: new Date().toISOString() } : {}),
       })
       .eq('id', requestId);
 

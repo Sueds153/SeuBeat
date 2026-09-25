@@ -25,6 +25,7 @@ export async function sendDeliveryWhatsApp(client: {
       requestId: client.requestId,
       phone,
       status: 'sent',
+      bucket: 'delivery',
       messageId: res.messageId || undefined,
       templateName,
     });
@@ -32,7 +33,7 @@ export async function sendDeliveryWhatsApp(client: {
     return 'sent';
   }
 
-  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', error: res.error });
+  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', bucket: 'delivery', error: res.error });
   return 'failed';
 }
 
@@ -54,6 +55,7 @@ export async function sendPaymentApprovedWhatsApp(client: {
       requestId: client.requestId,
       phone,
       status: 'sent',
+      bucket: 'payment_approved',
       messageId: res.messageId || undefined,
       templateName,
     });
@@ -61,7 +63,7 @@ export async function sendPaymentApprovedWhatsApp(client: {
     return 'sent';
   }
 
-  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', error: res.error });
+  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', bucket: 'payment_approved', error: res.error });
   return 'failed';
 }
 
@@ -84,6 +86,7 @@ export async function sendPaymentRejectedWhatsApp(client: {
       requestId: client.requestId,
       phone,
       status: 'sent',
+      bucket: 'payment_rejected',
       messageId: res.messageId || undefined,
       templateName,
     });
@@ -91,7 +94,7 @@ export async function sendPaymentRejectedWhatsApp(client: {
     return 'sent';
   }
 
-  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', error: res.error });
+  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', bucket: 'payment_rejected', error: res.error });
   return 'failed';
 }
 
@@ -113,6 +116,7 @@ export async function sendVideoUpsellWhatsApp(client: {
       requestId: client.requestId,
       phone,
       status: 'sent',
+      bucket: 'video_upsell',
       messageId: res.messageId || undefined,
       templateName,
     });
@@ -120,7 +124,7 @@ export async function sendVideoUpsellWhatsApp(client: {
     return 'sent';
   }
 
-  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', error: res.error });
+  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', bucket: 'video_upsell', error: res.error });
   return 'failed';
 }
 
@@ -152,6 +156,7 @@ export async function sendFeedbackRequestWhatsApp(client: FeedbackRequestClient)
       requestId: client.requestId,
       phone,
       status: 'sent',
+      bucket: 'feedback',
       messageId: res.messageId ?? undefined,
       templateName: 'feedback_request',
     });
@@ -159,6 +164,6 @@ export async function sendFeedbackRequestWhatsApp(client: FeedbackRequestClient)
     return 'sent';
   }
 
-  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', error: res.error });
+  await insertSendLog({ requestId: client.requestId, phone, status: 'failed', bucket: 'feedback', error: res.error });
   return 'failed';
 }

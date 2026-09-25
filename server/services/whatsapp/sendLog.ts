@@ -12,21 +12,32 @@ export async function insertSendLog(row: {
   requestId: string;
   phone: string;
   status: string;
+  bucket?: string;
   error?: string;
   messageId?: string;
   templateName?: string;
 }) {
   const supabase = getAdminSupabase();
   if (!supabase) return;
+  const bucket = row.bucket || 'manual';
   try {
-    await supabase.from('whatsapp_send_log').insert({
+    const { error } = await supabase.from('whatsapp_send_log').insert({
       request_id: row.requestId,
       phone: row.phone,
+      bucket,
       status: row.status,
       error: row.error || null,
       message_id: row.messageId || null,
       template_name: row.templateName || null,
     });
+    if (error) {
+      logError('[WhatsApp] Falha ao registar log', new Error(error.message || 'insertSendLog falhou'), {
+        requestId: row.requestId,
+        bucket,
+        status: row.status,
+        code: error.code,
+      });
+    }
   } catch (err) {
     logError('[WhatsApp] Erro ao registar log', err instanceof Error ? err : new Error(String(err)));
   }
@@ -70,7 +81,7 @@ export async function getDailySentCount(): Promise<number> {
     .from('whatsapp_send_log')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'sent')
-    .gte('created_at', startOfDay.toISOString());
+    .gte('sent_at', startOfDay.toISOString());
   if (error) return 0;
   return count || 0;
 }

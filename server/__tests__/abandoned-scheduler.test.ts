@@ -177,6 +177,20 @@ describe('processAbandonedRecovery (WhatsApp)', () => {
     expect(mockedEmail30).not.toHaveBeenCalled();
   });
 
+  it('marca a flag de email com string ISO (timestamptz) e não com epoch ms', async () => {
+    const query = buildSupabaseMock({ requests: [request({})], paymentStatus: null });
+
+    await processAbandonedRecovery();
+
+    expect(query.update).toHaveBeenCalled();
+    const payload = (query.update as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>;
+    const flagValue = payload.abandoned_30min_sent_at;
+    // Regressão: Date.now() (número) fazia o PostgREST rejeitar o update em silêncio
+    // e o dedupe de email morria (reenvio a cada tick de 10min).
+    expect(typeof flagValue).toBe('string');
+    expect(new Date(flagValue as string).toISOString()).toBe(flagValue);
+  });
+
   it('envia o 5º lembrete (7 dias) por email para leads >7 dias sem flag', async () => {
     const { sendAbandonedFifthReminder } = await import('../services/email');
     const mockedEmail7d = sendAbandonedFifthReminder as ReturnType<typeof vi.fn>;

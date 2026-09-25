@@ -12,6 +12,12 @@
 - **Testes +11**: `submit-payment.test.ts` +3 (auto-approve→`music_processing`+workflow+email `('cliente@test.com','Ana','req-1')`; com áudio→`approved` sem workflow; `mureka_status:generating`→sem duplicado; **novo mock `../services/proofVerification`** c/ defaults `null`/`true`), `stuck-music-recovery.test.ts` +4 (approved/delivered recuperam; sem payment não; erro payment aborta; mock estendido: `payment`, `currentTable`, `limit`), novo `delivery-scheduler.test.ts` (4: guard + entrega normal preservada + `final_mixed` + songId em falta). **Suite: 468 testes** (37 ficheiros, 1 skipped) passam; `tsc --noEmit`/lint limpos.
 - **Pós-deploy CONCLUÍDO (25/Set 09:42–09:48)**: sem ação manual — o **stuckMusicRecovery** (3ª query) recuperou `62a31f31` no boot do deploy (`regeneration_count=1`, task `e5788bcb…`, `voice_processing`→`generating`→`completed` **234s**); request `delivered`; `GET /api/song/b2785b07-…` serve `audioUrl` (R2 200, 3.75 MB). Nota: `elevenlabsVoiceId={"failed":true}` (clonagem falhou → degradação controlada, conhecida). (Pedidos `d2520959`/`89a03ad9` sem pagamento são casos distintos, fora de escopo.)
 
+### Bugs Corrigidos Hoje (25/Set 2026) — Sessão 2: 3 bugs de dedupe/telemetria
+1. **Flags de email com `Date.now()` (epoch ms) em coluna `timestamptz`** (`abandonedRecoveryScheduler.ts`) — o PostgREST rejeitava o update em silêncio (erro ignorado) → dedupe de email **morto desde 12/Ago** (blame: `5338751`) → reenvio potencial de lembretes a cada tick de 10min. Fix: `nowIso` (string ISO) + helper `markEmailFlag` com check de `{error}` + `logError` (sem throw — senão salta o bloco WhatsApp).
+2. **`whatsapp_send_log` sem logs desde 20/Ago** — duas causas: (a) `insertSendLog` não enviava `bucket` (coluna `NOT NULL` sem default → insert rejeitado, `.error` ignorado); (b) `getDailySentCount` filtrava `created_at` (coluna **não existe**; real = `sent_at`) → cap diário contava 0 → sempre esgotado/bloqueante. Fix: param `bucket?` (default `'manual'`) + `logError` em `{error}` + `sent_at` no cap; **todos os call sites** ganham bucket explícito (`transactional.ts`: delivery/payment_approved/payment_rejected/video_upsell/feedback; `bulkCampaign.ts`/`abandonedSender.ts`: `client.bucket`).
+3. **`delivered_at` null em 52 pedidos `delivered`** — os 2 caminhos do workflow (`sunoOrchestration.ts`: `completeSunoWorkflowFromAudio` + update final `nextStatus`) gravavam `status='delivered'` sem `delivered_at` → follow-ups 7d/30d nunca disparavam (admin/public/deliveryScheduler já gravavam). Fix: `delivered_at` condicional a `nextStatus==='delivered'`; **backfill em produção** (52→0, `delivered_at = updated_at`).
+- **Testes +11**: novo `whatsapp-send-log.test.ts` (10: bucket default/explicito, logError sem lançar, `sent_at` no cap, `markBucketSent` ISO/unknown, `markContacted`) + `abandoned-scheduler.test.ts` +1 (flag com string ISO válida). **Suite: 479 testes** (38 ficheiros, 1 skipped) passam; `tsc --noEmit`/lint limpos.
+
 
 ### Ads / Criativos (23/Set 2026)
 - **Meta RT**: campaign `SeuBeat_Retargeting` `120250568225420708` PAUSED; adset `rt_checkout_14d` `120250568232860708` PAUSED (AO 22–65, PURCHASE) — **sem anúncio ainda**
@@ -40,7 +46,7 @@
 ### Produção
 - **URL**: https://seubeat.onrender.com
 - **Último deploy**: `d5004d2` (25/Set ~09:41) **LIVE e verificado** (`/health` ok)
-- **Testes**: 468 passam (37 ficheiros, 1 skipped), `tsc --noEmit` limpo, **32 E2E Playwright passam**
+- **Testes**: 479 passam (38 ficheiros, 1 skipped), `tsc --noEmit` limpo, **32 E2E Playwright passam**
 
 ### DB Schema (tabelas principais)
 - `song_requests` — pedido do cliente (status, dados wizard)
