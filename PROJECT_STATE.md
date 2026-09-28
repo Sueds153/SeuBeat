@@ -85,8 +85,9 @@ Auditoria Meta Ads/PIX/CAPI/Funil (20 partes, dados reais) → plano em 3 fases 
 
 ### Produção
 - **URL**: https://seubeat.onrender.com
-- **Último deploy**: `d5004d2` (25/Set ~09:41) **LIVE e verificado** (`/health` ok)
-- **Testes**: 505 passam (38 ficheiros, 1 skipped), `tsc --noEmit` limpo, **32 E2E Playwright passam** — contagens locais pós Fase 1 (ainda não commitada/deployada)
+- **Último deploy**: `9886664` (28/Set ~11:20) **LIVE** (`/health` ok, uptime resetado pós-push)
+- **Testes**: 505 unitários (38 ficheiros, 1 skipped) + **64/64 E2E Playwright** (chromium + mobile-chrome) — **CI verde de ponta a ponta** (`36407703814`: lint/test/build/**E2E** success)
+- **Commits da sessão**: `ad5088c` (Fase 1 tracking) · `166bc80` (plano F2/F3 + exclusão compradores) · `8072a75` (E2E mobile-aware) · `9ff3c79` (CI reuse do servidor) · `9d67191`+`af6de41` (relatório E2E público) · `9886664` (teste do 503)
 
 ### DB Schema (tabelas principais)
 - `song_requests` — pedido do cliente (status, dados wizard)
