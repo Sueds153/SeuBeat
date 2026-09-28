@@ -1,5 +1,33 @@
 # SeuBeat — Estado do Projeto (atualizado a cada sessão)
 
+## Estado Atual (28/Set 2026)
+
+### Fase 1 — Tracking Meta (Pixel + CAPI) implementada (28/Set 2026)
+Auditoria Meta Ads/PIX/CAPI/Funil (20 partes, dados reais) → plano em 3 fases aprovado; **esta sessão executou só a Fase 1 (Tracking)**. Orçamento $10/dia mantido + redução p/ 2-3 anúncios = ação manual no Ads Manager (fora do repo). Fases 2 (Funil) e 3 (Media Buying) pendentes.
+
+**Correções aplicadas (16 ficheiros, +820/−115):**
+- **CAPI 4xx não conta como sucesso**: `metaPixelCapi.ts` — bug `return res.status >= 500 ? false : true` fazia 4xx (token inválido/config errada) contar como entregue e gravar `meta_purchase_sent_at` → `Refund` nunca disparava. Agora `attemptSend` devolve `'success' | 'retry' | 'fail'`: 4xx = falha final sem retry, 5xx/timeout = retry com backoff (timeout 5s via `AbortSignal.timeout`).
+- **`fbp`/`fbc` + `order_id` na CAPI**: browser captura cookie `_fbp` (`getFbp`) e `fbclid` (`getFbc`, persistido em sessionStorage 30 dias — o wizard muda de URL e perdia a query); enviados no FormData/JSON do `submit-payment` (`SubmitPaymentSchema` valida formato `fb.1.*`), encaminhados **sem hash** em `user_data` e `custom_data.order_id` = payment id (match browser↔servidor, crítico p/ tráfego in-app 98,5% do spend).
+- **Moeda única AOA**: todos os eventos servidor (Purchase/InitiateCheckout/AddPaymentInfo/SubmitApplication/Refund/video-upsell) passaram de USD para **AOA** (valor do browser) — a Meta via dois valores diferentes para o mesmo `event_id`; `kzToUsd` deixou de ser usado nos eventos.
+- **`sanitizePaymentAmount`** (`server/utils/helpers.ts`): amount do cliente validado contra o catálogo **por plano** (base + addons [0,1500,2500,4000]); valor desconhecido ou de outro plano cai no preço base do plano (BD + `value` do Purchase ficam coerentes com o plano).
+- **Novos eventos browser**: `ViewContent` (one-shot, event_id determinístico), `payment_screen` corrigido para o passo 5 (eram 6), `InitiateCheckout` na escolha do plano e `AddPaymentInfo` na escolha Express/Referência (ids vindos de `generateEventId(dbSongRequestId, …)` p/ dedup com o servidor).
+- **`Refund` condicional**: auto-reject (`public.ts`) e rejeição admin (`admin.ts`) enviam `Refund` **só quando `meta_purchase_sent_at` estiver preenchido** (sem Purchase prévio não há conversão negativa a criar); **motivo de rejeição obrigatório** — rota admin devolve 400 se `notes` vazio (validação depois do lookup 409), `AdminPanel` valida no modal, motivo segue no email/WhatsApp do cliente.
+- **Higiene**: `<img>` PageView duplicado do `<noscript>` removido (`src/lib/metaPixel.ts`).
+
+**Validação: `npm test` → 505 testes passam (38 ficheiros, 1 skipped); `tsc --noEmit` limpo; `npm run build` OK.**
+- Testes novos: `metaPixelCapi.test.ts` 9 (4xx→false/1 tentativa, 5xx→3 tentativas, fbp/fbc/order_id no payload, event_source_url real, Refund, ids 16 hex), `submit-payment.test.ts` +5 (fbp/fbc encaminhados, sanitize BD+CAPI, Refund condicional), `admin-fixes.test.ts` +4 (400 sem motivo, Refund com/sem Purchase), `helpers.test.ts` +5 (`sanitizePaymentAmount`), `metaPixel.test.ts` +6 (`getFbp`/`getFbc` incl. TTL 30 dias).
+- **Bugfix de teste flaky**: `proof-verification` "recent date" usava hora fixa `01:26` (futura quando a suite corre pós-meia-noite) → data = 1h atrás.
+- Rate limit nos testes de `submit-payment` (20/h/IP, sem `resetAll` no handler v8): contornado com `NODE_ENV=development` nos 2 describes novos (`skip()` do `paymentLimiter`).
+- **Não bump de `WIZARD_BUILD`** (`20260819_1`): mudanças são aditivas/telemetria e `index.html` é servido com `maxAge:0` → clientes buscam o novo chunk no próximo load; bump apagaria o progresso de quem está a meio do funil. Decisão a rever se se mexer no fluxo do wizard.
+
+### Fase 3 (parcial) — Exclusão de compradores aplicada + plano Fase 2/3 guardado (28/Set 2026)
+- **Plano das fases 2 e 3 escrito em `scripts/PLANO_META_FASE2_FASE3.md`** (números de referência, tabela de ações Fase 2 funil / Fase 3 media buying, decisões tomadas, comandos).
+- **Exclusão de compradores RESOLVIDA via API** (pendência antiga `1487916`): a Marketing API **v22+ removeu `targeting.exclusions.custom_audiences`** — o campo atual é **`targeting.excluded_custom_audiences`** (escrito em v25.0 ecoando o targeting completo; o POST substitui o objeto inteiro).
+  - Aplicada e **verificada por leitura** nos 2 adsets: RT `120250568232860708` (PAUSED) e cold `120248973060180708` (ACTIVE) → `excluded_custom_audiences: ["EXCL - Compradores 180d" 120250568225030708]`.
+  - No adset cold, efeitos colaterais verificados e inofensivos: `location_types` ganhou `frequently_in` (normalização Meta), `targeting_automation.individual_setting` deixou de ser devolvido (`advantage_audience` = 1 intacto), `age_range` legado `[22,55]` desapareceu (`age_min/max` 22–65 mantidos). Attribution/budget/status intactos.
+- **`scripts/meta-direct.mjs`**: ação `exclude-buyers` corrigida (dry-run + `--live`), nova const `EXCLUSION_API_VERSION=v25.0`, `api()` aceita versão por chamada, `ensureAdset` usa `excluded_custom_audiences`, eco completo do targeting + verificação pós-escrita (`campos_alterados`) + sleep 35s entre POSTs (limite ~1/30s por adset, `error_subcode 4841018`).
+- **Retargeting continua PAUSED à espera de criativos** (campanha + adset PAUSED, 0 anúncios) — decisão do utilizador; publicar só com criativo.
+
 ## Estado Atual (25/Set 2026)
 
 ### Bugs Corrigidos Hoje (25/Set 2026) — Pagamento auto-aprovado pela AI nunca gerava a música
@@ -27,7 +55,7 @@
 - **Demografia compradores** (n=57): 61% compra para mulher; ~82% cônjuges/namorados; Express 34 > Standard 14 > Premium 9; declaração/aniversário/agradecimento top; Luanda domina; pt-PT 100%
 - **Vídeo editado**: `editar01_final.mp4` — 1080×1920 H.264 yuv420p 30fps, 213.9s, **45.9 MB** (de 207 MB HEVC), 8 legendas 3ª pessoa centradas (`editar01.ass` Alignment 5); QC 8/8 OK. Fonte: `editar01.mp4`
 - **ScrapeGraphAI**: key no `.env` L62; ~267 créditos; usar `search` com `usePrompt: false`
-- Pendências Ads: anúncio RT, exclusão EXCL via API falha 1487916 (fazer no Ads Manager), decisão Shot 3 A/B/C, prompts avatar 10s em CREATIVOS_RT_IA.md
+- Pendências Ads: anúncio RT (criativo do utilizador), decisão Shot 3 A/B/C, prompts avatar 10s em CREATIVOS_RT_IA.md · ~~exclusão EXCL via API 1487916~~ **RESOLVIDA 28/Set** (v25 `targeting.excluded_custom_audiences`, aplicada ao RT + cold)
 
 ### Stack
 - **Frontend**: React + Vite + Tailwind + TypeScript
@@ -46,7 +74,7 @@
 ### Produção
 - **URL**: https://seubeat.onrender.com
 - **Último deploy**: `d5004d2` (25/Set ~09:41) **LIVE e verificado** (`/health` ok)
-- **Testes**: 479 passam (38 ficheiros, 1 skipped), `tsc --noEmit` limpo, **32 E2E Playwright passam**
+- **Testes**: 505 passam (38 ficheiros, 1 skipped), `tsc --noEmit` limpo, **32 E2E Playwright passam** — contagens locais pós Fase 1 (ainda não commitada/deployada)
 
 ### DB Schema (tabelas principais)
 - `song_requests` — pedido do cliente (status, dados wizard)
@@ -74,7 +102,7 @@
    - **Campaign** `SeuBeat_Retargeting` `120250568225420708` — OUTCOME_SALES, AUCTION, daily $2, PAUSED, intocado cold `120248973060170708`.
    - **Adset** `rt_checkout_14d` `120250568232860708` — inclusion `RT - Checkout 14d`, age 22–65, AO, OFFSITE_CONVERSIONS→PURCHASE, attribution 7d click/1d view/1d engaged video (igual cold), `targeting_relaxation_types` off, **PAUSED, sem ad** (criativo = utilizador).
    - **4 audiências Website** (regras no pixel `1928777041139855`): `RT - Checkout 14d` `120250568224670708`, `RT - LeadWizard 30d` `120250568224870708`, `EXCL - Compradores 180d` `120250568225030708`, `RT - Visitantes 30d` `120250568225150708`.
-   - **Exclusão de compradores**: API rejeita `targeting.exclusions` (erro "campos duplicados" 1487916); POST top-level devolveu `success:true` mas GET não expõe o campo — **confirmar no Ads Manager** e, se faltar, adicionar `EXCL - Compradores 180d` à mão antes de publicar.
+   - **Exclusão de compradores**: ~~API rejeitava `targeting.exclusions` (erro 1487916)~~ → **resolvido 28/Set** com `targeting.excluded_custom_audiences` (v25), aplicado ao adset RT e ao cold.
    - Script `scripts/meta-direct.mjs` reconstruído (ações `create-retargeting`/`verify`/`pause`/`attribution`, load `.env`, retry rate-limit 613). Audiências antigas da conta continuam inválidas (template ALL_VISITORS sem filtro).
 2. **Cold 3d (verify 20–23/Set)**: spend $15.68, **0 compras** — `teste_casamento` $5.60/0pur é o maior queimador (regra freio: >$6.50+>$15 → pausar); vencedores 30d (`wife_gestada`, `avô 02`) sem pur em 3d. Regra dia 5–7 de RT mantida.
 3. **Meta Purchase (CAPI + Pixel)** — ver secção abaixo (commit `c009bfa`).
@@ -204,7 +232,8 @@
 - Cap PostgREST 1000 linhas — rota `/songs` (`admin.ts:738-752`) — não tocar (adiado)
 - `/health` não valida saldo OpenAI (só presença da key) — melhorar futuramente
 - **Deploy Meta Purchase (23/Set)** — commit `c009bfa` pushado; confirmar deploy Render + eventos em Events Manager
-- **RT publish pendente** — `SeuBeat_Retargeting` criada PAUSED sem anúncio: gerar vídeo com prompts em `scripts/CREATIVOS_RT_IA.md` (Kling), utilizador mete criativo, confirma exclusão compradores no adset, publica; regra freio CPA >$6.50 / >$10 gasto
+- **RT publish pendente** — `SeuBeat_Retargeting` criada PAUSED sem anúncio: gerar vídeo com prompts em `scripts/CREATIVOS_RT_IA.md` (Kling), utilizador mete criativo e publica (toggle ACTIVE); ~~confirmar exclusão compradores~~ **exclusão já aplicada 28/Set**; regra freio CPA >$6.50 / >$10 gasto
+- **Plano Fase 2 (funil) / Fase 3 (media buying)** guardado em `scripts/PLANO_META_FASE2_FASE3.md` — execução pendente
 - **SGAI** — ~267 créditos free; evitar search com prompt+schema (timeout) — preferir raw ou extract
 - **Sem LAL nesta ronda** — decisão; Lookalike só se RT escalar com CPA ≤$5 (dia 5–7)
 
