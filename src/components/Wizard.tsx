@@ -1637,7 +1637,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     return `${num.toLocaleString('pt-PT')} Kz`;
   };
 
-  // ETA honesto por plano: Express/Premium = entrega imediata após aprovação manual; Standard = até 24h
+  // ETA honesto por plano: Express/Premium = entrega imediata após aprovação; Standard = até 24h
   const deliveryEta = voiceUpsellApplied || selectedPlanID === 'express'
     ? 'logo após a aprovação'
     : 'em até 24 horas';
@@ -2844,7 +2844,7 @@ const ROTATING_MESSAGES = [
               <span className="text-stone-700 hidden xs:inline">·</span>
               <span className="flex items-center gap-1"><Check className="w-3 h-3 text-emerald-400 shrink-0" />Plano escolhido</span>
               <span className="text-stone-700">·</span>
-              <span className="flex items-center gap-1 text-amber-400 font-semibold"><span className="text-[11px]"></span>Confirmação manual até 24h</span>
+              <span className="flex items-center gap-1 text-amber-400 font-semibold"><span className="text-[11px]"></span>Aprovação automática em segundos</span>
             </div>
 
             {/* Price confirmation box */}
@@ -3205,7 +3205,7 @@ const ROTATING_MESSAGES = [
                         <span>COMPROVATIVO REJEITADO</span>
                       </div>
                       <p className="text-stone-400 text-xs font-sans leading-relaxed">
-                        {paymentNotes || 'O comprovativo enviado não foi aceite pela nossa equipa.'}
+                        {paymentNotes || 'O comprovativo enviado não foi aprovado.'}
                       </p>
                       <button
                         type="button"
@@ -3356,7 +3356,7 @@ const ROTATING_MESSAGES = [
 
                     <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-4 text-left space-y-2">
                       <p className="text-stone-300 text-xs leading-relaxed">
-                        {paymentNotes || 'O comprovativo enviado não foi aceite pela nossa equipa.'}
+                        {paymentNotes || 'O comprovativo enviado não foi aprovado.'}
                       </p>
                       <p className="text-stone-500 text-xs">
                         Pode reenviar um novo comprovativo ou contactar-nos pelo WhatsApp para mais informações.
@@ -3384,12 +3384,12 @@ const ROTATING_MESSAGES = [
                       <span className="text-xl"></span>
                       <div>
                         <span className="text-[10px] text-amber-500 font-mono block uppercase tracking-wider font-extrabold">COMPROVATIVO RECEBIDO</span>
-                        <h4 className="text-stone-100 font-serif text-sm font-bold">Aguardando confirmação do pagamento</h4>
+                        <h4 className="text-stone-100 font-serif text-sm font-bold">Aguardando aprovação do pagamento</h4>
                       </div>
                     </div>
 
                     <p className="text-stone-400 text-xs leading-relaxed">
-                      O link da sua dedicatória será enviado para <strong className="text-stone-300">{formData.email}</strong> assim que o pagamento for confirmado pela nossa equipa.
+                      A verificação do comprovativo é automática e demora apenas segundos. O link da sua dedicatória será enviado para <strong className="text-stone-300">{formData.email}</strong> assim que o pagamento for aprovado.
                     </p>
 
                     <div className="text-xs pt-1 flex items-center gap-2">

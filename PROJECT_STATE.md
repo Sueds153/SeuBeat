@@ -2,6 +2,22 @@
 
 ## Estado Atual (28/Set 2026)
 
+### Consistência da copy de aprovação — "automática em segundos" (28/Set 2026, sessão 5)
+Framing de aprovação do cliente unificado (era "manual/até 24h" — falsidade: o auto-approve AI existe e a aprovação real tem mediana 2h):
+- **Wizard checklist**: "Confirmação manual até 24h" → **"Aprovação automática em segundos"** (sem emojis, a pedido).
+- **Ecrã COMPROVATIVO RECEBIDO**: título "Aguardando confirmação" → "Aguardando aprovação"; corpo sem "pela nossa equipa" → "A verificação do comprovativo é automática e demora apenas segundos…".
+- **Fallbacks de rejeição** (2 blocos): "não foi aceite pela nossa equipa" → "não foi aprovado" (auto-reject existe).
+- **Terms §5**: "aprovação é manual até 24h úteis" → "verificação automática, maioria em segundos; revisão manual só quando necessário (até 24h úteis)".
+- **Intocados de propósito**: promessas de ENTREGA 24h (Terms:55, `deliveryEta`, Express imediata), fallback de AI-em-baixo (`helpers.ts:116`, honesto), templates WhatsApp Meta (copy aprovada pela Meta), AdminPanel interno.
+- Dados: auto-approve `confidence ≥0.85` (`proofVerification.ts`) · aprovação real 45d n=40: mediana 121min, média 370min · nenhum teste dependia dos textos antigos. Validação: `tsc --noEmit` + **535 testes** ✓.
+
+### Landing CRO — números reais + selos Multicaixa (28/Set 2026, sessão 4)
+Avaliação persuasão/animações da landing (7.5/10); fixes aprovados pelo utilizador ("Gostei apenas do fix 5 e sobre os numeros ficticios quero que seja numeros não arrendondados"):
+- **Números reais não arredondados** (nada de "+200 entregues"/"60%"/"4.9★"): `/api/social-proof` ganha **`expressTotal`** (pagamentos `approved` com `plan='express'`) para quota real do Express; micro-stats do hero mostram só o que existe: `+N criadas hoje` (fallback `paidTotal` com label "músicas criadas" — nunca "+0"), `deliveredTotal entregues por email e WhatsApp` (omisso se 0), `100% personalizado`; quota Express no card de pricing = "`expressTotal` de `paidTotal` clientes escolheram esta opção" (ex.: "34 de 57"; omisso se 0); CTA final troca "9 em cada 10 choram" por "`paidTotal` pessoas já confiaram…" (fallback genérico honesto se 0).
+- **Selos Multicaixa** abaixo dos 3 cards de pricing: ⚡ Multicaixa Express · 🎟 Referência Multicaixa · 🛡 "Só pagas depois de aprovar a letra" (ícones `Zap`/`Ticket`/`Shield`).
+- **Limpeza**: "60%" estático removido de `pricing.ts` (`popularity` agora preenchido em runtime); `4.9★ (+200 entregues)` removido.
+- **Suite: 535 testes** (39 ficheiros, 1 skipped) · `tsc --noEmit`/lint OK. Sem commit (aguarda pedido).
+
 ### Fase 1+2 — Recuperação + Checkout CRO (28/Set 2026, sessão 3)
 Plano aprovado "Prioridades 1 + 2" executado na íntegra (instrução: *"Avance. não quebre o site porque ela está em produção e teste tudo"*). **Validação final: 535 testes unit (39 ficheiros, 1 skipped) + 64/64 E2E (chromium+mobile-chrome) + `tsc --noEmit`/lint + `npm run build` — TUDO VERDE. Sem commit (aguarda pedido do utilizador).**
 - **1a WhatsApp delivery**: `sanitizeTemplateParam` (\r\n\t→espaço) nos params dos templates; `countFailedAttempts`/`hasBucketLog` (últimas 24h) → **máx 3 tentativas/dia** por pedido+bucket; skip "sem telefone" loga 1× (antes: 891 spam); cap diário → `return 'failed'` silencioso; `normalizePhoneToE164` (strip `00`, `09…`→strip `0`); `.env` `WHATSAPP_ENABLED_BUCKETS=30min,24h,48h,72h`.

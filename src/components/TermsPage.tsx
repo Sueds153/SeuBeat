@@ -27,7 +27,7 @@ const sections = [
   {
     icon: <Scale className="w-5 h-5" />,
     title: '5. Planos, Preços e Pagamentos',
-    content: `Os planos disponíveis e respectivos preços são os publicados no site em Kwanza (Kz). O pagamento é processado via Multicaixa (entidade e referência). O comprovativo de pagamento deve ser enviado através do formulário indicado no final do processo de criação. A aprovação do pagamento é manual e pode demorar até 24 horas úteis. Uma vez aprovado, o processamento da música inicia-se conforme o plano contratado.`
+    content: `Os planos disponíveis e respectivos preços são os publicados no site em Kwanza (Kz). O pagamento é processado via Multicaixa (entidade e referência). O comprovativo de pagamento deve ser enviado através do formulário indicado no final do processo de criação. A aprovação do pagamento é feita por verificação automática do comprovativo, na maioria dos casos em segundos; se precisar de revisão manual, a nossa equipa responde até 24 horas úteis. Uma vez aprovado, o processamento da música inicia-se conforme o plano contratado.`
   },
   {
     icon: <AlertTriangle className="w-5 h-5" />,
