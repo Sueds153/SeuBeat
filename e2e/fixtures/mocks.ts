@@ -202,16 +202,15 @@ export async function mockGenerateLyricsError(page: Page) {
   });
 }
 
-/** Mock lyrics generation returning 503 (all providers transient) */
+/** Mock lyrics generation returning 503 (todos os providers transitórios) —
+ * replica o corpo real de `POST /api/generate-lyrics` (`LYRIC_GENERATION_QUEUED_MESSAGE`) */
 export async function mockGenerateLyrics503(page: Page) {
   await page.route('**/api/generate-lyrics', async (route) => {
     await fulfill(route, {
       status: 503,
       body: {
         success: false,
-        error: 'Todos os providers falharam temporariamente',
-        queued: true,
-        message: 'Guardámos o teu pedido — vamos gerar automaticamente',
+        error: 'O serviço de geração está temporariamente sobrecarregado. Guardámos o teu pedido - vamos gerar a tua música automaticamente e avisamos por email.',
       },
     });
   });

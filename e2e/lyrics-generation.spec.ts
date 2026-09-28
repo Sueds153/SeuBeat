@@ -59,6 +59,10 @@ test('503 transient failure shows queued message', async ({ page }) => {
   await mockBaseRoutes(page);
   await mockGenerateLyrics503(page);
   await mockSongStatus(page, 'lyrics_ready');
+  // Sem música recuperável — sem isto o /api/latest-song iria ao servidor real
+  await page.route('**/api/latest-song*', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, found: false }) });
+  });
 
   await clearAppState(page);
 
@@ -94,6 +98,8 @@ test('503 transient failure shows queued message', async ({ page }) => {
   await page.fill('#user-phone-input', '+244922000000');
   await page.locator('#wizard-advance-btn').click();
 
-  // Should show the queued message for 503 transient failure
-  await expect(page.getByText(/guardámos|guardamos|pedido/i)).toBeVisible({ timeout: 120000 });
+  // Ecra de erro com a mensagem real de "pedido enfileirado" do 503
+  // (não usar /pedido/ isolado: casa com ROTATING_MESSAGES "Pedido de casamento…")
+  await expect(page.getByRole('heading', { name: 'Nao foi possivel gerar agora' })).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText(/o teu pedido/i).first()).toBeVisible({ timeout: 15000 });
 });
