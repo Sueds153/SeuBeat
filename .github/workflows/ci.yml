@@ -5,6 +5,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: write
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
@@ -41,8 +44,10 @@ jobs:
             sleep 3
           done
           echo "Running E2E tests..."
-          npx playwright test 2>&1
-          EXIT_CODE=$?
+          set +e
+          npx playwright test 2>&1 | tee e2e-output.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
           echo "E2E exit code: $EXIT_CODE"
           kill $SERVER_PID 2>/dev/null || true
           exit $EXIT_CODE
@@ -57,11 +62,29 @@ jobs:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
-      - name: E2E failure summary
+      # Publica o relatório na branch ci-e2e-report — os logs/summaries do
+      # Actions exigem login, e o repo é publico (leitura via raw.githubusercontent)
+      - name: Publish E2E report
         if: failure()
         shell: bash
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          node scripts/e2e-failures-summary.mjs >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
+          {
+            node scripts/e2e-failures-summary.mjs
+            echo "### Log (ultimas 300 linhas)"
+            echo '```'
+            tail -n 300 e2e-output.log 2>/dev/null || echo "(sem e2e-output.log)"
+            echo '```'
+            echo "Run: $RUN_URL"
+          } > e2e-report.md
+          cp e2e-report.md "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B ci-e2e-report
+          git add e2e-report.md
+          git commit -m "e2e report run ${{ github.run_id }}" --allow-empty
+          git push --force origin ci-e2e-report
       - name: Debug logs
         if: failure()
         shell: bash
