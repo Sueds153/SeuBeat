@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import {
   mockBaseRoutes, mockGenerateLyricsSuccess, mockSongStatus,
   mockSubmitPaymentSuccess, mockPaymentStatus, mockVoiceValidationPhrase,
-  mockPaymentDetails,
+  mockPaymentDetails, expectWizardStep,
   clearAppState,
 } from './fixtures/mocks';
 
@@ -23,29 +23,29 @@ test('Premium plan: selects premium from upsell, reaches payment', async ({ page
   // Start wizard
   await page.locator('button:has-text("Criar")').first().waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('button:has-text("Criar")').first().click();
-  await expect(page.getByText(/PASSO 1/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 1);
 
   // Complete steps 1-5
   await page.locator('#relation-btn-Namorado').click();
   await page.fill('#recipient-name-input', 'Maria');
   await page.locator('#gender-btn-Feminino').click();
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 2/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 2);
 
   await page.locator('#occasion-btn-Declaração').click();
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 3/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 3);
 
   await page.locator('#style-btn-Kizomba').click();
   await page.locator('#voice-btn-Masculina').click();
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 4/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 4);
 
   await page.fill('#makes-special-textarea', 'É uma pessoa incrível');
   await page.fill('#where-it-happened-input', 'Luanda');
   await page.fill('#deep-message-textarea', 'Quero que saibas que sempre estarei ao teu lado');
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 5/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 5);
 
   await page.selectOption('select', 'Português');
   await page.fill('#user-email-input', 'test@example.com');
@@ -93,29 +93,29 @@ test('voice recording UI elements are present on premium path', async ({ page })
   // Start wizard
   await page.locator('button:has-text("Criar")').first().waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('button:has-text("Criar")').first().click();
-  await expect(page.getByText(/PASSO 1/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 1);
 
   // Complete steps 1-5
   await page.locator('#relation-btn-Namorado').click();
   await page.fill('#recipient-name-input', 'Maria');
   await page.locator('#gender-btn-Feminino').click();
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 2/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 2);
 
   await page.locator('#occasion-btn-Declaração').click();
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 3/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 3);
 
   await page.locator('#style-btn-Kizomba').click();
   await page.locator('#voice-btn-Masculina').click();
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 4/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 4);
 
   await page.fill('#makes-special-textarea', 'É uma pessoa incrível');
   await page.fill('#where-it-happened-input', 'Luanda');
   await page.fill('#deep-message-textarea', 'Quero que saibas que sempre estarei ao teu lado');
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 5/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 5);
 
   await page.selectOption('select', 'Português');
   await page.fill('#user-email-input', 'test@example.com');

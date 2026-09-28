@@ -8,6 +8,29 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+/** Títulos dos passos do wizard (STEP_META em Wizard.tsx) — renderizados como <h3> responsivo */
+export const WIZARD_STEP_TITLES = [
+  'Para quem é esta canção?',
+  'Qual é a ocasião especial?',
+  'Qual é o ritmo e a voz ideais?',
+  'Conta-nos a vossa história',
+  'Finalizar a dedicatória',
+] as const;
+
+/**
+ * Valida o passo atual do wizard, em desktop e mobile.
+ *
+ * O contador do cabeçalho ("PASSO n") tem `hidden sm:inline` (Wizard.tsx) e
+ * por isso nunca fica visível em ecrãs <640px — é o motivo de as asserções
+ * por texto falharem no projecto mobile-chrome (412px). O título do passo é
+ * um <h3> visível em todas as larguras, logo serve de asserção em ambos.
+ */
+export async function expectWizardStep(page: Page, step: 1 | 2 | 3 | 4 | 5) {
+  await expect(
+    page.getByRole('heading', { name: WIZARD_STEP_TITLES[step - 1], exact: true }),
+  ).toBeVisible({ timeout: 15000 });
+}
+
 // ─── Shared mock data ────────────────────────────────────────────────────────
 
 export const MOCK_SONG_ID = 'e2e-test-song-id';
@@ -383,32 +406,32 @@ export async function completeWizardAndSubmit(page: Page, opts?: { withPhoto?: b
   // Start wizard
   await page.locator('button:has-text("Criar")').first().waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('button:has-text("Criar")').first().click();
-  await expect(page.getByText(/PASSO 1/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 1);
 
   // STEP 1: Relation
   await page.locator('#relation-btn-Namorado').click();
   await page.fill('#recipient-name-input', 'Maria');
   await page.locator('#gender-btn-Feminino').click();
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 2/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 2);
 
   // STEP 2: Occasion
   await page.locator('#occasion-btn-Declaração').click();
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 3/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 3);
 
   // STEP 3: Music Style + Voice
   await page.locator('#style-btn-Kizomba').click();
   await page.locator('#voice-btn-Masculina').click();
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 4/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 4);
 
   // STEP 4: Story
   await page.fill('#makes-special-textarea', 'É uma pessoa incrível, carinhosa e única');
   await page.fill('#where-it-happened-input', 'Luanda');
   await page.fill('#deep-message-textarea', 'Quero que saibas que sempre estarei ao teu lado');
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 5/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 5);
 
   // STEP 5: Finalize
   if (opts?.withPhoto) {

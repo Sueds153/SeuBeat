@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { expectWizardStep } from './fixtures/mocks';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -16,24 +17,24 @@ test.afterAll(async () => {
 });
 
 test('advance btn is disabled when step 1 fields empty', async () => {
-  await expect(page.getByText(/PASSO 1/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 1);
   await expect(page.locator('#wizard-advance-btn')).toBeDisabled();
 });
 
 test('fills step 1 and advances', async () => {
-  await expect(page.getByText(/PASSO 1/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 1);
   await page.locator('#relation-btn-Namorado').click();
   await page.fill('#recipient-name-input', 'Maria');
   await page.locator('#gender-btn-Feminino').click();
   await expect(page.locator('#wizard-advance-btn')).toBeEnabled();
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 2/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 2);
 });
 
 test('back button returns to landing on step 1', async () => {
   // Reset back to step 1 via back turns from step 2
   await page.locator('#wizard-back-btn').click();
-  await expect(page.getByText(/PASSO 1/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 1);
   // Now back from step 1 goes to landing
   await page.locator('#wizard-back-btn').click();
   await expect(page.getByText('Transforme a sua história').first()).toBeVisible();

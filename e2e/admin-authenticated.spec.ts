@@ -40,6 +40,12 @@ test.describe('Admin Panel — Authenticated', () => {
     await page.getByRole('button', { name: /Entrar no Painel/ }).click();
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 10000 });
 
+    // Em mobile (<lg) o sidebar está fora do ecrã (translate-x-full) — abrir o menu primeiro
+    const openMenu = page.getByRole('button', { name: 'Abrir menu' });
+    if (await openMenu.isVisible().catch(() => false)) {
+      await openMenu.click();
+    }
+
     // Navigate to requests tab (use exact match)
     await page.getByRole('button', { name: 'Pedidos', exact: true }).click();
 
@@ -60,6 +66,12 @@ test.describe('Admin Panel — Authenticated', () => {
     await page.fill('input[type="password"]', 'correct-password');
     await page.getByRole('button', { name: /Entrar no Painel/ }).click();
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible({ timeout: 10000 });
+
+    // Em mobile (<lg) o sidebar está fora do ecrã (translate-x-full) — abrir o menu primeiro
+    const openMenu = page.getByRole('button', { name: 'Abrir menu' });
+    if (await openMenu.isVisible().catch(() => false)) {
+      await openMenu.click();
+    }
 
     // Navigate to songs tab (use exact match)
     await page.getByRole('button', { name: 'Músicas', exact: true }).click();

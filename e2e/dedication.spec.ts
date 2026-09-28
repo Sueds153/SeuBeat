@@ -30,12 +30,17 @@ test.describe('Dedication Page', () => {
   });
 
   test('renders loading state initially', async ({ page }) => {
+    // Gate manual: segura a resposta até a asserção. Um delay fixo (2s) corre em
+    // paralelo com o goto e fazia a página já ter os dados quando o expect corria.
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
     await page.route('**/api/song/*', async (route) => {
-      await new Promise(r => setTimeout(r, 2000));
+      await pending;
       await route.fulfill({ status: 200, body: '{"success":true,"data":{"id":"test"}}' });
     });
 
     await page.goto('/song/para-alguem?id=some-id');
-    await expect(page.getByText('A carregar a tua dedicatória')).toBeVisible({ timeout: 3000 });
+    await expect(page.getByText('A carregar a tua dedicatória')).toBeVisible({ timeout: 15000 });
+    release();
   });
 });

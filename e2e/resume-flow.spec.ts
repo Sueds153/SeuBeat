@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import {
   mockBaseRoutes, mockGenerateLyricsSuccess, mockSongStatus,
-  mockResumeData, clearAppState, MOCK_SONG_ID,
+  mockResumeData, clearAppState, MOCK_SONG_ID, expectWizardStep,
 } from './fixtures/mocks';
 
 test.describe.configure({ mode: 'serial' });
@@ -78,5 +78,5 @@ test('resume with invalid id shows error gracefully', async ({ page }) => {
   await page.goto('/wizard?resume=invalid-uuid-123', { waitUntil: 'domcontentloaded' });
 
   // Should gracefully fall back to normal wizard (step 1)
-  await expect(page.getByText(/PASSO 1|Criar/i).first()).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 1);
 });

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { ensureTestProofPng, skipLyricsValidation } from './fixtures/mocks';
+import { ensureTestProofPng, skipLyricsValidation, expectWizardStep } from './fixtures/mocks';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -79,32 +79,32 @@ test('completes wizard -> selects plan -> submits payment', async ({ page }) => 
   // Start wizard
   await page.locator('button:has-text("Criar")').first().waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('button:has-text("Criar")').first().click();
-  await expect(page.getByText(/PASSO 1/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 1);
 
   // STEP 1: Relation
   await page.locator('#relation-btn-Namorado').click();
   await page.fill('#recipient-name-input', 'Maria');
   await page.locator('#gender-btn-Feminino').click();
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 2/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 2);
 
   // STEP 2: Occasion
   await page.locator('#occasion-btn-Declaração').click();
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 3/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 3);
 
   // STEP 3: Music Style + Voice
   await page.locator('#style-btn-Kizomba').click();
   await page.locator('#voice-btn-Masculina').click();
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 4/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 4);
 
   // STEP 4: Story
   await page.fill('#makes-special-textarea', 'É uma pessoa incrível, carinhosa e única');
   await page.fill('#where-it-happened-input', 'Luanda');
   await page.fill('#deep-message-textarea', 'Quero que saibas que sempre estarei ao teu lado');
   await page.locator('#wizard-advance-btn').click();
-  await expect(page.getByText(/PASSO 5/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 5);
 
   // STEP 5: Photo + Finalize
   const fileChooserPromise = page.waitForEvent('filechooser', { timeout: 5000 });

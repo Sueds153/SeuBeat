@@ -26,7 +26,9 @@ test.describe('Dedication Page — Happy Path', () => {
     await expect(page.getByText('MÚSICA COMPLETA', { exact: true }).first()).toBeVisible({ timeout: 10000 });
 
     // Lyrics section visible
-    await expect(page.getByText('Letra').first()).toBeVisible();
+    // ("Letra" também existe no SongPlayer como `hidden sm:inline` — usar o
+    // subtítulo da letra, visível em todos os viewports)
+    await expect(page.getByText('Acompanha a reprodução')).toBeVisible();
 
     // Letter section visible
     await expect(page.getByText('Carta Dedicatória')).toBeVisible();

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { expectWizardStep } from './fixtures/mocks';
 
 test.describe('LandingPage', () => {
   test('loads and shows key elements', async ({ page }) => {
@@ -11,6 +12,6 @@ test.describe('LandingPage', () => {
   test('clicking CTA starts wizard', async ({ page }) => {
     await page.goto('/', { waitUntil: 'load' });
     await page.getByRole('button', { name: /Criar M/ }).first().click();
-    await expect(page.getByText(/PASSO 1/)).toBeVisible({ timeout: 15000 });
+  await expectWizardStep(page, 1);
   });
 });
