@@ -20,6 +20,16 @@ Auditoria Meta Ads/PIX/CAPI/Funil (20 partes, dados reais) → plano em 3 fases 
 - Rate limit nos testes de `submit-payment` (20/h/IP, sem `resetAll` no handler v8): contornado com `NODE_ENV=development` nos 2 describes novos (`skip()` do `paymentLimiter`).
 - **Não bump de `WIZARD_BUILD`** (`20260819_1`): mudanças são aditivas/telemetria e `index.html` é servido com `maxAge:0` → clientes buscam o novo chunk no próximo load; bump apagaria o progresso de quem está a meio do funil. Decisão a rever se se mexer no fluxo do wizard.
 
+### Correcções E2E (28/Set 2026) — CI verde depois de 12 falhas mobile-chrome
+- **Causa raiz**: o contador do cabeçalho do wizard (`PASSO n`) tem `hidden sm:inline` (`Wizard.tsx:1817`) → nunca fica visível em ecrãs <640px; as 12 asserções `getByText(/PASSO n/)` falhavam sempre no projecto `mobile-chrome` (Pixel 7, 412px) e passavam no `chromium` desktop.
+- **2ª causa (CI)**: o step "Start server & run E2E" arranca `node dist/server.js` (porta 3000) **antes** do Playwright, e `webServer.reuseExistingServer: false` fazia o Playwright abortar em 4–5s com *"http://localhost:3000/health is already used"* → **os E2E nunca correram no CI** (falha igual nos runs `36362512042`, `36148364562`, `36397714383`). Fix: `reuseExistingServer: !!process.env.CI` em `playwright.config.ts` (CI reusa o servidor já saudável; local mantém servidor próprio). Nota: o servidor CI arranca porque `CI=true` → `validateEnv` em modo teste não exige `BREVO_API_KEY`/`JWT_SECRET`.
+- **Correcções (só testes; app intocada)** — commit `8072a75`:
+  - **`expectWizardStep(page, step)`** novo em `e2e/fixtures/mocks.ts` — valida o `<h3>` do passo (títulos do `STEP_META`, responsivo) em vez do contador. Usado em `mocks.ts` (`completeWizardAndSubmit`), `wizard`, `landing`, `full-flow`, `lyrics-generation`, `premium-plan`, `recovery`, `resume-flow`.
+  - `dedication-happy`: secção da letra via `Acompanha a reprodução` (`SongLyrics`) — `getByText('Letra').first()` caía no `hidden sm:inline` do `SongPlayer` (botão "Descarregar Letra").
+  - `dedication` "renders loading state": **gate manual na route** (promise + `release()` após o expect) em vez de `setTimeout(2000)` — o delay fixo competia com o `goto` e a página já tinha os dados.
+  - `admin-authenticated`: abre o sidebar mobile (`Abrir menu`) antes de clicar nas tabs — o `<aside>` está `-translate-x-full` fechado → "element is outside of the viewport" (overlay `z-40`, sidebar `z-50`).
+- **Validação local**: `npx playwright test` → **64/64 passam** (chromium + mobile-chrome, 7.7m); **64/64 em modo CI** (build + `node dist/server.js` + `CI=true`, 7.1m, exit 0); `tsc --noEmit` limpo; `npm test` → 505 passam (38 ficheiros).
+
 ### Fase 3 (parcial) — Exclusão de compradores aplicada + plano Fase 2/3 guardado (28/Set 2026)
 - **Plano das fases 2 e 3 escrito em `scripts/PLANO_META_FASE2_FASE3.md`** (números de referência, tabela de ações Fase 2 funil / Fase 3 media buying, decisões tomadas, comandos).
 - **Exclusão de compradores RESOLVIDA via API** (pendência antiga `1487916`): a Marketing API **v22+ removeu `targeting.exclusions.custom_audiences`** — o campo atual é **`targeting.excluded_custom_audiences`** (escrito em v25.0 ecoando o targeting completo; o POST substitui o objeto inteiro).

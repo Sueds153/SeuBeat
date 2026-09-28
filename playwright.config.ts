@@ -26,7 +26,11 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev',
     url: 'http://localhost:3000/health',
-    reuseExistingServer: false,
+    // CI arranca o servidor buildado (`node dist/server.js`) e espera pelo
+    // /health antes de correr o Playwright — sem reuse, o Playwright aborta
+    // logo com "http://localhost:3000/health is already used" e os testes
+    // nunca chegam a correr. Local mantém-se isolado (servidor próprio).
+    reuseExistingServer: !!process.env.CI,
     timeout: 120000,
     cwd: '.',
     env: {
