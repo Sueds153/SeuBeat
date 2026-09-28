@@ -31,7 +31,7 @@ export async function sendAbandonedFirstReminder(userEmail: string, recipientNam
           Continuar Pagamento
         </a>
       </div>
-      <p style="color:#78716c;font-size:12px;text-align:center;">A letra fica guardada até amanhã — depois o acesso pode expirar.</p>
+      <p style="color:#78716c;font-size:12px;text-align:center;">A sua letra continua guardada à sua espera — mas não deixe a emoção esfriar.</p>
       <p style="color:#78716c;font-size:12px;text-align:center;">SeuBeat Estúdio Angola — Eternizando momentos com melodias inesquecíveis.</p>
     </div>
   `);
@@ -58,13 +58,13 @@ export async function sendAbandonedSecondReminder(userEmail: string, recipientNa
 
 export async function sendAbandonedThirdReminder(userEmail: string, recipientName: string, requestId: string, songTitle?: string, lyricsSnippet?: string) {
   const resumeUrl = `${getAppUrl()}/wizard?resume=${encodeURIComponent(requestId)}&step=payment`;
-  return sendWithRetry(userEmail, 'A sua letra expira em 48h ⏳', `
+  return sendWithRetry(userEmail, 'A sua música ainda está à sua espera ⏳', `
     <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
       <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">⏰</span></div>
-      <h2 style="color:#ef4444;text-align:center;">Último aviso — a sua música está prestes a expirar</h2>
+      <h2 style="color:#ef4444;text-align:center;">A sua música está pronta há 48 horas</h2>
       <p>Olá${safeStr(recipientName) ? ' ' + safeStr(recipientName) : ''},</p>
-      <p>A sua música personalizada está pronta há mais de 48 horas. <strong>O sistema vai remover a letra gerada em breve.</strong></p>
-      <p>Confirme o seu plano agora para não perder o trabalho feito.</p>
+      <p>A sua música personalizada está pronta há mais de 48 horas e continua guardada. <strong>Os nossos lembretes estão a terminar.</strong></p>
+      <p>Confirme o seu plano agora para desbloquear a entrega.</p>
       ${abandonedTeaserHtml(recipientName, songTitle, lyricsSnippet)}
       <div style="text-align:center;margin:24px 0;">
         <a href="${resumeUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-weight:bold;font-size:14px;text-decoration:none;padding:14px 32px;border-radius:12px;">
@@ -78,13 +78,13 @@ export async function sendAbandonedThirdReminder(userEmail: string, recipientNam
 
 export async function sendAbandonedFourthReminder(userEmail: string, recipientName: string, requestId: string, songTitle?: string, lyricsSnippet?: string) {
   const resumeUrl = `${getAppUrl()}/wizard?resume=${encodeURIComponent(requestId)}&step=payment`;
-  return sendWithRetry(userEmail, 'Última chance: a sua música será removida 🗑️', `
+  return sendWithRetry(userEmail, 'Última chamada: a sua música está à sua espera 🎵', `
     <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
-      <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">🗑️</span></div>
-      <h2 style="color:#ef4444;text-align:center;">Esta é a última notificação</h2>
+      <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">🎵</span></div>
+      <h2 style="color:#ef4444;text-align:center;">A sua música continua guardada</h2>
       <p>Olá${safeStr(recipientName) ? ' ' + safeStr(recipientName) : ''},</p>
-      <p>Já passaram 72 horas desde que a sua letra foi gerada. <strong>Se não confirmar o plano nas próximas horas, a música será eliminada do sistema.</strong></p>
-      <p>Não perca a oportunidade de eternizar este momento.</p>
+      <p>Já passaram 72 horas desde que a sua letra foi gerada. <strong>Este é um dos últimos avisos que lhe enviamos.</strong></p>
+      <p>Não deixe esta história ficar por contar.</p>
       ${abandonedTeaserHtml(recipientName, songTitle, lyricsSnippet)}
       <div style="text-align:center;margin:24px 0;">
         <a href="${resumeUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;font-weight:bold;font-size:14px;text-decoration:none;padding:14px 32px;border-radius:12px;">

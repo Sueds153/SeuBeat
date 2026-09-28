@@ -9,8 +9,8 @@ import { uploadFileToStorage, createSignedStorageUrl, deleteStorageFile } from '
 import { convertToWav } from '../services/audio';
 import { getValidationPhrase } from '../services/suno-voice';
 import { generateLyrics } from '../services/ai';
-import { sendPersonalizedEmail, sendConfirmationEmail, sendAdminNotification } from '../services/email';
-import { sendDeliveryWhatsApp } from '../services/whatsapp';
+import { sendPersonalizedEmail, sendConfirmationEmail, sendPaymentRejectionEmail, sendAdminNotification } from '../services/email';
+import { sendDeliveryWhatsApp, sendPaymentRejectedWhatsApp } from '../services/whatsapp';
 import { generateServerEventId } from '../services/metaPixelCapi';
 import { sendSubmitApplicationEvent, sendLeadEvent, sendCompleteRegistrationEvent, sendInitiateCheckoutEvent, sendAddPaymentInfoEvent } from '../services/metaPixelCapi';
 import { verifyPaymentProof, isTxIdAcceptable, type VerificationResult } from '../services/proofVerification';
@@ -1436,6 +1436,20 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       }
     }
 
+    // ── Motivo PT da rejeição automática ──────────────────────────────────
+    // Guardado em payments.notes (mostrado no wizard) e enviado por email ao
+    // cliente — sem isto, 13 de 18 rejeições em produção ficavam sem
+    // explicação e em silêncio total (o auto-reject notificava só o admin).
+    let rejectionNotes: string | null = null;
+    if (paymentStatus === 'rejected' && proofVerification) {
+      const failed = proofVerification.checks
+        .filter(c => !c.passed)
+        .map(c => `${c.name}: esperado ${c.expected}, encontrado ${c.actual}`);
+      rejectionNotes = failed.length
+        ? `Comprovativo não aprovado pela verificação automática. Motivos: ${failed.join('; ')}. Envia um novo comprovativo válido pelo wizard para continuares.`
+        : 'Comprovativo não aprovado pela verificação automática. Envia um novo comprovativo válido pelo wizard para continuares.';
+    }
+
     const updateData: Record<string, unknown> = { status: 'payment_submitted' };
     if (voiceSampleUrl) updateData.voice_sample_url = voiceSampleUrl;
     if (voiceFreeSampleUrl) updateData.voice_free_sample_url = voiceFreeSampleUrl;
@@ -1467,6 +1481,7 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       proof_filename: (isMultipart && proofFileMulter ? proofFileMulter.originalname : proofFilename) || proofPath?.split('/').pop() || null,
       proof_hash: proofHash,
       status: paymentStatus,
+      notes: rejectionNotes,
       approved_at: approvedAt,
       expires_at: paymentStatus === 'pending_verification'
         ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
@@ -1486,7 +1501,9 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
     let paymentRecord: { id?: string } | null = null;
     let paymentError: unknown = null;
     if (existingPaymentRecord) {
-      const updatePayload: Record<string, unknown> = { ...paymentFields, notes: null };
+      // rejectionNotes limpa notes anteriores quando a nova submissão não é
+      // rejeitada (pending/approved → notes: null, igual ao comportamento antigo).
+      const updatePayload: Record<string, unknown> = { ...paymentFields };
       if (paymentStatus !== 'approved') {
         updatePayload.approved_at = null;
       }
@@ -1648,22 +1665,107 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
           .eq('id', songRequestId);
 
         if (startGeneration) {
-          logInfo('[API] Auto-approve: a iniciar geração Suno em background', {
+          const genSongId = String(autoSong!.id);
+          // Atraso configurável: dá ao cliente uma janela para terminar a edição
+          // da letra (PUT /song/:id/lyrics) antes de a geração apanhar uma versão
+          // desatualizada (race). Testes usam 0 para correr de imediato.
+          const rawDelay = process.env.AUTO_APPROVE_GEN_DELAY_MS;
+          const genDelayMs = rawDelay !== undefined && rawDelay !== ''
+            && Number.isFinite(Number(rawDelay)) && Number(rawDelay) >= 0
+            ? Number(rawDelay)
+            : 90000;
+
+          logInfo('[API] Auto-approve: geração Suno adiada', {
             songRequestId,
-            songId: autoSong!.id,
+            songId: genSongId,
             plan,
+            delayMs: genDelayMs,
           });
-          runBackgroundSunoWorkflow(
-            songRequestId,
-            String(autoSong!.id),
-            String(autoReq?.music_style || 'Kizomba'),
-            String(autoSong!.title || 'Música SeuBeat'),
-            (autoSong!.lyrics as string[] | string) || [],
-            {
-              voiceType: String(autoReq?.voice_type || '') || undefined,
-              desiredEmotion: String(autoReq?.desired_emotion || '') || undefined,
+
+          if (genDelayMs > 0) {
+            // Touch do updated_at: reinicia o relógio de 15min do
+            // stuckMusicRecoveryScheduler — se o servidor reiniciar durante o
+            // delay e o timer se perder, o scheduler recupera o pedido
+            // (music_processing + not_started) passados 15min.
+            try {
+              await supabase
+                .from('songs')
+                .update({ updated_at: new Date().toISOString() })
+                .eq('id', genSongId);
+            } catch (touchErr) {
+              logWarn('[API] Auto-approve: falha ao refrescar updated_at da música', {
+                songRequestId,
+                error: touchErr instanceof Error ? touchErr.message : String(touchErr),
+              });
             }
-          ).catch(err => logError('[API] Auto-approve: workflow Suno falhou', err, { songRequestId }));
+          }
+
+          // Re-LE a letra da BD no momento de arrancar: o cliente pode tê-la
+          // editado entretanto. Guardas no fire-time evitam duplicar geração se
+          // outro caminho (admin, scheduler) já tiver começado.
+          const startDeferredGeneration = async () => {
+            try {
+              const { data: freshRow } = await supabase
+                .from('song_requests')
+                .select('*, songs(id, title, lyrics, audio_url, full_song_url, mureka_status, mureka_task_id)')
+                .eq('id', songRequestId)
+                .maybeSingle();
+              const freshReq = (freshRow as Record<string, unknown>) ?? null;
+              if (!freshReq || freshReq.deleted_at) {
+                logWarn('[API] Auto-approve: pedido desapareceu antes da geração adiada', { songRequestId });
+                return;
+              }
+              const freshStatus = String(freshReq.status || '');
+              if (['failed', 'payment_rejected'].includes(freshStatus)) {
+                logInfo('[API] Auto-approve: estado do pedido mudou durante o delay — geração adiada cancelada', {
+                  songRequestId,
+                  status: freshStatus,
+                });
+                return;
+              }
+              const freshSongsRel = freshReq.songs;
+              const freshSong = ((Array.isArray(freshSongsRel) ? freshSongsRel[0] : freshSongsRel) as Record<string, unknown> | null) ?? null;
+              if (!freshSong) {
+                logWarn('[API] Auto-approve: linha de música em falta na geração adiada', { songRequestId });
+                return;
+              }
+              if (
+                freshSong.audio_url || freshSong.full_song_url || freshSong.mureka_task_id ||
+                ['generating', 'processing', 'completed'].includes(String(freshSong.mureka_status))
+              ) {
+                logInfo('[API] Auto-approve: música já em curso — geração adiada cancelada', { songRequestId });
+                return;
+              }
+              logInfo('[API] Auto-approve: a iniciar geração Suno (adiada, letra relida da BD)', {
+                songRequestId,
+                songId: String(freshSong.id),
+                plan,
+              });
+              runBackgroundSunoWorkflow(
+                songRequestId,
+                String(freshSong.id),
+                String(freshReq.music_style || 'Kizomba'),
+                String(freshSong.title || 'Música SeuBeat'),
+                (freshSong.lyrics as string[] | string) || [],
+                {
+                  voiceType: String(freshReq.voice_type || '') || undefined,
+                  desiredEmotion: String(freshReq.desired_emotion || '') || undefined,
+                }
+              ).catch(err => logError('[API] Auto-approve: workflow Suno falhou', err, { songRequestId }));
+            } catch (deferredErr) {
+              logError('[API] Auto-approve: falha na geração adiada', deferredErr, { songRequestId });
+            }
+          };
+
+          if (genDelayMs > 0) {
+            const timer = setTimeout(() => { void startDeferredGeneration(); }, genDelayMs);
+            // Não segurar o processo aberto só por causa do timer de adiamento.
+            if (timer && typeof (timer as { unref?: () => void }).unref === 'function') {
+              (timer as { unref: () => void }).unref();
+            }
+          } else {
+            await startDeferredGeneration();
+          }
         } else if (!autoSong) {
           logWarn('[API] Auto-approve: linha de música em falta — aprovação sem geração', { songRequestId });
         }
@@ -1689,6 +1791,44 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
     // ── Auto-reject: notify customer ──────────────────────────────────────
     if (paymentStatus === 'rejected' && proofVerification) {
       const failedChecks = proofVerification.checks.filter(c => !c.passed).map(c => `• ${c.name}: esperado ${c.expected}, encontrado ${c.actual}`).join('\n');
+      const rejectReason = rejectionNotes || 'Comprovativo não aprovado pela verificação automática.';
+
+      // song_requests → payment_rejected (espelha o caminho do admin; antes o
+      // auto-reject deixava o pedido em 'payment_submitted' para sempre).
+      try {
+        await supabase
+          .from('song_requests')
+          .update({ status: 'payment_rejected' })
+          .eq('id', songRequestId)
+          .in('status', ['payment_submitted', 'approved']);
+      } catch (srErr) {
+        logError('[API] Auto-reject: falha ao marcar pedido como payment_rejected', srErr, { songRequestId });
+      }
+
+      // Cliente notificado — email + WhatsApp com o motivo (antes: silêncio
+      // total; só o admin recebia aviso).
+      sendPaymentRejectionEmail(userEmail, rejectReason).catch(err =>
+        logError('[API] Falha ao enviar email de rejeição (auto-reject)', err, { songRequestId })
+      );
+      try {
+        const { data: rejectReqRow } = await supabase
+          .from('song_requests')
+          .select('recipient_name, users(phone)')
+          .eq('id', songRequestId)
+          .maybeSingle();
+        const usersRel = (rejectReqRow as { users?: unknown } | null)?.users;
+        const dbPhone = ((Array.isArray(usersRel) ? usersRel[0] : usersRel) as { phone?: string } | null)?.phone || '';
+        const recipientName = String((rejectReqRow as { recipient_name?: string } | null)?.recipient_name || '');
+        const rejectPhone = dbPhone || phone || '';
+        if (rejectPhone) {
+          sendPaymentRejectedWhatsApp({ requestId: songRequestId, phone: rejectPhone, recipientName, reason: rejectReason }).catch(err =>
+            logError('[API] Falha ao enviar WhatsApp de rejeição (auto-reject)', err, { songRequestId })
+          );
+        }
+      } catch (waErr) {
+        logError('[API] Auto-reject: falha ao preparar WhatsApp de rejeição', waErr, { songRequestId });
+      }
+
       sendAdminNotification(
         'Pagamento AUTO-REJEITADO pela AI',
         `Cliente: ${userEmail}\nPlano: ${plan} (${parsedAmount} Kz)\nConfiança: ${(proofVerification.confidence * 100).toFixed(0)}%\nRazões:\n${failedChecks}\n\nVerificar: ${getAppUrl(req)}/admin?tab=payments`
@@ -2354,7 +2494,7 @@ router.get('/song/:id/resume-link', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Pedido não encontrado' });
     }
 
-    const allowedStatuses = ['lyrics_ready', 'payment_submitted'];
+    const allowedStatuses = ['lyrics_ready', 'payment_submitted', 'payment_rejected'];
     if (!allowedStatuses.includes(request.status)) {
       return res.status(400).json({ success: false, error: 'Este pedido não pode ser retomado no pagamento' });
     }
@@ -2401,7 +2541,8 @@ router.get('/song/resume-data/:requestId', resumeDataLimiter, async (req, res) =
       return res.status(404).json({ success: false, error: 'Pedido não encontrado' });
     }
 
-    const allowedStatuses = ['lyrics_ready', 'payment_submitted'];
+    // payment_rejected: cliente rejeitado retoma para reenviar o comprovativo
+    const allowedStatuses = ['lyrics_ready', 'payment_submitted', 'payment_rejected'];
     if (!allowedStatuses.includes(requestData.status)) {
       return res.status(400).json({ success: false, error: 'Este pedido já não pode ser retomado.' });
     }
@@ -2471,7 +2612,7 @@ router.post('/song/recover-by-email', recoverByEmailLimiter, async (req, res) =>
       .from('song_requests')
       .select('id, email, status, recipient_name, created_at')
       .eq('email', email)
-      .in('status', ['lyrics_ready', 'lyrics_generating'])
+      .in('status', ['lyrics_ready', 'lyrics_generating', 'payment_rejected'])
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(1)

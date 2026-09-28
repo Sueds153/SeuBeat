@@ -17,7 +17,7 @@ export const FAQ_ITEMS: FAQItem[] = [
   },
   {
     question: 'E se não gostar do resultado final?',
-    answer: 'Temos garantia de 100% satisfação. Se não ficar satisfeito, pode pedir reembolso total ou solicitar uma nova geração. A sua satisfação é a nossa prioridade.',
+    answer: 'Garantia de nova geração: se não ficar satisfeito com a música, geramos outra gratuitamente até gostares. O reembolso é analisado caso a caso, de acordo com os Termos de Serviço. A sua satisfação é a nossa prioridade.',
     category: 'Garantia'
   },
   {

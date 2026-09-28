@@ -154,12 +154,18 @@ export async function processStuckMusicRecovery(): Promise<void> {
 
   const staleSince = new Date(Date.now() - STALE_THRESHOLD_MS).toISOString();
 
-  // Três queries para cobrir três cenários:
+  // Quatro queries para cobrir quatro cenários:
   // 1. Songs com task_id mas presas há >15min (stale)
   // 2. Songs sem task_id (workflow nunca completou ou task perdida) — recover regardless de updated_at
   // 3. Pedidos PAGOS (approved/delivered) sem áudio — ex.: auto-approve pela AI
   //    sem workflow (bug 24/Set). O pagamento é verificado em código por segurança.
-  const [staleResult, tasklessResult, paidResult] = await Promise.all([
+  // 4. Pedidos ACTIVE (music_processing/…) com mureka_status 'not_started' e
+  //    stale — timer do adiamento do auto-approve (~90s, public.ts) perdido num
+  //    restart do servidor. O updated_at é tocado ao agendar, por isso o stale
+  //    de 15min só dispara se o timer realmente se perdeu (nunca durante a
+  //    janela normal de 90s). Em execução legítima a geração muda
+  //    mureka_status p/ 'generating' em <1s — não é apanhada aqui.
+  const [staleResult, tasklessResult, paidResult, deferredResult] = await Promise.all([
     supabase
       .from('songs')
       .select('id, request_id, title, lyrics, mureka_task_id, mureka_status, updated_at, regeneration_count, song_requests!inner(*)')
@@ -183,6 +189,15 @@ export async function processStuckMusicRecovery(): Promise<void> {
       .lt('updated_at', staleSince)
       .order('updated_at', { ascending: true })
       .limit(10),
+    supabase
+      .from('songs')
+      .select('id, request_id, title, lyrics, mureka_task_id, mureka_status, updated_at, regeneration_count, song_requests!inner(*)')
+      .in('song_requests.status', ACTIVE_REQUEST_STATUSES)
+      .in('mureka_status', ['not_started'])
+      .is('audio_url', null)
+      .lt('updated_at', staleSince)
+      .order('updated_at', { ascending: true })
+      .limit(10),
   ]);
 
   if (staleResult.error) {
@@ -196,11 +211,14 @@ export async function processStuckMusicRecovery(): Promise<void> {
   if (paidResult.error) {
     logError('[StuckMusicRecovery] Erro ao consultar pedidos pagos sem áudio', paidResult.error);
   }
+  if (deferredResult.error) {
+    logError('[StuckMusicRecovery] Erro ao consultar gerações adiadas perdidas', deferredResult.error);
+  }
 
   // Merge e dedup por id
   const seen = new Set<string>();
   const rows: StuckSongRow[] = [];
-  for (const r of [...(staleResult.data || []), ...(tasklessResult.data || []), ...(paidResult.data || [])]) {
+  for (const r of [...(staleResult.data || []), ...(tasklessResult.data || []), ...(paidResult.data || []), ...(deferredResult.data || [])]) {
     if (!seen.has(r.id)) { seen.add(r.id); rows.push(r as StuckSongRow); }
   }
 

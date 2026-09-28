@@ -84,6 +84,16 @@ describe('normalizePhoneToE164', () => {
     expect(normalizePhoneToE164('+244929423278')).toBe('244929423278');
   });
 
+  it('normaliza prefixo 00 (formato internacional)', () => {
+    expect(normalizePhoneToE164('00244923770826')).toBe('244923770826');
+    expect(normalizePhoneToE164('+00 244 923 770 826')).toBe('244923770826');
+    expect(normalizePhoneToE164('00923770826')).toBe('244923770826');
+  });
+
+  it('normaliza formato local com 0 inicial (09...)', () => {
+    expect(normalizePhoneToE164('0923770826')).toBe('244923770826');
+  });
+
   it('devolve null para formatos inválidos', () => {
     expect(normalizePhoneToE164('')).toBeNull();
     expect(normalizePhoneToE164(null)).toBeNull();

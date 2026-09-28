@@ -181,13 +181,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
   const [paymentMethod, setPaymentMethod] = useState<'express' | 'reference'>('express');
   const [addonSecondStyle, setAddonSecondStyle] = useState(false);
   const [addonPrintableCover, setAddonPrintableCover] = useState(false);
-  const [countdownDisplay, setCountdownDisplay] = useState<string | null>(null);
-  const [expiryTimestamp, setExpiryTimestamp] = useState<number | null>(null);
 
-  const setCountdownDisplayExpiry = (expiresAt: string) => {
-    const expiryMs = new Date(expiresAt).getTime();
-    setExpiryTimestamp(expiryMs);
-  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingStage, setProcessingStage] = useState(0);
   const [rotatingMsgIndex, setRotatingMsgIndex] = useState(0);
@@ -663,21 +657,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       .then(d => { if (d.entidade && d.referencia) setPaymentDetails(d); })      .catch(() => {});
   }, []);
 
-  // Buscar expiração do pagamento ao entrar no ecrã de planos
-  useEffect(() => {
-    if (conversionStep !== 'plans' || !dbSongRequestId || !formData.email) return;
-    const fetchExpiry = async () => {
-      try {
-        const res = await fetch(`/api/payment-status?email=${encodeURIComponent(formData.email)}&requestId=${dbSongRequestId}`);
-        const data = await res.json();
-        if (data.expires_at) {
-          setCountdownDisplayExpiry(data.expires_at);
-        }
-      } catch {}
-    };
-    fetchExpiry();
-  }, [conversionStep, dbSongRequestId, formData.email]);
-
   // Interceptar botão de retroceder do browser no ecrã de pagamento
   useEffect(() => {
     if (!isDone) return;
@@ -1076,29 +1055,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     }, 5000);
     return () => clearInterval(interval);
   }, [isDone, paymentProofs.length]);
-
-  // Countdown timer — usa expiração real do backend (15 min) quando disponível
-  useEffect(() => {
-    if (!isDone || conversionStep !== 'plans') return;
-    
-    const tick = () => {
-      if (!expiryTimestamp) {
-        setCountdownDisplay(null);
-        return;
-      }
-      const remaining = Math.max(0, expiryTimestamp - Date.now());
-      if (remaining <= 0) {
-        setCountdownDisplay('00:00:00');
-        return;
-      }
-      const m = Math.floor((remaining % 3600000) / 60000);
-      const s = Math.floor((remaining % 60000) / 1000);
-      setCountdownDisplay(`${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`);
-    };
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }, [isDone, conversionStep, expiryTimestamp]);
 
   // Meta: registar quando o ecrã de pagamento é visto (uma vez por pedido)
   const paymentScreenTrackedRef = useRef(false);
@@ -1681,6 +1637,11 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     return `${num.toLocaleString('pt-PT')} Kz`;
   };
 
+  // ETA honesto por plano: Express/Premium = entrega imediata após aprovação manual; Standard = até 24h
+  const deliveryEta = voiceUpsellApplied || selectedPlanID === 'express'
+    ? 'logo após a aprovação'
+    : 'em até 24 horas';
+
   const handleConfirmValidation = async () => {
     if (!dbSongId || !validatedLyrics.trim()) return;
     try {
@@ -1689,7 +1650,10 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lyrics: validatedLyrics.split('\n').filter(l => l.trim()),
-          lyrics_snippet: validatedLyrics.slice(0, 200)
+          lyrics_snippet: validatedLyrics.slice(0, 200),
+          // O servidor exige email — sem ele o PUT devolvia 400 "Email requerido."
+          // e o botão "Confirmar e Gerar Música" falhava sempre em produção.
+          email: formData.email
         })
       });
       const data = await res.json();
@@ -2209,14 +2173,6 @@ const ROTATING_MESSAGES = [
                Música para <strong className="text-stone-200">{formData.recipientName || 'alguém especial'}</strong>
             </p>
 
-            {/* Countdown urgency banner */}
-            {countdownDisplay && (
-              <div className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-rose-950/40 border border-rose-800/40 text-center">
-                <span className="text-xs text-rose-300 font-mono"> Letra reservada por:</span>
-                <span className="text-sm font-bold font-mono text-rose-200 tabular-nums tracking-widest">{countdownDisplay}</span>
-              </div>
-            )}
-
             <h3 className="text-center font-serif text-xl font-bold tracking-tight text-stone-200">
               Escolhe como queres receber
             </h3>
@@ -2306,7 +2262,7 @@ const ROTATING_MESSAGES = [
                 >
                   Adicionar voz clonada
                 </button>
-                · Total: <strong>14.900 Kz</strong> · Garantia 100%
+                · Total: <strong>14.900 Kz</strong> · Nova geração garantida
               </p>
             </div>
 
@@ -2318,7 +2274,7 @@ const ROTATING_MESSAGES = [
             <div className="text-center space-y-2 pt-1">
               <div className="flex items-center justify-center gap-1.5 text-[10px] text-stone-500 font-mono">
                 <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                <span>100% satisfação ou reembolso</span>
+                <span>Nova geração garantida · Reembolso caso a caso</span>
               </div>
               <div className="flex items-center justify-center gap-4 text-[9px] text-stone-600 font-mono">
                 <span className="flex items-center gap-1"><Lock className="w-3 h-3" /> Pagamento seguro</span>
@@ -2481,7 +2437,7 @@ const ROTATING_MESSAGES = [
             </div>
 
             <div className="text-[9px] text-stone-600 font-mono tracking-wide text-center">
-              <Lock className="w-3 h-3 inline" /> Seguro · Satisfação ou reembolso
+              <Lock className="w-3 h-3 inline" /> Seguro · Nova geração garantida
             </div>
           </motion.div>
         )}
@@ -2875,7 +2831,7 @@ const ROTATING_MESSAGES = [
                 Que lindo gesto, {formData.recipientName.split(' ')[0]} vai adorar! 
               </h3>
               <p className="text-amber-400/90 text-sm md:text-base max-w-md mx-auto leading-relaxed font-medium">
-                Faltam só 2 minutos para {formData.recipientName.split(' ')[0]} ouvir a música que fizeste só para {formData.recipientGender === 'Masculino' ? 'ele' : 'ela'}. 
+                Falta só o pagamento — em 2 minutos envias o comprovativo e {formData.recipientName.split(' ')[0]} vai ouvir a música {deliveryEta}.
               </p>
               <p className="text-stone-400 text-xs font-serif italic max-w-md mx-auto">
                 Daqui a 10 anos, esta música ainda vai tocar. E tu vais estar nela.
@@ -3113,7 +3069,7 @@ const ROTATING_MESSAGES = [
                   <div className="space-y-1 text-left">
                     <span className="text-[10px] text-amber-500 font-mono uppercase tracking-wider block font-bold">PAGA E ENVIA O COMPROVATIVO </span>
                     <p className="text-stone-400 text-xs font-sans">
-                      Só falta isto. Em 2 minutos, {formData.recipientName.split(' ')[0]} pode ouvir a tua música hoje.
+                      Só falta isto. Em 2 minutos envias o comprovativo e {formData.recipientName.split(' ')[0]} recebe a música {deliveryEta}.
                     </p>
                   </div>
 
@@ -3220,7 +3176,7 @@ const ROTATING_MESSAGES = [
                           )}
 
                           <p className="text-[10px] text-stone-500 font-mono text-center">
-                             Demora 2 minutos. {formData.recipientGender === 'Masculino' ? 'Ele' : 'Ela'} vai ouvir ainda hoje.
+                             Demora 2 minutos. {formData.recipientGender === 'Masculino' ? 'Ele' : 'Ela'} vai ouvir a música {deliveryEta}.
                           </p>
                           <p className="text-[9px] text-rose-400/50 font-mono text-center italic">
                              A letra e a música que criou para {formData.recipientName.split(' ')[0]} estão prontas. Se sair agora, a página expira e o progresso perde-se.

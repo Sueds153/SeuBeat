@@ -13,6 +13,7 @@ vi.mock('../services/email', () => ({
   sendAbandonedThirdReminder: vi.fn().mockResolvedValue(undefined),
   sendAbandonedFourthReminder: vi.fn().mockResolvedValue(undefined),
   sendAbandonedFifthReminder: vi.fn().mockResolvedValue(undefined),
+  sendRejectedReminderEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('../services/whatsapp', () => ({
@@ -22,7 +23,7 @@ vi.mock('../services/whatsapp', () => ({
 import { getAdminSupabase } from '../services/supabase';
 import { sendAbandonedWhatsApp } from '../services/whatsapp';
 import { sendAbandonedFirstReminder } from '../services/email';
-import { checkPaymentStatus, processAbandonedRecovery } from '../services/abandonedRecoveryScheduler';
+import { checkPaymentStatus, processAbandonedRecovery, resetRejectedReminderGuard } from '../services/abandonedRecoveryScheduler';
 
 const mockedGetAdminSupabase = getAdminSupabase as ReturnType<typeof vi.fn>;
 const mockedSendWhatsApp = sendAbandonedWhatsApp as ReturnType<typeof vi.fn>;
@@ -30,9 +31,10 @@ const mockedEmail30 = sendAbandonedFirstReminder as ReturnType<typeof vi.fn>;
 function buildSupabaseMock(opts: {
   requests?: unknown[];
   paymentStatus?: string | null;
+  paymentNotes?: string | null;
 }) {
   const payment = opts.paymentStatus
-    ? { data: { status: opts.paymentStatus }, error: null }
+    ? { data: { status: opts.paymentStatus, notes: opts.paymentNotes ?? null }, error: null }
     : { data: null, error: null };
   const query = {
     from: (table: string) => {
@@ -40,6 +42,8 @@ function buildSupabaseMock(opts: {
         const paymentQuery = {
           select: () => paymentQuery,
           eq: () => paymentQuery,
+          order: () => paymentQuery,
+          limit: () => paymentQuery,
           maybeSingle: () => Promise.resolve(payment),
         };
         return paymentQuery;
@@ -61,6 +65,7 @@ function buildSupabaseMock(opts: {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  resetRejectedReminderGuard();
 });
 
 describe('checkPaymentStatus', () => {
@@ -300,5 +305,114 @@ describe('processAbandonedRecovery (WhatsApp)', () => {
     buildSupabaseMock({ requests: [request({})], paymentStatus: null });
     await processAbandonedRecovery();
     expect(mockedSendWhatsApp).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('processAbandonedRecovery (pedido rejeitado — lembrete 24h)', () => {
+  const rejectedRequest = (over: Partial<Record<string, unknown>> = {}) => ({
+    id: 'req-r1',
+    email: 'rejeitado@teste.com',
+    recipient_name: 'Rui',
+    status: 'payment_rejected',
+    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString(),
+    rejected_reminder_sent_at: null,
+    abandoned_30min_sent_at: null,
+    abandoned_24h_sent_at: null,
+    abandoned_48h_sent_at: null,
+    abandoned_72h_sent_at: null,
+    abandoned_7d_sent_at: null,
+    whatsapp_30min_sent_at: null,
+    whatsapp_24h_sent_at: null,
+    whatsapp_48h_sent_at: null,
+    whatsapp_72h_sent_at: null,
+    songs: [],
+    ...over,
+  });
+
+  async function mockedReminderEmail() {
+    const { sendRejectedReminderEmail } = await import('../services/email');
+    return sendRejectedReminderEmail as ReturnType<typeof vi.fn>;
+  }
+
+  it('envia o lembrete 24h após a rejeição com o motivo e marca a flag', async () => {
+    const mockedEmail = await mockedReminderEmail();
+    const query = buildSupabaseMock({
+      requests: [rejectedRequest()],
+      paymentStatus: 'rejected',
+      paymentNotes: 'Montante não corresponde ao valor do plano',
+    });
+
+    await processAbandonedRecovery();
+
+    expect(mockedEmail).toHaveBeenCalledTimes(1);
+    expect(mockedEmail).toHaveBeenCalledWith(
+      'rejeitado@teste.com',
+      'Rui',
+      'req-r1',
+      'Montante não corresponde ao valor do plano'
+    );
+    expect(query.update).toHaveBeenCalledWith(
+      expect.objectContaining({ rejected_reminder_sent_at: expect.any(String) })
+    );
+  });
+
+  it('NÃO envia antes de 24h desde a rejeição', async () => {
+    const mockedEmail = await mockedReminderEmail();
+    buildSupabaseMock({
+      requests: [rejectedRequest({ updated_at: new Date(Date.now() - 60 * 60 * 1000).toISOString() })],
+      paymentStatus: 'rejected',
+    });
+
+    await processAbandonedRecovery();
+
+    expect(mockedEmail).not.toHaveBeenCalled();
+  });
+
+  it('NÃO reenvia quando a flag rejected_reminder_sent_at já está marcada', async () => {
+    const mockedEmail = await mockedReminderEmail();
+    buildSupabaseMock({
+      requests: [rejectedRequest({ rejected_reminder_sent_at: new Date().toISOString() })],
+      paymentStatus: 'rejected',
+    });
+
+    await processAbandonedRecovery();
+
+    expect(mockedEmail).not.toHaveBeenCalled();
+  });
+
+  it('guarda em memória: dois ticks sem flag enviam uma única vez', async () => {
+    const mockedEmail = await mockedReminderEmail();
+    buildSupabaseMock({
+      requests: [rejectedRequest({ id: 'req-rmem', rejected_reminder_sent_at: null })],
+      paymentStatus: 'rejected',
+    });
+
+    await processAbandonedRecovery();
+    await processAbandonedRecovery();
+
+    expect(mockedEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it('NÃO entra na cadeia de abandono (sem email "escolhe o plano" mesmo >7 dias)', async () => {
+    const mockedEmail = await mockedReminderEmail();
+    const { sendAbandonedFifthReminder } = await import('../services/email');
+    const mockedEmail7d = sendAbandonedFifthReminder as ReturnType<typeof vi.fn>;
+    buildSupabaseMock({
+      requests: [
+        rejectedRequest({
+          id: 'req-rchain',
+          created_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+        }),
+      ],
+      paymentStatus: 'rejected',
+      paymentNotes: null,
+    });
+
+    await processAbandonedRecovery();
+
+    expect(mockedEmail).toHaveBeenCalledTimes(1);
+    expect(mockedEmail7d).not.toHaveBeenCalled();
+    expect(mockedSendWhatsApp).not.toHaveBeenCalled();
   });
 });

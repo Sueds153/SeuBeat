@@ -135,6 +135,34 @@ describe('whatsappSender (Cloud API)', () => {
     expect(body.template.components[0].parameters).toHaveLength(2);
   });
 
+  it('sendTemplate sanitiza params (newlines/tabs/espaços) antes de enviar à Meta', async () => {
+    const wa = await importSender();
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ messages: [{ id: 'wamid.san1' }] }),
+    });
+
+    const r = await wa.sendTemplate('244900000001', 'seubeat_abandono_30min_v6', ['Ana\nSilva  Junior', 'https://x']);
+    expect(r.ok).toBe(true);
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(String(init.body));
+    // Caso real de produção: nome com \n causava
+    // "Param text cannot have new-line/tab characters" 56× seguidas.
+    expect(body.template.components[0].parameters[0].text).toBe('Ana Silva Junior');
+    expect(body.template.components[0].parameters[1].text).toBe('https://x');
+  });
+
+  it('sanitizeTemplateParam remove newlines, tabs e colapsa espaços', async () => {
+    const wa = await importSender();
+    expect(wa.sanitizeTemplateParam('A\r\nB\tC   D')).toBe('A B C D');
+    expect(wa.sanitizeTemplateParam('  hi  ')).toBe('hi');
+    expect(wa.sanitizeTemplateParam('foo     bar')).toBe('foo bar');
+    expect(wa.sanitizeTemplateParam(null)).toBe('');
+    expect(wa.sanitizeTemplateParam(42)).toBe('42');
+  });
+
   it('sendTemplate mapeia 401 para token inválido', async () => {
     const wa = await importSender();
     fetchMock.mockResolvedValue({
@@ -307,6 +335,39 @@ describe('whatsappSender (Cloud API)', () => {
     expect(res).toBe('failed');
     const insertRow = supabaseState.query.insert.mock.calls[0][0];
     expect(insertRow.status).toBe('failed');
+  });
+
+  it('sendAbandonedWhatsApp desiste após 3 falhas nas últimas 24h (sem nova chamada à Meta)', async () => {
+    // count=3 em todas as contagens → getDailySentCount devolve 3 (cap 30 ok)
+    // e countFailedAttempts devolve 3 (>= 3 → cap de tentativas).
+    supabaseState.query = buildSupabaseMock({ count: 3 });
+    const wa = await importSender();
+    const res = await wa.sendAbandonedWhatsApp({
+      requestId: 'r-loop', phone: '244900000001', bucket: '72h', params: ['Rui', 'https://x'],
+    });
+    expect(res).toBe('failed');
+    expect(fetchMock).not.toHaveBeenCalled();
+    // Silencioso — não acrescenta mais uma linha de erro a cada tick do scheduler.
+    expect(supabaseState.query.insert).not.toHaveBeenCalled();
+  });
+
+  it('sendAbandonedWhatsApp regista "sem telefone" apenas uma vez por request+bucket', async () => {
+    const wa = await importSender();
+    // 1ª passagem: sem log anterior → regista o skip
+    const res1 = await wa.sendAbandonedWhatsApp({
+      requestId: 'r-skip', phone: '', bucket: '30min', params: ['Ana', 'https://x'],
+    });
+    expect(res1).toBe('skipped');
+    expect(supabaseState.query.insert).toHaveBeenCalledTimes(1);
+
+    // 2ª passagem (próximo tick): já existe log para este bucket → silencioso
+    supabaseState.query = buildSupabaseMock({ count: 1 });
+    const res2 = await wa.sendAbandonedWhatsApp({
+      requestId: 'r-skip', phone: '', bucket: '30min', params: ['Ana', 'https://x'],
+    });
+    expect(res2).toBe('skipped');
+    expect(supabaseState.query.insert).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('sendAbandonedWhatsApp devolve unconfigured sem env', async () => {

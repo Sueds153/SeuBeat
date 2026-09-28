@@ -202,6 +202,16 @@ describe('processStuckMusicRecovery', () => {
     expect(mocks.resumeSunoTaskWorkflow).not.toHaveBeenCalled();
   });
 
+  it('emite as 4 queries de candidatos (inclui cenário do timer do auto-approve perdido num restart)', async () => {
+    const { from } = buildSupabaseMock({ candidates: { data: [], error: null } });
+
+    await processStuckMusicRecovery();
+
+    // stale + taskless + paid + deferred (music_processing + not_started stale)
+    const songQueries = from.mock.calls.filter((c) => c[0] === 'songs');
+    expect(songQueries.length).toBeGreaterThanOrEqual(4);
+  });
+
   it('descarta task antiga e gera nova quando regeneration_count >= 2', async () => {
     const row = baseRow({ mureka_task_id: 'dead-task', mureka_status: 'processing', regeneration_count: 2 });
     const { update } = buildSupabaseMock({ candidates: { data: [row], error: null } });

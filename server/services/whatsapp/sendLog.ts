@@ -85,3 +85,46 @@ export async function getDailySentCount(): Promise<number> {
   if (error) return 0;
   return count || 0;
 }
+
+/**
+ * Tentativas falhadas nos últimos 24h para este request+bucket. Usado como
+ * limite anti-retry: um erro permanente (params/templates inválidos) não pode
+ * martelar a Meta a cada tick do scheduler (caso real: 56 falhas seguidas).
+ * Janela de 24h — após o deploy corrigir a causa, os envios voltam a ser
+ * tentados no dia seguinte.
+ */
+export async function countFailedAttempts(requestId: string, bucket: string | undefined): Promise<number> {
+  const supabase = getAdminSupabase();
+  if (!supabase) return 0;
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  try {
+    const { count, error } = await supabase
+      .from('whatsapp_send_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('request_id', requestId)
+      .eq('bucket', bucket || 'manual')
+      .eq('status', 'failed')
+      .gte('sent_at', since);
+    if (error) return 0;
+    return count || 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Já existe algum log (qualquer estado) para este request+bucket? Evita re-logar skips a cada tick. */
+export async function hasBucketLog(requestId: string, bucket: string | undefined): Promise<boolean> {
+  const supabase = getAdminSupabase();
+  if (!supabase) return false;
+  try {
+    const { count, error } = await supabase
+      .from('whatsapp_send_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('request_id', requestId)
+      .eq('bucket', bucket || 'manual');
+    if (error) return false;
+    return (count || 0) > 0;
+  } catch {
+    return false;
+  }
+}

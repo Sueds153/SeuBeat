@@ -26,7 +26,7 @@ const MESSAGE_TEMPLATES: Record<AbandonedBucketKey, (name: string, link: string)
   '48h': (name, link) =>
     `Olá ${name}! Não deixes a tua música especial por terminar — está guardada à tua espera. Continua aqui: ${link}`,
   '72h': (name, link) =>
-    `Última chamada, ${name}! ⏰ A tua música guardada vai ser fechada em breve. Termina agora: ${link}`,
+    `Última chamada, ${name}! ⏰ A tua música está pronta e à tua espera. Termina agora: ${link}`,
 };
 
 /** Bucket a que um pedido pertence dado o tempo decorrido desde a criação (ms). */
@@ -87,7 +87,11 @@ export function buildAbandonedMessage(key: AbandonedBucketKey, name: string, lin
 /** Normaliza um telefone para E.164 (dígitos, prefixo 244 se for 9 dígitos local). */
 export function normalizePhoneToE164(raw: string | null | undefined): string | null {
   if (!raw) return null;
-  const digits = String(raw).replace(/\D/g, '');
+  let digits = String(raw).replace(/\D/g, '');
+  // Formato internacional com prefixo 00 (ex.: 00244923770826 → 244923770826)
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  // Formato local com 0 inicial (ex.: 0923770826 → 923770826)
+  if (digits.length === 10 && digits.startsWith('09')) digits = digits.slice(1);
   if (digits.length === 9 && digits.startsWith('9')) return `244${digits}`;
   if (digits.length === 12 && digits.startsWith('244')) return digits;
   return null;

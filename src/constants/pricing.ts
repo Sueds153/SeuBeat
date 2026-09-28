@@ -27,7 +27,7 @@ export const PRICING_PLANS: PricingPlan[] = [
       'Download MP3',
       'Entrega em 24h'
     ],
-    guarantee: '100% satisfação ou reembolso'
+    guarantee: 'Nova geração garantida · Reembolso caso a caso'
   },
   {
     id: 'express',
@@ -44,8 +44,8 @@ export const PRICING_PLANS: PricingPlan[] = [
     ],
     badge: 'Mais Popular',
     popular: true,
-    popularity: '83%',
-    guarantee: '100% satisfação ou reembolso'
+    popularity: '60%',
+    guarantee: 'Nova geração garantida · Reembolso caso a caso'
   },
   {
     id: 'premium',
@@ -58,6 +58,6 @@ export const PRICING_PLANS: PricingPlan[] = [
       'Tudo do Express',
       'Voz personalizada do cliente (timbre clonado)'
     ],
-    guarantee: '100% satisfação ou reembolso'
+    guarantee: 'Nova geração garantida · Reembolso caso a caso'
   }
 ];

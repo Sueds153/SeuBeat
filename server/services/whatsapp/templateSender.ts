@@ -3,6 +3,20 @@ import { GRAPH_API_VERSION, API_TOKEN, PHONE_NUMBER_ID, isConfigured } from './c
 import { mapWhatsAppApiError } from './errors';
 import { TEMPLATE_LANGUAGE } from '../whatsappTemplates';
 
+/**
+ * A Meta rejeita params com newlines/tabs ou mais de 4 espaços consecutivos
+ * ("Param text cannot have new-line/tab characters or more than 4 consecutive
+ * spaces"). Um nome colado com \n rebentava o envio do scheduler a cada 10min
+ * (retry infinito) — sanear aqui cobre todos os templates (abandono, entrega,
+ * aprovação, rejeição).
+ */
+export function sanitizeTemplateParam(value: unknown): string {
+  return String(value ?? '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 export async function sendTemplate(
   phone: string,
   templateName: string,
@@ -20,7 +34,7 @@ export async function sendTemplate(
       name: templateName,
       language: { code: TEMPLATE_LANGUAGE },
       components: params.length
-        ? [{ type: 'body', parameters: params.map((p) => ({ type: 'text', text: p })) }]
+        ? [{ type: 'body', parameters: params.map((p) => ({ type: 'text', text: sanitizeTemplateParam(p) })) }]
         : undefined,
     },
   };

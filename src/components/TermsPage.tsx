@@ -32,7 +32,7 @@ const sections = [
   {
     icon: <AlertTriangle className="w-5 h-5" />,
     title: '6. Cancelamento e Reembolso',
-    content: `O Cliente pode solicitar cancelamento até ao momento da aprovação do pagamento com reembolso integral. Após a aprovação do pagamento e início do processamento da música (geração via Suno), não haverá lugar a reembolso, salvo em caso de impossibilidade técnica comprovada de entrega da música no prazo estabelecido. Se o workflow de geração falhar após a aprovação, o pagamento será revertido automaticamente para o estado "falhou" e o Cliente será notificado por email.`
+    content: `O Cliente pode solicitar cancelamento até ao momento da aprovação do pagamento com reembolso integral. Após a aprovação do pagamento e início do processamento da música (geração via Suno), não haverá lugar a reembolso, salvo em caso de impossibilidade técnica comprovada de entrega da música no prazo estabelecido. Se o Cliente não ficar satisfeito com o resultado, tem direito a uma nova geração gratuita do serviço. Reembolsos após o início do processamento são analisados caso a caso. Se o workflow de geração falhar após a aprovação, o pagamento será revertido automaticamente para o estado "falhou" e o Cliente será notificado por email.`
   },
   {
     icon: <Scale className="w-5 h-5" />,

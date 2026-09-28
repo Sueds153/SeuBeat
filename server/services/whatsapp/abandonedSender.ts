@@ -1,7 +1,7 @@
 import { normalizePhoneToE164 } from '../abandonedMessages';
 import { templateForBucket } from '../whatsappTemplates';
 import { isConfigured, START_HOUR, END_HOUR, DAILY_CAP, MIN_SEND_DELAY_MS, MAX_SEND_DELAY_MS } from './config';
-import { insertSendLog, markContacted, markBucketSent, getDailySentCount } from './sendLog';
+import { insertSendLog, markContacted, markBucketSent, getDailySentCount, countFailedAttempts, hasBucketLog } from './sendLog';
 import { sendTemplate } from './templateSender';
 import type { BulkClient } from './bulkCampaign';
 
@@ -12,6 +12,9 @@ export type AbandonedSendResult =
   | 'window-closed'
   | 'cap-reached'
   | 'unconfigured';
+
+/** Tentativas falhadas por request+bucket antes de desistir (erro permanente). */
+const MAX_SEND_ATTEMPTS_PER_DAY = 3;
 
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
@@ -45,8 +48,18 @@ export async function sendAbandonedWhatsApp(client: BulkClient): Promise<Abandon
 
   const phone = normalizePhoneToE164(client.phone || '');
   if (!phone) {
-    await insertSendLog({ requestId: client.requestId, phone: client.phone || '', status: 'skipped', bucket: client.bucket, error: 'sem telefone' });
+    // Número ausente/inválido = falha permanente: regista uma vez, não a cada
+    // tick (891 linhas "sem telefone" duplicadas no whatsapp_send_log).
+    if (!(await hasBucketLog(client.requestId, client.bucket))) {
+      await insertSendLog({ requestId: client.requestId, phone: client.phone || '', status: 'skipped', bucket: client.bucket, error: 'sem telefone' });
+    }
     return 'skipped';
+  }
+
+  // Erro permanente detectado nas últimas 24h → não martelar a Meta a cada 10min.
+  const failures = await countFailedAttempts(client.requestId, client.bucket);
+  if (failures >= MAX_SEND_ATTEMPTS_PER_DAY) {
+    return 'failed';
   }
 
   const def = templateForBucket(client.bucket);

@@ -2,6 +2,22 @@
 
 ## Estado Atual (28/Set 2026)
 
+### Fase 1+2 — Recuperação + Checkout CRO (28/Set 2026, sessão 3)
+Plano aprovado "Prioridades 1 + 2" executado na íntegra (instrução: *"Avance. não quebre o site porque ela está em produção e teste tudo"*). **Validação final: 535 testes unit (39 ficheiros, 1 skipped) + 64/64 E2E (chromium+mobile-chrome) + `tsc --noEmit`/lint + `npm run build` — TUDO VERDE. Sem commit (aguarda pedido do utilizador).**
+- **1a WhatsApp delivery**: `sanitizeTemplateParam` (\r\n\t→espaço) nos params dos templates; `countFailedAttempts`/`hasBucketLog` (últimas 24h) → **máx 3 tentativas/dia** por pedido+bucket; skip "sem telefone" loga 1× (antes: 891 spam); cap diário → `return 'failed'` silencioso; `normalizePhoneToE164` (strip `00`, `09…`→strip `0`); `.env` `WHATSAPP_ENABLED_BUCKETS=30min,24h,48h,72h`.
+- **1b auto-reject**: `paymentFields.notes` = motivo PT dos `proofVerification.checks` falhados; pedido passa a `payment_rejected` (antes: preso em `payment_submitted`); cliente notificado por **email + WhatsApp** com o motivo.
+- **1c lembrete de rejeição 24h**: `sendRejectedReminderEmail` (`email/payment.ts`); `payment_rejected` adicionado aos allowedStatuses de `/song/:id/resume-link`, `/song/resume-data/:requestId`, `/song/recover-by-email`; scheduler `processRejectedReminder` (24h, guard em memória por requisição); +5 testes `abandoned-scheduler` + 5 novos `resume-recover.test.ts`. **⚠️ MIGRAÇÃO `supabase_migration_rejected_reminder.sql` — APLICAR EM PROD ANTES DO DEPLOY** (sem ela: dedupe só em memória → 1 lembrete duplicado por restart; não quebra).
+- **2a** Wizard envia `email` no PUT `/song/:id/lyrics` (antes 400 em prod → "Confirmar e Gerar Música" falhava).
+- **2b** Rejeitado pelo utilizador — letra editável só pós-pagamento mantida.
+- **2c ETA honesto**: `deliveryEta` no Wizard — Express/upsell → *"logo após a aprovação"*; Standard → *"em até 24 horas"*.
+- **2d** Banner de countdown morto do Wizard removido (estado+efeitos de expiry; título/subtítulo "Escolhe como queros receber" repostos após remoção acidental).
+- **2e Garantia**: *"nova geração garantida + reembolso caso a caso"* em 6 locações (Wizard ×3, `pricing.ts` ×3, `faq.ts`, Landing, `TermsPage`).
+- **2f Expiração falsa suavizada**: footers dos lembretes 30min/48h/72h + template WhatsApp '72h' — nada apaga letras automaticamente (delete é manual no admin).
+- **2g Landing copy (5 edits)**: `popularity '83%'→'60%'` (real: Express 34/57 ≈ 60%, `pricing.ts`); *"(118 avaliações)"→"(+200 entregues)"*; *"Entrega por E-mail"→"Entrega por Email e WhatsApp"* ×2; *"Lê e edita a letra à vontade"→"Lê a prévia da letra · A música nasce após o teu sim"*. Fora de escopo mantido: `Wizard.tsx:3187` "Pode editar a letra à vontade" (follow-up possível).
+- **2h Race fix auto-approve** (letra editada vs geração): geração **adiada 90s** — env `AUTO_APPROVE_GEN_DELAY_MS` (default 90000; **0 = síncrono, usado nos testes**); no fire-time **re-lê a letra da BD** com guards (cancela se `deleted_at`/`failed`/`payment_rejected`/áudio/task/generating) e só então chama `runBackgroundSunoWorkflow`; **touch de `songs.updated_at`** ao agendar + **4ª query no `stuckMusicRecoveryScheduler`** (`music_processing`+`not_started`+stale>15min) → timer perdido num restart é recuperado ao fim de 15min. Testes: +3 submit-payment (re-lê letra editada, cancela se rejeitado, espera delay+touch) +1 stuck (4 queries).
+- **E2E infra**: `playwright.config.ts` ganha `E2E_PORT` (default 3000, CI inalterado) — local a porta 3000 estava ocupada por dev server de **outro projeto** (`surpresa-coletiva`/ComAmor; não foi morto) → correr `E2E_PORT=3100 npx playwright test`.
+- **Suite final: 535 testes** (39 ficheiros) · E2E **64/64** (13.6m) · tsc/lint/build OK.
+
 ### Auditoria Pixel/CAPI — melhorias F1/F2/F4/F5 (28/Set 2026, sessão 2)
 Auditoria técnica de mensuração (formato A–H) entregue; decisões do utilizador: **F2 = Opção B** e lote **F1+F4**. Todas executadas + F5 (versão "não quebrar nada"):
 - **F1 — `hashPhone` corrigido** (`metaPixelCapi.ts`): antes mantinha o `+` → hash `"+244922000000"` nunca casava com o da Meta (spec: só dígitos com country code). Agora `replace(/\D/g,'')` + guard 9 dígitos → `244922000000`. Match key `ph` (prioridade Média) reparada em TODOS os eventos server.
@@ -99,7 +115,7 @@ Auditoria Meta Ads/PIX/CAPI/Funil (20 partes, dados reais) → plano em 3 fases 
 ### Produção
 - **URL**: https://seubeat.onrender.com
 - **Último deploy**: `9886664` (28/Set ~11:20) **LIVE** (`/health` ok, uptime resetado pós-push)
-- **Testes**: 510 unitários (38 ficheiros, 1 skipped) + **64/64 E2E Playwright** (chromium + mobile-chrome) — **CI verde de ponta a ponta** (`36407703814`: lint/test/build/**E2E** success)
+- **Testes**: 535 unitários (39 ficheiros, 1 skipped) + **64/64 E2E Playwright** (chromium + mobile-chrome, local `E2E_PORT=3100`) — **CI verde de ponta a ponta** (`36407703814`: lint/test/build/**E2E** success)
 - **Commits da sessão**: `ad5088c` (Fase 1 tracking) · `166bc80` (plano F2/F3 + exclusão compradores) · `8072a75` (E2E mobile-aware) · `9ff3c79` (CI reuse do servidor) · `9d67191`+`af6de41` (relatório E2E público) · `9886664` (teste do 503)
 
 ### DB Schema (tabelas principais)

@@ -362,7 +362,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 <ArrowRight className="w-5 h-5 shrink-0" />
               </button>
               <span className="flex items-center gap-1 text-[10px] text-amber-400/70 font-sans mt-1">
-                <Shield className="w-3 h-3" /> 100% Satisfação Garantida ou Reembolso
+                <Shield className="w-3 h-3" /> Nova Geração Garantida · Reembolso caso a caso
               </span>
             </div>
 
@@ -437,7 +437,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
           {/* Trust badges */}
           <div className="flex flex-wrap gap-3 text-xs font-sans text-stone-500 uppercase tracking-wider lg:col-start-1">
-            {['Letras em Português Real', 'Kizomba · Semba · Gospel', 'Entrega por E-mail'].map((t) => (
+            {['Letras em Português Real', 'Kizomba · Semba · Gospel', 'Entrega por Email e WhatsApp'].map((t) => (
               <div key={t} className="flex items-center gap-1.5">
                 <Check className="w-3.5 h-3.5 text-amber-500" />
                 <span>{t}</span>
@@ -454,7 +454,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             <div className="w-px h-4 bg-stone-800" />
             <div className="flex items-center gap-1.5">
               <span className="text-amber-400 font-bold text-base">4.9★</span>
-              <span>(118 avaliações)</span>
+              <span>(+200 entregues)</span>
             </div>
             <div className="w-px h-4 bg-stone-800" />
             <div className="flex items-center gap-1.5">
@@ -824,7 +824,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 Primeiro a letra, depois a música. <span className="text-amber-400 font-semibold">Só pagas quando aprovares.</span>
               </p>
               <p className="text-stone-500 text-xs font-mono">
-                Lê e edita a letra à vontade · A música nasce após o teu sim
+                Lê a prévia da letra · A música nasce após o teu sim
               </p>
               <p className="text-amber-400/60 text-xs font-mono italic">
                 Sabia que 9 em cada 10 pessoas choram ao ouvir a música que dedicaram?
@@ -850,7 +850,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               <Check className="w-3 h-3 text-amber-500" /> Sem subscrição
             </span>
             <span className="flex items-center gap-1.5">
-              <Check className="w-3 h-3 text-amber-500" /> Entrega por email
+              <Check className="w-3 h-3 text-amber-500" /> Entrega por Email e WhatsApp
             </span>
           </div>
         </div>

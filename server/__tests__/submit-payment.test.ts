@@ -27,7 +27,12 @@ vi.mock('../services/metaPixelCapi', () => ({
 vi.mock('../services/email', () => ({
   sendPersonalizedEmail: vi.fn().mockResolvedValue(true),
   sendConfirmationEmail: vi.fn().mockResolvedValue(true),
+  sendPaymentRejectionEmail: vi.fn().mockResolvedValue(true),
   sendAdminNotification: vi.fn().mockResolvedValue(true),
+}));
+vi.mock('../services/whatsapp', () => ({
+  sendDeliveryWhatsApp: vi.fn().mockResolvedValue('sent'),
+  sendPaymentRejectedWhatsApp: vi.fn().mockResolvedValue('sent'),
 }));
 vi.mock('../services/ai', () => ({ generateLyrics: vi.fn() }));
 vi.mock('../services/workflow', () => ({
@@ -47,7 +52,8 @@ vi.mock('../services/proofVerification', () => ({
 import { getAdminSupabase } from '../services/supabase';
 import { verifyPaymentProof, isTxIdAcceptable, type VerificationResult } from '../services/proofVerification';
 import { runBackgroundSunoWorkflow } from '../services/workflow';
-import { sendConfirmationEmail } from '../services/email';
+import { sendConfirmationEmail, sendPaymentRejectionEmail } from '../services/email';
+import { sendPaymentRejectedWhatsApp } from '../services/whatsapp';
 import {
   sendInitiateCheckoutEvent,
   sendAddPaymentInfoEvent,
@@ -100,6 +106,12 @@ interface SupabaseMockOpts {
   approvedPayment?: unknown;
   rejectedPayment?: unknown;
   requestRow?: unknown;
+  /**
+   * Sequência de retornos do SELECT em song_requests (o último elemento repete).
+   * Simula re-lecturas ao longo do handler — ex.: a letra relida na geração
+   * adiada do auto-approve pode diferir da lida na decisão.
+   */
+  requestRowSeq?: unknown[];
   updateError?: unknown;
   insertResult?: { data: unknown; error: unknown };
   existingHashPayment?: unknown;
@@ -110,6 +122,7 @@ interface SupabaseMockOpts {
 function buildSupabaseMock(opts: SupabaseMockOpts) {
   const updateCalls: Array<{ table: string; payload: unknown }> = [];
   const insertCalls: unknown[] = [];
+  let songReqReads = 0;
 
   const createBuilder = (table: string) => {
     let filters: string[] = [];
@@ -130,7 +143,14 @@ function buildSupabaseMock(opts: SupabaseMockOpts) {
           return { data: opts.paymentFlagRow ?? null, error: null };
         }
       }
-      if (table === 'song_requests') return { data: opts.requestRow ?? null, error: null };
+      if (table === 'song_requests') {
+        if (opts.requestRowSeq && opts.requestRowSeq.length > 0) {
+          const idx = Math.min(songReqReads, opts.requestRowSeq.length - 1);
+          songReqReads += 1;
+          return { data: opts.requestRowSeq[idx] ?? null, error: null };
+        }
+        return { data: opts.requestRow ?? null, error: null };
+      }
       return { data: null, error: null };
     };
 
@@ -166,6 +186,8 @@ function buildSupabaseMock(opts: SupabaseMockOpts) {
           select: () => ({
             single: () => Promise.resolve(eqResult),
           }),
+          // Cadeia update().eq().in() do auto-reject (song_requests → payment_rejected)
+          in: () => selectChain,
           then: (resolve: (v: unknown) => unknown) => resolve(eqResult),
         };
         const ub: Record<string, unknown> = {
@@ -671,7 +693,17 @@ describe('POST /api/submit-payment — auto-approve pela AI inicia geração da 
     };
   }
 
+  beforeEach(() => {
+    disablePaymentRateLimit();
+    // Delay 0 → geração adiada corre dentro do handler (testes existentes
+    // esperam a chamada antes/sobre a resposta). Testes dedicados ao adiamento
+    // sobrescrevem este valor.
+    process.env.AUTO_APPROVE_GEN_DELAY_MS = '0';
+  });
+
   afterEach(() => {
+    restoreNodeEnv();
+    delete process.env.AUTO_APPROVE_GEN_DELAY_MS;
     // Restaura os defaults da fábrica (null/true) para testes futuros.
     vi.mocked(verifyPaymentProof).mockReset();
     vi.mocked(isTxIdAcceptable).mockReset();
@@ -824,6 +856,118 @@ describe('POST /api/submit-payment — auto-approve pela AI inicia geração da 
     );
     expect(autoUpdate).toBeTruthy();
     expect(runBackgroundSunoWorkflow).not.toHaveBeenCalled();
+  });
+
+  it('geração adiada: re-lê a letra da BD no momento de arrancar e usa a versão editada', async () => {
+    const base = await startServer();
+    vi.mocked(verifyPaymentProof).mockResolvedValue(autoApproveResult());
+    vi.mocked(isTxIdAcceptable).mockReturnValue(true);
+
+    // Leituras do handler: [guard, decisão de auto-approve, fire-time].
+    // Na 3ª (após o delay) a letra já foi editada pelo cliente.
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRowSeq: [
+        autoRequestRow(),
+        autoRequestRow(),
+        autoRequestRow({ lyrics: ['linha 1 EDITADA pelo cliente'] }),
+      ],
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), ...proofBody() }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(runBackgroundSunoWorkflow).toHaveBeenCalledTimes(1);
+    expect(runBackgroundSunoWorkflow).toHaveBeenCalledWith(
+      'req-1',
+      'song-1',
+      'Semba',
+      'Para Ana',
+      ['linha 1 EDITADA pelo cliente'],
+      { voiceType: 'Feminina', desiredEmotion: 'Feliz' }
+    );
+  });
+
+  it('geração adiada: cancelada se o pedido foi rejeitado/apagado durante o delay', async () => {
+    const base = await startServer();
+    vi.mocked(verifyPaymentProof).mockResolvedValue(autoApproveResult());
+    vi.mocked(isTxIdAcceptable).mockReturnValue(true);
+
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRowSeq: [
+        autoRequestRow(),
+        autoRequestRow(),
+        // Nota: autoRequestRow(enc) só faz override da SONG — o status do
+        // request tem de ser setado à mão.
+        { ...autoRequestRow(), status: 'payment_rejected' },
+      ],
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), ...proofBody() }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.paymentStatus).toBe('approved');
+    expect(runBackgroundSunoWorkflow).not.toHaveBeenCalled();
+  });
+
+  it('geração adiada: espera o delay (não dispara imediatamente) e toca updated_at p/ cobertura do scheduler', async () => {
+    const base = await startServer();
+    process.env.AUTO_APPROVE_GEN_DELAY_MS = '400';
+    vi.mocked(verifyPaymentProof).mockResolvedValue(autoApproveResult());
+    vi.mocked(isTxIdAcceptable).mockReturnValue(true);
+
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: autoRequestRow(),
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), ...proofBody() }),
+    });
+    expect(res.status).toBe(200);
+
+    // Touch de updated_at no agendamento (reinício → stuck-recovery cobre ao fim de 15min)
+    const touch = sb.updateCalls.find(
+      (u) => u.table === 'songs' && 'updated_at' in (u.payload as Record<string, unknown>)
+    );
+    expect(touch).toBeTruthy();
+
+    // Ainda dentro da janela do delay: nada gerado ainda
+    expect(runBackgroundSunoWorkflow).not.toHaveBeenCalled();
+
+    await vi.waitFor(
+      () => expect(runBackgroundSunoWorkflow).toHaveBeenCalledTimes(1),
+      { timeout: 2000 }
+    );
+    expect(runBackgroundSunoWorkflow).toHaveBeenCalledWith(
+      'req-1',
+      'song-1',
+      'Semba',
+      'Para Ana',
+      ['linha 1'],
+      { voiceType: 'Feminina', desiredEmotion: 'Feliz' }
+    );
   });
 });
 
@@ -1005,5 +1149,126 @@ describe('POST /api/submit-payment — Refund só quando já houve Purchase', ()
 
     expect(res.status).toBe(200);
     expect(sendRefundEvent).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/submit-payment — auto-reject: motivo + notificação ao cliente', () => {
+  beforeEach(disablePaymentRateLimit);
+
+  function autoRejectResult(): VerificationResult {
+    return {
+      decision: 'auto_reject',
+      confidence: 0.4,
+      provider: 'test',
+      checks: [{ name: 'Montante', passed: false, expected: '7900', actual: '100' }],
+      extracted: { transactionId: 'TX-REJ-9' },
+    } as unknown as VerificationResult;
+  }
+
+  function proofBody() {
+    const proofBuf = Buffer.alloc(200, 0xef);
+    return {
+      proofBase64: `data:application/octet-stream;base64,${proofBuf.toString('base64')}`,
+    };
+  }
+
+  afterEach(() => {
+    vi.mocked(verifyPaymentProof).mockReset();
+    vi.mocked(isTxIdAcceptable).mockReset();
+    restoreNodeEnv();
+  });
+
+  async function runAutoReject() {
+    const base = await startServer();
+    vi.mocked(verifyPaymentProof).mockResolvedValue(autoRejectResult());
+    vi.mocked(isTxIdAcceptable).mockReturnValue(true);
+
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: { status: 'payment_submitted', recipient_name: 'Ana' },
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), ...proofBody() }),
+    });
+    return { res, sb };
+  }
+
+  it('grava notes com o motivo PT no INSERT do pagamento rejeitado', async () => {
+    const { res, sb } = await runAutoReject();
+    expect(res.status).toBe(200);
+    const paymentInsert = sb.insertCalls.find(
+      (r: unknown) => (r as Record<string, unknown>).request_id === 'req-1'
+    ) as Record<string, unknown> | undefined;
+    expect(paymentInsert).toBeDefined();
+    expect(paymentInsert!.notes).toContain('não aprovado');
+    expect(paymentInsert!.notes).toContain('Montante: esperado 7900, encontrado 100');
+  });
+
+  it('marca song_requests como payment_rejected (antes ficava payment_submitted)', async () => {
+    const { res, sb } = await runAutoReject();
+    expect(res.status).toBe(200);
+    const srUpdate = sb.updateCalls.find(
+      (u) => u.table === 'song_requests' && (u.payload as Record<string, unknown>).status === 'payment_rejected'
+    );
+    expect(srUpdate).toBeTruthy();
+  });
+
+  it('envia email de rejeição ao cliente com o motivo', async () => {
+    const { res } = await runAutoReject();
+    expect(res.status).toBe(200);
+    await vi.waitFor(() => {
+      expect(sendPaymentRejectionEmail).toHaveBeenCalledTimes(1);
+    });
+    expect(sendPaymentRejectionEmail).toHaveBeenCalledWith(
+      'cliente@test.com',
+      expect.stringContaining('Montante')
+    );
+  });
+
+  it('envia WhatsApp de rejeição com o motivo', async () => {
+    const { res } = await runAutoReject();
+    expect(res.status).toBe(200);
+    await vi.waitFor(() => {
+      expect(sendPaymentRejectedWhatsApp).toHaveBeenCalledTimes(1);
+    });
+    expect(sendPaymentRejectedWhatsApp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'req-1',
+        phone: '+244900000000',
+        recipientName: 'Ana',
+        reason: expect.stringContaining('Montante'),
+      })
+    );
+  });
+
+  it('re-submissão após rejeição limpa notes (novo estado pendente)', async () => {
+    const base = await startServer();
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      rejectedPayment: { id: 'pay-rej' },
+      requestRow: { status: 'payment_rejected' },
+      updateError: null,
+      insertResult: { data: { id: 'pay-rej' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(validBody()),
+    });
+
+    expect(res.status).toBe(200);
+    const paymentUpdates = sb.updateCalls.filter((u) => u.table === 'payments');
+    expect(paymentUpdates.length).toBeGreaterThanOrEqual(1);
+    expect(paymentUpdates[0].payload).toMatchObject({ status: 'pending_verification', notes: null });
+    expect(sendPaymentRejectionEmail).not.toHaveBeenCalled();
   });
 });

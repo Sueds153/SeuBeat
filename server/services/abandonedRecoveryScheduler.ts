@@ -1,5 +1,5 @@
 import { getAdminSupabase } from './supabase';
-import { sendAbandonedFirstReminder, sendAbandonedSecondReminder, sendAbandonedThirdReminder, sendAbandonedFourthReminder, sendAbandonedFifthReminder } from './email';
+import { sendAbandonedFirstReminder, sendAbandonedSecondReminder, sendAbandonedThirdReminder, sendAbandonedFourthReminder, sendAbandonedFifthReminder, sendRejectedReminderEmail } from './email';
 import { sendAbandonedWhatsApp } from './whatsapp';
 import { enabledWhatsAppBuckets, templateForBucket } from './whatsappTemplates';
 import { bucketForElapsed } from './abandonedMessages';
@@ -8,6 +8,82 @@ import { getAppUrl } from '../utils/helpers';
 
 const INTERVAL_MS = 10 * 60 * 1000;
 let intervalHandle: ReturnType<typeof setInterval> | null = null;
+
+/** Lembrete de rejeição: 24h depois de o comprovativo ser rejeitado. */
+const REJECTED_REMINDER_DELAY_MS = 24 * 60 * 60 * 1000;
+
+// Guarda anti-spam em memória: se a migration rejected_reminder_sent_at ainda
+// não foi aplicada (coluna ausente → update falha), não reenvia a cada tick.
+// Com a coluna aplicada o dedupe é persistente; este guarda cobre o intervalo.
+const rejectedRemindedInMemory = new Set<string>();
+
+/** Testes: limpa o guarda em memória entre casos. */
+export function resetRejectedReminderGuard(): void {
+  rejectedRemindedInMemory.clear();
+}
+
+type AdminClient = NonNullable<ReturnType<typeof getAdminSupabase>>;
+
+/**
+ * Pedido rejeitado (payment_rejected): envia UM lembrete 24h depois da
+ * rejeição com CTA para reenviar o comprovativo. Fora da cadeia de abandono —
+ * o cliente já escolheu plano e pagou, a mensagem correta não é "escolhe o plano".
+ */
+async function processRejectedReminder(
+  req: {
+    id: string;
+    email: string;
+    recipient_name?: string | null;
+    updated_at?: string | null;
+    created_at: string;
+    rejected_reminder_sent_at?: string | null;
+  },
+  nowDate: Date,
+  nowIso: string,
+  tickStats: { rejectedReminders: number },
+  db: AdminClient
+): Promise<void> {
+  if (req.rejected_reminder_sent_at || rejectedRemindedInMemory.has(req.id)) return;
+
+  const updatedAt = new Date(req.updated_at || req.created_at).getTime();
+  if (Number.isNaN(updatedAt) || nowDate.getTime() - updatedAt < REJECTED_REMINDER_DELAY_MS) return;
+
+  // Motivo da rejeição (best-effort) — payments.notes da rejeição mais recente
+  let notes: string | undefined;
+  try {
+    const { data: pay } = await db
+      .from('payments')
+      .select('notes')
+      .eq('request_id', req.id)
+      .eq('status', 'rejected')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    notes = (pay as { notes?: string | null } | null)?.notes || undefined;
+  } catch {
+    // motivo é opcional — o lembrete segue sem ele
+  }
+
+  await sendRejectedReminderEmail(req.email, req.recipient_name || '', req.id, notes);
+  rejectedRemindedInMemory.add(req.id);
+  tickStats.rejectedReminders++;
+  logInfo('[AbandonedRecovery] Lembrete de rejeicao enviado (24h)', { requestId: req.id, email: req.email, hasNotes: !!notes });
+
+  try {
+    const { error: flagError } = await db
+      .from('song_requests')
+      .update({ rejected_reminder_sent_at: nowIso })
+      .eq('id', req.id);
+    if (flagError) {
+      logWarn('[AbandonedRecovery] Lembrete enviado mas flag rejected_reminder_sent_at nao gravada (migration aplicada?)', {
+        requestId: req.id,
+        code: flagError.code,
+      });
+    }
+  } catch (err) {
+    logWarn('[AbandonedRecovery] Falha ao gravar flag rejected_reminder_sent_at', { requestId: req.id, err: String(err) });
+  }
+}
 
 const WHATSAPP_FLAG_BY_BUCKET: Record<string, string> = {
   '30min': 'whatsapp_30min_sent_at',
@@ -25,8 +101,11 @@ export async function processAbandonedRecovery(): Promise<void> {
 
   const { data: abandoned, error } = await supabase
     .from('song_requests')
-    .select('id, email, recipient_name, phone, created_at, abandoned_30min_sent_at, abandoned_24h_sent_at, abandoned_48h_sent_at, abandoned_72h_sent_at, abandoned_7d_sent_at, whatsapp_30min_sent_at, whatsapp_24h_sent_at, whatsapp_48h_sent_at, whatsapp_72h_sent_at, user_id, users(phone), songs(title, lyrics_snippet)')
-    .in('status', ['lyrics_ready', 'lyrics_generating'])
+    // '*' em vez de lista explícita: inclui updated_at + a coluna nova
+    // rejected_reminder_sent_at sem partir o SELECT se a migration ainda
+    // não foi aplicada (coluna inexistente rebentaria a query inteira).
+    .select('*, users(phone), songs(title, lyrics_snippet)')
+    .in('status', ['lyrics_ready', 'lyrics_generating', 'payment_rejected'])
     .is('deleted_at', null)
     .not('email', 'is', null);
 
@@ -42,7 +121,7 @@ export async function processAbandonedRecovery(): Promise<void> {
 
   const nowDate = new Date();
   const nowIso = nowDate.toISOString();
-  const tickStats = { emailSent: 0, whatsappSent: 0, whatsappFailed: 0, whatsappSkipped: 0 };
+  const tickStats = { emailSent: 0, whatsappSent: 0, whatsappFailed: 0, whatsappSkipped: 0, rejectedReminders: 0 };
 
   // Flags de email são colunas timestamptz — gravar Date.now() (número) faz o
   // PostgREST rejeitar o update em silêncio e o dedupe morre (reenvio a cada tick).
@@ -72,6 +151,12 @@ export async function processAbandonedRecovery(): Promise<void> {
     const diffMs = nowDate.getTime() - createdAt.getTime();
 
     try {
+      // ── Pedido rejeitado: lembrete único 24h depois (não entra na cadeia) ──
+      if (req.status === 'payment_rejected') {
+        await processRejectedReminder(req, nowDate, nowIso, tickStats, db);
+        continue;
+      }
+
       // Determina o bucket baseado no tempo decorrido
       const bucket = bucketForElapsed(diffMs);
       const { songTitle, lyricsSnippet } = songTeaser(req);
@@ -150,6 +235,7 @@ export async function processAbandonedRecovery(): Promise<void> {
     whatsappSent: tickStats.whatsappSent,
     whatsappFailed: tickStats.whatsappFailed,
     whatsappSkipped: tickStats.whatsappSkipped,
+    rejectedReminders: tickStats.rejectedReminders,
   });
 }
 

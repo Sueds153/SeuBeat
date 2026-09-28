@@ -1,5 +1,5 @@
 export { sendPersonalizedEmail } from './delivery';
-export { sendPaymentRejectionEmail } from './payment';
+export { sendPaymentRejectionEmail, sendRejectedReminderEmail } from './payment';
 export { sendConfirmationEmail } from './transactional';
 export { sendLyricsRecoveredEmail } from './recovery';
 export { sendAdminNotification } from './admin';
