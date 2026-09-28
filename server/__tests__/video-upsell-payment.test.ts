@@ -38,7 +38,7 @@ vi.mock('../services/workflow', () => ({
 }));
 
 import { getAdminSupabase } from '../services/supabase';
-import { sendPurchaseEvent, generateServerEventId } from '../services/metaPixelCapi';
+import { sendPurchaseEvent } from '../services/metaPixelCapi';
 import publicRouter from '../routes/public';
 
 let server: http.Server | null = null;
@@ -136,7 +136,7 @@ function buildVideoSupabaseMock(opts: VideoMockOpts = {}) {
 }
 
 describe('POST /api/song/:id/video-upsell-payment — Meta CAPI Purchase', () => {
-  it('devolve 200 e envia Purchase com eventID = paymentId', async () => {
+  it('devolve 200 e NÃO envia Purchase (pagamento nasce pendente; dispara na aprovação do admin)', async () => {
     const base = await startServer();
     const sb = buildVideoSupabaseMock({
       requestRow: { id: REQUEST_ID, status: 'delivered', recipient_name: 'Ana', video_upsell_paid: false },
@@ -158,28 +158,17 @@ describe('POST /api/song/:id/video-upsell-payment — Meta CAPI Purchase', () =>
     expect(body.success).toBe(true);
     expect(body.paymentId).toBe('pay-video-1');
 
-    expect(generateServerEventId).toHaveBeenCalledWith('pay-video-1', 'Purchase');
-    expect(sendPurchaseEvent).toHaveBeenCalledTimes(1);
-    expect(sendPurchaseEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventId: 'evt-video-test',
-        contentName: 'video_upsell',
-        currency: 'AOA',
-        value: 2900,
-        email: 'cliente@test.com',
-      })
+    // Spec Meta: Purchase = confirmação de compra — submeter prova pendente
+    // não é compra. admin.ts dispara na aprovação (event_id = paymentId).
+    expect(sendPurchaseEvent).not.toHaveBeenCalled();
+    const flagUpdate = sb.updateCalls.find(
+      (u: { table: string; payload: unknown }) =>
+        u.table === 'payments' &&
+        typeof u.payload === 'object' &&
+        u.payload !== null &&
+        'meta_purchase_sent_at' in (u.payload as Record<string, unknown>)
     );
-
-    await vi.waitFor(() => {
-      const flagUpdate = sb.updateCalls.find(
-        (u: { table: string; payload: unknown }) =>
-          u.table === 'payments' &&
-          typeof u.payload === 'object' &&
-          u.payload !== null &&
-          'meta_purchase_sent_at' in (u.payload as Record<string, unknown>)
-      );
-      expect(flagUpdate).toBeTruthy();
-    });
+    expect(flagUpdate).toBeFalsy();
   });
 
   it('grava o INSERT com plan=video_upsell e amount=2900', async () => {
@@ -237,7 +226,7 @@ describe('POST /api/song/:id/video-upsell-payment — Meta CAPI Purchase', () =>
     expect(sendPurchaseEvent).not.toHaveBeenCalled();
   });
 
-  it('UPDATE de reenvio (payment existente) também dispara Purchase com o paymentId existente', async () => {
+  it('UPDATE de reenvio (payment existente) reutiliza o paymentId e NÃO envia Purchase', async () => {
     const base = await startServer();
     const sb = buildVideoSupabaseMock({
       requestRow: { id: REQUEST_ID, status: 'delivered', recipient_name: 'Ana', video_upsell_paid: false },
@@ -254,7 +243,6 @@ describe('POST /api/song/:id/video-upsell-payment — Meta CAPI Purchase', () =>
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.paymentId).toBe('pay-video-existing');
-    expect(generateServerEventId).toHaveBeenCalledWith('pay-video-existing', 'Purchase');
-    expect(sendPurchaseEvent).toHaveBeenCalledTimes(1);
+    expect(sendPurchaseEvent).not.toHaveBeenCalled();
   });
 });

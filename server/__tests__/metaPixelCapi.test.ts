@@ -49,6 +49,39 @@ describe('generateServerEventId', () => {
   });
 });
 
+describe('hashPhone — spec Meta (Customer Information Parameters)', () => {
+  async function sentPhoneHashes(phone: string): Promise<string[]> {
+    await mod.sendPurchaseEvent({ eventId: 'evt-ph', phone, value: 1, currency: 'AOA' });
+    const payload = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    return payload.data[0].user_data.ph as string[];
+  }
+
+  async function sha256(value: string): Promise<string> {
+    const crypto = await import('node:crypto');
+    return crypto.createHash('sha256').update(value).digest('hex');
+  }
+
+  it('+244 922 000 000 → hash só de dígitos com country code (sem "+")', async () => {
+    expect(await sentPhoneHashes('+244 922 000 000')).toEqual([await sha256('244922000000')]);
+  });
+
+  it('formato local 9 dígitos ganha o country code 244', async () => {
+    expect(await sentPhoneHashes('922 000 000')).toEqual([await sha256('244922000000')]);
+  });
+
+  it('o hash legado com "+" (que nunca casava) NUNCA é enviado', async () => {
+    const legacyHash = await sha256('+244922000000');
+    expect(await sentPhoneHashes('+244 922 000 000')).not.toEqual([legacyHash]);
+  });
+});
+
+describe('versão da Graph API', () => {
+  it('usa v25.0 (v21.0 expira 21/Jan/2027 → fallback silencioso)', async () => {
+    await mod.sendPurchaseEvent({ eventId: 'evt-ver', value: 1, currency: 'AOA' });
+    expect(String(fetchMock.mock.calls[0][0])).toContain('/v25.0/');
+  });
+});
+
 describe('sendPurchaseEvent', () => {
   it('devolve true em HTTP 200', async () => {
     const ok = await mod.sendPurchaseEvent({

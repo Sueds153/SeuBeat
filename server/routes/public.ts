@@ -584,6 +584,10 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
     const eventIp = req.ip || req.socket.remoteAddress || undefined;
     const eventUa = req.headers['user-agent'];
 
+    // Match keys extra: external_id (hash do email) + fbp/fbc vindos do browser
+    const leadFbp = typeof req.body?.fbp === 'string' ? req.body.fbp : undefined;
+    const leadFbc = typeof req.body?.fbc === 'string' ? req.body.fbc : undefined;
+
     sendLeadEvent({
       eventId: generateServerEventId(requestData.id, 'Lead'),
       email: email || '',
@@ -592,6 +596,9 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
       eventSourceUrl: (req.headers.referer as string) || undefined,
       clientIp: eventIp,
       clientUserAgent: eventUa,
+      externalId: email || undefined,
+      fbp: leadFbp,
+      fbc: leadFbc,
       ln: lastNameLyrics,
     }).catch((err) =>
       logError('[API] Meta CAPI Lead event failed', err, { requestId: requestData.id })
@@ -608,6 +615,9 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
       eventSourceUrl: (req.headers.referer as string) || undefined,
       clientIp: eventIp,
       clientUserAgent: eventUa,
+      externalId: email || undefined,
+      fbp: leadFbp,
+      fbc: leadFbc,
     }).catch((err) =>
       logError('[API] Meta CAPI CompleteRegistration event failed', err, { requestId: requestData.id })
     );
@@ -1717,12 +1727,15 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       }
     }
 
-    // ── Meta CAPI Purchase — fires for approved + pending_verification ─────
-    // Matches client-side fbPurchase (fires on any 200 success)
-    // NOT fired for rejected (payment is invalid)
+    // ── Meta CAPI Purchase — fires ONLY when the payment is approved ───────
+    // Meta define Purchase como confirmação/recibo de compra — submeter um
+    // comprovativo pendente não é uma compra. O browser faz o par com o MESMO
+    // event_id (dedup) quando deteta 'approved' no poll de payment-status;
+    // aprovações manuais dispararam em admin.ts (guard meta_purchase_sent_at).
+    // NOT fired for pending_verification (ainda não é compra) nem rejected.
     // currency 'AOA' = o mesmo que o browser envia (antes browser enviava AOA e
     // servidor USD → a Meta via dois valores diferentes para o MESMO event_id)
-    if (paymentStatus !== 'rejected' && paymentRecord?.id) {
+    if (paymentStatus === 'approved' && paymentRecord?.id) {
       const { sendPurchaseEvent } = await import('../services/metaPixelCapi');
       const purchasePaymentId = paymentRecord.id;
       sendPurchaseEvent({
@@ -1976,35 +1989,9 @@ router.post('/song/:id/video-upsell-payment', paymentLimiter, async (req, res) =
 
     const paymentRecord = { id: videoPaymentId };
 
-    // Meta CAPI Purchase (video upsell) — eventID = paymentId p/ dedup com o browser
-    if (videoPaymentId) {
-      const { sendPurchaseEvent } = await import('../services/metaPixelCapi');
-      const videoEventPaymentId = videoPaymentId;
-      sendPurchaseEvent({
-        eventId: generateServerEventId(videoEventPaymentId, 'Purchase'),
-        email: userEmail,
-        value: 2900,
-        currency: 'AOA',
-        contentName: 'video_upsell',
-        orderId: videoEventPaymentId,
-        eventSourceUrl: (req.headers.referer as string) || undefined,
-        clientIp: req.ip || req.socket.remoteAddress || undefined,
-        clientUserAgent: req.headers['user-agent'],
-        externalId: userEmail,
-      })
-        .then(ok => {
-          if (ok) {
-            return supabase
-              .from('payments')
-              .update({ meta_purchase_sent_at: new Date().toISOString() })
-              .eq('id', videoEventPaymentId);
-          }
-          return undefined;
-        })
-        .catch(err =>
-          logError('[API] Meta CAPI Purchase (video upsell) failed', err, { paymentId: videoEventPaymentId })
-        );
-    }
+    // Meta CAPI Purchase (video upsell) — NÃO dispara aqui: o pagamento nasce
+    // 'pending_verification' e só é uma compra quando o admin aprova.
+    // admin.ts dispara com event_id = paymentId (chave alinhada com o browser).
 
     // Notificar admin
     sendAdminNotification(

@@ -5,7 +5,8 @@ import { logError, logInfo, logWarn } from '../utils/logger';
 const PIXEL_ID = getEnv('META_PIXEL_ID', '');
 const ACCESS_TOKEN = getEnv('META_ACCESS_TOKEN', '');
 const IS_ENABLED = Boolean(PIXEL_ID && ACCESS_TOKEN);
-const API_VERSION = 'v21.0';
+// v25.0 (Graph corrente desde 18/Fev/2026); v21.0 expira 21/Jan/2027 → fallback silencioso
+const API_VERSION = 'v25.0';
 const BASE_URL = `https://graph.facebook.com/${API_VERSION}/${PIXEL_ID}/events`;
 
 const MAX_RETRIES = 3;
@@ -31,8 +32,12 @@ function hashEmail(email: string): string {
 }
 
 function hashPhone(phone: string): string {
-  const cleaned = phone.replace(/[^0-9+]/g, '').trim();
-  return crypto.createHash('sha256').update(cleaned).digest('hex');
+  // Spec Meta (Customer Information Parameters): normalizar para só dígitos com
+  // country code, sem símbolos — "+244 922 000 000" → "244922000000".
+  // O '+' mantido no hash anterior nunca casava com o hash da Meta.
+  const digits = phone.replace(/\D/g, '');
+  const normalized = /^\d{9}$/.test(digits) ? `244${digits}` : digits;
+  return crypto.createHash('sha256').update(normalized).digest('hex');
 }
 
 function hashGeneric(value: string): string {
@@ -246,6 +251,9 @@ export async function sendLeadEvent(params: {
   eventSourceUrl?: string;
   clientIp?: string;
   clientUserAgent?: string;
+  externalId?: string;
+  fbp?: string;
+  fbc?: string;
   ln?: string;
 }): Promise<boolean> {
   return sendEvent({ ...params, eventName: 'Lead', contentType: 'product' });
@@ -262,6 +270,9 @@ export async function sendCompleteRegistrationEvent(params: {
   eventSourceUrl?: string;
   clientIp?: string;
   clientUserAgent?: string;
+  externalId?: string;
+  fbp?: string;
+  fbc?: string;
 }): Promise<boolean> {
   return sendEvent({ ...params, eventName: 'CompleteRegistration', contentType: 'product' });
 }

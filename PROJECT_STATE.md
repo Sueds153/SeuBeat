@@ -2,6 +2,19 @@
 
 ## Estado Atual (28/Set 2026)
 
+### Auditoria Pixel/CAPI — melhorias F1/F2/F4/F5 (28/Set 2026, sessão 2)
+Auditoria técnica de mensuração (formato A–H) entregue; decisões do utilizador: **F2 = Opção B** e lote **F1+F4**. Todas executadas + F5 (versão "não quebrar nada"):
+- **F1 — `hashPhone` corrigido** (`metaPixelCapi.ts`): antes mantinha o `+` → hash `"+244922000000"` nunca casava com o da Meta (spec: só dígitos com country code). Agora `replace(/\D/g,'')` + guard 9 dígitos → `244922000000`. Match key `ph` (prioridade Média) reparada em TODOS os eventos server.
+- **F4 — Graph API `v21.0` → `v25.0`**: `metaPixelCapi.ts` (hardcoded), `metaAds.ts` default (env `META_GRAPH_API_VERSION`), `meta-direct.mjs` `API_VERSION`. v21.0 expira **21/Jan/2027** → fallback silencioso. WhatsApp (`whatsapp/config.ts`) intocado (versioning próprio, env).
+- **F2-B — Purchase só na aprovação** (spec Meta: Purchase = confirmação/recibo de compra):
+  - Server: `/submit-payment` Purchase condicionado a `paymentStatus === 'approved'` (antes: qualquer não-rejected → disparava em `pending_verification`); bloco Purchase do video-upsell removido (nasce pendente); `admin.ts` approve = fonte primária (guard `meta_purchase_sent_at` idempotente, unchanged); Refund guard inalterado.
+  - Browser: novo `firePurchaseOnApproval(requestId, plan, value, currency)` em `Wizard.tsx` (módulo) chamado nos 3 detetores de `approved` (resposta do submit, poll 30s, botão "Verificar Estado") com **guard `localStorage` `seubeat_purchase_sent_<requestId>`** (Meta não deduplica browser↔browser; par server usa o mesmo `event_id`); `VideoUpsellPage` deixou de disparar Purchase (video-upsell fica server-only).
+  - **Efeito**: volume Purchase Meta cai ~80→~60 disparos — contagens pré/pós não comparáveis; learning re-estabiliza ~1–2 semanas.
+- **F5 — match keys Lead/CompleteRegistration**: tipos `sendLeadEvent`/`sendCompleteRegistrationEvent` ganham `externalId`/`fbp`/`fbc`; server passa `externalId=email` + `fbp/fbc` de `req.body`; client envia `fbp/fbc` no `/generate-lyrics`.
+- **Testes**: `metaPixelCapi.test.ts` +4 (3× hashPhone: formato internacional/local/legado-com-`+` nunca enviado; versão `/v25.0/` no URL) · `submit-payment.test.ts` Purchase reescrito (pendente→não dispara; **novo teste auto-approve→dispara 1× com fbp/fbc/orderId+flag**) · `video-upsell-payment.test.ts` reescrito (submit→não dispara) · `admin-fixes.test.ts` título corrigido. **Suite: 510 testes** (38 ficheiros, 1 skipped) passam; `tsc --noEmit`/lint limpos; `npm run build` OK.
+- **Pós-deploy (checklist G)**: Test Events (1 Purchase, não 2) · baseline EMQ do `ph` antes/depois · paridade `count(payments approved 7d)` vs Purchase · logs `[MetaCAPI]` sem 4xx.
+- **Pendências**: (1) diagnóstico read-only da inversão **API(94) > IC(72)** no Events Manager (contagem Browser vs Server por evento) → F6 (guards sessionStorage) só se H1 (duplicados por remount) confirmado; (2) video-upsell `fbp`/`fbc` no Purchase do approve requer persistir fbp/fbc na row `payments` (migration — adiado).
+
 ### Fase 1 — Tracking Meta (Pixel + CAPI) implementada (28/Set 2026)
 Auditoria Meta Ads/PIX/CAPI/Funil (20 partes, dados reais) → plano em 3 fases aprovado; **esta sessão executou só a Fase 1 (Tracking)**. Orçamento $10/dia mantido + redução p/ 2-3 anúncios = ação manual no Ads Manager (fora do repo). Fases 2 (Funil) e 3 (Media Buying) pendentes.
 
@@ -86,7 +99,7 @@ Auditoria Meta Ads/PIX/CAPI/Funil (20 partes, dados reais) → plano em 3 fases 
 ### Produção
 - **URL**: https://seubeat.onrender.com
 - **Último deploy**: `9886664` (28/Set ~11:20) **LIVE** (`/health` ok, uptime resetado pós-push)
-- **Testes**: 505 unitários (38 ficheiros, 1 skipped) + **64/64 E2E Playwright** (chromium + mobile-chrome) — **CI verde de ponta a ponta** (`36407703814`: lint/test/build/**E2E** success)
+- **Testes**: 510 unitários (38 ficheiros, 1 skipped) + **64/64 E2E Playwright** (chromium + mobile-chrome) — **CI verde de ponta a ponta** (`36407703814`: lint/test/build/**E2E** success)
 - **Commits da sessão**: `ad5088c` (Fase 1 tracking) · `166bc80` (plano F2/F3 + exclusão compradores) · `8072a75` (E2E mobile-aware) · `9ff3c79` (CI reuse do servidor) · `9d67191`+`af6de41` (relatório E2E público) · `9886664` (teste do 503)
 
 ### DB Schema (tabelas principais)

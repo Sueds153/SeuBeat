@@ -406,8 +406,9 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
         logInfo('[Admin] Meta CAPI Purchase já enviado para este pagamento, a ignorar', { paymentId: id });
         return;
       }
-      // EventID alinhado com o submit/browser (requestId) para Meta dedup;
-      // video_upsell usa payment.id porque o browser/CAPI do video usam o paymentId
+      // Purchase dispara SÓ na aprovação (spec Meta: confirmação de compra).
+      // Auto-approve no submit já enviou com o MESMO event_id (dedup);
+      // video_upsell usa payment.id porque o browser do video usa o paymentId.
       const purchaseEventKey = planName === 'video_upsell' ? id : requestId;
       sendPurchaseEvent({
         eventId: generateServerEventId(purchaseEventKey, 'Purchase'),

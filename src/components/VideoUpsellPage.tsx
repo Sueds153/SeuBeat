@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Upload, Check, Loader2, Film, CreditCard, MessageCircle } from 'lucide-react';
-import { fbPurchase, fbSetUserData, generateEventId } from '../lib/metaPixel';
+import { fbSetUserData } from '../lib/metaPixel';
 
 interface VideoUpsellPageProps {
   requestId: string;
@@ -106,7 +106,9 @@ export default function VideoUpsellPage({ requestId, email, onBackToLanding }: V
       setSubmitted(true);
       clearProof();
       if (email) fbSetUserData(email);
-      fbPurchase('video_upsell', 2900, 'AOA', generateEventId(data.paymentId, 'Purchase'));
+      // Meta Purchase NÃO dispara aqui: o pagamento nasce 'pending_verification'
+      // e só é uma compra quando o admin aprova (server: admin.ts, event_id =
+      // paymentId — browser não tem poll de estado nesta página).
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Erro ao submeter pagamento');
     } finally {

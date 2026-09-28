@@ -54,7 +54,6 @@ import {
   sendSubmitApplicationEvent,
   sendPurchaseEvent,
   sendRefundEvent,
-  generateServerEventId,
 } from '../services/metaPixelCapi';
 import publicRouter from '../routes/public';
 
@@ -282,19 +281,16 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     expect(sendSubmitApplicationEvent).toHaveBeenCalledWith(expect.objectContaining({ value: aoaValue, currency: 'AOA' }));
     // #2: response expõe paymentStatus p/ o browser condicionar fbPurchase
     expect(body.paymentStatus).toBe('pending_verification');
-    // #1: CAPI Purchase usa eventID do songRequestId (dedup c/ browser) e grava flag
-    expect(generateServerEventId).toHaveBeenCalledWith('req-1', 'Purchase');
-    expect(sendPurchaseEvent).toHaveBeenCalledWith(expect.objectContaining({ eventId: 'evt-test' }));
-    await vi.waitFor(() => {
-      const flagUpdate = sb.updateCalls.find(
-        (u: { table: string; payload: unknown }) =>
-          u.table === 'payments' &&
-          typeof u.payload === 'object' &&
-          u.payload !== null &&
-          'meta_purchase_sent_at' in (u.payload as Record<string, unknown>)
-      );
-      expect(flagUpdate).toBeTruthy();
-    });
+    // Purchase só dispara na aprovação — pendente NÃO é compra (spec Meta)
+    expect(sendPurchaseEvent).not.toHaveBeenCalled();
+    const flagUpdatePending = sb.updateCalls.find(
+      (u: { table: string; payload: unknown }) =>
+        u.table === 'payments' &&
+        typeof u.payload === 'object' &&
+        u.payload !== null &&
+        'meta_purchase_sent_at' in (u.payload as Record<string, unknown>)
+    );
+    expect(flagUpdatePending).toBeFalsy();
   });
 
   it('faz rollback do status para o estado anterior quando o insert do pagamento falha', async () => {
@@ -722,6 +718,56 @@ describe('POST /api/submit-payment — auto-approve pela AI inicia geração da 
     expect(sendConfirmationEmail).toHaveBeenCalledWith('cliente@test.com', 'Ana', 'req-1');
   });
 
+  it('auto-aprovado: dispara Meta Purchase UMA vez (eventID=req-1) e grava meta_purchase_sent_at', async () => {
+    const base = await startServer();
+    vi.mocked(verifyPaymentProof).mockResolvedValue(autoApproveResult());
+    vi.mocked(isTxIdAcceptable).mockReturnValue(true);
+
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: autoRequestRow(),
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...validBody(),
+        ...proofBody(),
+        fbp: 'fb.1.1759000000000000',
+        fbc: 'fb.1.abc.def',
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.paymentStatus).toBe('approved');
+    expect(sendPurchaseEvent).toHaveBeenCalledTimes(1);
+    expect(sendPurchaseEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventId: 'evt-test',
+        value: 7900,
+        currency: 'AOA',
+        orderId: 'pay-1',
+        fbp: 'fb.1.1759000000000000',
+        fbc: 'fb.1.abc.def',
+      })
+    );
+    await vi.waitFor(() => {
+      const flagUpdate = sb.updateCalls.find(
+        (u: { table: string; payload: unknown }) =>
+          u.table === 'payments' &&
+          typeof u.payload === 'object' &&
+          u.payload !== null &&
+          'meta_purchase_sent_at' in (u.payload as Record<string, unknown>)
+      );
+      expect(flagUpdate).toBeTruthy();
+    });
+  });
+
   it('já com áudio: aprova sem novo workflow (deliveryScheduler entrega)', async () => {
     const base = await startServer();
     vi.mocked(verifyPaymentProof).mockResolvedValue(autoApproveResult());
@@ -817,9 +863,9 @@ describe('POST /api/submit-payment — fbp/fbc + normalização de valor (Fase 1
     expect(sendAddPaymentInfoEvent).toHaveBeenCalledWith(
       expect.objectContaining({ fbp: 'fb.1.1759000000000000', fbc: 'fb.1.abc.def', eventId: 'api-client-1' })
     );
-    expect(sendPurchaseEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ fbp: 'fb.1.1759000000000000', fbc: 'fb.1.abc.def', orderId: 'pay-1' })
-    );
+    // Pendente NÃO é compra — Purchase só dispara na aprovação
+    // (fbp/fbc do Purchase cobertos no teste de auto-approve acima)
+    expect(sendPurchaseEvent).not.toHaveBeenCalled();
   });
 
   it('amount fora do catálogo cai no preço base do plano (sanitize) na BD e na CAPI', async () => {
@@ -842,9 +888,8 @@ describe('POST /api/submit-payment — fbp/fbc + normalização de valor (Fase 1
     const inserted = sb.insertCalls[0] as Record<string, unknown>;
     expect(inserted.amount).toBe(7900);
     expect(inserted.amount_kz).toBe(7900);
-    expect(sendPurchaseEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ value: 7900, currency: 'AOA' })
-    );
+    // Purchase pendente não dispara; o value sanitizado é exposto via IC
+    expect(sendPurchaseEvent).not.toHaveBeenCalled();
     expect(sendInitiateCheckoutEvent).toHaveBeenCalledWith(
       expect.objectContaining({ value: 7900, currency: 'AOA' })
     );
@@ -868,7 +913,9 @@ describe('POST /api/submit-payment — fbp/fbc + normalização de valor (Fase 1
 
     expect(res.status).toBe(200);
     expect((sb.insertCalls[0] as Record<string, unknown>).amount).toBe(9900);
-    expect(sendPurchaseEvent).toHaveBeenCalledWith(
+    // Purchase pendente não dispara; value íntegro coberto pelo IC
+    expect(sendPurchaseEvent).not.toHaveBeenCalled();
+    expect(sendInitiateCheckoutEvent).toHaveBeenCalledWith(
       expect.objectContaining({ value: 9900, currency: 'AOA' })
     );
   });

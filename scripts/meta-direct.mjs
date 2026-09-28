@@ -1,5 +1,5 @@
 /**
- * Meta Ads — utilitário direto (Graph API v23.0).
+ * Meta Ads — utilitário direto (Graph API v25.0).
  *
  * Ações:
  *   node scripts/meta-direct.mjs create-retargeting           # dry-run (imprime payloads)
@@ -40,7 +40,7 @@ if (!token) {
   process.exit(1);
 }
 
-const API_VERSION = "v23.0";
+const API_VERSION = "v25.0";
 // Campo `targeting.excluded_custom_audiences` só existe a partir da v22 — a
 // escrita foi verificada (POST + read-back) em v25.0, por isso usa-se aqui.
 const EXCLUSION_API_VERSION = "v25.0";

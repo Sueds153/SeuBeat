@@ -137,6 +137,23 @@ const VOICE_CARDS = [
   { type: 'Sem preferência', label: 'Sem preferência', desc: 'A nossa equipa seleciona o timbre que melhor se adequa à letra criada.', icon: <Shuffle className="w-5 h-5" /> }
 ];
 
+// Meta Purchase — dispara SÓ quando o pagamento fica 'approved' (spec Meta:
+// Purchase = confirmação/recibo de compra; submeter comprovativo não é compra).
+// Guard em localStorage por pedido: a Meta NÃO deduplica browser↔browser, e o
+// browser pode detetar 'approved' 3× (submit auto-approve, poll 30s, botão
+// "Verificar Estado") e em re-carregamentos. O par server usa o MESMO
+// event_id (dedup browser↔server garantido).
+function firePurchaseOnApproval(requestId: string, plan: string, value: number, currency: string): void {
+  const storageKey = `seubeat_purchase_sent_${requestId}`;
+  try {
+    if (window.localStorage.getItem(storageKey)) return;
+    window.localStorage.setItem(storageKey, String(Date.now()));
+  } catch {
+    // storage indisponível (modo privado) — dispara mesmo assim
+  }
+  fbPurchase(plan, value, currency, generateEventId(requestId, 'Purchase'));
+}
+
 export default function Wizard({ onBackToLanding }: WizardProps) {
   const [step, setStep] = useState<number>(() => {
     try {
@@ -620,6 +637,9 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         if (data.status === 'approved') {
           setPaymentStatus('approved');
           showToast('Pagamento confirmado! A sua música será entregue em breve.', 'success');
+          if (dbSongRequestId) {
+            firePurchaseOnApproval(dbSongRequestId, selectedPlanID || 'standard', parsePrice(getPrice()), CURRENCY);
+          }
         } else if (data.status === 'rejected') {
           setPaymentStatus('rejected');
           setPaymentNotes(data.notes || '');
@@ -884,8 +904,8 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         setPaymentSubmitError('');
         clearProof();
         fbSetUserData(formData.email, formData.phone);
-        if (data.paymentStatus !== 'rejected') {
-          fbPurchase(selectedPlanID || 'standard', parsePrice(getPrice()), CURRENCY, generateEventId(dbSongRequestId, 'Purchase'));
+        if (data.paymentStatus === 'approved') {
+          firePurchaseOnApproval(dbSongRequestId, selectedPlanID || 'standard', parsePrice(getPrice()), CURRENCY);
         }
         gaSubmitApplication(selectedPlanID || 'standard', parsePrice(getPrice()));
       } else if (res.status === 409) {
@@ -1283,7 +1303,10 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
               ...payload,
               photoBase64,
               photoFilename,
-              photoMimeType
+              photoMimeType,
+              // Match keys Meta CAPI (server: Lead + CompleteRegistration)
+              fbp: getFbp() || undefined,
+              fbc: getFbc() || undefined
             }),
             signal: controller.signal
           });
@@ -3271,6 +3294,9 @@ const ROTATING_MESSAGES = [
                             if (data.status === 'approved') {
                               showToast('Pagamento confirmado! A sua música será entregue em breve.', 'success');
                               setPaymentStatus('approved');
+                              if (dbSongRequestId) {
+                                firePurchaseOnApproval(dbSongRequestId, selectedPlanID || 'standard', parsePrice(getPrice()), CURRENCY);
+                              }
                             } else if (data.status === 'rejected') {
                               setPaymentNotes(data.notes || '');
                               showToast('Pagamento rejeitado. Veja o motivo na tela.', 'error');

@@ -184,7 +184,7 @@ describe('POST /api/admin/payment/:id/approve', () => {
     expect(generateServerEventId).toHaveBeenCalledWith(REQUEST_ID, 'Purchase');
   });
 
-  it('video_upsell: Purchase usa payment.id como eventID (dedup com browser do video)', async () => {
+  it('video_upsell: Purchase usa payment.id como eventID (chave = paymentId, só na aprovação)', async () => {
     const base = await startServer();
     buildSupabaseMock({ paymentSingle: buildPaymentRow({ plan: 'video_upsell' }) });
 

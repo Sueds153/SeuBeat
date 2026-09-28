@@ -1,6 +1,6 @@
 import { getEnv } from '../config/env';
 
-const GRAPH_API_VERSION = getEnv('META_GRAPH_API_VERSION', 'v21.0');
+const GRAPH_API_VERSION = getEnv('META_GRAPH_API_VERSION', 'v25.0');
 const ACCESS_TOKEN = getEnv('META_ACCESS_TOKEN', '');
 const CONFIGURED_AD_ACCOUNT_ID = getEnv('META_AD_ACCOUNT_ID', '');
 const USD_RATE = Number(getEnv('META_AD_SPEND_USD_RATE', '1')) || 1;
