@@ -5,6 +5,8 @@ export interface SocialProofData {
   paidToday: number;
   paidTotal: number;
   deliveredTotal: number;
+  /** Pagamentos aprovados no plano Express — base para a quota real (não arredondada) do plano mais popular. */
+  expressTotal: number;
   lastPayment: { firstName: string | null; minutesAgo: number; style: string | null } | null;
   lastActivity: { firstName: string | null; minutesAgo: number; style: string | null } | null;
 }
@@ -14,6 +16,7 @@ export const EMPTY_SOCIAL_PROOF: SocialProofData = {
   paidToday: 0,
   paidTotal: 0,
   deliveredTotal: 0,
+  expressTotal: 0,
   lastPayment: null,
   lastActivity: null,
 };

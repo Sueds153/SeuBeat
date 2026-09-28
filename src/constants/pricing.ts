@@ -9,6 +9,7 @@ interface PricingPlan {
   popular?: boolean;
   bestFor?: string;
   guarantee?: string;
+  /** Texto de quota do plano — preenchido em runtime com números reais (ex.: "7 dos 11 clientes escolheram esta opção"). */
   popularity?: string;
 }
 
@@ -44,7 +45,6 @@ export const PRICING_PLANS: PricingPlan[] = [
     ],
     badge: 'Mais Popular',
     popular: true,
-    popularity: '60%',
     guarantee: 'Nova geração garantida · Reembolso caso a caso'
   },
   {

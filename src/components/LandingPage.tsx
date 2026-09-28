@@ -1,4 +1,4 @@
-import { ArrowRight, Sparkles, Check, Play, MessageCircle, Menu, X, Shield, Flame, Music2, Crown, Headphones, Trophy, Mic, Gem, Heart, Cake, HandHeart, HeartHandshake, Feather, Zap } from 'lucide-react';
+import { ArrowRight, Sparkles, Check, Play, MessageCircle, Menu, X, Shield, Flame, Music2, Crown, Headphones, Trophy, Mic, Gem, Heart, Cake, HandHeart, HeartHandshake, Feather, Zap, Ticket } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import LogoIcon from './LogoIcon';
@@ -115,6 +115,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
   const socialProof = useSocialProof();
   const todayCount = socialProof.createdToday;
+  const paidTotal = socialProof.paidTotal;
+  const deliveredTotal = socialProof.deliveredTotal;
+  const expressTotal = socialProof.expressTotal;
+  // Número do hero: criados hoje quando existirem; fallback para o total pago (nunca mostrar "+0")
+  const heroCount = todayCount > 0 ? todayCount : paidTotal;
 
   useUtm();
 
@@ -132,7 +137,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, []);
+  }, [heroCount]);
 
   useEffect(() => {
     if (!showCount) return;
@@ -142,14 +147,14 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
     const frame = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      setAnimatedCount(Math.floor(progress * todayCount));
+      setAnimatedCount(Math.floor(progress * heroCount));
       if (progress < 1) {
         raf = requestAnimationFrame(frame);
       }
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [showCount, todayCount]);
+  }, [showCount, heroCount]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -445,18 +450,26 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             ))}
           </div>
 
-          {/* Social proof micro-stats */}
+          {/* Social proof micro-stats — números reais da base de dados (não arredondados) */}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-stone-500 font-sans lg:col-start-1">
-            <div className="flex items-center gap-1.5">
-              <span ref={countRef} className="text-amber-400 font-bold text-base">+{showCount ? animatedCount : 0}</span>
-              <span>músicas criadas</span>
-            </div>
-            <div className="w-px h-4 bg-stone-800" />
-            <div className="flex items-center gap-1.5">
-              <span className="text-amber-400 font-bold text-base">4.9★</span>
-              <span>(+200 entregues)</span>
-            </div>
-            <div className="w-px h-4 bg-stone-800" />
+            {heroCount > 0 && (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <span ref={countRef} className="text-amber-400 font-bold text-base">+{showCount ? animatedCount : 0}</span>
+                  <span>{todayCount > 0 ? 'criadas hoje' : 'músicas criadas'}</span>
+                </div>
+                <div className="w-px h-4 bg-stone-800" />
+              </>
+            )}
+            {deliveredTotal > 0 && (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-amber-400 font-bold text-base">{deliveredTotal}</span>
+                  <span>entregues por email e WhatsApp</span>
+                </div>
+                <div className="w-px h-4 bg-stone-800" />
+              </>
+            )}
             <div className="flex items-center gap-1.5">
               <span className="text-amber-400 font-bold text-base">100%</span>
               <span>personalizado</span>
@@ -652,6 +665,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8 lg:gap-10 items-stretch max-w-5xl mx-auto">
             {PRICING_PLANS.map((plan, idx) => {
+              // Quota real do plano Express (não arredondada): "7 dos 11 clientes"
+              const popularityLabel =
+                plan.popular && expressTotal > 0 && paidTotal > 0
+                  ? `${expressTotal} de ${paidTotal} ${paidTotal === 1 ? 'cliente escolheu' : 'clientes escolheram'} esta opção`
+                  : undefined;
               const orderClass =
                 plan.id === 'express'
                   ? 'order-first md:order-2'
@@ -707,9 +725,9 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                       </li>
                     ))}
                   </ul>
-                  {plan.popularity && (
+                  {popularityLabel && (
                     <p className="text-center text-[10px] text-amber-500/80 font-mono font-medium pt-1">
-                      <Flame className="w-3 h-3 inline-block -mt-0.5 mr-1" />{plan.popularity} dos clientes escolhem esta opção
+                      <Flame className="w-3 h-3 inline-block -mt-0.5 mr-1" />{popularityLabel}
                     </p>
                   )}
                 </div>
@@ -740,6 +758,21 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               </motion.div>
               );
             })}
+          </div>
+
+          {/* Selos de método de pagamento — confiança no checkout */}
+          <div className="max-w-5xl mx-auto mt-8 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[11px] text-stone-500 font-sans">
+            <span className="flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-500" /> Multicaixa Express
+            </span>
+            <span className="hidden sm:inline text-stone-800">·</span>
+            <span className="flex items-center gap-1.5">
+              <Ticket className="w-3.5 h-3.5 text-amber-500" /> Referência Multicaixa
+            </span>
+            <span className="hidden sm:inline text-stone-800">·</span>
+            <span className="flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-amber-500" /> Só pagas depois de aprovar a letra
+            </span>
           </div>
         </div>
       </section>
@@ -827,7 +860,9 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 Lê a prévia da letra · A música nasce após o teu sim
               </p>
               <p className="text-amber-400/60 text-xs font-mono italic">
-                Sabia que 9 em cada 10 pessoas choram ao ouvir a música que dedicaram?
+                {socialProof.paidTotal > 0
+                  ? `${socialProof.paidTotal} ${socialProof.paidTotal === 1 ? 'pessoa já confiou' : 'pessoas já confiaram'} em nós para eternizar a sua história`
+                  : "Sabia que a maioria de quem ouve a sua música de dedicatória fica emocionada até às lágrimas?"}
               </p>
               <p className="text-stone-600 text-[10px] sm:text-[11px] font-mono italic mt-1">
                 "Daqui a um ano, vai preferir ter feito esta música do que não a ter feito. As flores murcham. As memórias ficam. A dúvida é: vais querer ter essa memória?"

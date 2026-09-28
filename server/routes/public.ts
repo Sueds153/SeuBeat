@@ -2369,6 +2369,7 @@ const EMPTY_SOCIAL_PROOF = {
   paidToday: 0,
   paidTotal: 0,
   deliveredTotal: 0,
+  expressTotal: 0,
   lastPayment: null,
   lastActivity: null,
 };
@@ -2389,11 +2390,12 @@ router.get('/social-proof', async (_req, res) => {
     startOfDay.setHours(0, 0, 0, 0);
     const startOfDayISO = startOfDay.toISOString();
 
-    const [{ count: createdToday }, { count: paidToday }, { count: paidTotal }, { count: deliveredTotal }] = await Promise.all([
+    const [{ count: createdToday }, { count: paidToday }, { count: paidTotal }, { count: deliveredTotal }, { count: expressTotal }] = await Promise.all([
       supabase.from('songs').select('*', { count: 'exact', head: true }).gte('created_at', startOfDayISO),
       supabase.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'approved').gte('approved_at', startOfDayISO),
       supabase.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
       supabase.from('song_requests').select('*', { count: 'exact', head: true }).eq('status', 'delivered'),
+      supabase.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'approved').eq('plan', 'express'),
     ]);
 
     const { data: lastPaymentRow } = await supabase
@@ -2443,6 +2445,7 @@ router.get('/social-proof', async (_req, res) => {
       paidToday: paidToday || 0,
       paidTotal: paidTotal || 0,
       deliveredTotal: deliveredTotal || 0,
+      expressTotal: expressTotal || 0,
       lastPayment,
       lastActivity,
     };
