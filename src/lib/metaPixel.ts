@@ -40,6 +40,69 @@ function getEventSourceUrl(): string | undefined {
   }
 }
 
+const FBCLID_STORAGE_KEY = 'seubeat_fbclid';
+const FBCLID_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
+
+function readFbclidFrom(search: string): string | undefined {
+  if (!search) return undefined;
+  try {
+    return new URLSearchParams(search).get('fbclid') || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Browser ID do Meta (cookie `_fbp`) — enviado ao servidor para a CAPI melhorar
+ * o match browser↔servidor (obrigatório em tráfego de browser in-app do Facebook).
+ */
+export function getFbp(): string | undefined {
+  try {
+    const match = document.cookie.match(/(?:^|;\s*)_fbp=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Click ID do Meta (`fb.1.<fbclid>`) — capturado na landing (o wizard muda de URL e
+ * perde a query string) e guardado em sessionStorage 30 dias, como os UTM.
+ */
+export function getFbc(): string | undefined {
+  try {
+    const stored = sessionStorage.getItem(FBCLID_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as { id?: string; at?: number };
+      if (parsed?.id && parsed.at && Date.now() - parsed.at <= FBCLID_TTL_MS) return `fb.1.${parsed.id}`;
+    }
+  } catch {
+    // segue para a leitura direta da URL
+  }
+
+  let fbclid = readFbclidFrom(window.location.search);
+  if (!fbclid) {
+    const hashQuery = window.location.hash.includes('?') ? window.location.hash.slice(window.location.hash.indexOf('?')) : '';
+    fbclid = readFbclidFrom(hashQuery);
+  }
+  if (!fbclid && document.referrer) {
+    try {
+      fbclid = readFbclidFrom(new URL(document.referrer).search);
+    } catch {
+      fbclid = undefined;
+    }
+  }
+
+  if (!fbclid) return undefined;
+
+  try {
+    sessionStorage.setItem(FBCLID_STORAGE_KEY, JSON.stringify({ id: fbclid, at: Date.now() }));
+  } catch {
+    // storage indisponível → devolve na mesma
+  }
+  return `fb.1.${fbclid}`;
+}
+
 // Tracking nunca deve quebrar o fluxo do utilizador — exceções são engolidas.
 function safeFbq(...args: any[]): void {
   try {
@@ -79,14 +142,9 @@ export function initMetaPixel(): void {
 
   safeFbq('init', PIXEL_ID);
   safeFbq('track', 'PageView');
-
-  const img = document.createElement('img');
-  img.height = 1;
-  img.width = 1;
-  img.style.display = 'none';
-  img.src = `https://www.facebook.com/tr?id=${PIXEL_ID}&ev=PageView&noscript=1`;
-  img.alt = '';
-  document.body.appendChild(img);
+  // Captura o fbclid já na landing (a SPA muda de URL e perde a query string)
+  getFbc();
+  // NOTA: não disparar aqui o pixel <img> noscript — com JS ativo seria um 2º PageView duplicado
 }
 
 export function fbPageView(): void {

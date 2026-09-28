@@ -18,7 +18,8 @@ import { validateStep as zodValidateStep, FieldErrors } from '../lib/validation'
 import WhatsAppHelp from './WhatsAppHelp';
 import LogoIcon from './LogoIcon';
 import { 
-  fbLead, fbSetUserData, fbStartWizard, fbWizardStep, fbLyricsGenerated, fbCheckoutView, fbPurchase, parsePrice, generateEventId 
+  fbLead, fbSetUserData, fbStartWizard, fbWizardStep, fbLyricsGenerated, fbCheckoutView, fbPurchase, parsePrice, generateEventId,
+  fbInitiateCheckout, fbAddPaymentInfo, getFbp, getFbc
 } from '../lib/metaPixel';
 import { 
   gaViewContent, gaLead, gaCompleteRegistration, gaAddPaymentInfo, gaSubmitApplication, gaWizardStep, gaPageView 
@@ -506,14 +507,17 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     }
   }, [generationStatus]);
 
-  // Meta: trackar quando vê os planos (checkout view)
+  // Meta: trackar quando vê os planos (checkout view) — uma vez por pedido e com
+  // eventID determinístico (antes re-disparava em cada ida a 'plans' com UUID aleatório)
+  const plansViewTrackedRef = useRef(false);
   useEffect(() => {
-    if (conversionStep === 'plans') {
+    if (conversionStep === 'plans' && !plansViewTrackedRef.current && dbSongRequestId) {
+      plansViewTrackedRef.current = true;
       const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
       const plan = selectedPlanID || 'standard';
-      fbCheckoutView(plan, PLAN_VALUES[plan], CURRENCY, safeUUID());
+      fbCheckoutView(plan, PLAN_VALUES[plan], CURRENCY, generateEventId(dbSongRequestId, 'ViewContent'));
     }
-  }, [conversionStep]);
+  }, [conversionStep, dbSongRequestId]);
 
   // GA4: registar cada passo do wizard
   useEffect(() => {
@@ -833,6 +837,13 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         submitApplication: submitAppEventId,
       }));
 
+      // Identificadores Meta do browser (fbp/fbc) — a CAPI precisa deles para casar
+      // browser↔servidor (98% do tráfego vem do browser in-app do Facebook/Instagram)
+      const fbp = getFbp();
+      const fbc = getFbc();
+      if (fbp) fd.append('fbp', fbp);
+      if (fbc) fd.append('fbc', fbc);
+
       // Amostra de voz (Premium) — upload direto
       if (clonedVoiceFile) {
         fd.append('voiceSample', clonedVoiceFile, clonedVoiceFile.name);
@@ -1074,7 +1085,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   useEffect(() => {
     if (isDone && !paymentScreenTrackedRef.current) {
       paymentScreenTrackedRef.current = true;
-      fbWizardStep('payment_screen', 9, safeUUID());
+      fbWizardStep('payment_screen', 5, safeUUID());
     }
   }, [isDone]);
 
@@ -1595,6 +1606,9 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     }
   };
 
+  // Meta: InitiateCheckout dispara 1x no browser quando escolhe o plano (o servidor
+  // envia o mesmo eventID no submit → dedup; antes só o servidor disparava, no fim)
+  const initiateCheckoutFiredRef = useRef(false);
   const handlePlanSelection = (pId: 'standard' | 'express' | 'premium') => {
     if (!dbSongRequestId) {
       setPaymentSubmitError('Ainda nao existe um pedido guardado para associar ao pagamento. Tente novamente.');
@@ -1604,6 +1618,10 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     setSelectedPlanID(pId);
     const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
     gaAddPaymentInfo(pId, PLAN_VALUES[pId]);
+    if (!initiateCheckoutFiredRef.current) {
+      initiateCheckoutFiredRef.current = true;
+      fbInitiateCheckout(pId, PLAN_VALUES[pId], CURRENCY, generateEventId(dbSongRequestId, 'InitiateCheckout'));
+    }
     if (pId === 'premium') {
       setVoiceUpsellApplied(true);
       setShowVoiceCloningScreen(true);
@@ -1612,6 +1630,17 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       // Standard ou Express: mostrar modal de upsell de voz
       setShowUpsellModal(true);
     }
+  };
+
+  // Meta: AddPaymentInfo dispara quando escolhe Express vs Referência (o servidor envia
+  // o mesmo eventID no submit → dedup). Antes só o servidor disparava, no mesmo instante
+  // do InitiateCheckout, o que tornava a etapa invisível no funil.
+  const addPaymentInfoFiredRef = useRef(false);
+  const selectPaymentMethod = (method: 'express' | 'reference') => {
+    setPaymentMethod(method);
+    if (addPaymentInfoFiredRef.current || !dbSongRequestId) return;
+    addPaymentInfoFiredRef.current = true;
+    fbAddPaymentInfo(selectedPlanID || 'standard', getPriceNumber(), CURRENCY, generateEventId(dbSongRequestId, 'AddPaymentInfo'));
   };
 
   const getPriceNumber = (): number => {
@@ -2887,7 +2916,7 @@ const ROTATING_MESSAGES = [
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <button
                     type="button"
-                    onClick={() => setPaymentMethod('express')}
+                    onClick={() => selectPaymentMethod('express')}
                     className={`text-left rounded-2xl border p-4 transition-all cursor-pointer ${
                       paymentMethod === 'express'
                         ? 'border-amber-500/70 bg-amber-500/5 shadow-[0_0_0_1px_rgba(245,158,11,0.4)]'
@@ -2904,7 +2933,7 @@ const ROTATING_MESSAGES = [
 
                   <button
                     type="button"
-                    onClick={() => setPaymentMethod('reference')}
+                    onClick={() => selectPaymentMethod('reference')}
                     className={`text-left rounded-2xl border p-4 transition-all cursor-pointer ${
                       paymentMethod === 'reference'
                         ? 'border-amber-500/70 bg-amber-500/5 shadow-[0_0_0_1px_rgba(245,158,11,0.4)]'

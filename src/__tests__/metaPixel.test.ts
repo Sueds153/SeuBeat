@@ -245,3 +245,60 @@ describe('metaPixel without VITE_META_PIXEL_ID', () => {
     }).not.toThrow();
   });
 });
+
+describe('getFbp / getFbc (identificadores Meta para a CAPI)', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_META_PIXEL_ID', '1928777041139855');
+    document.cookie = '_fbp=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+    sessionStorage.clear();
+    document.body.removeAttribute('data-testid-cleanup');
+    window.history.replaceState({}, '', '/');
+    Object.defineProperty(document, 'referrer', { configurable: true, value: '' });
+  });
+
+  afterEach(() => {
+    window.history.replaceState({}, '', '/');
+  });
+
+  it('getFbp lê o cookie _fbp definido pela Pixel', async () => {
+    const { getFbp } = await import('../lib/metaPixel');
+    document.cookie = '_fbp=fb.1.1759000000000000; path=/';
+    expect(getFbp()).toBe('fb.1.1759000000000000');
+  });
+
+  it('getFbp devolve undefined sem cookie', async () => {
+    const { getFbp } = await import('../lib/metaPixel');
+    expect(getFbp()).toBeUndefined();
+  });
+
+  it('getFbc lê fbclid da query string e persiste em sessionStorage', async () => {
+    window.history.replaceState({}, '', '/?utm_source=facebook&fbclid=abc123def');
+    const { getFbc } = await import('../lib/metaPixel');
+
+    expect(getFbc()).toBe('fb.1.abc123def');
+    expect(sessionStorage.getItem('seubeat_fbclid')).toContain('abc123def');
+  });
+
+  it('getFbc usa o sessionStorage guardado mesmo sem fbclid na URL (wizard muda de URL)', async () => {
+    sessionStorage.setItem('seubeat_fbclid', JSON.stringify({ id: 'xyz789', at: Date.now() }));
+    window.history.replaceState({}, '', '/wizard');
+    const { getFbc } = await import('../lib/metaPixel');
+
+    expect(getFbc()).toBe('fb.1.xyz789');
+  });
+
+  it('getFbc ignora fbclid guardado com mais de 30 dias', async () => {
+    const thirtyOneDays = Date.now() - 31 * 24 * 60 * 60 * 1000;
+    sessionStorage.setItem('seubeat_fbclid', JSON.stringify({ id: 'old', at: thirtyOneDays }));
+    window.history.replaceState({}, '', '/wizard');
+    const { getFbc } = await import('../lib/metaPixel');
+
+    expect(getFbc()).toBeUndefined();
+  });
+
+  it('getFbc devolve undefined quando não há fbclid em nenhum sítio', async () => {
+    window.history.replaceState({}, '', '/wizard?utm_source=instagram');
+    const { getFbc } = await import('../lib/metaPixel');
+    expect(getFbc()).toBeUndefined();
+  });
+});

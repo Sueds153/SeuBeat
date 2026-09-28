@@ -160,6 +160,10 @@ export const SubmitPaymentSchema = z.object({
     addPaymentInfo: z.string().optional(),
     submitApplication: z.string().optional(),
   }).optional().nullable(),
+  // Identificadores Meta capturados no browser (cookie _fbp / parâmetro fbclid).
+  // Encaminhados para a CAPI sem hash — melhoram o match browser↔servidor.
+  fbp: z.string().max(200).regex(/^fb\.\d\./, 'fbp inválido').optional().nullable(),
+  fbc: z.string().max(300).regex(/^fb\.\d\./, 'fbc inválido').optional().nullable(),
 });
 
 export type SubmitPaymentInput = z.infer<typeof SubmitPaymentSchema>;

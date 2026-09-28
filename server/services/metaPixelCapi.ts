@@ -10,6 +10,9 @@ const BASE_URL = `https://graph.facebook.com/${API_VERSION}/${PIXEL_ID}/events`;
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
+const REQUEST_TIMEOUT_MS = 5000;
+// Fallback só é usado quando não há referer — tem de ser um domínio real (seubeat.ao não existe em DNS)
+const FALLBACK_EVENT_URL = 'https://seubeat.onrender.com';
 
 // Deterministic eventId generator (must match client's generateEventId exactly)
 export function generateServerEventId(requestId: string, eventName: string): string {
@@ -57,6 +60,9 @@ function buildPayload(params: {
   clientIp?: string;
   clientUserAgent?: string;
   externalId?: string;
+  fbp?: string;
+  fbc?: string;
+  orderId?: string;
   zip?: string;
   dob?: string;
   fn?: string;
@@ -66,7 +72,7 @@ function buildPayload(params: {
   ct?: string;
   st?: string;
 }) {
-  const { eventName, eventId, email, phone, value, currency, contentName, contentType, eventSourceUrl, clientIp, clientUserAgent, externalId, zip, dob, fn, ln, gen, country, ct, st } = params;
+  const { eventName, eventId, email, phone, value, currency, contentName, contentType, eventSourceUrl, clientIp, clientUserAgent, externalId, fbp, fbc, orderId, zip, dob, fn, ln, gen, country, ct, st } = params;
 
   const userData: Record<string, unknown> = {};
   if (email) userData.em = [hashEmail(email)];
@@ -74,6 +80,9 @@ function buildPayload(params: {
   if (clientIp) userData.client_ip_address = clientIp;
   if (clientUserAgent) userData.client_user_agent = clientUserAgent;
   if (externalId) userData.external_id = hashEmail(externalId);
+  // fbp/fbc chegam do browser e NÃO são hasheados (formato Meta: "fb.1.<id>")
+  if (fbp) userData.fbp = fbp;
+  if (fbc) userData.fbc = fbc;
   if (zip) userData.zp = [hashGeneric(zip)];
   if (dob) userData.db = [hashGeneric(dob)];
   if (fn) userData.fn = [hashGeneric(fn)];
@@ -88,6 +97,7 @@ function buildPayload(params: {
   if (currency) customData.currency = currency;
   if (contentName) customData.content_name = contentName;
   if (contentType) customData.content_type = contentType;
+  if (orderId) customData.order_id = orderId;
 
   return {
     data: [
@@ -98,41 +108,50 @@ function buildPayload(params: {
         user_data: userData,
         ...(Object.keys(customData).length > 0 ? { custom_data: customData } : {}),
         action_source: 'website',
-        event_source_url: eventSourceUrl || getEnv('APP_URL', 'https://seubeat.ao'),
+        event_source_url: eventSourceUrl || getEnv('APP_URL', FALLBACK_EVENT_URL),
       },
     ],
     access_token: ACCESS_TOKEN,
   };
 }
 
-async function attemptSend(payload: ReturnType<typeof buildPayload>, attempt: number): Promise<boolean> {
+// 'success' = aceite pela Meta · 'retry' = falha transitória (5xx/timeout) · 'fail' = falha terminal (4xx/sem config)
+type SendOutcome = 'success' | 'retry' | 'fail';
+
+async function attemptSend(payload: ReturnType<typeof buildPayload>, attempt: number): Promise<SendOutcome> {
   try {
     const res = await fetch(BASE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {
       const body = await res.text();
-      if (attempt < MAX_RETRIES && res.status >= 500) {
-        logWarn(`[MetaCAPI] Tentativa ${attempt}/${MAX_RETRIES} falhou (HTTP ${res.status}), reenviando...`, { response: body });
-        return false;
+      if (res.status >= 500) {
+        if (attempt < MAX_RETRIES) {
+          logWarn(`[MetaCAPI] Tentativa ${attempt}/${MAX_RETRIES} falhou (HTTP ${res.status}), reenviando...`, { response: body });
+          return 'retry';
+        }
+        logError('[MetaCAPI] Erro ao enviar evento (5xx após retries)', new Error(`HTTP ${res.status}`), { response: body, attempt, eventName: payload.data[0].event_name });
+        return 'fail';
       }
-      logError('[MetaCAPI] Erro ao enviar evento', new Error(`HTTP ${res.status}`), { response: body, attempt, eventName: payload.data[0].event_name });
-      return res.status >= 500 ? false : true;
+      // 4xx: erro de pedido/configuração — reenviar não resolve e NÃO pode contar como sucesso
+      logError('[MetaCAPI] Erro ao enviar evento (HTTP 4xx)', new Error(`HTTP ${res.status}`), { response: body, attempt, eventName: payload.data[0].event_name, eventId: payload.data[0].event_id });
+      return 'fail';
     }
 
     const json = await res.json();
     logInfo('[MetaCAPI] Evento enviado com sucesso', { eventName: payload.data[0].event_name, eventId: payload.data[0].event_id, eventsReceived: json.events_received });
-    return true;
+    return 'success';
   } catch (err: unknown) {
     if (attempt < MAX_RETRIES) {
-      logWarn(`[MetaCAPI] Tentativa ${attempt}/${MAX_RETRIES} falhou (rede), reenviando...`, { error: err instanceof Error ? err.message : String(err) });
-      return false;
+      logWarn(`[MetaCAPI] Tentativa ${attempt}/${MAX_RETRIES} falhou (rede/timeout), reenviando...`, { error: err instanceof Error ? err.message : String(err) });
+      return 'retry';
     }
     logError('[MetaCAPI] Erro de rede ao enviar evento após todas as tentativas', err instanceof Error ? err : new Error(String(err)));
-    return false;
+    return 'fail';
   }
 }
 
@@ -149,6 +168,9 @@ async function sendEvent(params: {
   clientIp?: string;
   clientUserAgent?: string;
   externalId?: string;
+  fbp?: string;
+  fbc?: string;
+  orderId?: string;
   zip?: string;
   dob?: string;
   fn?: string;
@@ -166,8 +188,9 @@ async function sendEvent(params: {
   const payload = buildPayload(params);
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    const ok = await attemptSend(payload, attempt);
-    if (ok) return true;
+    const outcome = await attemptSend(payload, attempt);
+    if (outcome === 'success') return true;
+    if (outcome === 'fail') return false;
     if (attempt < MAX_RETRIES) {
       await delay(BASE_DELAY_MS * Math.pow(2, attempt - 1));
     }
@@ -176,7 +199,7 @@ async function sendEvent(params: {
   return false;
 }
 
-export async function sendInitiateCheckoutEvent(params: {
+interface PaymentEventParams {
   eventId: string;
   email?: string;
   phone?: string;
@@ -187,57 +210,32 @@ export async function sendInitiateCheckoutEvent(params: {
   clientIp?: string;
   clientUserAgent?: string;
   externalId?: string;
+  fbp?: string;
+  fbc?: string;
+  orderId?: string;
   ln?: string;
-}): Promise<boolean> {
+}
+
+export async function sendInitiateCheckoutEvent(params: PaymentEventParams): Promise<boolean> {
   return sendEvent({ ...params, eventName: 'InitiateCheckout', contentType: 'product' });
 }
 
-export async function sendAddPaymentInfoEvent(params: {
-  eventId: string;
-  email?: string;
-  phone?: string;
-  value?: number;
-  currency?: string;
-  contentName?: string;
-  eventSourceUrl?: string;
-  clientIp?: string;
-  clientUserAgent?: string;
-  externalId?: string;
-  ln?: string;
-}): Promise<boolean> {
+export async function sendAddPaymentInfoEvent(params: PaymentEventParams): Promise<boolean> {
   return sendEvent({ ...params, eventName: 'AddPaymentInfo', contentType: 'product' });
 }
 
-export async function sendPurchaseEvent(params: {
-  eventId: string;
-  email?: string;
-  phone?: string;
-  value: number;
-  currency?: string;
-  contentName?: string;
-  eventSourceUrl?: string;
-  clientIp?: string;
-  clientUserAgent?: string;
-  externalId?: string;
-  ln?: string;
-}): Promise<boolean> {
+export async function sendPurchaseEvent(params: PaymentEventParams & { value: number }): Promise<boolean> {
   return sendEvent({ ...params, eventName: 'Purchase', contentType: 'product' });
 }
 
-export async function sendSubmitApplicationEvent(params: {
-  eventId: string;
-  email?: string;
-  phone?: string;
-  value?: number;
-  currency?: string;
-  contentName?: string;
-  eventSourceUrl?: string;
-  clientIp?: string;
-  clientUserAgent?: string;
-  externalId?: string;
-  ln?: string;
-}): Promise<boolean> {
+export async function sendSubmitApplicationEvent(params: PaymentEventParams): Promise<boolean> {
   return sendEvent({ ...params, eventName: 'SubmitApplication', contentType: 'product' });
+}
+
+// Evento negativo: dispara quando um pagamento é rejeitado (manual ou auto) para o Meta aprender
+// o que NÃO é uma venda bem-sucedida (antes só havia Purchase, nunca o sinal inverso).
+export async function sendRefundEvent(params: PaymentEventParams): Promise<boolean> {
+  return sendEvent({ ...params, eventName: 'Refund', contentType: 'product' });
 }
 
 export async function sendLeadEvent(params: {

@@ -21,7 +21,7 @@ async function sanitize(str: string): Promise<string> {
   return dompurifyModule.default.sanitize(str.trim().slice(0, 5000));
 }
 import { setProgress, updateRequestStatus, runBackgroundSunoWorkflow } from '../services/workflow';
-import { publicErrorMessage, getAppUrl, logRouteError, kzToUsd, toCamelCase } from '../utils/helpers';
+import { publicErrorMessage, getAppUrl, logRouteError, sanitizePaymentAmount, toCamelCase } from '../utils/helpers';
 import { allFailuresTransient, LYRIC_GENERATION_QUEUED_MESSAGE } from '../utils/aiFailure';
 import { 
   GenerateLyricsSchema, 
@@ -1121,6 +1121,8 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
           voiceValidationTaskId: req.body.voiceValidationTaskId || null,
           voiceValidationPhrase: req.body.voiceValidationPhrase || null,
           eventIds: (() => { try { return req.body.eventIds ? JSON.parse(req.body.eventIds) : null; } catch { return null; } })(),
+          fbp: req.body.fbp || null,
+          fbc: req.body.fbc || null,
           // Campos base64 opcionais — para multipart não existem
           proofBase64: null,
           voiceSampleBase64: null,
@@ -1139,13 +1141,15 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       voiceFreeSampleBase64, voiceFreeSampleFilename, voiceFreeSampleMimeType,
       voiceValidationTaskId, voiceValidationPhrase,
       paymentMethod,
-      eventIds
+      eventIds,
+      fbp, fbc
     } = validation.data;
     const supabase = getAdminSupabase();
     if (!supabase) return res.status(500).json({ success: false, error: 'Banco de dados indisponivel.' });
     const resolvedPaymentMethod = paymentMethod || 'reference';
 
-    const parsedAmount = typeof amount === 'number' && !isNaN(amount) ? amount : typeof amount === 'string' ? parseAngolanAmount(amount) : 0;
+    const rawAmount = typeof amount === 'number' && !isNaN(amount) ? amount : typeof amount === 'string' ? parseAngolanAmount(amount) : 0;
+    const parsedAmount = sanitizePaymentAmount(rawAmount, plan);
 
     // Parallel guard queries (saves ~200ms vs sequential)
     const [pendingResult, approvedResult, requestResult] = await Promise.all([
@@ -1681,11 +1685,43 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       ).catch(err =>
         logError('[API] Falha ao notificar admin (auto-reject)', err, { paymentId: paymentRecord?.id })
       );
+
+      // Meta Refund — só quando já foi enviado um Purchase para este pagamento
+      // (sem Purchase prévio o Refund criaria uma conversão negativa inexistente)
+      if (paymentRecord?.id) {
+        const { data: rejectPaymentRow } = await supabase
+          .from('payments')
+          .select('meta_purchase_sent_at')
+          .eq('id', paymentRecord.id)
+          .maybeSingle();
+        if (rejectPaymentRow?.meta_purchase_sent_at) {
+          const { sendRefundEvent } = await import('../services/metaPixelCapi');
+          sendRefundEvent({
+            eventId: generateServerEventId(paymentRecord.id, 'Refund'),
+            email: userEmail,
+            phone: phone || undefined,
+            value: parsedAmount,
+            currency: 'AOA',
+            contentName: plan,
+            orderId: paymentRecord.id,
+            fbp: fbp || undefined,
+            fbc: fbc || undefined,
+            eventSourceUrl: (req.headers.referer as string) || undefined,
+            clientIp: req.ip || req.socket.remoteAddress || undefined,
+            clientUserAgent: req.headers['user-agent'],
+            externalId: userEmail,
+          }).catch(err =>
+            logError('[API] Meta CAPI Refund event failed', err, { paymentId: paymentRecord?.id })
+          );
+        }
+      }
     }
 
     // ── Meta CAPI Purchase — fires for approved + pending_verification ─────
     // Matches client-side fbPurchase (fires on any 200 success)
     // NOT fired for rejected (payment is invalid)
+    // currency 'AOA' = o mesmo que o browser envia (antes browser enviava AOA e
+    // servidor USD → a Meta via dois valores diferentes para o MESMO event_id)
     if (paymentStatus !== 'rejected' && paymentRecord?.id) {
       const { sendPurchaseEvent } = await import('../services/metaPixelCapi');
       const purchasePaymentId = paymentRecord.id;
@@ -1693,9 +1729,12 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
         eventId: generateServerEventId(songRequestId, 'Purchase'),
         email: userEmail,
         phone: phone || undefined,
-        value: kzToUsd(parsedAmount),
-        currency: 'USD',
+        value: parsedAmount,
+        currency: 'AOA',
         contentName: plan,
+        orderId: purchasePaymentId,
+        fbp: fbp || undefined,
+        fbc: fbc || undefined,
         eventSourceUrl: (req.headers.referer as string) || undefined,
         clientIp: req.ip || req.socket.remoteAddress || undefined,
         clientUserAgent: req.headers['user-agent'],
@@ -1720,9 +1759,12 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       eventId: eventIds?.initiateCheckout || generateServerEventId(songRequestId, 'InitiateCheckout'),
       email: userEmail,
       phone: phone || undefined,
-      value: kzToUsd(parsedAmount),
-      currency: 'USD',
+      value: parsedAmount,
+      currency: 'AOA',
       contentName: plan,
+      orderId: paymentRecord?.id,
+      fbp: fbp || undefined,
+      fbc: fbc || undefined,
       eventSourceUrl: (req.headers.referer as string) || undefined,
       clientIp: req.ip || req.socket.remoteAddress || undefined,
       clientUserAgent: req.headers['user-agent'],
@@ -1735,9 +1777,12 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       eventId: eventIds?.addPaymentInfo || generateServerEventId(songRequestId, 'AddPaymentInfo'),
       email: userEmail,
       phone: phone || undefined,
-      value: kzToUsd(parsedAmount),
-      currency: 'USD',
+      value: parsedAmount,
+      currency: 'AOA',
       contentName: plan,
+      orderId: paymentRecord?.id,
+      fbp: fbp || undefined,
+      fbc: fbc || undefined,
       eventSourceUrl: (req.headers.referer as string) || undefined,
       clientIp: req.ip || req.socket.remoteAddress || undefined,
       clientUserAgent: req.headers['user-agent'],
@@ -1750,9 +1795,12 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       eventId: eventIds?.submitApplication || generateServerEventId(songRequestId, 'SubmitApplication'),
       email: userEmail,
       phone: phone || undefined,
-      value: kzToUsd(parsedAmount),
-      currency: 'USD',
+      value: parsedAmount,
+      currency: 'AOA',
       contentName: plan,
+      orderId: paymentRecord?.id,
+      fbp: fbp || undefined,
+      fbc: fbc || undefined,
       eventSourceUrl: (req.headers.referer as string) || undefined,
       clientIp: req.ip || req.socket.remoteAddress || undefined,
       clientUserAgent: req.headers['user-agent'],
@@ -1935,9 +1983,10 @@ router.post('/song/:id/video-upsell-payment', paymentLimiter, async (req, res) =
       sendPurchaseEvent({
         eventId: generateServerEventId(videoEventPaymentId, 'Purchase'),
         email: userEmail,
-        value: kzToUsd(2900),
-        currency: 'USD',
+        value: 2900,
+        currency: 'AOA',
         contentName: 'video_upsell',
+        orderId: videoEventPaymentId,
         eventSourceUrl: (req.headers.referer as string) || undefined,
         clientIp: req.ip || req.socket.remoteAddress || undefined,
         clientUserAgent: req.headers['user-agent'],

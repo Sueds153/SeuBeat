@@ -1063,7 +1063,12 @@ export default function AdminPanel() {
   const handleConfirmReject = async () => {
     if (!confirmAction) return;
     const paymentId = confirmAction.paymentId;
-    const notes = rejectNotes[paymentId] || '';
+    const notes = (rejectNotes[paymentId] || '').trim();
+    if (!notes) {
+      // Motivo obrigatório — sem ele o cliente recebe email/WhatsApp sem explicação
+      showToast('Indique o motivo da rejeição antes de confirmar.', 'error');
+      return;
+    }
     setConfirmAction(null);
     setActionLoading(paymentId + '_reject');
     try {

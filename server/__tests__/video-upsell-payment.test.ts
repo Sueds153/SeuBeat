@@ -164,7 +164,8 @@ describe('POST /api/song/:id/video-upsell-payment — Meta CAPI Purchase', () =>
       expect.objectContaining({
         eventId: 'evt-video-test',
         contentName: 'video_upsell',
-        currency: 'USD',
+        currency: 'AOA',
+        value: 2900,
         email: 'cliente@test.com',
       })
     );

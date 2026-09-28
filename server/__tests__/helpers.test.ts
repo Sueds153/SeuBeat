@@ -87,3 +87,38 @@ describe('kzToUsd', () => {
     expect(kzToUsd(14900)).toBe(16.56);
   });
 });
+
+describe('sanitizePaymentAmount', () => {
+  it('mantém os valores do catálogo para o plano correspondente', async () => {
+    const { sanitizePaymentAmount } = await import('../utils/helpers');
+    expect(sanitizePaymentAmount(7900, 'standard')).toBe(7900);
+    expect(sanitizePaymentAmount(9900, 'express')).toBe(9900);
+    expect(sanitizePaymentAmount(14900, 'premium')).toBe(14900);
+  });
+
+  it('mantém base + addon (ex.: standard com addon de 4.000 Kz)', async () => {
+    const { sanitizePaymentAmount } = await import('../utils/helpers');
+    expect(sanitizePaymentAmount(11900, 'standard')).toBe(11900);
+    expect(sanitizePaymentAmount(9400, 'standard')).toBe(9400);
+  });
+
+  it('valor desconhecido cai no preço base do plano', async () => {
+    const { sanitizePaymentAmount } = await import('../utils/helpers');
+    expect(sanitizePaymentAmount(999999, 'express')).toBe(9900);
+    expect(sanitizePaymentAmount(0, 'premium')).toBe(14900);
+    expect(sanitizePaymentAmount(-500, 'standard')).toBe(7900);
+    expect(sanitizePaymentAmount(NaN, 'standard')).toBe(7900);
+  });
+
+  it('valor de outro plano não passa (mantém plano e preço coerentes)', async () => {
+    const { sanitizePaymentAmount } = await import('../utils/helpers');
+    // 9900 é válido no catálogo, mas não para plan=standard
+    expect(sanitizePaymentAmount(9900, 'standard')).toBe(7900);
+    expect(sanitizePaymentAmount(7900, 'express')).toBe(9900);
+  });
+
+  it('plano desconhecido cai no preço base do standard', async () => {
+    const { sanitizePaymentAmount } = await import('../utils/helpers');
+    expect(sanitizePaymentAmount(12345, 'video_upsell')).toBe(7900);
+  });
+});

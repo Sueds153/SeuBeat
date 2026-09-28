@@ -36,9 +36,9 @@ async function loadGoogleGenAI() {
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { normalizeLyricsArray, querySunoTask } from '../services/suno';
 import { persistGeneratedSunoAudio } from '../services/workflow';
-import { publicErrorMessage, getAppUrl, logRouteError, kzToUsd } from '../utils/helpers';
+import { publicErrorMessage, getAppUrl, logRouteError } from '../utils/helpers';
 import { logAdminAction } from '../utils/audit';
-import { sendPurchaseEvent, generateServerEventId } from '../services/metaPixelCapi';
+import { sendPurchaseEvent, sendRefundEvent, generateServerEventId } from '../services/metaPixelCapi';
 import { adminLimiter, whatsappBulkLimiter } from '../middleware/rateLimiter';
 import {
   bucketForElapsed, bucketLabel, buildAbandonedMessage,
@@ -413,9 +413,10 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
         eventId: generateServerEventId(purchaseEventKey, 'Purchase'),
         email: payment.user_email || userEmail || '',
         phone: userPhone || undefined,
-        value: kzToUsd(numericAmount),
-        currency: 'USD',
+        value: numericAmount,
+        currency: 'AOA',
         contentName: planName,
+        orderId: id,
         eventSourceUrl: (req.headers.referer as string) || undefined,
         clientIp: req.ip || req.socket.remoteAddress || undefined,
         clientUserAgent: req.headers['user-agent'],
@@ -570,24 +571,52 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
 
     const { data: payment } = await supabase
       .from('payments')
-      .select('user_email, request_id, status, proof_path, song_requests(recipient_name, users(phone))')
+      .select('user_email, request_id, status, proof_path, amount, plan, meta_purchase_sent_at, song_requests(recipient_name, users(phone))')
       .eq('id', id)
       .eq('status', 'pending_verification')
       .single();
 
     if (!payment) return res.status(409).json({ success: false, error: 'Pagamento não encontrado ou já processado.' });
 
-    await supabase.from('payments').update({ status: 'rejected', notes: notes || null }).eq('id', id).eq('status', 'pending_verification');
+    // O motivo é obrigatório: vai no email/WhatsApp do cliente e sem ele 78% das
+    // rejeições ficavam sem explicação (14 de 18 em produção).
+    const reason = typeof notes === 'string' ? notes.trim() : '';
+    if (!reason) {
+      return res.status(400).json({ success: false, error: 'Indique o motivo da rejeição — é enviado ao cliente.' });
+    }
 
-    logAdminAction({ action: 'reject', entityType: 'payment', entityId: id, previousData: { status: payment?.status }, notes: notes || undefined });
+    await supabase.from('payments').update({ status: 'rejected', notes: reason }).eq('id', id).eq('status', 'pending_verification');
+
+    logAdminAction({ action: 'reject', entityType: 'payment', entityId: id, previousData: { status: payment?.status }, notes: reason });
 
     if (payment?.request_id) {
       await supabase.from('song_requests').update({ status: 'payment_rejected' }).eq('id', payment.request_id).in('status', ['payment_submitted', 'approved']);
     }
 
+    // Meta Refund — só quando já foi enviado um Purchase para este pagamento
+    // (sinal negativo para o algoritmo; sem Purchase prévio não há nada a estornar)
+    if ((payment as { meta_purchase_sent_at?: string | null }).meta_purchase_sent_at) {
+      const rejectAmount = parseInt(String(payment.amount || '0').replace(/[^0-9]/g, ''), 10) || 0;
+      sendRefundEvent({
+        eventId: generateServerEventId(id, 'Refund'),
+        email: payment.user_email || '',
+        phone: ((payment.song_requests as { users?: { phone?: string } })?.users?.phone) || undefined,
+        value: rejectAmount,
+        currency: 'AOA',
+        contentName: payment.plan || 'standard',
+        orderId: id,
+        eventSourceUrl: (req.headers.referer as string) || undefined,
+        clientIp: req.ip || req.socket.remoteAddress || undefined,
+        clientUserAgent: req.headers['user-agent'],
+        externalId: payment.user_email || undefined,
+      }).catch(err =>
+        logError('[Admin] Meta CAPI Refund event failed', err, { paymentId: id })
+      );
+    }
+
     if (payment?.user_email) {
       logInfo('[Admin] Enviando email de rejeicao', { paymentId: id, userEmail: payment.user_email });
-      sendPaymentRejectionEmail(payment.user_email, notes).catch(err => logError('[Admin] Falha ao enviar email de rejeicao', err, { userId: payment.user_email }));
+      sendPaymentRejectionEmail(payment.user_email, reason).catch(err => logError('[Admin] Falha ao enviar email de rejeicao', err, { userId: payment.user_email }));
     }
 
     // WhatsApp de rejeição — notifica o cliente que o comprovativo foi rejeitado
@@ -600,7 +629,7 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
         requestId: payment.request_id,
         phone,
         recipientName,
-        reason: notes || 'comprovativo reprovado',
+        reason,
       }).catch(err => logError('[Admin] Falha ao enviar WhatsApp de rejeição', err, { requestId: payment.request_id }));
     }
 

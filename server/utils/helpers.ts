@@ -1,5 +1,5 @@
 import { Request } from 'express';
-import { logError, logInfo } from './logger';
+import { logError, logInfo, logWarn } from './logger';
 import { ENV } from '../config/env';
 import pg from 'pg';
 
@@ -153,6 +153,29 @@ export function getAppUrl(req?: Request): string {
 
 export function kzToUsd(kz: number): number {
   return Math.round((kz / ENV.USD_TO_KZ_RATE) * 100) / 100;
+}
+
+// Preços do catálogo (espelha src/constants/pricing.ts e getPriceNumber() do Wizard):
+// base do plano + addons opcionais (2º estilo 2.500 Kz, capa imprimível 1.500 Kz).
+const PLAN_BASE_PRICES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
+const ADDON_PRICES = [0, 1500, 2500, 4000];
+// Valores aceites POR PLANO (base do plano + addon) — um amount que não bate
+// certo com o plano escolhido cai no preço base, para a BD e o Purchase da Meta
+// ficarem sempre coerentes com o plano reportado.
+const ALLOWED_PAYMENT_AMOUNTS: Record<string, Set<number>> = Object.fromEntries(
+  Object.entries(PLAN_BASE_PRICES).map(([plan, base]) => [plan, new Set(ADDON_PRICES.map(addon => base + addon))])
+);
+
+/**
+ * O `amount` vem do cliente e alimenta a BD e o `value` do evento Purchase da Meta.
+ * Garante que nunca reporta/registra um valor fora do catálogo (valor desconhecido
+ * cai no preço base do plano) em vez de aceitar o número enviado sem verificar.
+ */
+export function sanitizePaymentAmount(rawAmount: number, plan: string): number {
+  if (ALLOWED_PAYMENT_AMOUNTS[plan]?.has(rawAmount)) return rawAmount;
+  const fallback = PLAN_BASE_PRICES[plan] ?? PLAN_BASE_PRICES.standard;
+  logWarn('[payments] amount fora do catálogo — a usar o preço base do plano', { rawAmount, plan, fallback });
+  return fallback;
 }
 
 export function toCamelCase(obj: Record<string, unknown>): Record<string, unknown> {

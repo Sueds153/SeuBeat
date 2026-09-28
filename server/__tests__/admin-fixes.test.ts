@@ -19,6 +19,7 @@ vi.mock('../services/email', () => ({
 
 vi.mock('../services/metaPixelCapi', () => ({
   sendPurchaseEvent: vi.fn().mockResolvedValue(true),
+  sendRefundEvent: vi.fn().mockResolvedValue(true),
   generateServerEventId: vi.fn(() => 'evt-test'),
 }));
 
@@ -31,7 +32,7 @@ vi.mock('../services/workflow', () => ({
 
 import { getAdminSupabase } from '../services/supabase';
 import { sendPaymentRejectionEmail, sendConfirmationEmail, sendPersonalizedEmail } from '../services/email';
-import { sendPurchaseEvent, generateServerEventId } from '../services/metaPixelCapi';
+import { sendPurchaseEvent, sendRefundEvent, generateServerEventId } from '../services/metaPixelCapi';
 import adminRouter from '../routes/admin';
 
 let server: http.Server | null = null;
@@ -177,7 +178,7 @@ describe('POST /api/admin/payment/:id/approve', () => {
     expect(sendConfirmationEmail).toHaveBeenCalledWith('ze@z.pt', 'Ana', REQUEST_ID, 'standard_approved');
     expect(sendPurchaseEvent).toHaveBeenCalledTimes(1);
     expect(sendPurchaseEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ value: 4.17, currency: 'USD' })
+      expect.objectContaining({ value: 5000, currency: 'AOA', orderId: PAYMENT_ID })
     );
     // EventID alinhado com o submit/browser (requestId) para Meta dedup
     expect(generateServerEventId).toHaveBeenCalledWith(REQUEST_ID, 'Purchase');
@@ -323,6 +324,81 @@ describe('POST /api/admin/payment/:id/reject', () => {
 
     expect(res.status).toBe(409);
     expect(sendPaymentRejectionEmail).not.toHaveBeenCalled();
+  });
+
+  it('devolve 400 quando o motivo está vazio (obrigatório: vai no email/WhatsApp do cliente)', async () => {
+    const base = await startServer();
+    const { songRequestsUpdate } = buildSupabaseMock({
+      paymentSingle: { id: PAYMENT_ID, user_email: 'ze@z.pt', request_id: REQUEST_ID, status: 'pending_verification', proof_path: 'x' },
+    });
+
+    const res = await fetch(`${base}/api/admin/payment/${PAYMENT_ID}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+      body: JSON.stringify({ notes: '   ' }),
+    });
+
+    expect(res.status).toBe(400);
+    expect(sendPaymentRejectionEmail).not.toHaveBeenCalled();
+    expect(sendRefundEvent).not.toHaveBeenCalled();
+    expect(songRequestsUpdate).not.toHaveBeenCalled();
+  });
+
+  it('envia Refund em AOA quando já houve Purchase (meta_purchase_sent_at preenchido)', async () => {
+    const base = await startServer();
+    buildSupabaseMock({
+      paymentSingle: {
+        id: PAYMENT_ID,
+        user_email: 'ze@z.pt',
+        request_id: REQUEST_ID,
+        status: 'pending_verification',
+        proof_path: 'x',
+        amount: 5000,
+        plan: 'standard',
+        meta_purchase_sent_at: '2026-09-27T10:00:00Z',
+        song_requests: { recipient_name: 'Ana', users: {} },
+      },
+    });
+
+    const res = await fetch(`${base}/api/admin/payment/${PAYMENT_ID}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+      body: JSON.stringify({ notes: 'valor errado' }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(sendRefundEvent).toHaveBeenCalledTimes(1);
+    expect(sendRefundEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ value: 5000, currency: 'AOA', orderId: PAYMENT_ID, contentName: 'standard' })
+    );
+    expect(generateServerEventId).toHaveBeenCalledWith(PAYMENT_ID, 'Refund');
+  });
+
+  it('NÃO envia Refund sem Purchase prévio (meta_purchase_sent_at vazio)', async () => {
+    const base = await startServer();
+    buildSupabaseMock({
+      paymentSingle: {
+        id: PAYMENT_ID,
+        user_email: 'ze@z.pt',
+        request_id: REQUEST_ID,
+        status: 'pending_verification',
+        proof_path: 'x',
+        amount: 9900,
+        plan: 'express',
+        meta_purchase_sent_at: null,
+        song_requests: { recipient_name: 'Ana', users: {} },
+      },
+    });
+
+    const res = await fetch(`${base}/api/admin/payment/${PAYMENT_ID}/reject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
+      body: JSON.stringify({ notes: 'valor errado' }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(sendRefundEvent).not.toHaveBeenCalled();
+    expect(sendPaymentRejectionEmail).toHaveBeenCalledWith('ze@z.pt', 'valor errado');
   });
 });
 

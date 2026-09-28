@@ -550,17 +550,21 @@ describe('proofVerification', () => {
 
     it('parses Angola DD/MM/YYYY recent date as pass', async () => {
       // Day-first format used on Multicaixa receipts (e.g. 22/09/2026 = 22 Sep 2026)
-      const now = new Date();
-      const dd = String(now.getDate()).padStart(2, '0');
-      const mm = String(now.getMonth() + 1).padStart(2, '0');
-      const yyyy = now.getFullYear();
+      // Data/hora = 1h atrás: uma hora fixa (ex.: 01:26) fica no futuro quando a
+      // suite corre depois da meia-noite e o check "data futura" falha.
+      const past = new Date(Date.now() - 60 * 60 * 1000);
+      const dd = String(past.getDate()).padStart(2, '0');
+      const mm = String(past.getMonth() + 1).padStart(2, '0');
+      const yyyy = past.getFullYear();
+      const hh = String(past.getHours()).padStart(2, '0');
+      const mi = String(past.getMinutes()).padStart(2, '0');
       mockGeminiGenerate.mockResolvedValue({
         text: JSON.stringify({
           amount: 15000,
           recipientPhone: '929423278',
           entity: null,
           reference: null,
-          date: `${dd}/${mm}/${yyyy} 01:26`,
+          date: `${dd}/${mm}/${yyyy} ${hh}:${mi}`,
           transactionId: 'TXN12345',
           isMulticaixa: true,
           rawText: 'Pagamento Multicaixa Express 15000 Kz Confirmado',

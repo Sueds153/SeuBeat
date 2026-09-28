@@ -22,6 +22,7 @@ vi.mock('../services/metaPixelCapi', () => ({
   sendLeadEvent: vi.fn().mockResolvedValue(true),
   sendCompleteRegistrationEvent: vi.fn().mockResolvedValue(true),
   sendPurchaseEvent: vi.fn().mockResolvedValue(true),
+  sendRefundEvent: vi.fn().mockResolvedValue(true),
 }));
 vi.mock('../services/email', () => ({
   sendPersonalizedEmail: vi.fn().mockResolvedValue(true),
@@ -52,6 +53,7 @@ import {
   sendAddPaymentInfoEvent,
   sendSubmitApplicationEvent,
   sendPurchaseEvent,
+  sendRefundEvent,
   generateServerEventId,
 } from '../services/metaPixelCapi';
 import publicRouter from '../routes/public';
@@ -75,6 +77,21 @@ afterAll(() => {
   server = null;
 });
 
+let prevNodeEnv: string | undefined;
+
+// O paymentLimiter (20 req/h/IP) é partilhado por todo o ficheiro e não há
+// reset disponível no handler v8 (só resetKey, com chave por IP). Nenhum teste
+// aqui valida rate limiting, por isso contornamos o limite nestes describes
+// via skip() do rateLimiter (isDevelopment()).
+function disablePaymentRateLimit() {
+  prevNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'development';
+}
+
+function restoreNodeEnv() {
+  process.env.NODE_ENV = prevNodeEnv;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -87,6 +104,8 @@ interface SupabaseMockOpts {
   updateError?: unknown;
   insertResult?: { data: unknown; error: unknown };
   existingHashPayment?: unknown;
+  /** Linha devolvida pelo SELECT meta_purchase_sent_at (Refund condicional). */
+  paymentFlagRow?: unknown;
 }
 
 function buildSupabaseMock(opts: SupabaseMockOpts) {
@@ -106,6 +125,10 @@ function buildSupabaseMock(opts: SupabaseMockOpts) {
         // proof_hash dedup check: eq('proof_hash', ...) + neq('request_id', ...)
         if (filters.some(f => f.startsWith('proof_hash=')) && hasNeq) {
           return { data: opts.existingHashPayment ?? null, error: null };
+        }
+        // SELECT meta_purchase_sent_at por id (sem filtro de status) — Refund
+        if (filters.some(f => f.startsWith('id=')) && !filters.some(f => f.startsWith('status='))) {
+          return { data: opts.paymentFlagRow ?? null, error: null };
         }
       }
       if (table === 'song_requests') return { data: opts.requestRow ?? null, error: null };
@@ -252,10 +275,11 @@ describe('POST /api/submit-payment — guarda contra rebaixamento de pedidos apr
     expect(paymentInsert).toBeDefined();
     expect(paymentInsert!.plan).toBe('standard');
 
-    const usdValue = 6.58;
-    expect(sendInitiateCheckoutEvent).toHaveBeenCalledWith(expect.objectContaining({ value: usdValue, currency: 'USD' }));
-    expect(sendAddPaymentInfoEvent).toHaveBeenCalledWith(expect.objectContaining({ value: usdValue, currency: 'USD' }));
-    expect(sendSubmitApplicationEvent).toHaveBeenCalledWith(expect.objectContaining({ value: usdValue, currency: 'USD' }));
+    // Valores em AOA — o mesmo que o browser envia (dedup não pode ver duas moedas)
+    const aoaValue = 7900;
+    expect(sendInitiateCheckoutEvent).toHaveBeenCalledWith(expect.objectContaining({ value: aoaValue, currency: 'AOA' }));
+    expect(sendAddPaymentInfoEvent).toHaveBeenCalledWith(expect.objectContaining({ value: aoaValue, currency: 'AOA' }));
+    expect(sendSubmitApplicationEvent).toHaveBeenCalledWith(expect.objectContaining({ value: aoaValue, currency: 'AOA' }));
     // #2: response expõe paymentStatus p/ o browser condicionar fbPurchase
     expect(body.paymentStatus).toBe('pending_verification');
     // #1: CAPI Purchase usa eventID do songRequestId (dedup c/ browser) e grava flag
@@ -754,5 +778,185 @@ describe('POST /api/submit-payment — auto-approve pela AI inicia geração da 
     );
     expect(autoUpdate).toBeTruthy();
     expect(runBackgroundSunoWorkflow).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/submit-payment — fbp/fbc + normalização de valor (Fase 1 Meta)', () => {
+  beforeEach(disablePaymentRateLimit);
+  afterEach(restoreNodeEnv);
+
+  it('encaminha fbp/fbc do browser para os eventos CAPI (em user_data sem hash)', async () => {
+    const base = await startServer();
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: { status: 'payment_submitted' },
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...validBody(),
+        fbp: 'fb.1.1759000000000000',
+        fbc: 'fb.1.abc.def',
+        eventIds: {
+          initiateCheckout: 'ic-client-1',
+          addPaymentInfo: 'api-client-1',
+          submitApplication: 'sa-client-1',
+        },
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(sendInitiateCheckoutEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ fbp: 'fb.1.1759000000000000', fbc: 'fb.1.abc.def', eventId: 'ic-client-1' })
+    );
+    expect(sendAddPaymentInfoEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ fbp: 'fb.1.1759000000000000', fbc: 'fb.1.abc.def', eventId: 'api-client-1' })
+    );
+    expect(sendPurchaseEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ fbp: 'fb.1.1759000000000000', fbc: 'fb.1.abc.def', orderId: 'pay-1' })
+    );
+  });
+
+  it('amount fora do catálogo cai no preço base do plano (sanitize) na BD e na CAPI', async () => {
+    const base = await startServer();
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: { status: 'payment_submitted' },
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), amount: 999999 }),
+    });
+
+    expect(res.status).toBe(200);
+    const inserted = sb.insertCalls[0] as Record<string, unknown>;
+    expect(inserted.amount).toBe(7900);
+    expect(inserted.amount_kz).toBe(7900);
+    expect(sendPurchaseEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ value: 7900, currency: 'AOA' })
+    );
+    expect(sendInitiateCheckoutEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ value: 7900, currency: 'AOA' })
+    );
+  });
+
+  it('amount válido do catálogo não é alterado', async () => {
+    const base = await startServer();
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: { status: 'payment_submitted' },
+      insertResult: { data: { id: 'pay-1' }, error: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), plan: 'express', amount: 9900 }),
+    });
+
+    expect(res.status).toBe(200);
+    expect((sb.insertCalls[0] as Record<string, unknown>).amount).toBe(9900);
+    expect(sendPurchaseEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ value: 9900, currency: 'AOA' })
+    );
+  });
+});
+
+describe('POST /api/submit-payment — Refund só quando já houve Purchase', () => {
+  beforeEach(disablePaymentRateLimit);
+
+  function autoRejectResult(): VerificationResult {
+    return {
+      decision: 'auto_reject',
+      confidence: 0.4,
+      provider: 'test',
+      checks: [{ name: 'Montante', passed: false, expected: '7900', actual: '100' }],
+      extracted: { transactionId: 'TX-REJ-1' },
+    } as unknown as VerificationResult;
+  }
+
+  function proofBody() {
+    const proofBuf = Buffer.alloc(200, 0xef);
+    return {
+      proofBase64: `data:application/octet-stream;base64,${proofBuf.toString('base64')}`,
+    };
+  }
+
+  afterEach(() => {
+    vi.mocked(verifyPaymentProof).mockReset();
+    vi.mocked(isTxIdAcceptable).mockReset();
+    restoreNodeEnv();
+  });
+
+  it('com meta_purchase_sent_at preenchido: envia Refund em AOA', async () => {
+    const base = await startServer();
+    vi.mocked(verifyPaymentProof).mockResolvedValue(autoRejectResult());
+    vi.mocked(isTxIdAcceptable).mockReturnValue(true);
+
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: { status: 'payment_submitted' },
+      insertResult: { data: { id: 'pay-1' }, error: null },
+      paymentFlagRow: { meta_purchase_sent_at: '2026-09-27T10:00:00Z' },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), ...proofBody() }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.paymentStatus).toBe('rejected');
+    expect(sendRefundEvent).toHaveBeenCalledTimes(1);
+    expect(sendRefundEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        value: 7900,
+        currency: 'AOA',
+        contentName: 'standard',
+        orderId: 'pay-1',
+      })
+    );
+    // O Purchase não volta a ser enviado para um pagamento rejeitado
+    expect(sendPurchaseEvent).not.toHaveBeenCalled();
+  });
+
+  it('sem Purchase prévio (flag vazia): NÃO envia Refund', async () => {
+    const base = await startServer();
+    vi.mocked(verifyPaymentProof).mockResolvedValue(autoRejectResult());
+    vi.mocked(isTxIdAcceptable).mockReturnValue(true);
+
+    const sb = buildSupabaseMock({
+      pendingPayment: null,
+      approvedPayment: null,
+      requestRow: { status: 'payment_submitted' },
+      insertResult: { data: { id: 'pay-1' }, error: null },
+      paymentFlagRow: { meta_purchase_sent_at: null },
+    });
+    (getAdminSupabase as ReturnType<typeof vi.fn>).mockReturnValue(sb.mock);
+
+    const res = await fetch(`${base}/api/submit-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validBody(), ...proofBody() }),
+    });
+
+    expect(res.status).toBe(200);
+    expect(sendRefundEvent).not.toHaveBeenCalled();
   });
 });
