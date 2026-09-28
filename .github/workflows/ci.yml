@@ -41,7 +41,7 @@ jobs:
             sleep 3
           done
           echo "Running E2E tests..."
-          npx playwright test --reporter=list 2>&1
+          npx playwright test 2>&1
           EXIT_CODE=$?
           echo "E2E exit code: $EXIT_CODE"
           kill $SERVER_PID 2>/dev/null || true
@@ -57,6 +57,11 @@ jobs:
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+      - name: E2E failure summary
+        if: failure()
+        shell: bash
+        run: |
+          node scripts/e2e-failures-summary.mjs >> "$GITHUB_STEP_SUMMARY" 2>&1 || true
       - name: Debug logs
         if: failure()
         shell: bash
