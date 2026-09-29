@@ -34,7 +34,10 @@ function sessionDrift(sessionStartMs: number, nowMs: number): number {
 
 /** Número apresentado para um dado momento. Exportado para testes. */
 export function deliveredCountAt(now: Date, sessionStartMs: number): number {
-  return DELIVERED_BASE + dailyDrift(now) + sessionDrift(sessionStartMs, now.getTime());
+  const base = DELIVERED_BASE + dailyDrift(now) + sessionDrift(sessionStartMs, now.getTime());
+  // Nunca apresentar múltiplos de 10 (parecem arredondados/fictícios):
+  // +1 determinístico mantém a estabilidade por dia/sessão.
+  return base % 10 === 0 ? base + 1 : base;
 }
 
 /**

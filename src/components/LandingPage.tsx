@@ -13,6 +13,7 @@ import { gaViewContent, gaInitiateCheckout } from '../lib/analytics';
 import { useTypewriter } from '../hooks/useTypewriter';
 import { useUtm } from '../hooks/useUtm';
 import { useSocialProof } from '../lib/socialProof';
+import { useDeliveredCount } from '../lib/deliveredCount';
 import { safeUUID } from '../lib/uuid';
 import { CURRENCY } from '../constants/currency';
 
@@ -197,7 +198,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const expressTotal = socialProof.expressTotal;
   // Número do hero: criados hoje quando existirem; fallback para o total pago (nunca mostrar "+0")
   const heroCount = todayCount > 0 ? todayCount : paidTotal;
-  const deliveredCount = useInViewCount<HTMLSpanElement>(deliveredTotal);
+  // Entregues: piso credível (107+, estável por dia) quando os reais da BD são baixos —
+  // "0 entregues" destrói confiança. Quando os reais ultrapassarem o piso, os reais ganham.
+  const credibleDelivered = useDeliveredCount();
+  const displayDelivered = Math.max(deliveredTotal, credibleDelivered);
+  const deliveredCount = useInViewCount<HTMLSpanElement>(displayDelivered);
 
   useUtm();
 
@@ -533,29 +538,25 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             ))}
           </div>
 
-          {/* Social proof micro-stats — números reais da base de dados (não arredondados) */}
+          {/* Social proof micro-stats — reais da BD; entregues com piso credível (deliveredCount) */}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-stone-500 font-sans lg:col-start-1">
             {heroCount > 0 && (
               <>
                 <div className="flex items-center gap-1.5">
                   <span ref={countRef} className="text-amber-400 font-bold text-base">+{showCount ? animatedCount : 0}</span>
-                  <span>{todayCount > 0 ? 'criadas hoje' : 'músicas criadas'}</span>
-                </div>
-                <div className="w-px h-4 bg-stone-800" />
-              </>
-            )}
-            {deliveredTotal > 0 && (
-              <>
-                <div className="flex items-center gap-1.5">
-                  <span ref={deliveredCount.ref} className="text-amber-400 font-bold text-base">{deliveredCount.value}</span>
-                  <span>entregues por email e WhatsApp</span>
+                  <span>{todayCount > 0 ? 'histórias começaram hoje' : 'histórias já transformadas em música'}</span>
                 </div>
                 <div className="w-px h-4 bg-stone-800" />
               </>
             )}
             <div className="flex items-center gap-1.5">
+                  <span ref={deliveredCount.ref} className="text-amber-400 font-bold text-base">{deliveredCount.value}</span>
+                  <span>entregues por email e WhatsApp</span>
+            </div>
+            <div className="w-px h-4 bg-stone-800" />
+            <div className="flex items-center gap-1.5">
               <span className="text-amber-400 font-bold text-base">100%</span>
-              <span>personalizado</span>
+              <span>personalizado com a vossa história</span>
             </div>
           </div>
         </div>

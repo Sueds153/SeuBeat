@@ -33,6 +33,21 @@ test('mobile: landing sem erros de console + reveals + sticky CTA com histerese'
   expect(shine).not.toBe('MISSING');
   expect((shine as { anim: string }).anim).toContain('cta-shine');
 
+  // Micro-stats: entregues com piso credível (≥107) — nunca "0 entregues".
+  // O count-up só dispara ao entrar no viewport → scroll até à linha primeiro.
+  const deliveredLabel = page.locator('span:has-text("entregues por email")').first();
+  await deliveredLabel.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(1700); // count-up 1.2s + margem
+  const delivered = await page.evaluate(() => {
+    const spans = Array.from(document.querySelectorAll('span'));
+    const label = spans.find(s => /entregues por email/.test(s.textContent || ''));
+    if (!label) return null;
+    const value = label.parentElement?.querySelector('span')?.textContent || '';
+    return parseInt(value.replace(/\D/g, ''), 10);
+  });
+  console.log('[AUDIT] Entregues apresentados:', delivered);
+  expect(delivered).toBeGreaterThanOrEqual(107);
+
   // 2. Como Funciona → reveals disparam (opacity 0 → 1)
   await page.locator('#how-it-works-section').scrollIntoViewIfNeeded();
   await page.waitForTimeout(1100);
