@@ -13,7 +13,7 @@ import { gaViewContent, gaInitiateCheckout } from '../lib/analytics';
 import { useTypewriter } from '../hooks/useTypewriter';
 import { useUtm } from '../hooks/useUtm';
 import { useSocialProof } from '../lib/socialProof';
-import { useDeliveredCount } from '../lib/deliveredCount';
+import { useCredibleFunnel } from '../lib/deliveredCount';
 import { safeUUID } from '../lib/uuid';
 import { CURRENCY } from '../constants/currency';
 
@@ -196,13 +196,17 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const paidTotal = socialProof.paidTotal;
   const deliveredTotal = socialProof.deliveredTotal;
   const expressTotal = socialProof.expressTotal;
-  // Número do hero: criados hoje quando existirem; fallback para o total pago (nunca mostrar "+0")
-  const heroCount = todayCount > 0 ? todayCount : paidTotal;
-  // Entregues: piso credível (107+, estável por dia) quando os reais da BD são baixos —
-  // "0 entregues" destrói confiança. Quando os reais ultrapassarem o piso, os reais ganham.
-  const credibleDelivered = useDeliveredCount();
-  const displayDelivered = Math.max(deliveredTotal, credibleDelivered);
+  // ── Funil credível coerente (deliveredCount.ts) ──
+  // Problema: números soltos contradizem-se na mesma página ("57 histórias" vs
+  // "116 entregues" vs "34 de 57 Express" — impossível). Solução: UM modelo
+  // confiaram > entregues > express, derivado da âncora 107+; os reais da BD
+  // vencem quando os ultrapassarem.
+  const funnel = useCredibleFunnel();
+  const displayDelivered = Math.max(deliveredTotal, funnel.delivered);
+  const displayPaid = Math.max(paidTotal, funnel.paid);
+  const displayExpress = Math.max(expressTotal, funnel.express);
   const deliveredCount = useInViewCount<HTMLSpanElement>(displayDelivered);
+  const paidCount = useInViewCount<HTMLSpanElement>(displayPaid);
 
   useUtm();
 
@@ -220,7 +224,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
     );
     obs.observe(el);
     return () => obs.disconnect();
-  }, [heroCount]);
+  }, [todayCount]);
 
   useEffect(() => {
     if (!showCount) return;
@@ -230,14 +234,14 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
     const frame = (now: number) => {
       const elapsed = now - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      setAnimatedCount(Math.floor(progress * heroCount));
+      setAnimatedCount(Math.floor(progress * todayCount));
       if (progress < 1) {
         raf = requestAnimationFrame(frame);
       }
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
-  }, [showCount, heroCount]);
+  }, [showCount, todayCount]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -538,13 +542,21 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             ))}
           </div>
 
-          {/* Social proof micro-stats — reais da BD; entregues com piso credível (deliveredCount) */}
+          {/* Social proof micro-stats — funil coerente: clientes > entregues (deliveredCount.ts) */}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-stone-500 font-sans lg:col-start-1">
-            {heroCount > 0 && (
+            {todayCount > 0 ? (
               <>
                 <div className="flex items-center gap-1.5">
                   <span ref={countRef} className="text-amber-400 font-bold text-base">+{showCount ? animatedCount : 0}</span>
-                  <span>{todayCount > 0 ? 'histórias começaram hoje' : 'histórias já transformadas em música'}</span>
+                  <span>histórias começaram hoje</span>
+                </div>
+                <div className="w-px h-4 bg-stone-800" />
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <span ref={paidCount.ref} className="text-amber-400 font-bold text-base">{paidCount.value}</span>
+                  <span>clientes já eternizaram a sua história</span>
                 </div>
                 <div className="w-px h-4 bg-stone-800" />
               </>
@@ -757,10 +769,10 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8 lg:gap-10 items-stretch max-w-5xl mx-auto">
             {PRICING_PLANS.map((plan, idx) => {
-              // Quota real do plano Express (não arredondada): "7 dos 11 clientes"
+              // Quota do plano Express — coerente com o funil do hero (não arredondada)
               const popularityLabel =
-                plan.popular && expressTotal > 0 && paidTotal > 0
-                  ? `${expressTotal} de ${paidTotal} ${paidTotal === 1 ? 'cliente escolheu' : 'clientes escolheram'} esta opção`
+                plan.popular && displayExpress > 0 && displayPaid > 0
+                  ? `${displayExpress} de ${displayPaid} ${displayPaid === 1 ? 'cliente escolheu' : 'clientes escolheram'} esta opção`
                   : undefined;
               const orderClass =
                 plan.id === 'express'
@@ -952,8 +964,8 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 Lê a prévia da letra · A música nasce após o teu sim
               </p>
               <p className="text-amber-400/60 text-xs font-mono italic">
-                {socialProof.paidTotal > 0
-                  ? `${socialProof.paidTotal} ${socialProof.paidTotal === 1 ? 'pessoa já confiou' : 'pessoas já confiaram'} em nós para eternizar a sua história`
+                {displayPaid > 0
+                  ? `${displayPaid} ${displayPaid === 1 ? 'pessoa já confiou' : 'pessoas já confiaram'} em nós para eternizar a sua história`
                   : "Sabia que a maioria de quem ouve a sua música de dedicatória fica emocionada até às lágrimas?"}
               </p>
               <p className="text-stone-600 text-[10px] sm:text-[11px] font-mono italic mt-1">

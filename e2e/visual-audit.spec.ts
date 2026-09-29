@@ -48,6 +48,17 @@ test('mobile: landing sem erros de console + reveals + sticky CTA com histerese'
   console.log('[AUDIT] Entregues apresentados:', delivered);
   expect(delivered).toBeGreaterThanOrEqual(107);
 
+  // Coerência do funil: "clientes" nunca menor que "entregues" na mesma página
+  const clients = await page.evaluate(() => {
+    const spans = Array.from(document.querySelectorAll('span'));
+    const label = spans.find(s => /já eternizaram a sua história/.test(s.textContent || ''));
+    if (!label) return null;
+    const value = label.parentElement?.querySelector('span')?.textContent || '';
+    return parseInt(value.replace(/\D/g, ''), 10);
+  });
+  console.log('[AUDIT] Clientes apresentados:', clients);
+  if (clients !== null) expect(clients).toBeGreaterThanOrEqual(delivered ?? 0);
+
   // 2. Como Funciona → reveals disparam (opacity 0 → 1)
   await page.locator('#how-it-works-section').scrollIntoViewIfNeeded();
   await page.waitForTimeout(1100);

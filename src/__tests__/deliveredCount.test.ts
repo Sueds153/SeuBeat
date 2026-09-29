@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deliveredCountAt } from '../lib/deliveredCount';
+import { deliveredCountAt, credibleFunnelAt } from '../lib/deliveredCount';
 
 /**
  * Piso credível de entregues apresentado na landing.
@@ -52,5 +52,19 @@ describe('deliveredCountAt — piso credível de entregues', () => {
     expect(long4h - short).toBeLessThanOrEqual(3); // 4h ≈ 2 increments (270m) → +2
     expect(long12h - short).toBeLessThanOrEqual(5); // cap de +5
     expect(long12h).toBeGreaterThanOrEqual(short);
+  });
+
+  it('funil credível: pagantes > entregues, nunca redondos', () => {
+    for (let day = 0; day < 90; day++) {
+      const now = new Date(2026, 0, 1 + day, 12, 0, 0);
+      const f = credibleFunnelAt(now, now.getTime());
+      expect(f.paid).toBeGreaterThan(f.delivered); // alguém está sempre em produção
+      expect(f.express).toBeGreaterThanOrEqual(1);
+      expect(f.express).toBeLessThanOrEqual(f.paid);
+      expect(f.paid % 10).not.toBe(0);
+      // Rácio Express ~60% (real 34/57)
+      expect(f.express / f.paid).toBeGreaterThan(0.5);
+      expect(f.express / f.paid).toBeLessThanOrEqual(0.65);
+    }
   });
 });
