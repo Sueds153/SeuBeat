@@ -5,7 +5,7 @@ import { getAppUrl } from '../../utils/helpers';
 export async function sendPaymentRejectionEmail(userEmail: string, notes?: string) {
   return sendWithRetry(userEmail, 'Verificação de comprovativo — SeuBeat', `
     <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
-      <h2 style="color:#f59e0b">ℹ️ Comprovativo não validado</h2>
+      <h2 style="color:#f59e0b">Comprovativo não validado</h2>
       <p>Não conseguimos validar o seu comprovativo de pagamento.</p>
       ${notes ? `<p>Motivo: <strong>${safeStr(notes)}</strong></p>` : ''}
       <p>Por favor, submeta novamente ou contacte-nos em suporte@seubeat.ao para assistência.</p>
@@ -23,7 +23,7 @@ export async function sendRejectedReminderEmail(userEmail: string, recipientName
   const firstName = safeStr((recipientName || '').trim().split(' ')[0]);
   return sendWithRetry(userEmail, 'Podes enviar um novo comprovativo — SeuBeat', `
     <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
-      <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">🔄</span></div>
+      <div style="text-align:center;margin-bottom:24px;"><span style="font-family:Georgia,serif;font-size:30px;line-height:1;color:#f59e0b;">♪</span></div>
       <h2 style="color:#f59e0b;text-align:center;">O pagamento pode ser reenviado</h2>
       <p>Olá${firstName ? ' ' + firstName : ''},</p>
       <p>O seu comprovativo de pagamento não foi validado automaticamente.</p>

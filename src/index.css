@@ -38,10 +38,33 @@ html, body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}@keyframes pulse-slow { 50% { opacity: .7; }
 }
-
-@keyframes pulse-slow { 50% { opacity: .7; } }
 .animate-pulse-slow { animation: pulse-slow 3s infinite; }
+
+/* ─── CTA shine sweep ────────────────────────────────────────────────
+   Destaque periódico do CTA primário. Só transform (compositável —
+   zero repaint) e desativado para prefers-reduced-motion. */
+@keyframes cta-shine {
+  0%, 86% { transform: translateX(-120%) skewX(-18deg); }
+  96%, 100% { transform: translateX(230%) skewX(-18deg); }
+}
+.cta-shine { position: relative; overflow: hidden; }
+.cta-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(105deg, transparent, rgba(255,255,255,0.22), transparent);
+  transform: translateX(-120%) skewX(-18deg);
+  animation: cta-shine 4.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cta-shine::after { animation: none; transform: translateX(-120%) skewX(-18deg); }
+}
 
 @keyframes fadeIn {
   from { opacity: 0; }

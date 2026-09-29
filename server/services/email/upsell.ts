@@ -5,7 +5,7 @@ export async function sendVideoUpsellOfferEmail(userEmail: string, recipientName
   const safeName = safeStr(recipientName || 'Cliente');
   const safeTitle = safeStr(songTitle || 'a tua música');
 
-  return sendWithRetry(userEmail, `🎬 Transforma "${safeTitle}" num Videoclipe Emocional — SeuBeat`, `
+  return sendWithRetry(userEmail, `Transforma "${safeTitle}" num Videoclipe Emocional — SeuBeat`, `
     <!DOCTYPE html>
     <html lang="pt">
     <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -16,7 +16,7 @@ export async function sendVideoUpsellOfferEmail(userEmail: string, recipientName
       <div style="background:linear-gradient(135deg,#1c1410 0%,#2d1a0a 50%,#1a0f1e 100%);padding:48px 32px 40px;text-align:center;position:relative;">
         <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#f59e0b,#db2777,#a855f7);"></div>
         <div style="width:72px;height:72px;background:rgba(245,158,11,0.12);border:2px solid rgba(245,158,11,0.3);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px;">
-          <span style="font-size:32px;">🎬</span>
+          <span style="font-family:Georgia,serif;font-size:26px;line-height:1;color:#f59e0b;">►</span>
         </div>
         <h1 style="font-family:Georgia,serif;color:#f59e0b;font-size:26px;margin:0 0 10px;font-weight:800;letter-spacing:-0.5px;">
           Transforma a tua música num Videoclipe
@@ -36,7 +36,7 @@ export async function sendVideoUpsellOfferEmail(userEmail: string, recipientName
             Queres transformá-la num <strong>Videoclipe Emocional</strong> com as tuas fotos e vídeos pessoais por apenas <strong style="color:#fbbf24;">2.900 Kz</strong>?
           </p>
           <p style="font-size:13px;color:#a8a29e;margin:12px 0 0;line-height:1.6;">
-            🎻 Música + 📸 Fotos/Vídeos = 💖 Um presente inesquecível
+            <em>Música + Fotos/Vídeos = Um presente inesquecível</em>
           </p>
         </div>
       </div>
@@ -44,7 +44,7 @@ export async function sendVideoUpsellOfferEmail(userEmail: string, recipientName
       <!-- CTA Button -->
       <div style="padding:32px;text-align:center;">
         <a href="${upsellUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#db2777,#a855f7);color:#fff;font-weight:800;font-size:15px;text-decoration:none;padding:16px 40px;border-radius:14px;box-shadow:0 6px 20px rgba(219,39,119,0.35);letter-spacing:0.3px;">
-          🎬 Quero o Videoclipe — 2.900 Kz
+          Quero o Videoclipe — 2.900 Kz
         </a>
         <p style="font-size:12px;color:#78716c;margin:12px 0 0;">Pagamento seguro via Multicaixa Express ou Referência</p>
       </div>

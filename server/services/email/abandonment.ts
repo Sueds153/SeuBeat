@@ -19,9 +19,9 @@ export function abandonedTeaserHtml(recipientName: string, songTitle?: string, l
 
 export async function sendAbandonedFirstReminder(userEmail: string, recipientName: string, requestId: string, songTitle?: string, lyricsSnippet?: string) {
   const resumeUrl = `${getAppUrl()}/wizard?resume=${encodeURIComponent(requestId)}&step=payment`;
-  return sendWithRetry(userEmail, 'A música para ' + (safeStr(recipientName.split(' ')[0]) || 'si') + ' já está pronta 🎵', `
+  return sendWithRetry(userEmail, 'A música para ' + (safeStr(recipientName.split(' ')[0]) || 'si') + ' já está pronta — SeuBeat', `
     <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
-      <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">⏳</span></div>
+      <div style="text-align:center;margin-bottom:24px;"><span style="font-family:Georgia,serif;font-size:30px;line-height:1;color:#f59e0b;">♪</span></div>
       <h2 style="color:#f59e0b;text-align:center;">A sua música está quase pronta!</h2>
       <p>Olá${safeStr(recipientName) ? ' ' + safeStr(recipientName) : ''},</p>
       <p>Recebemos o seu pedido e a letra já foi criada com todo o carinho. Falta apenas <strong>confirmar o seu plano</strong> para receber a música personalizada.</p>
@@ -39,9 +39,9 @@ export async function sendAbandonedFirstReminder(userEmail: string, recipientNam
 
 export async function sendAbandonedSecondReminder(userEmail: string, recipientName: string, requestId: string, songTitle?: string, lyricsSnippet?: string) {
   const resumeUrl = `${getAppUrl()}/wizard?resume=${encodeURIComponent(requestId)}&step=payment`;
-  return sendWithRetry(userEmail, 'Ainda vai a tempo 🎶', `
+  return sendWithRetry(userEmail, 'Ainda vai a tempo — SeuBeat', `
     <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
-      <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">🎶</span></div>
+      <div style="text-align:center;margin-bottom:24px;"><span style="font-family:Georgia,serif;font-size:30px;line-height:1;color:#f59e0b;">♪</span></div>
       <h2 style="color:#f59e0b;text-align:center;">Não deixe para depois o que pode emocionar hoje</h2>
       <p>Olá${safeStr(recipientName) ? ' ' + safeStr(recipientName) : ''},</p>
       <p>Há uns dias começou a criar uma música personalizada para alguém especial. A letra já está pronta e à sua espera!</p>
@@ -58,9 +58,9 @@ export async function sendAbandonedSecondReminder(userEmail: string, recipientNa
 
 export async function sendAbandonedThirdReminder(userEmail: string, recipientName: string, requestId: string, songTitle?: string, lyricsSnippet?: string) {
   const resumeUrl = `${getAppUrl()}/wizard?resume=${encodeURIComponent(requestId)}&step=payment`;
-  return sendWithRetry(userEmail, 'A sua música ainda está à sua espera ⏳', `
+  return sendWithRetry(userEmail, 'A sua música ainda está à sua espera — SeuBeat', `
     <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
-      <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">⏰</span></div>
+      <div style="text-align:center;margin-bottom:24px;"><span style="font-family:Georgia,serif;font-size:30px;line-height:1;color:#f59e0b;">♪</span></div>
       <h2 style="color:#ef4444;text-align:center;">A sua música está pronta há 48 horas</h2>
       <p>Olá${safeStr(recipientName) ? ' ' + safeStr(recipientName) : ''},</p>
       <p>A sua música personalizada está pronta há mais de 48 horas e continua guardada. <strong>Os nossos lembretes estão a terminar.</strong></p>
@@ -78,9 +78,9 @@ export async function sendAbandonedThirdReminder(userEmail: string, recipientNam
 
 export async function sendAbandonedFourthReminder(userEmail: string, recipientName: string, requestId: string, songTitle?: string, lyricsSnippet?: string) {
   const resumeUrl = `${getAppUrl()}/wizard?resume=${encodeURIComponent(requestId)}&step=payment`;
-  return sendWithRetry(userEmail, 'Última chamada: a sua música está à sua espera 🎵', `
+  return sendWithRetry(userEmail, 'Última chamada: a sua música está à sua espera — SeuBeat', `
     <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
-      <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">🎵</span></div>
+      <div style="text-align:center;margin-bottom:24px;"><span style="font-family:Georgia,serif;font-size:30px;line-height:1;color:#f59e0b;">♪</span></div>
       <h2 style="color:#ef4444;text-align:center;">A sua música continua guardada</h2>
       <p>Olá${safeStr(recipientName) ? ' ' + safeStr(recipientName) : ''},</p>
       <p>Já passaram 72 horas desde que a sua letra foi gerada. <strong>Este é um dos últimos avisos que lhe enviamos.</strong></p>
@@ -98,9 +98,9 @@ export async function sendAbandonedFourthReminder(userEmail: string, recipientNa
 
 export async function sendAbandonedFifthReminder(userEmail: string, recipientName: string, requestId: string, songTitle?: string, lyricsSnippet?: string) {
   const resumeUrl = `${getAppUrl()}/wizard?resume=${encodeURIComponent(requestId)}&step=payment`;
-  return sendWithRetry(userEmail, 'A sua música ainda está à sua espera 🎵', `
+  return sendWithRetry(userEmail, 'A sua música ainda está à sua espera — SeuBeat', `
     <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
-      <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">🎵</span></div>
+      <div style="text-align:center;margin-bottom:24px;"><span style="font-family:Georgia,serif;font-size:30px;line-height:1;color:#f59e0b;">♪</span></div>
       <h2 style="color:#f59e0b;text-align:center;">Não deixe esta história ficar por contar</h2>
       <p>Olá${safeStr(recipientName) ? ' ' + safeStr(recipientName) : ''},</p>
       <p>Já passou uma semana e a sua música personalizada continua guardada à sua espera. Cada dia sem a enviar é um dia em que esse momento especial espera por ser eternizado.</p>

@@ -3,9 +3,10 @@ import {
   ArrowRight, ArrowLeft, Heart, Sparkles, Check, Upload,
   Mic, Mail, Eye, Lock, RefreshCw, AlertTriangle, ShieldCheck, Copy,
   Send, FileText, Cake, Heart as HeartIcon, GraduationCap, Home, Baby, Star, Sparkles as SparklesIcon, Calendar, Gift, Music, User, MessageSquare, Crown, PartyPopper, HelpCircle, ChevronDown, ChevronUp, Search, X,
-  HeartOff, Users, Handshake, Briefcase, Plus, Guitar, TreePalm, Leaf, Landmark, Shuffle, Drum, Gem, Smile, Flame
+  HeartOff, Users, Handshake, Briefcase, Plus, Guitar, TreePalm, Leaf, Landmark, Shuffle, Drum, Gem, Smile, Flame,
+  Zap as ZapIcon, Music as MusicIcon, Heart as HeartSolidIcon, BadgeCheck
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import StepErrorBoundary from './StepErrorBoundary';
 import { 
   WizardData, INITIAL_WIZARD_DATA, RecipientType, OccasionType, 
@@ -1513,6 +1514,11 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     }
   };
 
+  // Transição direcional entre passos: Avançar desliza da direita, Retroceder da esquerda.
+  // Respeita prefers-reduced-motion (apenas fade).
+  const [stepDirection, setStepDirection] = useState<'forward' | 'back'>('forward');
+  const wizardReducedMotion = useReducedMotion();
+
   const handleNext = () => {
     const errors = zodValidateStep(step, formData as unknown as Record<string, unknown>);
     setFieldErrors(errors);
@@ -1525,6 +1531,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
     if (step < 5) {
       const nextStepNum = step + 1;
+      setStepDirection('forward');
       setStep(nextStepNum);
       fbWizardStep(`step_${nextStepNum}`, nextStepNum, safeUUID());
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1578,6 +1585,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
 
   const handleBack = () => {
     if (step > 1) {
+      setStepDirection('back');
       setStep(step - 1);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
@@ -2495,7 +2503,7 @@ const ROTATING_MESSAGES = [
                 No passo seguinte vamos pedir-te para <strong className="text-amber-400">gravar uma frase específica</strong> (de preferência a cantar) para validarmos o teu timbre.
               </p>
               <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 space-y-1.5">
-                <span className="text-[9px] text-amber-400 font-mono uppercase tracking-wider block">⚡ Quanto melhor a gravação, mais a música vai parecer TU a cantar</span>
+                <span className="text-[9px] text-amber-400 font-mono uppercase tracking-wider flex items-center gap-1"><ZapIcon className="w-3 h-3" />Quanto melhor a gravação, mais a música vai parecer TU a cantar</span>
                 <div className="flex flex-col gap-1">
                   <span className="text-stone-400 text-[10px] leading-snug flex items-start gap-1.5">
                     <span className="text-amber-400 mt-px">→</span> Grava num local <strong className="text-stone-200">sem ruído</strong> (TV, vento, conversas)
@@ -2693,7 +2701,7 @@ const ROTATING_MESSAGES = [
                   ) : (
                     <>
                       <div className="bg-rose-500/10 border border-rose-500/25 rounded-xl p-3 space-y-1">
-                        <span className="text-[9px] text-rose-400 font-mono uppercase tracking-wider block">⚡ Esta é a gravação mais importante</span>
+                        <span className="text-[9px] text-rose-400 font-mono uppercase tracking-wider flex items-center gap-1"><ZapIcon className="w-3 h-3" />Esta é a gravação mais importante</span>
                         <p className="text-stone-300 text-[10px] leading-snug">
                           Lê a frase em voz alta e com clareza — <strong className="text-stone-100">de preferência a cantar</strong>.
                           É <strong className="text-stone-100">esta gravação</strong> que define como a tua voz vai soar na música final.
@@ -2813,15 +2821,15 @@ const ROTATING_MESSAGES = [
                         decoding="async"
                       />
                     </div>
-                    <div className="absolute -bottom-1 -right-1 bg-stone-900 border border-amber-500/40 rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-md">
-                      ❤️
+                    <div className="absolute -bottom-1 -right-1 bg-stone-900 border border-amber-500/40 rounded-full w-6 h-6 flex items-center justify-center shadow-md">
+                      <HeartSolidIcon className="w-3 h-3 text-rose-500 fill-rose-500" />
                     </div>
                   </div>
                 );
               }
               return (
                 <div className="w-16 h-16 bg-amber-500/10 rounded-full border border-amber-500/20 flex items-center justify-center mx-auto shadow-inner mb-4">
-                  <span className="text-2xl">🎵</span>
+                  <MusicIcon className="w-7 h-7 text-amber-400" />
                 </div>
               );
             })()}
@@ -3495,10 +3503,10 @@ const ROTATING_MESSAGES = [
               <AnimatePresence mode="wait">
                 <motion.div
                   key={step}
-                  initial={{ opacity: 0, x: 12 }}
+                  initial={wizardReducedMotion ? { opacity: 0 } : { opacity: 0, x: stepDirection === 'forward' ? 28 : -28 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -12 }}
-                  transition={{ duration: 0.2 }}
+                  exit={wizardReducedMotion ? { opacity: 0 } : { opacity: 0, x: stepDirection === 'forward' ? -28 : 28 }}
+                  transition={{ duration: 0.28, ease: 'easeOut' }}
                   className="space-y-6 flex-grow"
                 >
                   

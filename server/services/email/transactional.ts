@@ -3,7 +3,7 @@ import { safeStr } from './htmlUtils';
 
 export async function sendConfirmationEmail(emailAddress: string, recipientName: string, requestId: string, context?: 'lyrics_created' | 'standard_approved') {
   const isSongReady = context === 'standard_approved';
-  const heading = isSongReady ? 'Pagamento aprovado! ❤️' : 'Pedido Recebido! ❤️';
+  const heading = isSongReady ? 'Pagamento aprovado!' : 'Pedido Recebido!';
   const body = isSongReady
     ? `A sua música personalizada para <strong>${safeStr(recipientName)}</strong> já foi gerada com sucesso. Será entregue no seu email dentro de 24h após a confirmação do pagamento. Fique atento!`
     : `Recebemos o seu pedido de música personalizada para <strong>${safeStr(recipientName)}</strong>.`;
@@ -14,7 +14,7 @@ export async function sendConfirmationEmail(emailAddress: string, recipientName:
   return sendWithRetry(emailAddress, isSongReady ? 'Pagamento aprovado — SeuBeat' : 'Pedido recebido — SeuBeat', `
     <div style="font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #0b0a09; color: #e7e5e4; padding: 40px 20px; text-align: center; border-radius: 20px; max-width: 600px; margin: 0 auto; border: 1px solid #292524;">
       <div style="margin-bottom: 24px;">
-        <span style="font-size: 32px;">🎵</span>
+        <span style="font-family:Georgia,serif;font-size:30px;line-height:1;color:#f59e0b;">♪</span>
       </div>
       <h1 style="font-family: serif; color: #f59e0b; font-size: 26px; margin-bottom: 12px; font-weight: 800;">
         ${heading}

@@ -7,9 +7,9 @@ export async function sendPersonalizedEmail(emailAddress: string, recipientName:
   const safeLetter = safeStr(letterText);
   const letterSnippet = safeLetter.length > 280 ? safeLetter.substring(0, 280) + '…' : safeLetter;
   const referralUrl = `${personalizedUrl}&ref=${encodeURIComponent(safeRecipient.split(' ')[0] || 'amigo')}`;
-  const waShareText = encodeURIComponent(`Fiz uma música personalizada para ${safeStr(recipientName)} no SeuBeat! 🎵 Experimenta tu também → ${getAppUrl()}`);
+  const waShareText = encodeURIComponent(`Fiz uma música personalizada para ${safeStr(recipientName)} no SeuBeat! Experimenta tu também → ${getAppUrl()}`);
 
-  return sendWithRetry(emailAddress, `🎵 A música para ${safeStr(recipientName.split(' ')[0] || 'si')} está pronta!`, `
+  return sendWithRetry(emailAddress, `A música para ${safeStr(recipientName.split(' ')[0] || 'si')} está pronta — SeuBeat`, `
     <!DOCTYPE html>
     <html lang="pt">
     <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -20,7 +20,7 @@ export async function sendPersonalizedEmail(emailAddress: string, recipientName:
       <div style="background:linear-gradient(135deg,#1c1410 0%,#2d1a0a 50%,#1a0f1e 100%);padding:48px 32px 40px;text-align:center;position:relative;">
         <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#f59e0b,#db2777,#a855f7);"></div>
         <div style="width:72px;height:72px;background:rgba(245,158,11,0.12);border:2px solid rgba(245,158,11,0.3);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px;">
-          <span style="font-size:32px;">🎵</span>
+          <span style="font-family:Georgia,serif;font-size:30px;line-height:1;color:#f59e0b;">♪</span>
         </div>
         <h1 style="font-family:Georgia,serif;color:#f59e0b;font-size:28px;margin:0 0 10px;font-weight:800;letter-spacing:-0.5px;">
           A sua música está pronta!
@@ -44,7 +44,7 @@ export async function sendPersonalizedEmail(emailAddress: string, recipientName:
       <!-- CTA Button -->
       <div style="padding:32px;text-align:center;">
         <a href="${personalizedUrl}" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#d97706,#db2777);color:#fff;font-weight:800;font-size:15px;text-decoration:none;padding:16px 40px;border-radius:14px;box-shadow:0 6px 20px rgba(217,119,6,0.35);letter-spacing:0.3px;">
-          🎧 Ouvir a Música Agora
+          Ouvir a Música Agora
         </a>
         <p style="font-size:12px;color:#78716c;margin:12px 0 0;">Toque no botão para aceder à sua dedicatória exclusiva</p>
       </div>
@@ -55,13 +55,13 @@ export async function sendPersonalizedEmail(emailAddress: string, recipientName:
       <!-- Referral section -->
       <div style="padding:28px 32px;background:#111010;text-align:center;">
         <p style="font-size:13px;color:#a8a29e;margin:0 0 16px;line-height:1.6;">
-          💬 <strong style="color:#e7e5e4;">Adorou o resultado?</strong> Partilhe a experiência com amigos — eles vão adorar criar a música deles também!
+          <strong style="color:#e7e5e4;">Adorou o resultado?</strong> Partilhe a experiência com amigos — eles vão adorar criar a música deles também!
         </p>
         <a href="https://wa.me/?text=${waShareText}" target="_blank" style="display:inline-block;background:#16a34a;color:#fff;font-weight:700;font-size:13px;text-decoration:none;padding:11px 24px;border-radius:10px;margin-right:8px;">
-          📲 Partilhar no WhatsApp
+          Partilhar no WhatsApp
         </a>
         <a href="${getAppUrl()}" target="_blank" style="display:inline-block;background:#292524;color:#e7e5e4;font-weight:700;font-size:13px;text-decoration:none;padding:11px 24px;border-radius:10px;border:1px solid #44403c;">
-          🎵 Criar Nova Música
+          Criar Nova Música
         </a>
       </div>
 

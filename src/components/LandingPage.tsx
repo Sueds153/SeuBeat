@@ -1,6 +1,6 @@
-import { ArrowRight, Sparkles, Check, Play, MessageCircle, Menu, X, Shield, Flame, Music2, Crown, Headphones, Trophy, Mic, Gem, Heart, Cake, HandHeart, HeartHandshake, Feather, Zap, Ticket } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { ArrowRight, Sparkles, Check, Play, MessageCircle, Menu, X, Shield, Flame, Music2, Crown, Headphones, Trophy, Mic, Gem, Heart, Cake, HandHeart, HeartHandshake, Feather, Zap, Ticket, Leaf } from 'lucide-react';
+import { useState, useEffect, useRef, type ReactNode, type RefObject } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import LogoIcon from './LogoIcon';
 import AudioDemo from './AudioDemo';
 import Testimonials from './Testimonials';
@@ -94,6 +94,76 @@ function TypewriterQuote() {
   );
 }
 
+/* ─── Scroll-reveal reutilizável ──────────────────────────────────
+   Fade + rise só com opacity/transform (compositável). Dispara uma
+   única vez ao entrar no viewport; respeita prefers-reduced-motion
+   (aparece logo, sem animação). */
+interface RevealProps {
+  children: ReactNode;
+  delay?: number;
+  className?: string;
+  as?: 'div' | 'section' | 'span';
+}
+
+function Reveal({ children, delay = 0, className, as = 'div' }: RevealProps) {
+  const shouldReduceMotion = useReducedMotion();
+  const Comp = motion[as];
+  return (
+    <Comp
+      className={className}
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.55, delay, ease: 'easeOut' }}
+    >
+      {children}
+    </Comp>
+  );
+}
+
+/* Count-up numérico a partir da entrada no viewport (uma vez).
+   Padrão do rAF existente do hero — extraído para reutilização. */
+function useInViewCount<T extends HTMLElement>(target: number): { ref: RefObject<T | null>; value: number } {
+  const ref = useRef<T>(null);
+  const [visible, setVisible] = useState(false);
+  const [value, setValue] = useState(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          obs.disconnect();
+        }
+      },
+      { threshold: 0.5 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!visible || target <= 0) return;
+    const duration = 1200;
+    const startTime = performance.now();
+    let raf: number;
+    const frame = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // easeOutCubic — desacelera no fim, sensação de número "a assentar"
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setValue(Math.round(eased * target));
+      if (progress < 1) raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [visible, target]);
+
+  return { ref, value: target > 0 ? value : 0 };
+}
+
 export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
@@ -103,6 +173,13 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const [animatedCount, setAnimatedCount] = useState(0);
   const [heroIdx, setHeroIdx] = useState(0);
   const [showStickyBar, setShowStickyBar] = useState(false);
+
+  // Reveals: desativados para prefers-reduced-motion (aparecem logo, sem animação)
+  const prefersReducedMotion = useReducedMotion();
+  const revealInitial = prefersReducedMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 };
+  const revealInView = { opacity: 1, y: 0 };
+  const revealTransition = (delay: number) =>
+    prefersReducedMotion ? { duration: 0 } : { duration: 0.55, delay, ease: 'easeOut' as const };
 
   const handleStartWizard = () => {
     if (isStudioOpening) return;
@@ -120,6 +197,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
   const expressTotal = socialProof.expressTotal;
   // Número do hero: criados hoje quando existirem; fallback para o total pago (nunca mostrar "+0")
   const heroCount = todayCount > 0 ? todayCount : paidTotal;
+  const deliveredCount = useInViewCount<HTMLSpanElement>(deliveredTotal);
 
   useUtm();
 
@@ -169,7 +247,13 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       const vh = window.innerHeight || 1;
       const docHeight = document.documentElement.scrollHeight;
       const nearBottom = docHeight - (scrollY + vh) < vh * 1.2;
-      setShowStickyBar(scrollY > vh * 0.6 && !nearBottom);
+      // Histerese: entra a 0.7vh, sai a 0.5vh — zona morta entre os dois evita
+      // flicker (e agora animações de saída) quando o scroll fica no threshold.
+      setShowStickyBar(prev => {
+        if (scrollY > vh * 0.7 && !nearBottom) return true;
+        if (scrollY < vh * 0.5 || nearBottom) return false;
+        return prev;
+      });
     };
     handleScroll();
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -337,7 +421,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               {/* Interactive Gift Comparison Badge */}
               <div className="grid grid-cols-2 gap-2 bg-stone-950/70 p-1.5 rounded-2xl border border-stone-800/80 max-w-lg">
                 <div className="flex items-center gap-2 p-2 rounded-xl bg-stone-900/40 border border-stone-800/50">
-                  <span className="text-base">🥀</span>
+                  <Leaf className="w-4 h-4 text-stone-600" />
                   <div>
                     <p className="text-[11px] font-semibold text-stone-400 line-through">Presente Comum</p>
                     <p className="text-[9px] text-stone-500 font-mono">Murcha em 3 dias</p>
@@ -345,10 +429,10 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 </div>
                 <div className="flex items-center gap-2 p-2 rounded-xl bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-amber-500/10 border border-amber-500/30 relative overflow-hidden shadow-inner">
                   <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-rose-500/5 animate-pulse" />
-                  <span className="text-base animate-bounce">🎵</span>
+                  <Music2 className="w-4 h-4 text-amber-400 animate-bounce" />
                   <div className="relative z-10">
                     <p className="text-[11px] font-bold text-amber-400">Música SeuBeat</p>
-                    <p className="text-[9px] text-amber-300/80 font-mono font-bold uppercase tracking-wider">Eterna · Para Sempre ✨</p>
+                    <p className="text-[9px] text-amber-300/80 font-mono font-bold uppercase tracking-wider">Eterna · Para Sempre</p>
                   </div>
                 </div>
               </div>
@@ -357,12 +441,11 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
 
           {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4 lg:col-start-1">
-            <div className="flex flex-col items-start gap-1">
-              <button
-                id="hero-primary-cta"
-                onClick={handleStartWizard}
-                className="px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm md:text-base rounded-full shadow-xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all inline-flex items-center justify-center gap-2 cursor-pointer"
-              >
+            <div className="flex flex-col items-start gap-1">                <button
+                  id="hero-primary-cta"
+                  onClick={handleStartWizard}
+                  className="cta-shine px-8 py-4 bg-gradient-to-r from-amber-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-stone-950 font-bold text-sm md:text-base rounded-full shadow-xl shadow-amber-500/20 hover:-translate-y-0.5 active:scale-95 transition-all inline-flex items-center justify-center gap-2 cursor-pointer"
+                >
                 <span>Criar Minha Música</span>
                 <ArrowRight className="w-5 h-5 shrink-0" />
               </button>
@@ -464,7 +547,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             {deliveredTotal > 0 && (
               <>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-amber-400 font-bold text-base">{deliveredTotal}</span>
+                  <span ref={deliveredCount.ref} className="text-amber-400 font-bold text-base">{deliveredCount.value}</span>
                   <span>entregues por email e WhatsApp</span>
                 </div>
                 <div className="w-px h-4 bg-stone-800" />
@@ -481,7 +564,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       {/* ─── 2. HOW IT WORKS — ROMAN NUMERALS ─── */}
       <section id="how-it-works-section" className="py-14 md:py-20 border-t border-stone-900/60 bg-stone-950/40 relative z-10 text-center">
         <div className="max-w-7xl mx-auto px-4 md:px-8 space-y-9 md:space-y-12">
-          <div className="max-w-2xl mx-auto space-y-3">
+          <Reveal className="max-w-2xl mx-auto space-y-3">
             <span className="text-amber-500 text-xs font-sans font-bold uppercase tracking-[0.2em] block">Estúdio SeuBeat</span>
             <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
               Como funciona o presente perfeito?
@@ -489,7 +572,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             <p className="text-stone-400 text-xs md:text-sm">
               Em três passos rápidos, convertemos as vossas memórias numa faixa de nível profissional.
             </p>
-          </div>
+          </Reveal>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 lg:gap-10">
             {[
@@ -499,10 +582,10 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             ].map((item, idx) => (
               <motion.div
                 key={idx}
-                initial={{ opacity: 1, y: 0 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={revealInitial}
+                whileInView={revealInView}
                 viewport={{ once: true, margin: '-50px' }}
-                transition={{ duration: 0.4, delay: idx * 0.12, ease: 'easeOut' }}
+                transition={revealTransition(idx * 0.1)}
                 className="bg-stone-900/20 border border-stone-850 p-5 md:p-8 rounded-2xl space-y-3 md:space-y-4 text-left relative overflow-hidden group hover:border-stone-800 transition-colors"
               >
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-serif font-bold text-2xl border ${item.color}`}>
@@ -515,7 +598,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
           </div>
 
           {/* Interactive Before & After Story Transformer Showcase */}
-          <div className="max-w-3xl mx-auto mt-8 bg-gradient-to-r from-stone-900/60 via-stone-950/80 to-stone-900/60 border border-amber-500/20 rounded-3xl p-5 md:p-7 shadow-2xl relative overflow-hidden text-left">
+          <Reveal delay={0.1} className="max-w-3xl mx-auto mt-8 bg-gradient-to-r from-stone-900/60 via-stone-950/80 to-stone-900/60 border border-amber-500/20 rounded-3xl p-5 md:p-7 shadow-2xl relative overflow-hidden text-left">
             <div className="flex items-center gap-2 mb-4">
               <Sparkles className="w-4 h-4 text-amber-400" />
               <span className="text-xs font-bold text-amber-400 uppercase tracking-widest">Transformação em Tempo Real</span>
@@ -544,7 +627,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                 </p>
               </div>
             </div>
-          </div>
+          </Reveal>
         </div>
       </section>
 
@@ -568,7 +651,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       {/* ─── 3. OCCASIONS GRID ─── */}
       <section id="occasions-section" className="py-14 md:py-20 border-t border-stone-900/60 px-4 md:px-8">
         <div className="max-w-7xl mx-auto space-y-9 md:space-y-12">
-          <div className="max-w-2xl mx-auto text-center space-y-3">
+          <Reveal className="max-w-2xl mx-auto text-center space-y-3">
             <span className="text-amber-500 text-xs font-sans font-bold uppercase tracking-[0.2em] block">Para Cada Momento</span>
             <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
               Qual é a vossa ocasião especial?
@@ -576,19 +659,26 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             <p className="text-stone-400 text-xs md:text-sm">
               Cada canção é moldada para o momento exato que quer eternizar.
             </p>
-          </div>
+          </Reveal>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
             {OCCASIONS.map((occ, idx) => {
               const isSelected = selectedOccasion === occ.label;
               return (
-                <button
+                <motion.div
                   key={idx}
+                  initial={revealInitial}
+                  whileInView={revealInView}
+                  viewport={{ once: true, margin: '-40px' }}
+                  transition={revealTransition(idx * 0.06)}
+                  className="flex"
+                >
+                <button
                   onClick={() => {
                     setSelectedOccasion(occ.label);
                     document.getElementById('occasions-section')?.scrollIntoView({ behavior: 'smooth' });
                   }}
-                  className={`group rounded-2xl p-4 sm:p-5 flex flex-col items-center text-center space-y-2.5 sm:space-y-3 transition-all cursor-pointer ${
+                  className={`group w-full rounded-2xl p-4 sm:p-5 flex flex-col items-center text-center space-y-2.5 sm:space-y-3 transition-all cursor-pointer ${
                     isSelected
                       ? 'bg-amber-500/15 border-2 border-amber-500 shadow-lg shadow-amber-500/10 -translate-y-1'
                       : selectedOccasion
@@ -604,6 +694,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                     <p className="text-stone-500 text-[10px] mt-1 font-mono leading-tight">{occ.desc}</p>
                   </div>
                 </button>
+                </motion.div>
               );
             })}
           </div>
@@ -653,7 +744,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
       {/* ─── 6. PRICING ─── */}
       <section id="pricing-section" className="py-14 md:py-20 border-t border-stone-900/60 bg-stone-950 px-4 md:px-8 relative text-center">
         <div className="max-w-7xl mx-auto space-y-10 md:space-y-14">
-          <div className="max-w-2xl mx-auto space-y-3">
+          <Reveal className="max-w-2xl mx-auto space-y-3">
             <span className="text-amber-500 text-xs font-sans font-bold uppercase tracking-[0.2em] block">Sem Subscrições Secretas</span>
             <h2 className="font-serif text-3xl md:text-4xl text-stone-100 font-semibold tracking-tight">
               Preços Únicos Por Canção
@@ -661,7 +752,7 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
             <p className="text-stone-400 text-xs md:text-sm">
               Encontre o plano ideal para a surpresa sentimental, sem mensalidades.
             </p>
-          </div>
+          </Reveal>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8 lg:gap-10 items-stretch max-w-5xl mx-auto">
             {PRICING_PLANS.map((plan, idx) => {
@@ -682,10 +773,10 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               <motion.div
                 id={`pricing-card-${plan.id}`}
                 key={plan.id}
-                initial={{ opacity: 1, y: 0 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={revealInitial}
+                whileInView={revealInView}
                 viewport={{ once: true, margin: '-50px' }}
-                transition={{ duration: 0.4, delay: idx * 0.15, ease: 'easeOut' }}
+                transition={revealTransition(idx * 0.12)}
                 className={`rounded-2xl md:rounded-3xl p-5 md:p-8 flex flex-col justify-between relative transition-all duration-300 ${orderClass} ${
                   plan.popular
                     ? 'bg-gradient-to-b from-amber-950/40 via-stone-900/60 to-stone-900/30 border-2 border-amber-500 shadow-xl shadow-amber-500/5 md:scale-[1.03] z-10'
@@ -751,8 +842,8 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
                       </span>
                     ) : 'Escolher Este Plano'}
                   </button>
-                  <span className="text-[10px] text-stone-400 block text-center mt-2 font-mono">
-                    ✓ {plan.guarantee || 'Suporte pós-venda incluído'}
+                  <span className="text-[10px] text-stone-400 text-center mt-2 font-mono inline-flex items-center justify-center gap-1">
+                    <Check className="w-3 h-3 text-emerald-500" /> {plan.guarantee || 'Suporte pós-venda incluído'}
                   </span>
                 </div>
               </motion.div>
@@ -938,14 +1029,18 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
         </div>
       </footer>
 
-      {/* Sticky bottom CTA — mobile apenas */}
-      {showStickyBar && (
-        <motion.div
-          initial={{ y: 80 }}
-          animate={{ y: 0 }}
-          transition={{ type: 'spring', damping: 22, stiffness: 260, mass: 0.8 }}
-          className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-stone-950/90 backdrop-blur-md border-t border-stone-800/60 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(0,0,0,0.5)]"
-        >
+      {/* Sticky bottom CTA — mobile apenas. AnimatePresence para animar também a SAÍDA
+          (antes pop abrupto); dirige o olho para o CTA a partir do meio do hero. */}
+      <AnimatePresence>
+        {showStickyBar && (
+          <motion.div
+            key="sticky-cta"
+            initial={prefersReducedMotion ? { y: 0, opacity: 0 } : { y: 80, opacity: 0.6 }}
+            animate={prefersReducedMotion ? { y: 0, opacity: 1 } : { y: 0, opacity: 1 }}
+            exit={prefersReducedMotion ? { y: 0, opacity: 0 } : { y: 80, opacity: 0 }}
+            transition={{ type: 'spring', damping: 22, stiffness: 260, mass: 0.8 }}
+            className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-stone-950/90 backdrop-blur-md border-t border-stone-800/60 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(0,0,0,0.5)]"
+          >
           <div className="flex items-center gap-3">
             <div className="flex flex-col leading-tight shrink-0">
               <span className="text-[10px] text-stone-500 font-mono uppercase tracking-wider">A tua história em música</span>
@@ -959,8 +1054,9 @@ export default function LandingPage({ onStartWizard }: LandingPageProps) {
               Criar Minha Música
             </button>
           </div>
-        </motion.div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Studio Opening Curtain Overlay */}
       <AnimatePresence>

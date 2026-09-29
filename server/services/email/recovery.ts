@@ -4,9 +4,9 @@ import { safeStr } from './htmlUtils';
 
 export async function sendLyricsRecoveredEmail(userEmail: string, recipientName: string, requestId: string) {
   const resumeUrl = `${getAppUrl()}/wizard?resume=${encodeURIComponent(requestId)}&step=payment`;
-  return sendWithRetry(userEmail, 'A sua música já está pronta! Conclua o seu plano 🎵', `
+  return sendWithRetry(userEmail, 'A sua música já está pronta! Conclua o seu plano — SeuBeat', `
     <div style="font-family:sans-serif;background:#0b0a09;color:#e7e5e4;padding:32px;border-radius:16px;max-width:500px;margin:0 auto">
-      <div style="text-align:center;margin-bottom:24px;"><span style="font-size:32px;">🎉</span></div>
+      <div style="text-align:center;margin-bottom:24px;"><span style="font-family:Georgia,serif;font-size:30px;line-height:1;color:#f59e0b;">♪</span></div>
       <h2 style="color:#f59e0b;text-align:center;">A sua música já está pronta!</h2>
       <p>Olá${safeStr(recipientName) ? ' ' + safeStr(recipientName) : ''},</p>
       <p>Pedimos desculpa pela demora — houve um problema temporário ao gerar a sua canção, mas <strong>a letra já foi criada com todo o carinho</strong>.</p>

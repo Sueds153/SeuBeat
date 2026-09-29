@@ -2,6 +2,31 @@
 
 ## Estado Atual (28/Set 2026)
 
+### Tier 2 implementado + verificação browser mobile-first + E2E (28/Set 2026, sessão 8)
+Utilizador aprovou: "Implementar tier 2, verificar no browser (mobile-first) e correr testes E2E". Tudo executado e verde:
+- **Transições direcionais no wizard**: `stepDirection` state ('forward'/'back') setado em `handleNext`/`handleBack`; passo anima de `x:±28` na direção certa (Avançar entra da direita, Retroceder da esquerda), 0.28s easeOut; `useReducedMotion` → só fade. Descoberta: o wizard JÁ tinha `AnimatePresence mode="wait"` com slide fixo (não direcional) — foi direcionalizado, não criado de raiz.
+- **Sticky CTA mobile com saída animada**: envolvido em `AnimatePresence` (antes pop abrupto ao desaparecer); entra com spring (y:80→0 + opacity), sai com y:80; reduced-motion → só opacity. **Histerese no scroll**: entra a >0.7vh, sai a <0.5vh (zona morta evita flicker/exit-repeated no threshold — handler `setShowStickyBar(prev => ...)`).
+- **Auditoria visual browser (novo `e2e/visual-audit.spec.ts`, project mobile-chrome)**: valida via `page.evaluate` — shine CSS aplicado no CTA (`animationName: cta-shine`, 4.2s), reveals com opacity>0.9 pós-scroll, sticky aparece a 80% da página e **some no topo** (exit funciona), transform a meio da transição do wizard capturado (`matrix(1,0,0,1,-23.4,0)` = passo a sair), **0 console errors** nas 2 páginas (filtro de ruído FB/GA/Sentry). 8 screenshots em `test-results/visual-audit/` (01-hero … 08-wizard-back).
+- **Validação completa**: `tsc --noEmit` ✓ · **535 testes unit** ✓ · **64/64 E2E** (chromium+mobile-chrome, 7.1m, `E2E_PORT=3100`) ✓ · audit visual 2/2 ✓.
+- Nota: `npm run dev` arranca com `tsx server.ts` (PORT env respeitado em `ENV.PORT` → `app.listen(ENV.PORT)`); webServer do Playwright usa `E2E_PORT`.
+
+### Animações Tier 1 de conversão na landing (28/Set 2026, sessão 7)
+Plano de especialista proposto (Tier 1/2 + anti-padrões) — utilizador aprovou "Tier 1 (recomendado)". Descoberta: os cards "Como Funciona" e de Pricing **já tinham `whileInView` mas no-op** (`initial === whileInView`, infra desligada) — reativada com reveal real:
+- **Scroll-reveal com stagger**: helper `revealInitial/revealInView/revealTransition(delay)` no `LandingPage.tsx` (fade + rise 24px, 0.55s easeOut, `once: true`, margin -40/-50px); aplicado aos headers das 3 secções (via novo componente `Reveal`), cards Como Funciona (stagger 0.1s), cards de Pricing (0.12s), grid de Ocasiões (0.06s/card, wrapper `motion.div` + `w-full` no botão para não partir o grid) e showcase "Transformação em Tempo Real".
+- **Count-up no `deliveredTotal`**: novo `useInViewCount<T>` (rAF + IntersectionObserver + easeOutCubic 1.2s) — o número principal do hero já tinha count-up próprio (mantido); agora ambos os números "assentam" a contar.
+- **Shine sweep no CTA primário** ("Criar Minha Música" do hero): keyframe `cta-shine` em `index.css` — pseudo-elemento com `translateX+skew`, **só transform** (compositável, zero repaint), ciclo 4.2s (86% em repouso), classe `.cta-shine` no botão.
+- **`prefers-reduced-motion` respeitado em tudo**: reveals e shine desativados (`useReducedMotion` do motion/react + media query CSS).
+- **Fora de scope (proposto, não implementado)**: Tier 2 (transições direcionais no wizard, sticky CTA mobile já existe parcialmente) — disponível para próxima sessão. Anti-padrões evitados: parallax/tilt 3D (tráfego FB in-app Android low-end), animação de box-shadow.
+- Validação: `tsc --noEmit` ✓ + **535 testes** ✓ + `npm run build` ✓.
+
+### Desemoji-ficação da UI e emails — visual de "especialista" (28/Set 2026, sessão 6)
+Remoção de todos os emojis visíveis ao cliente (queixa: "site parece criado por IA") — substituídos por ícones lucide-react (já padrão do projeto, 23 ficheiros) e glifos tipográficos de marca:
+- **UI (13 emojis → ícones lucide)**: LandingPage (🥀→`Leaf`, 🎵→`Music2`, ✓→`Check`, ✨ removido), Wizard (⚡→`ZapIcon` ×2, ❤️→`HeartSolidIcon`, 🎵→`MusicIcon`), SongShare (🆔/❤️ removidos de textos de partilha), PersonalizedSongPage (🎵→`Music`), AdminPanel (🎬→`Film` ×2).
+- **Emails (35+ emojis → glifo tipográfico)**: todos os subjects limpos com sufixo "— SeuBeat" (ex.: "A música para Maria está pronta — SeuBeat"); cabeçalhos emoji de 32px → **glifo `♪` monocrómático em Georgia** (consistente com o `♪` já usado na landing); botões sem emojis ("🎧 Ouvir"→"Ouvir"); `▶` evitado (variante emoji em alguns clientes) → `►`; `✦` mantido (tipográfico puro).
+- **Intocados de propósito**: `whatsappTemplates.ts` e `abandonedMessages.ts` (corpos têm de coincidir com templates Meta aprovados; emojis são o vernáculo do WhatsApp); `LandingPage:543` (♪ decorativo já existente).
+- **Regra de design estabelecida**: em emails usar apenas caracteres com apresentação tipográfica garantida (`♪` U+266A, `►` U+25BA, `✦` U+2726) — nunca emoji-presentation (🎵, ▶ U+25B6, ⚠️).
+- Nenhum teste/asserção dependia dos emojis ou subjects antigos. Validação: `tsc --noEmit` ✓ + **534/536 testes** (1 timeout flaky de hook em `metaPixelCapi.test.ts` — passa isolado 13/13, não relacionado).
+
 ### Consistência da copy de aprovação — "automática em segundos" (28/Set 2026, sessão 5)
 Framing de aprovação do cliente unificado (era "manual/até 24h" — falsidade: o auto-approve AI existe e a aprovação real tem mediana 2h):
 - **Wizard checklist**: "Confirmação manual até 24h" → **"Aprovação automática em segundos"** (sem emojis, a pedido).

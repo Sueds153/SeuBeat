@@ -4,7 +4,7 @@ import {
   Clock, RefreshCw, Eye, LogOut, ChevronDown, ChevronRight,
   Download, Play, AlertTriangle, Sparkles, TrendingUp, Shield,
   Activity, RotateCcw, Mic, Mail, Pencil, Upload, Search, FileText, ExternalLink, List, Zap,
-  Menu, Megaphone, X, Send, Music2, Package, Undo2, Target, TrendingDown, Trash2, Banknote, Flame
+  Menu, Megaphone, X, Send, Music2, Package, Undo2, Target, TrendingDown, Trash2, Banknote, Flame, Film
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import LogoIcon from './LogoIcon';
@@ -1984,12 +1984,12 @@ export default function AdminPanel() {
                                         <StatusBadge status={payment.song_requests.status} />
                                         {payment.song_requests.video_upsell_paid && (
                                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                                            🎬 Videoclipe Pago
+                                            <span className="flex items-center gap-1"><Film className="w-3 h-3" /> Videoclipe Pago</span>
                                           </span>
                                         )}
                                         {payment.song_requests.video_upsell_sent_at && !payment.song_requests.video_upsell_paid && (
                                           <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                            🎬 Offer Enviada
+                                            <span className="flex items-center gap-1"><Film className="w-3 h-3" /> Offer Enviada</span>
                                           </span>
                                         )}
                                       </div>

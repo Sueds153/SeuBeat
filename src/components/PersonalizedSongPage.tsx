@@ -293,7 +293,7 @@ export default function PersonalizedSongPage({ onBackToLanding }: PersonalizedSo
                 <button onClick={() => setShowCelebration(false)} className="absolute top-2 right-2 text-stone-500 hover:text-stone-300 cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
-                <p className="text-2xl mb-1">🎵</p>
+                <Music className="w-8 h-8 text-amber-400 mx-auto mb-1" />
                 <p className="text-sm font-bold text-amber-400">A tua música está pronta!</p>
                 <p className="text-[11px] text-stone-400 mt-1">Preparada com carinho só para ti.</p>
               </div>

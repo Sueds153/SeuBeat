@@ -28,12 +28,12 @@ export default function SongShare(props: SongShareProps) {
   };
 
   const shareWhatsApp = () => {
-    const message = `🎵 Fiz uma música personalizada especialmente para a ${props.recipientName}! Ouve aqui: ${getShareUrl()}`;
+    const message = `Fiz uma música personalizada especialmente para a ${props.recipientName}! Ouve aqui: ${getShareUrl()}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const copyStoryCaption = () => {
-    const caption = `🎵 Fiz uma música personalizada exclusiva para a ${props.recipientName} no SeuBeat! ❤️\n\nEstilo: ${props.musicStyle}\nOuve e sente esta emoção: ${getShareUrl()}`;
+    const caption = `Fiz uma música personalizada exclusiva para a ${props.recipientName} no SeuBeat.\n\nEstilo: ${props.musicStyle}\nOuve e sente esta emoção: ${getShareUrl()}`;
     navigator.clipboard.writeText(caption);
     setCopiedType('story');
     setTimeout(() => setCopiedType(null), 2500);
@@ -123,7 +123,7 @@ export default function SongShare(props: SongShareProps) {
                 <p className="text-xs text-stone-400">
                   {props.userNick && !['autor', 'seubeat', 'anónimo', 'anonimo'].includes(props.userNick.trim().toLowerCase())
                     ? `De: ${props.userNick}`
-                    : 'Com amor ❤️'}
+                    : 'Com amor'}
                 </p>
               </div>
 
