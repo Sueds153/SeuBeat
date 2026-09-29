@@ -9,7 +9,7 @@ Utilizador: "0 entregues por email e WhatsApp quebra confiança — deve ter pel
 - **Gatilhos de copy nos micro-stats**: "+N músicas criadas" → "+N histórias já transformadas em música" (identity/storytelling); "100% personalizado" → "100% personalizado com a vossa história"; stat de entregues agora **sempre visível** (antes escondido quando deliveredTotal=0 — era exatamente o estado que o utilizador viu).
 - **5 testes novos** (`deliveredCount.test.ts`): piso ≥107, nunca arredondado (varre 120 dias), estável por dia p/ visitantes frescos, drifts determinísticos e capped.
 - **Audit visual estendido**: asserção nova `entregues ≥ 107` no browser (apanhou o caso do count-up antes do scroll — corrigido com scrollIntoView). Hoje mostra **116**.
-- Validação: tsc ✓ · 539/540 unit (1 flaky conhecido: voice-validation-phrase, passa isolado) · audit 2/2 ✓. Commit+push `9a3f2c1` (ajustar hash real).
+- Validação: tsc ✓ · 539/540 unit (1 flaky conhecido: voice-validation-phrase, passa isolado) · audit 2/2 ✓. Commit `6ac84f3`.
 
 ### Tier 2 implementado + verificação browser mobile-first + E2E (28/Set 2026, sessão 8)
 Utilizador aprovou: "Implementar tier 2, verificar no browser (mobile-first) e correr testes E2E". Tudo executado e verde:
