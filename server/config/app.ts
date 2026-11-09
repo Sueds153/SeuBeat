@@ -40,16 +40,13 @@ export async function createApp(): Promise<express.Application> {
 
   app.set('trust proxy', 1);
 
-  // Body parsing: in Vercel, the platform pre-parses JSON/urlencoded bodies into req.body
-  // We only need express.urlencoded for form posts and multipart handling
-  const isVercel = !!process.env.VERCEL;
-  if (!isVercel) {
-    // Local/traditional: parse JSON and urlencoded ourselves
-    app.use(express.json({ limit: '1mb' }));
-  }
+  // Body parsing: use express.json on all platforms with strict:false
+  // - On Vercel: Vercel pre-parses, express.json with strict:false passes through objects without re-parsing
+  // - Local: parses JSON normally
+  app.use(express.json({ limit: '1mb', strict: false }));
   app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
-  // Ensure body is always an object (Vercel pre-parses, but may leave it undefined)
+  // Ensure body is always an object (fallback for edge cases)
   app.use((req: express.Request, _res: express.Response, next: express.NextFunction) => {
     if (req.body && typeof req.body === 'object') return next();
     const ct = String(req.headers['content-type'] || '');
