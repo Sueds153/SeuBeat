@@ -25,46 +25,81 @@ try {
   canWriteLogs = false;
 }
 
-// Transports
-const transports: pino.TransportTargetOptions[] = [];
-
-// Console (sempre ativo)
-transports.push({
-  target: 'pino-pretty',
-  options: {
-    colorize: true,
-    translateTime: 'SYS:yyyy-mm-dd HH:MM:ss',
-    ignore: 'pid,hostname',
-    singleLine: false,
-  },
-});
-
-// File transports (apenas em produção ou com DEBUG)
-if ((process.env.NODE_ENV === 'production' || process.env.DEBUG) && canWriteLogs) {
-  transports.push({
-    target: 'pino/file',
-    options: { destination: path.join(logsDir, 'error.log'), mkdir: true },
-    level: 'error',
-  });
-  transports.push({
-    target: 'pino/file',
-    options: { destination: path.join(logsDir, 'combined.log'), mkdir: true },
-  });
-}
+// Detect if running in Vercel/serverless environment
+const isVercel = !!process.env.VERCEL;
+const isProduction = process.env.NODE_ENV === 'production';
+const isDev = process.env.NODE_ENV !== 'production' && !isVercel;
 
 // Criar logger
-const defaultLogLevel = process.env.NODE_ENV === 'production' ? 'info' : 'debug';
-const logger = pino({
-  level: process.env.LOG_LEVEL || defaultLogLevel,
-  customLevels,
-  formatters: {
-    level(label: string) {
-      return { level: label };
+// In Vercel: plain pino (no transport) → JSON to stdout, no worker threads
+// In local dev: pino-pretty transport for colored output
+// In production (non-Vercel): file transports
+const defaultLogLevel = isProduction ? 'info' : 'debug';
+
+let logger: pino.Logger;
+
+if (isVercel) {
+  // Plain pino, no transport - simplest and most reliable for serverless
+  logger = pino({
+    level: process.env.LOG_LEVEL || defaultLogLevel,
+    customLevels,
+    formatters: {
+      level(label: string) {
+        return { level: label };
+      },
     },
-  },
-  timestamp: pino.stdTimeFunctions.isoTime,
-  base: { service: 'seubeat' },
-}, pino.transport({ targets: transports }));
+    timestamp: pino.stdTimeFunctions.isoTime,
+    base: { service: 'seubeat' },
+  });
+} else if (isDev) {
+  // Local development: pretty transport
+  logger = pino({
+    level: process.env.LOG_LEVEL || defaultLogLevel,
+    customLevels,
+    formatters: {
+      level(label: string) {
+        return { level: label };
+      },
+    },
+    timestamp: pino.stdTimeFunctions.isoTime,
+    base: { service: 'seubeat' },
+  }, pino.transport({
+    targets: [{
+      target: 'pino-pretty',
+      options: {
+        colorize: true,
+        translateTime: 'SYS:yyyy-mm-dd HH:MM:ss',
+        ignore: 'pid,hostname',
+        singleLine: false,
+      },
+    }],
+  }));
+} else {
+  // Production (non-Vercel): file transports
+  const transports: pino.TransportTargetOptions[] = [];
+  if (canWriteLogs) {
+    transports.push({
+      target: 'pino/file',
+      options: { destination: path.join(logsDir, 'error.log'), mkdir: true },
+      level: 'error',
+    });
+    transports.push({
+      target: 'pino/file',
+      options: { destination: path.join(logsDir, 'combined.log'), mkdir: true },
+    });
+  }
+  logger = pino({
+    level: process.env.LOG_LEVEL || defaultLogLevel,
+    customLevels,
+    formatters: {
+      level(label: string) {
+        return { level: label };
+      },
+    },
+    timestamp: pino.stdTimeFunctions.isoTime,
+    base: { service: 'seubeat' },
+  }, pino.transport({ targets: transports }));
+}
 
 // Sentry integration
 let sentryModule: unknown = null;
