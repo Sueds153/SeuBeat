@@ -1,6 +1,8 @@
 // Vercel Serverless Function entry point
 // This exports the Express app as a serverless function
 
+import 'dotenv/config';
+
 import { createApp } from '../server/config/app';
 
 // Initialize Sentry if DSN is provided
