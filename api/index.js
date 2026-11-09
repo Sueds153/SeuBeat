@@ -10360,6 +10360,10 @@ var appPromise = createApp().catch((err) => {
 var vercel_entry_default = async (req, res) => {
   console.log("[Vercel] Request received:", req.method, req.url);
   console.log("[Vercel] Request body:", req.body);
+  console.log("[Vercel] Request headers:", JSON.stringify(req.headers));
+  if (req.url === "/api/_test-body") {
+    return res.json({ method: req.method, body: req.body, headers: req.headers });
+  }
   try {
     const app = await appPromise;
     console.log("[Vercel] App ready, handling request");
