@@ -1,7 +1,25 @@
 // Vercel Serverless Function entry point - only exports the Express app
 // This file is bundled separately by esbuild for the serverless function
 
+import 'dotenv/config';
+
 import { createApp } from '../server/config/app';
+
+// Initialize Sentry if DSN is provided (async IIFE for top-level await)
+if (process.env.SENTRY_DSN) {
+  (async () => {
+    try {
+      const { init } = await import('@sentry/node');
+      init({
+        dsn: process.env.SENTRY_DSN,
+        environment: process.env.NODE_ENV || 'production',
+        tracesSampleRate: 0.1,
+      });
+    } catch (err) {
+      console.warn('[WARN] Erro ao inicializar Sentry (ignorando para manter o servidor ativo):', err);
+    }
+  })();
+}
 
 // Create the Express app
 const appPromise = createApp();
