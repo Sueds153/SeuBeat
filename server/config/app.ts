@@ -40,8 +40,13 @@ export async function createApp(): Promise<express.Application> {
 
   app.set('trust proxy', 1);
 
-  app.use(express.json({ limit: '1mb' }));
-  app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+  // In Vercel, the body is already parsed — skip express.json/urlencoded to avoid "Invalid JSON" errors
+  const isVercel = !!process.env.VERCEL;
+  if (!isVercel) {
+    app.use(express.json({ limit: '1mb' }));
+    app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+  }
+
   app.use(requestIdMiddleware);
   app.use(corsMiddleware);
   app.use(helmetMiddleware());

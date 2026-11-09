@@ -10252,8 +10252,11 @@ async function createApp() {
   validateEnv();
   const app = express4();
   app.set("trust proxy", 1);
-  app.use(express4.json({ limit: "1mb" }));
-  app.use(express4.urlencoded({ extended: false, limit: "1mb" }));
+  const isVercel2 = !!process.env.VERCEL;
+  if (!isVercel2) {
+    app.use(express4.json({ limit: "1mb" }));
+    app.use(express4.urlencoded({ extended: false, limit: "1mb" }));
+  }
   app.use(requestIdMiddleware);
   app.use(corsMiddleware);
   app.use(helmetMiddleware());
