@@ -38,7 +38,7 @@ export function helmetMiddleware() {
           'https://*.ingest.sentry.io',
           'https://*.ingest.de.sentry.io',
           'https://*.ecs.us-west-2.on.aws',
-          'https://*.us-central1.run.app',
+          'https://*.vercel.app',
           'https://*.capi.graph.facebook.com'
         ],
         workerSrc: ["'self'", 'blob:'],

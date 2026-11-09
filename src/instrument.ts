@@ -29,7 +29,7 @@ Sentry.init({
     }),
   ],
   tracesSampleRate: import.meta.env.PROD ? 0.1 : 1.0,
-  tracePropagationTargets: ['localhost', /^https:\/\/seubeat\.onrender\.com/],
+  tracePropagationTargets: ['localhost', /^https:\/\/seubeat\.vercel\.app/, /^https:\/\/seubeat\.ao/],
   replaysSessionSampleRate: 0.05,
   replaysOnErrorSampleRate: 1.0,
   beforeSend(event: ErrorEvent, hint: EventHint) {

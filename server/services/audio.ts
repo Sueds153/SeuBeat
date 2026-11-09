@@ -156,7 +156,7 @@ export async function downloadFile(url: string, destPath: string): Promise<void>
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'SeuBeat/1.0 (+https://seubeat.onrender.com)',
+        'User-Agent': 'SeuBeat/1.0 (+https://seubeat.vercel.app)',
         'Accept': 'audio/*, */*',
       }
     });

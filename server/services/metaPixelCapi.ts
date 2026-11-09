@@ -13,7 +13,7 @@ const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 const REQUEST_TIMEOUT_MS = 5000;
 // Fallback só é usado quando não há referer — tem de ser um domínio real (seubeat.ao não existe em DNS)
-const FALLBACK_EVENT_URL = 'https://seubeat.onrender.com';
+const FALLBACK_EVENT_URL = 'https://seubeat.vercel.app';
 
 // Deterministic eventId generator (must match client's generateEventId exactly)
 export function generateServerEventId(requestId: string, eventName: string): string {

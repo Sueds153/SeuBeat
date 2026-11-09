@@ -148,7 +148,7 @@ export function getAppUrl(req?: Request): string {
       return `${protocol}://${host}`;
     }
   }
-  return process.env.APP_URL || 'https://seubeat.onrender.com';
+  return process.env.APP_URL || 'https://seubeat.vercel.app';
 }
 
 export function kzToUsd(kz: number): number {

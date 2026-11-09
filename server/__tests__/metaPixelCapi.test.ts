@@ -141,7 +141,7 @@ describe('sendPurchaseEvent', () => {
   it('usa o domínio real quando não há referer (não seubeat.ao, que não existe em DNS)', async () => {
     await mod.sendPurchaseEvent({ eventId: 'evt-3', value: 1, currency: 'AOA' });
     const payload = JSON.parse(fetchMock.mock.calls[0][1].body as string);
-    expect(payload.data[0].event_source_url).toBe('https://seubeat.onrender.com');
+    expect(payload.data[0].event_source_url).toBe('https://seubeat.vercel.app');
   });
 });
 

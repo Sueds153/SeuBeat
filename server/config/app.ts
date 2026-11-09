@@ -13,8 +13,25 @@ import publicRouter from '../routes/public';
 import webhookRouter from '../routes/webhook';
 import { hasDeepSeekApiKey } from '../services/deepseekConfig';
 import { checkDeepSeekCredits, checkGeminiCredits } from '../services/aiHealth';
+import { startDeliveryScheduler } from '../services/deliveryScheduler';
+import { startAbandonedRecoveryScheduler } from '../services/abandonedRecoveryScheduler';
+import { startFollowUpScheduler } from '../services/followUpScheduler';
+import { startFailedLyricsRecoveryScheduler } from '../services/failedLyricsRecoveryScheduler';
+import { startStuckMusicRecoveryScheduler } from '../services/stuckMusicRecoveryScheduler';
 
 const sentryDsn = getEnv('SENTRY_DSN');
+
+export function startSchedulers(): void {
+  try {
+    startDeliveryScheduler();
+    startAbandonedRecoveryScheduler();
+    startFollowUpScheduler();
+    startFailedLyricsRecoveryScheduler();
+    startStuckMusicRecoveryScheduler();
+  } catch (schedErr) {
+    logError('Aviso: falha ao iniciar schedulers em segundo plano', schedErr);
+  }
+}
 
 export async function createApp(): Promise<express.Application> {
   validateEnv();
@@ -152,7 +169,7 @@ export async function startServer(app: express.Application): Promise<import('htt
       const ua = (req.headers['user-agent'] || '');
       if (!CRAWLER_UA.test(ua)) return next();
 
-      const appUrl = getEnv('APP_URL', 'https://seubeat.onrender.com');
+      const appUrl = getEnv('APP_URL', 'https://seubeat.vercel.app');
       const fullUrl = `${appUrl}${req.originalUrl}`;
 
       const songMatch = req.path.match(/^\/song\/(.+)/);

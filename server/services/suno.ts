@@ -22,7 +22,7 @@ const FAILED_STATUSES = new Set([
   'sensitive_word_error',
   'callback_exception',
 ]);
-const DEFAULT_PUBLIC_APP_URL = 'https://seubeat.onrender.com';
+const DEFAULT_PUBLIC_APP_URL = 'https://seubeat.vercel.app';
 
 function isQuotaError(status: number, body: string): boolean {
   return status === 429 || /quota|rate\s?limit|exceeded/i.test(body);

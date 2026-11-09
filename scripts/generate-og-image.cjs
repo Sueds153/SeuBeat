@@ -92,7 +92,7 @@ function buildSVG(fonts) {
   <rect x="120" y="380" width="360" height="48" rx="24" fill="rgba(245,158,11,0.15)" stroke="rgba(245,158,11,0.3)" stroke-width="1" />
   <text x="138" y="412" fill="#F59E0B" font-family="Plus Jakarta Sans,sans-serif" font-size="18" font-weight="600">Criar música personalizada →</text>
   <rect x="80" y="546" width="1040" height="4" rx="2" fill="url(#accent)" />
-  <text x="120" y="590" fill="rgba(255,255,255,0.2)" font-family="Plus Jakarta Sans,sans-serif" font-size="13" font-weight="400">seubeat.onrender.com</text>
+  <text x="120" y="590" fill="rgba(255,255,255,0.2)" font-family="Plus Jakarta Sans,sans-serif" font-size="13" font-weight="400">seubeat.vercel.app</text>
 </svg>`;
 }
 

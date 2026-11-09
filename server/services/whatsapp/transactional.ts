@@ -143,7 +143,7 @@ export async function sendFeedbackRequestWhatsApp(client: FeedbackRequestClient)
   const phone: string = rawPhone;
 
   const templateName = FEEDBACK_TEMPLATE_NAME;
-  const appUrl = process.env.APP_URL || 'https://seubeat.onrender.com';
+  const appUrl = process.env.APP_URL || 'https://seubeat.vercel.app';
   const params = [
     client.recipientName || 'Destinatário',
     `${appUrl}/feedback?requestId=${client.requestId}&email=${encodeURIComponent(client.email || '')}`,

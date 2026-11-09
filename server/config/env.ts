@@ -29,7 +29,7 @@ export function validateEnv(): void {
     if (isTest) {
       console.warn(`[WARN] Variaveis de ambiente em falta no arranque: ${missing.join(', ')}`);
     } else {
-      throw new Error(`[FATAL] Variaveis de ambiente obrigatorias em falta: ${missing.join(', ')}. Configure-as no .env ou no Render Dashboard.`);
+      throw new Error(`[FATAL] Variaveis de ambiente obrigatorias em falta: ${missing.join(', ')}. Configure-as no .env ou no Vercel Dashboard.`);
     }
   }
   const hasDeepSeekKey = !!(process.env.DEEPSEEK_API_KEY || process.env.DEEPSEEK_SECRET_KEY);
