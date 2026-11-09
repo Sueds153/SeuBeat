@@ -35,6 +35,7 @@ const appPromise = createApp().catch(err => {
 // Export the app as the default handler for Vercel
 export default async (req: Request, res: Response) => {
   console.log('[Vercel] Request received:', req.method, req.url);
+  console.log('[Vercel] Request body:', req.body);
   try {
     const app = await appPromise;
     console.log('[Vercel] App ready, handling request');
