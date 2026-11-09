@@ -22,10 +22,6 @@ if (process.env.SENTRY_DSN) {
 
 import { createApp } from '../server/config/app';
 
-console.log('[Vercel] Starting serverless function...');
-console.log('[Vercel] Environment:', process.env.NODE_ENV);
-console.log('[Vercel] VERCEL:', process.env.VERCEL);
-
 // Create the Express app
 const appPromise = createApp().catch(err => {
   console.error('[Vercel] Failed to create app:', err);
@@ -34,31 +30,9 @@ const appPromise = createApp().catch(err => {
 
 // Export the app as the default handler for Vercel
 export default async (req: Request, res: Response) => {
-  console.log('[Vercel] Request received:', req.method, req.url);
-  console.log('[Vercel] Request body type:', typeof req.body, Array.isArray(req.body) ? 'array' : 'object');
-  console.log('[Vercel] Request body:', JSON.stringify(req.body).slice(0, 200));
-  
-  // Test endpoint to debug body parsing
-  if (req.url === '/api/_test-body') {
-    return res.json({ method: req.method, body: req.body, headers: req.headers });
-  }
-  
   try {
     const app = await appPromise;
-    console.log('[Vercel] App ready, handling request');
-    
-    // Add timeout to detect hangs
-    const timeout = setTimeout(() => {
-      console.error('[Vercel] Request timeout after 30s');
-      if (!res.headersSent) {
-        res.status(504).json({ success: false, error: 'Request timeout' });
-      }
-    }, 30000);
-    
-    const result = await app(req, res);
-    clearTimeout(timeout);
-    console.log('[Vercel] Request completed');
-    return result;
+    return app(req, res);
   } catch (err) {
     console.error('[Vercel] Error in serverless function:', err);
     if (!res.headersSent) {

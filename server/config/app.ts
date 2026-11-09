@@ -40,11 +40,50 @@ export async function createApp(): Promise<express.Application> {
 
   app.set('trust proxy', 1);
 
-  // In Vercel, the body is already parsed — skip express.json/urlencoded to avoid "Invalid JSON" errors
+  // In Vercel, skip express.json (Vercel pre-parses JSON bodies); keep urlencoded for form posts
   const isVercel = !!process.env.VERCEL;
   if (!isVercel) {
     app.use(express.json({ limit: '1mb' }));
-    app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+  }
+  app.use(express.urlencoded({ extended: false, limit: '1mb' }));
+
+  // Vercel fallback: if body is undefined for JSON requests, read stream manually
+  if (isVercel) {
+    app.use((req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      if (req.body !== undefined) return next();
+      const ct = String(req.headers['content-type'] || '');
+      if (ct.includes('multipart/form-data') || ct.includes('x-www-form-urlencoded')) return next();
+      const len = Number(req.headers['content-length'] || 0);
+      if (ct.includes('json') && len > 0) {
+        const chunks: Buffer[] = [];
+        let done = false;
+        const finish = (body: unknown) => {
+          if (done) return;
+          done = true;
+          req.body = body;
+          next();
+        };
+        const safety = setTimeout(() => finish({}), 10000);
+        (safety as { unref?: () => void }).unref?.();
+        req.on('data', (c: Buffer) => chunks.push(c));
+        req.on('end', () => {
+          clearTimeout(safety);
+          try {
+            const raw = Buffer.concat(chunks).toString('utf8');
+            finish(raw ? JSON.parse(raw) : {});
+          } catch {
+            finish({});
+          }
+        });
+        req.on('error', () => {
+          clearTimeout(safety);
+          finish({});
+        });
+        return;
+      }
+      req.body = {};
+      next();
+    });
   }
 
   app.use(requestIdMiddleware);
@@ -59,15 +98,19 @@ export async function createApp(): Promise<express.Application> {
     const startTime = Date.now();
 
     try {
+      const supabaseUrl = getEnv('SUPABASE_URL', '');
+      const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY', '');
       const supabase = getAdminSupabase();
       if (supabase) {
         const { error } = await supabase.from('song_requests').select('id').limit(1).maybeSingle();
         checks.supabase = error ? `erro: ${error.message}` : 'ok';
       } else {
-        checks.supabase = 'não configurado';
+        checks.supabase = `não configurado (URL: ${supabaseUrl ? supabaseUrl.slice(0, 30) + '...' : 'vazio'})`;
       }
     } catch (e: unknown) {
-      checks.supabase = `erro: ${e instanceof Error ? e.message : 'desconhecido'}`;
+      const err = e instanceof Error ? e : new Error(String(e));
+      const cause = (err as { cause?: unknown }).cause;
+      checks.supabase = `erro: ${err.message}${cause ? ` (cause: ${JSON.stringify(cause)})` : ''}`;
     }
 
     // R2 storage diagnostic

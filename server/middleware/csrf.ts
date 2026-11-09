@@ -10,9 +10,10 @@ export function csrfProtection(req: Request, res: Response, next: NextFunction):
   }
 
   const origin = req.headers['origin'] as string | undefined;
-  const allowedOrigins = ALLOWED_ORIGIN ? ALLOWED_ORIGIN.split(',').map(s => s.trim()) : [];
+  const allowedOrigins = ALLOWED_ORIGIN ? ALLOWED_ORIGIN.split(',').map(s => s.trim()).filter(Boolean) : [];
 
   if (allowedOrigins.length > 0 && origin) {
+    if (allowedOrigins.includes('*')) return next();
     const isAllowed = allowedOrigins.some(a => origin === a || origin === a.replace(/\/$/, ''));
     if (!isAllowed) {
       res.status(403).json({ error: 'Requisição rejeitada por segurança (origem inválida).' });
