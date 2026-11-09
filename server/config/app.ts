@@ -40,51 +40,18 @@ export async function createApp(): Promise<express.Application> {
 
   app.set('trust proxy', 1);
 
-  // In Vercel, skip express.json (Vercel pre-parses JSON bodies); keep urlencoded for form posts
-  const isVercel = !!process.env.VERCEL;
-  if (!isVercel) {
-    app.use(express.json({ limit: '1mb' }));
-  }
+  // Use express.json with error handling on all platforms including Vercel
+  // Vercel pre-parses bodies, but express.json with strict: false will just pass through
+  // already-parsed objects and handle edge cases gracefully
+  app.use(express.json({ limit: '1mb', strict: false }));
   app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
-  // Vercel fallback: if body is undefined for JSON requests, read stream manually
-  if (isVercel) {
-    app.use((req: express.Request, _res: express.Response, next: express.NextFunction) => {
-      if (req.body !== undefined) return next();
-      const ct = String(req.headers['content-type'] || '');
-      if (ct.includes('multipart/form-data') || ct.includes('x-www-form-urlencoded')) return next();
-      const len = Number(req.headers['content-length'] || 0);
-      if (ct.includes('json') && len > 0) {
-        const chunks: Buffer[] = [];
-        let done = false;
-        const finish = (body: unknown) => {
-          if (done) return;
-          done = true;
-          req.body = body;
-          next();
-        };
-        const safety = setTimeout(() => finish({}), 10000);
-        (safety as { unref?: () => void }).unref?.();
-        req.on('data', (c: Buffer) => chunks.push(c));
-        req.on('end', () => {
-          clearTimeout(safety);
-          try {
-            const raw = Buffer.concat(chunks).toString('utf8');
-            finish(raw ? JSON.parse(raw) : {});
-          } catch {
-            finish({});
-          }
-        });
-        req.on('error', () => {
-          clearTimeout(safety);
-          finish({});
-        });
-        return;
-      }
-      req.body = {};
-      next();
-    });
-  }
+  // Ensure body is always an object
+  app.use((req: express.Request, _res: express.Response, next: express.NextFunction) => {
+    if (req.body && typeof req.body === 'object') return next();
+    req.body = {};
+    next();
+  });
 
   app.use(requestIdMiddleware);
   app.use(corsMiddleware);
