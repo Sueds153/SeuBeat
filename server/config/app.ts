@@ -102,8 +102,29 @@ export async function createApp(): Promise<express.Application> {
       const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY', '');
       const supabase = getAdminSupabase();
       if (supabase) {
+        // Direct raw fetch test first
+        let rawFetchOk = false;
+        let rawFetchErr: string | null = null;
+        if (supabaseUrl && supabaseKey) {
+          try {
+            const testUrl = supabaseUrl.replace(/\/$/, '') + '/rest/v1/';
+            const r = await fetch(testUrl, {
+              headers: { apikey: supabaseKey, authorization: `Bearer ${supabaseKey}` },
+              method: 'HEAD'
+            });
+            rawFetchOk = r.ok;
+            if (!r.ok) rawFetchErr = `HTTP ${r.status}`;
+          } catch (fe) {
+            const ferr = fe instanceof Error ? fe : new Error(String(fe));
+            rawFetchErr = ferr.message + (ferr.cause ? ` (${JSON.stringify(ferr.cause)})` : '');
+          }
+        }
+
         const { error } = await supabase.from('song_requests').select('id').limit(1).maybeSingle();
         checks.supabase = error ? `erro: ${error.message}` : 'ok';
+        if (!rawFetchOk) {
+          checks.supabase += ` [raw fetch: ${rawFetchErr || 'failed'}]`;
+        }
       } else {
         checks.supabase = `não configurado (URL: ${supabaseUrl ? supabaseUrl.slice(0, 30) + '...' : 'vazio'})`;
       }
