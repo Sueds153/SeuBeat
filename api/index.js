@@ -10359,18 +10359,29 @@ var appPromise = createApp().catch((err) => {
 });
 var vercel_entry_default = async (req, res) => {
   console.log("[Vercel] Request received:", req.method, req.url);
-  console.log("[Vercel] Request body:", req.body);
-  console.log("[Vercel] Request headers:", JSON.stringify(req.headers));
+  console.log("[Vercel] Request body type:", typeof req.body, Array.isArray(req.body) ? "array" : "object");
+  console.log("[Vercel] Request body:", JSON.stringify(req.body).slice(0, 200));
   if (req.url === "/api/_test-body") {
     return res.json({ method: req.method, body: req.body, headers: req.headers });
   }
   try {
     const app = await appPromise;
     console.log("[Vercel] App ready, handling request");
-    return app(req, res);
+    const timeout = setTimeout(() => {
+      console.error("[Vercel] Request timeout after 30s");
+      if (!res.headersSent) {
+        res.status(504).json({ success: false, error: "Request timeout" });
+      }
+    }, 3e4);
+    const result = await app(req, res);
+    clearTimeout(timeout);
+    console.log("[Vercel] Request completed");
+    return result;
   } catch (err) {
     console.error("[Vercel] Error in serverless function:", err);
-    res.status(500).json({ success: false, error: "Internal server error" });
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: "Internal server error" });
+    }
   }
 };
 export {
