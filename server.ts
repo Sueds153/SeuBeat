@@ -3,17 +3,18 @@ dotenv.config();
 
 import { hasEnv } from './server/config/env';
 
-try {
-  if (hasEnv('SENTRY_DSN')) {
+// Initialize Sentry if DSN is provided
+if (hasEnv('SENTRY_DSN')) {
+  try {
     const { init } = await import('@sentry/node');
     init({
       dsn: process.env.SENTRY_DSN,
       environment: process.env.NODE_ENV || 'development',
       tracesSampleRate: 0.1,
     });
+  } catch (err) {
+    console.warn('[WARN] Erro ao inicializar Sentry (ignorando para manter o servidor ativo):', err);
   }
-} catch (err) {
-  console.warn('[WARN] Erro ao inicializar Sentry (ignorando para manter o servidor ativo):', err);
 }
 
 import { createApp, startServer } from './server/config/app';
@@ -24,22 +25,25 @@ import { startFollowUpScheduler } from './server/services/followUpScheduler';
 import { startFailedLyricsRecoveryScheduler } from './server/services/failedLyricsRecoveryScheduler';
 import { startStuckMusicRecoveryScheduler } from './server/services/stuckMusicRecoveryScheduler';
 
-const app = await createApp();
-
 let server: import('http').Server | undefined;
-try {
-  server = await startServer(app);
+
+async function main() {
+  const app = await createApp();
+  
   try {
-    startDeliveryScheduler();
-    startAbandonedRecoveryScheduler();
-    startFollowUpScheduler();
-    startFailedLyricsRecoveryScheduler();
-    startStuckMusicRecoveryScheduler();
-  } catch (schedErr) {
-    logError('Aviso: falha ao iniciar schedulers em segundo plano', schedErr);
+    server = await startServer(app);
+    try {
+      startDeliveryScheduler();
+      startAbandonedRecoveryScheduler();
+      startFollowUpScheduler();
+      startFailedLyricsRecoveryScheduler();
+      startStuckMusicRecoveryScheduler();
+    } catch (schedErr) {
+      logError('Aviso: falha ao iniciar schedulers em segundo plano', schedErr);
+    }
+  } catch (err) {
+    logError('Erro ao iniciar servidor HTTP', err);
   }
-} catch (err) {
-  logError('Erro ao iniciar servidor HTTP', err);
 }
 
 async function gracefulShutdown(signal: string) {
@@ -67,4 +71,9 @@ process.on('unhandledRejection', (reason) => {
 
 process.on('uncaughtException', (err) => {
   logFatal('[Process] Uncaught Exception — a encerrar', err);
+});
+
+main().catch(err => {
+  logError('Erro fatal no main', err);
+  process.exit(1);
 });

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "node scripts/generate-og-image.cjs && vite build && node -e \"const fs=require('fs'); fs.copyFileSync('api/index.js', 'api/index.js'); console.log('api/index.js ready')\"",
+    "build": "node scripts/generate-og-image.cjs && vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=api/index.js",
     "start": "node dist/server.js",
     "clean": "npx rimraf dist dist-server",
     "lint": "eslint . --ext ts,tsx --max-warnings 0",
