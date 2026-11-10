@@ -33,7 +33,7 @@ async function loadGoogleGenAI() {
   if (!GoogleGenAISDK) GoogleGenAISDK = (await import('@google/genai')).GoogleGenAI;
   return GoogleGenAISDK;
 }
-import { logInfo, logError, logWarn } from '../utils/logger';
+import { logInfo, logError, logWarn, getHeader } from '../utils/logger';
 import { normalizeLyricsArray, querySunoTask } from '../services/suno';
 import { persistGeneratedSunoAudio } from '../services/workflow';
 import { publicErrorMessage, getAppUrl, logRouteError } from '../utils/helpers';
@@ -418,9 +418,9 @@ router.post('/payment/:id/approve', adminAuth, async (req, res) => {
         currency: 'AOA',
         contentName: planName,
         orderId: id,
-        eventSourceUrl: (req.headers.referer as string) || undefined,
+        eventSourceUrl: getHeader(req.headers, 'referer') || undefined,
         clientIp: req.ip || req.socket.remoteAddress || undefined,
-        clientUserAgent: req.headers['user-agent'],
+        clientUserAgent: getHeader(req.headers, 'user-agent'),
         externalId: payment.user_email || userEmail || undefined,
         ln: lastName,
       })
@@ -606,9 +606,9 @@ router.post('/payment/:id/reject', adminAuth, async (req, res) => {
         currency: 'AOA',
         contentName: payment.plan || 'standard',
         orderId: id,
-        eventSourceUrl: (req.headers.referer as string) || undefined,
+        eventSourceUrl: getHeader(req.headers, 'referer') || undefined,
         clientIp: req.ip || req.socket.remoteAddress || undefined,
-        clientUserAgent: req.headers['user-agent'],
+        clientUserAgent: getHeader(req.headers, 'user-agent'),
         externalId: payment.user_email || undefined,
       }).catch(err =>
         logError('[Admin] Meta CAPI Refund event failed', err, { paymentId: id })
@@ -1097,7 +1097,7 @@ router.post('/request/:id/force-status', adminAuth, async (req, res) => {
 
       const song = firstRelated(songRequest?.songs);
       if (songRequest?.users?.email && song) {
-        const slug = (songRequest.recipient_name || 'especial')
+        const slug = (String(songRequest.recipient_name || 'especial'))
           .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
           .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
         const url = `${getAppUrl(req)}/song/${slug}?id=${song.id}`;

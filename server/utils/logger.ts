@@ -2,17 +2,6 @@ import pino from 'pino';
 import fs from 'fs';
 import path from 'path';
 
-// Níveis customizados (pino padrão: maior = mais severo)
-const customLevels = {
-  fatal: 60,
-  error: 50,
-  warn: 40,
-  info: 30,
-  http: 25,
-  debug: 20,
-  trace: 10,
-};
-
 // Garantir que a pasta de logs existe sem rebentar o arranque
 const logsDir = path.join(process.cwd(), 'logs');
 let canWriteLogs = false;
@@ -36,70 +25,53 @@ const isDev = process.env.NODE_ENV !== 'production' && !isVercel;
 // In production (non-Vercel): file transports
 const defaultLogLevel = isProduction ? 'info' : 'debug';
 
-let logger: pino.Logger;
+function createLogger() {
+  const options: pino.LoggerOptions = {
+    level: process.env.LOG_LEVEL || defaultLogLevel,
+    formatters: {
+      level(label: string) {
+        return { level: label };
+      },
+    },
+    timestamp: pino.stdTimeFunctions.isoTime,
+    base: { service: 'seubeat' },
+  };
 
-if (isVercel) {
-  // Plain pino, no transport - simplest and most reliable for serverless
-  logger = pino({
-    level: process.env.LOG_LEVEL || defaultLogLevel,
-    customLevels,
-    formatters: {
-      level(label: string) {
-        return { level: label };
-      },
-    },
-    timestamp: pino.stdTimeFunctions.isoTime,
-    base: { service: 'seubeat' },
-  });
-} else if (isDev) {
-  // Local development: pretty transport
-  logger = pino({
-    level: process.env.LOG_LEVEL || defaultLogLevel,
-    customLevels,
-    formatters: {
-      level(label: string) {
-        return { level: label };
-      },
-    },
-    timestamp: pino.stdTimeFunctions.isoTime,
-    base: { service: 'seubeat' },
-  }, pino.transport({
-    targets: [{
-      target: 'pino-pretty',
-      options: {
-        colorize: true,
-        translateTime: 'SYS:yyyy-mm-dd HH:MM:ss',
-        ignore: 'pid,hostname',
-        singleLine: false,
-      },
-    }],
-  }));
-} else {
-  // Production (non-Vercel): file transports
-  const transports: pino.TransportTargetOptions[] = [];
-  if (canWriteLogs) {
-    transports.push({
-      target: 'pino/file',
-      options: { destination: path.join(logsDir, 'error.log'), mkdir: true },
-      level: 'error',
-    });
-    transports.push({
-      target: 'pino/file',
-      options: { destination: path.join(logsDir, 'combined.log'), mkdir: true },
-    });
+  if (isVercel) {
+    // Plain pino, no transport - simplest and most reliable for serverless
+    return pino(options);
+  } else if (isDev) {
+    // Local development: pretty transport
+    return pino(options, pino.transport({
+      targets: [{
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'SYS:yyyy-mm-dd HH:MM:ss',
+          ignore: 'pid,hostname',
+          singleLine: false,
+        },
+      }],
+    }));
+  } else {
+    // Production (non-Vercel): file transports
+    const transports: pino.TransportTargetOptions[] = [];
+    if (canWriteLogs) {
+      transports.push({
+        target: 'pino/file',
+        options: { destination: path.join(logsDir, 'error.log'), mkdir: true },
+        level: 'error',
+      });
+      transports.push({
+        target: 'pino/file',
+        options: { destination: path.join(logsDir, 'combined.log'), mkdir: true },
+      });
+    }
+    return pino(options, pino.transport({ targets: transports }));
   }
-  logger = pino({
-    level: process.env.LOG_LEVEL || defaultLogLevel,
-    customLevels,
-    formatters: {
-      level(label: string) {
-        return { level: label };
-      },
-    },
-    timestamp: pino.stdTimeFunctions.isoTime,
-    base: { service: 'seubeat' },
-  }, pino.transport({ targets: transports }));
 }
+
+const logger = createLogger();
 
 // Sentry integration
 let sentryModule: unknown = null;
@@ -126,6 +98,22 @@ async function captureSentry(level: string, message: string, err?: Error | unkno
     tags: { source: 'pino' },
     extra: { ...meta, logMessage: message },
   });
+}
+
+// Helper to get first header value (handles string | string[])
+function getHeader(headers: Record<string, string | string[] | undefined>, name: string): string | undefined {
+  const val = headers[name.toLowerCase()];
+  if (Array.isArray(val)) return val[0];
+  return val;
+}
+
+// Use 'info' level for http logs (standard pino level)
+function logHttp(message: string, metadata?: unknown) {
+  if (metadata && typeof metadata === 'object') {
+    logger.info(metadata as Record<string, unknown>, message);
+  } else {
+    logger.info(message);
+  }
 }
 
 // Exportar API identical ao Winston anterior
@@ -163,14 +151,6 @@ export function logDebug(message: string, metadata?: unknown) {
   }
 }
 
-export function logHttp(message: string, metadata?: unknown) {
-  if (metadata && typeof metadata === 'object') {
-    logger.http(metadata as Record<string, unknown>, message);
-  } else {
-    logger.http(message);
-  }
-}
-
 export function logFatal(message: string, error?: Error | unknown, metadata?: unknown) {
   const errorObj = error instanceof Error
     ? { message: error.message, stack: error.stack, name: error.name }
@@ -180,3 +160,5 @@ export function logFatal(message: string, error?: Error | unknown, metadata?: un
   logger.fatal({ ...errorObj, ...meta }, message);
   captureSentry('fatal', message, error, metadata).then(() => process.exit(1));
 }
+
+export { getHeader, logHttp };

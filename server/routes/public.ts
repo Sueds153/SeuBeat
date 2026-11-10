@@ -44,7 +44,7 @@ import {
   recoverByEmailLimiter,
   voiceValidationLimiter
 } from '../middleware/rateLimiter';
-import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
+import { logInfo, logError, logDebug, logWarn, getHeader } from '../utils/logger';
 
 const router = express.Router();
 
@@ -221,7 +221,7 @@ async function dedupeLyricsRequest(
     const validation = validateInput(GenerateLyricsSchema, req.body);
     if (!validation.success) return next();
 
-    const data: GenerateLyricsInput = validation.data;
+    const data = validation.data;
     if (!data.email) return next();
     const fingerprint = await lyricsRequestFingerprint({
       recipientName: data.recipientName || undefined,
@@ -366,7 +366,7 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
   try {
     // Validar input
     const validation = validateInput(GenerateLyricsSchema, req.body);
-    if ('errors' in validation) {
+    if (!validation.success) {
       logWarn('[API] /generate-lyrics dados inválidos', {
         email: typeof req.body?.email === 'string' ? req.body.email.toLowerCase() : 'unknown',
         errors: validation.errors
@@ -580,9 +580,9 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
     const firstNameLyrics = namePartsLyrics[0] || undefined;
     const lastNameLyrics = namePartsLyrics.slice(-1)[0] || undefined;
     const genderMap: Record<string, string> = { masculino: 'm', feminino: 'f' };
-    const genLyrics = recipientGender ? genderMap[recipientGender.toLowerCase()] : undefined;
+    const genLyrics = recipientGender ? genderMap[String(recipientGender).toLowerCase()] : undefined;
     const eventIp = req.ip || req.socket.remoteAddress || undefined;
-    const eventUa = req.headers['user-agent'];
+    const eventUa = getHeader(req.headers, 'user-agent');
 
     // Match keys extra: external_id (hash do email) + fbp/fbc vindos do browser
     const leadFbp = typeof req.body?.fbp === 'string' ? req.body.fbp : undefined;
@@ -593,7 +593,7 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
       email: email || '',
       phone: phone || undefined,
       contentName: 'lyrics_generated',
-      eventSourceUrl: (req.headers.referer as string) || undefined,
+      eventSourceUrl: getHeader(req.headers, 'referer') || undefined,
       clientIp: eventIp,
       clientUserAgent: eventUa,
       externalId: email || undefined,
@@ -612,7 +612,7 @@ router.post('/generate-lyrics', dedupeLyricsRequest, generateLyricsLimiter, emai
       ln: lastNameLyrics,
       gen: genLyrics,
       country: 'AO',
-      eventSourceUrl: (req.headers.referer as string) || undefined,
+      eventSourceUrl: getHeader(req.headers, 'referer') || undefined,
       clientIp: eventIp,
       clientUserAgent: eventUa,
       externalId: email || undefined,
@@ -845,7 +845,7 @@ router.put('/song/:id/lyrics', globalLimiter, async (req, res) => {
     if (!email || typeof email !== 'string') return res.status(400).json({ success: false, error: 'Email requerido.' });
 
     const validation = validateInput(UpdateLyricsSchema, req.body);
-    if ('errors' in validation) {
+    if (!validation.success) {
       logWarn('[API] PUT /song/:id/lyrics dados inválidos', {
         songId: id,
         errors: validation.errors
@@ -1114,7 +1114,7 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
     if (isMultipart && !req.body?.songRequestId) {
       logWarn('[API] submit-payment: multipart recebido mas body vazio — multer pode ter falhado', {
         hasFiles: !!files,
-        contentType: req.headers['content-type'],
+        contentType: getHeader(req.headers, 'content-type'),
       });
       return res.status(400).json({ success: false, error: 'Dados de pagamento inválidos. Envie novamente o comprovativo.' });
     }
@@ -1856,9 +1856,9 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
             orderId: paymentRecord.id,
             fbp: fbp || undefined,
             fbc: fbc || undefined,
-            eventSourceUrl: (req.headers.referer as string) || undefined,
+            eventSourceUrl: getHeader(req.headers, 'referer') || undefined,
             clientIp: req.ip || req.socket.remoteAddress || undefined,
-            clientUserAgent: req.headers['user-agent'],
+            clientUserAgent: getHeader(req.headers, 'user-agent'),
             externalId: userEmail,
           }).catch(err =>
             logError('[API] Meta CAPI Refund event failed', err, { paymentId: paymentRecord?.id })
@@ -1888,9 +1888,9 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
         orderId: purchasePaymentId,
         fbp: fbp || undefined,
         fbc: fbc || undefined,
-        eventSourceUrl: (req.headers.referer as string) || undefined,
+        eventSourceUrl: getHeader(req.headers, 'referer') || undefined,
         clientIp: req.ip || req.socket.remoteAddress || undefined,
-        clientUserAgent: req.headers['user-agent'],
+        clientUserAgent: getHeader(req.headers, 'user-agent'),
         externalId: userEmail,
       })
         .then(ok => {
@@ -1918,9 +1918,9 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       orderId: paymentRecord?.id,
       fbp: fbp || undefined,
       fbc: fbc || undefined,
-      eventSourceUrl: (req.headers.referer as string) || undefined,
+      eventSourceUrl: getHeader(req.headers, 'referer') || undefined,
       clientIp: req.ip || req.socket.remoteAddress || undefined,
-      clientUserAgent: req.headers['user-agent'],
+      clientUserAgent: getHeader(req.headers, 'user-agent'),
       externalId: userEmail,
     }).catch(err =>
       logError('[API] Meta CAPI InitiateCheckout event failed', err, { paymentId: paymentRecord?.id })
@@ -1936,9 +1936,9 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       orderId: paymentRecord?.id,
       fbp: fbp || undefined,
       fbc: fbc || undefined,
-      eventSourceUrl: (req.headers.referer as string) || undefined,
+      eventSourceUrl: getHeader(req.headers, 'referer') || undefined,
       clientIp: req.ip || req.socket.remoteAddress || undefined,
-      clientUserAgent: req.headers['user-agent'],
+      clientUserAgent: getHeader(req.headers, 'user-agent'),
       externalId: userEmail,
     }).catch(err =>
       logError('[API] Meta CAPI AddPaymentInfo event failed', err, { paymentId: paymentRecord?.id })
@@ -1954,9 +1954,9 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
       orderId: paymentRecord?.id,
       fbp: fbp || undefined,
       fbc: fbc || undefined,
-      eventSourceUrl: (req.headers.referer as string) || undefined,
+      eventSourceUrl: getHeader(req.headers, 'referer') || undefined,
       clientIp: req.ip || req.socket.remoteAddress || undefined,
-      clientUserAgent: req.headers['user-agent'],
+      clientUserAgent: getHeader(req.headers, 'user-agent'),
       externalId: userEmail,
     }).catch(err =>
       logError('[API] Meta CAPI SubmitApplication event failed', err, { paymentId: paymentRecord?.id })
