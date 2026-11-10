@@ -41,22 +41,15 @@ export async function createApp(): Promise<express.Application> {
   app.set('trust proxy', 1);
 
   // Body parsing strategy:
-  // - Vercel: platform pre-parses JSON bodies into req.body. We set req._body=true so
-  //   body-parser (inside express.json) skips re-reading the already-consumed stream.
-  //   Without this, body-parser tries to read the stream again and throws "Invalid JSON".
-  // - Local: express.json parses normally from the stream.
+  // - Vercel: platform pre-parses JSON bodies into req.body. DO NOT use express.json()
+  //   or express.urlencoded() - they use body-parser which tries to re-read the
+  //   already-consumed stream and throws "Invalid JSON".
+  // - Local: use express.json() and express.urlencoded() normally.
   const isVercel = !!process.env.VERCEL;
-  if (isVercel) {
-    // Mark body as already parsed so express.json/body-parser skips re-reading
-    app.use((req: express.Request, _res: express.Response, next: express.NextFunction) => {
-      if (req.body && typeof req.body === 'object') {
-        (req as unknown as { _body?: boolean })._body = true;
-      }
-      next();
-    });
+  if (!isVercel) {
+    app.use(express.json({ limit: '1mb' }));
+    app.use(express.urlencoded({ extended: false, limit: '1mb' }));
   }
-  app.use(express.json({ limit: '1mb' }));
-  app.use(express.urlencoded({ extended: false, limit: '1mb' }));
 
   // Ensure body is always an object (fallback for edge cases)
   app.use((req: express.Request, _res: express.Response, next: express.NextFunction) => {
