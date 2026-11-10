@@ -11,6 +11,7 @@ import PrivacyPage from './components/PrivacyPage';
 import { useMetaPixel } from './hooks/useMetaPixel';
 import { fbPageView } from './lib/metaPixel';
 import { captureUtm } from './lib/utm';
+import { useSeoMeta } from './lib/seoMeta';
 
 const Wizard = lazy(() => import('./components/Wizard'));
 const RecoverPage = lazy(() => import('./components/RecoverPage'));
@@ -58,6 +59,9 @@ export default function App() {
   const currentViewRef = useRef(currentView);
   currentViewRef.current = currentView;
   const isFirstRender = useRef(true);
+
+  // SEO meta tags dinâmicas por rota
+  useSeoMeta(currentView, window.location.pathname);
 
   // Fire PageView when view changes (skip first mount — initMetaPixel já o fez)
   useEffect(() => {
