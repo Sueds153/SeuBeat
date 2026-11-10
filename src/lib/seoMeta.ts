@@ -48,6 +48,68 @@ const SEO_ROUTES: Record<string, { title: string; description: string; path: str
   },
 };
 
+/** Structured Data (JSON-LD) por rota — injectado dinamicamente no <head> */
+const JSONLD_ROUTES: Record<string, object[]> = {
+  wizard: [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: 'Criar Canção Personalizada',
+      description: 'Assistente de 5 passos para criar a tua canção personalizada com IA. Escolhe estilo, voz, conta a tua história e recebe a letra antes de pagares.',
+      url: 'https://seubeat.vercel.app/wizard',
+      inLanguage: 'pt-AO',
+      isPartOf: { '@id': 'https://seubeat.vercel.app/#website' },
+      mainEntity: {
+        '@type': 'WebApplication',
+        name: 'SeuBeat Wizard',
+        applicationCategory: 'EntertainmentApplication',
+        operatingSystem: 'Web',
+        featureList: [
+          'Seleção de ocasião e relacionamento',
+          'Escolha de estilo musical (Kizomba, Semba, Pop, Gospel)',
+          'Escolha de voz (Masculina, Feminina, Dueto, Clonada)',
+          'Editor de história com sugestões inteligentes',
+          'Pré-visualização da letra gerada por IA',
+          'Pagamento por Multicaixa Referência ou Express'
+        ]
+      }
+    }
+  ],
+  terms: [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: 'Termos de Serviço',
+      description: 'Termos e condições de uso do SeuBeat — canções personalizadas com IA.',
+      url: 'https://seubeat.vercel.app/terms',
+      inLanguage: 'pt-AO',
+      isPartOf: { '@id': 'https://seubeat.vercel.app/#website' }
+    }
+  ],
+  privacy: [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: 'Política de Privacidade',
+      description: 'Como o SeuBeat recolhe, usa e protege os teus dados pessoais e de voz.',
+      url: 'https://seubeat.vercel.app/privacy',
+      inLanguage: 'pt-AO',
+      isPartOf: { '@id': 'https://seubeat.vercel.app/#website' }
+    }
+  ],
+  song: [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'WebPage',
+      name: 'Canção Personalizada',
+      description: 'Página de dedicatória com música completa, letra, carta personalizada e download MP3.',
+      url: 'https://seubeat.vercel.app/song',
+      inLanguage: 'pt-AO',
+      isPartOf: { '@id': 'https://seubeat.vercel.app/#website' }
+    }
+  ]
+};
+
 function upsertMeta(selector: string, keyAttr: string, key: string, content: string): void {
   let el = document.head.querySelector<HTMLMetaElement>(selector);
   if (!el) {
@@ -66,6 +128,24 @@ function upsertCanonical(href: string): void {
     document.head.appendChild(el);
   }
   el.setAttribute('href', href);
+}
+
+/** Injeta/atualiza JSON-LD scripts no <head> com data-seo-route attribute */
+function upsertJsonLd(routeKey: string): void {
+  const schemas = JSONLD_ROUTES[routeKey];
+  if (!schemas || schemas.length === 0) return;
+
+  // Remove existing SEO-injected JSON-LD scripts
+  document.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"][data-seo-route]').forEach(el => el.remove());
+
+  // Inject new ones
+  schemas.forEach((schema, i) => {
+    const script = document.createElement('script');
+    script.type = 'application/ld+json';
+    script.setAttribute('data-seo-route', routeKey);
+    script.textContent = JSON.stringify(schema);
+    document.head.appendChild(script);
+  });
 }
 
 const BASE_URL = 'https://seubeat.vercel.app';
@@ -92,5 +172,8 @@ export function useSeoMeta(view: string, urlPath: string): void {
     if (robots) {
       robots.setAttribute('content', conf.noindex ? 'noindex, nofollow' : 'index, follow, max-snippet:150, max-image-preview:large');
     }
+
+    // Inject structured data for this route
+    upsertJsonLd(view);
   }, [view, urlPath]);
 }
