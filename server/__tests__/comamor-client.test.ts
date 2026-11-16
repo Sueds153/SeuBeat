@@ -16,6 +16,7 @@ function configure() {
   vi.stubEnv('COMAMOR_INTEGRATION_ENABLED', 'true');
   vi.stubEnv('COMAMOR_API_BASE_URL', 'https://comamor.example');
   vi.stubEnv('COMAMOR_INTEGRATION_TOKEN', TOKEN);
+  vi.stubEnv('COMAMOR_VERCEL_PROTECTION_BYPASS', 'preview-bypass-test-only');
   vi.stubEnv('SEUBEAT_WEBHOOK_SECRET', SECRET);
   vi.stubEnv('COMAMOR_AUDIO_ALLOWED_HOSTS', 'audio.seubeat.example');
   vi.stubEnv('NODE_ENV', 'test');
@@ -57,6 +58,20 @@ describe('ComAmor server client', () => {
       headers: expect.objectContaining({ authorization: `Bearer ${TOKEN}` }),
       body: JSON.stringify({ orderId: ORDER_ID }),
     }));
+    const headers = new Headers((fetchMock.mock.calls[0][1] as RequestInit).headers);
+    expect(headers.get('x-vercel-protection-bypass')).toBe('preview-bypass-test-only');
+  });
+
+  it('omits the Vercel bypass header when no preview bypass is configured', async () => {
+    vi.stubEnv('COMAMOR_VERCEL_PROTECTION_BYPASS', '');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(validAuthorization()), {
+      status: 200, headers: { 'content-type': 'application/json' },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await authorizeComAmorOrder(ORDER_ID);
+    const headers = new Headers((fetchMock.mock.calls[0][1] as RequestInit).headers);
+    expect(headers.has('x-vercel-protection-bypass')).toBe(false);
   });
 
   it('rejects a ComAmor response for a different order', async () => {
@@ -128,6 +143,7 @@ describe('ComAmor server client', () => {
     const call = fetchMock.mock.calls[0];
     const options = call[1] as RequestInit;
     const headers = new Headers(options.headers);
+    expect(headers.get('x-vercel-protection-bypass')).toBe('preview-bypass-test-only');
     expect(call[0]).toBe('https://comamor.example/api/seubeat-result');
     expect(options.redirect).toBe('manual');
     expect(options.body).toBe(body);

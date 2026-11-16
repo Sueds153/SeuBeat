@@ -10,11 +10,14 @@ Definir no secret manager do **servidor SeuBeat**:
 COMAMOR_INTEGRATION_ENABLED=true
 COMAMOR_API_BASE_URL=https://comamor.example
 COMAMOR_INTEGRATION_TOKEN=<token-servidor-ficticio>
+COMAMOR_VERCEL_PROTECTION_BYPASS=<bypass-preview-ficticio>
 SEUBEAT_WEBHOOK_SECRET=<segredo-hmac-ficticio>
 COMAMOR_AUDIO_ALLOWED_HOSTS=media.seubeat.example
 ```
 
 Os dois últimos valores secretos devem ser iguais a `SEUBEAT_WEBHOOK_SECRET` e o host de áudio deve constar em `SEUBEAT_AUDIO_HOSTS` no ComAmor. O host é uma lista de nomes exatos, separados por vírgula. Usa HTTPS. O SeuBeat não segue redirects ao consultar nem ao enviar callbacks.
+
+`COMAMOR_VERCEL_PROTECTION_BYPASS` é opcional e só deve ser configurado no ambiente **Preview** do SeuBeat quando o preview do ComAmor exigir proteção Vercel. O servidor envia-o no header `x-vercel-protection-bypass` nas chamadas de autorização e callback; nunca é exposto ao browser nem colocado em query string. Não configurar em Production.
 
 Aplicar `supabase_migration_comamor_integration.sql` no ambiente de staging antes de ligar a flag. A migração cria apenas duas tabelas isoladas e uma função transacional; RLS fica ativa, o acesso público é revogado e só `service_role` pode aceder. Esta branch não aplica migrações em bases remotas.
 

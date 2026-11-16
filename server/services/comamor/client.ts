@@ -50,6 +50,7 @@ function config() {
   const baseUrl = process.env.COMAMOR_API_BASE_URL || '';
   const token = process.env.COMAMOR_INTEGRATION_TOKEN || '';
   const webhookSecret = process.env.SEUBEAT_WEBHOOK_SECRET || '';
+  const protectionBypass = process.env.COMAMOR_VERCEL_PROTECTION_BYPASS || '';
   const allowedAudioHosts = (process.env.COMAMOR_AUDIO_ALLOWED_HOSTS || '')
     .split(',').map(host => host.trim().toLowerCase()).filter(Boolean);
 
@@ -69,7 +70,7 @@ function config() {
     || parsed.search || parsed.hash || !['', '/'].includes(parsed.pathname)) {
     throw new ComAmorIntegrationError('Integração ainda não configurada.', 503, 'integration_not_configured');
   }
-  return { enabled, baseUrl: parsed.toString().replace(/\/$/, ''), token, webhookSecret, allowedAudioHosts };
+  return { enabled, baseUrl: parsed.toString().replace(/\/$/, ''), token, webhookSecret, allowedAudioHosts, protectionBypass };
 }
 
 export function isComAmorIntegrationEnabled(): boolean {
@@ -88,6 +89,7 @@ export async function authorizeComAmorOrder(orderId: string): Promise<ComAmorAut
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: {
         authorization: `Bearer ${settings.token}`,
+        ...(settings.protectionBypass ? { 'x-vercel-protection-bypass': settings.protectionBypass } : {}),
         'content-type': 'application/json',
         accept: 'application/json',
       },
@@ -177,6 +179,7 @@ export async function sendComAmorCallback(rawBody: string): Promise<void> {
         'content-type': 'application/json',
         'x-seubeat-timestamp': timestamp,
         'x-seubeat-signature': signCallback(timestamp, rawBody, settings.webhookSecret),
+        ...(settings.protectionBypass ? { 'x-vercel-protection-bypass': settings.protectionBypass } : {}),
       },
       body: rawBody,
     });
