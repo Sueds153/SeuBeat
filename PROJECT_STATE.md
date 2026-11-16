@@ -29,12 +29,14 @@ Atualizado em 16/Nov/2026. Snapshot operacional; o histórico detalhado está no
 
 ## Validação desta branch
 - Baseline antes da implementação: 504 testes passaram; 3 suites falharam por ausência de `@testing-library/jest-dom`, `@testing-library/react` e `@testing-library/user-event`.
-- Baseline e pós-mudança: ESLint 9 sem `eslint.config.*`; `tsc --noEmit` acusa erros preexistentes em dependências/testes e rotas existentes.
-- Pós-mudança: 528 testes passaram; as mesmas 3 suites continuam bloqueadas pelas dependências ausentes.
-- Testes ComAmor: 24/24; E2E completo pós-mudança: 72 passaram, 2 ignorados (Chromium + Mobile Chrome); `npm run build` passou.
-- `tsc --noEmit` continua com erros preexistentes fora da feature; nenhum diagnóstico ComAmor apareceu. Lint bloqueado pela configuração ESLint ausente.
+- Esta branch adiciona as 3 bibliotecas, `@testing-library/dom` e as dependências que faltavam no botão (`@radix-ui/react-slot`, `class-variance-authority`). As três suites antes bloqueadas passaram (37 testes, 1 ignorado).
+- Testes ComAmor: 24/24; E2E completo: 72 passaram, 2 ignorados (Chromium + Mobile Chrome); build passou também após actualizar dependências.
+- Suite completa pós-dependências: 564 passaram, 1 ignorado e 1 timeout intermitente em `metaPixelCapi.test.ts`; essa suite passou isolada (13/13).
+- ESLint 9 agora tem `eslint.config.js`; lint dos ficheiros ComAmor passou. Lint global expõe 130 erros e 27 avisos preexistentes noutros ficheiros, não corrigidos fora do escopo.
+- `tsc --noEmit` continua com erros preexistentes em testes e rotas Express; nenhum diagnóstico ComAmor apareceu.
 
 ## Pendências
 - Rever a migração em staging e sincronizar segredo HMAC, token e allowlist com o ComAmor antes de activar a flag.
+- Credenciais ComAmor não estão configuradas no `.env`, shell ou GitHub Secrets. Manter a feature desactivada até configurar o endpoint/hosts e inserir token/HMAC no secret manager do serviço.
 - Instalar/recuperar dependências de testes frontend e configuração ESLint para desbloquear as suites antigas.
 - Não aplicar migração, fazer deploy ou merge sem revisão e autorização operacional.
