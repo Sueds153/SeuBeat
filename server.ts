@@ -24,6 +24,7 @@ import { startAbandonedRecoveryScheduler } from './server/services/abandonedReco
 import { startFollowUpScheduler } from './server/services/followUpScheduler';
 import { startFailedLyricsRecoveryScheduler } from './server/services/failedLyricsRecoveryScheduler';
 import { startStuckMusicRecoveryScheduler } from './server/services/stuckMusicRecoveryScheduler';
+import { startComAmorScheduler } from './server/services/comamor/scheduler';
 
 let server: import('http').Server | undefined;
 
@@ -38,6 +39,7 @@ async function main() {
       startFollowUpScheduler();
       startFailedLyricsRecoveryScheduler();
       startStuckMusicRecoveryScheduler();
+      startComAmorScheduler();
     } catch (schedErr) {
       logError('Aviso: falha ao iniciar schedulers em segundo plano', schedErr);
     }
