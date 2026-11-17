@@ -50,7 +50,7 @@ export default function SongLyrics({ lyrics, audioProgress }: SongLyricsProps) {
           if (isHeader) {
             return (
               <p key={idx} className="text-[10px] font-bold text-[#535353] uppercase tracking-widest mt-4 first:mt-0">
-                {line.replace(/[\[\]]/g, '')}
+                {line.replace(/[[\]]/g, '')}
               </p>
             );
           }

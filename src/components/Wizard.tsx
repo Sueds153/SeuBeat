@@ -163,7 +163,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
         const parsed = JSON.parse(saved);
         return parsed?.step && parsed.step >= 1 ? parsed.step : 1;
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return 1;
   });
   const [formData, setFormData] = useState<WizardData>(() => {
@@ -175,7 +175,7 @@ export default function Wizard({ onBackToLanding }: WizardProps) {
           return { ...INITIAL_WIZARD_DATA, ...parsed.formData };
         }
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return INITIAL_WIZARD_DATA;
   });
   const [paymentDetails, setPaymentDetails] = useState({ entidade: '10116', referencia: '929423278', expressPhone: '929423278' });
@@ -221,7 +221,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.selectedPlanID || null;
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return null;
   });
   const [voiceUpsellApplied, setVoiceUpsellApplied] = useState(() => {
@@ -231,7 +231,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.voiceUpsellApplied || false;
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return false;
   });
   const [showUpsellModal, setShowUpsellModal] = useState(false);
@@ -244,7 +244,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           return true;
         }
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return false;
   });
   const [isRecording, setIsRecording] = useState(false);
@@ -255,7 +255,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.hasRecorded || false;
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return false;
   });
   const [recordingSeconds, setRecordingSeconds] = useState(0);
@@ -268,7 +268,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.validationPhrase || null;
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return null;
   });
   const [validationTaskId, setValidationTaskId] = useState<string | null>(() => {
@@ -278,7 +278,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.validationTaskId || null;
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return null;
   });
   const [phraseRecorded, setPhraseRecorded] = useState(() => {
@@ -288,7 +288,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.phraseRecorded || false;
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return false;
   });
   const [validationLoading, setValidationLoading] = useState(false);
@@ -301,7 +301,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.isDone || false;
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return false;
   }); // Order success screen
   const [generatedShareUrl, setGeneratedShareUrl] = useState(() => {
@@ -311,7 +311,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.generatedShareUrl || '';
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return '';
   });
 
@@ -327,7 +327,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           return parsed.proofMeta;
         }
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return null;
   });
 
@@ -339,7 +339,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.paymentSubmitted || false;
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return false;
   });
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'approved' | 'rejected'>(() => {
@@ -349,7 +349,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.paymentStatus || 'pending';
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return 'pending';
   });
   // proofMeta: guardado em localStorage para saber se já submeteu (sem guardar o ficheiro inteiro)
@@ -367,7 +367,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.aiSongTitle || '';
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return '';
   });
   const [aiLyrics, setAiLyrics] = useState<string[]>(() => {
@@ -377,7 +377,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.aiLyrics || [];
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return [];
   });
   const [aiLyricsSnippet, setAiLyricsSnippet] = useState(() => {
@@ -387,7 +387,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.aiLyricsSnippet || '';
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return '';
   });
   const [aiLetterText, setAiLetterText] = useState(() => {
@@ -397,7 +397,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.aiLetterText || '';
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return '';
   });
   
@@ -406,7 +406,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     try {
       const stored = localStorage.getItem('seubeat_teaser_enabled');
       if (stored !== null) return stored === 'true';
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return false;
   });
   const [teaserLoading, setTeaserLoading] = useState(true);
@@ -422,7 +422,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.dbSongId || '';
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return '';
   });
   const [dbSongRequestId, setDbSongRequestId] = useState<string>(() => {
@@ -432,7 +432,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.dbSongRequestId || '';
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return '';
   });
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus>(() => {
@@ -442,7 +442,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         const parsed = JSON.parse(saved);
         return parsed?.generationStatus || 'idle';
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return 'idle';
   });
   const [generationError, setGenerationError] = useState('');
@@ -472,7 +472,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
             return;
           }
         }
-      } catch {}
+      } catch { /* intencional: falha silenciosa */ }
       localStorage.setItem('seubeat_wizard_version', WIZARD_BUILD);
     }
   }, []);
@@ -593,7 +593,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         lyricsValidating,
         validatedLyrics
       }));
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
   }, [
     formData,
     step,
@@ -640,7 +640,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           setPaymentNotes(data.notes || '');
           showToast('Pagamento rejeitado. Veja o motivo na tela.', 'error');
         }
-      } catch {}
+      } catch { /* intencional: falha silenciosa */ }
     };
 
     checkStatus();
@@ -677,7 +677,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     const email = formData.email?.trim();
     if (email && email.includes('@')) {
       import('@sentry/react').then((mod) => {
-        try { (mod as any).setUser({ email }); } catch {}
+        try { (mod as any).setUser({ email }); } catch { /* intencional: falha silenciosa */ }
       }).catch(() => {});
     }
   }, [formData.email]);
@@ -773,7 +773,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         parsed.proofMeta = null;
         localStorage.setItem('seubeat_wizard_progress', JSON.stringify(parsed));
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     setPaymentSubmitError('');
   };
 

@@ -82,7 +82,7 @@ export function getAudioDurationFfmpeg(inputPath: string): Promise<number> {
 
     // Timeout de segurança
     setTimeout(() => {
-      try { ffmpegProc.kill(); } catch {}
+      try { ffmpegProc.kill(); } catch { /* intencional: falha silenciosa */ }
       resolve(0);
     }, 15000);
   });
@@ -223,7 +223,7 @@ export async function applyFades(inputPath: string, outputPath: string): Promise
     const fadeTimer = setTimeout(() => {
       if (settled) return;
       settled = true;
-      try { (cmd as any).kill('SIGKILL'); } catch {}
+      try { (cmd as any).kill('SIGKILL'); } catch { /* intencional: falha silenciosa */ }
       reject(new Error(`applyFades timeout after ${FADE_TIMEOUT_MS}ms on ${inputPath}`));
     }, FADE_TIMEOUT_MS);
   });

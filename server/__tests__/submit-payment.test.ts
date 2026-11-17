@@ -125,7 +125,7 @@ function buildSupabaseMock(opts: SupabaseMockOpts) {
   let songReqReads = 0;
 
   const createBuilder = (table: string) => {
-    let filters: string[] = [];
+    const filters: string[] = [];
     let hasNeq = false;
 
     const resolveMaybeSingle = () => {

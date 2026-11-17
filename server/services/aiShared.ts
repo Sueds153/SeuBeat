@@ -64,13 +64,13 @@ export function extractJSON(text: string): unknown {
   const cleanText = text.trim();
   try {
     return JSON.parse(cleanText);
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
 
   const jsonMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (jsonMatch) {
     try {
       return JSON.parse(jsonMatch[1]);
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
   }
 
   const firstBrace = cleanText.indexOf('{');
@@ -78,13 +78,13 @@ export function extractJSON(text: string): unknown {
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
     try {
       return JSON.parse(cleanText.slice(firstBrace, lastBrace + 1));
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
   }
 
   if (firstBrace !== -1) {
     try {
       return JSON.parse(repairTruncatedJSON(cleanText.slice(firstBrace)));
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
   }
 
   throw new Error('Não foi possível extrair um objeto JSON válido da resposta.');

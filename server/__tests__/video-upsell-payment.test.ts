@@ -77,7 +77,7 @@ function buildVideoSupabaseMock(opts: VideoMockOpts = {}) {
   const insertCalls: unknown[] = [];
 
   const createBuilder = (table: string) => {
-    let filters: string[] = [];
+    const filters: string[] = [];
 
     const resolveMaybeSingle = () => {
       if (table === 'song_requests') return { data: opts.requestRow ?? null, error: null };

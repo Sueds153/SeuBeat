@@ -36,7 +36,7 @@ export default function VideoUpsellPage({ requestId, email, onBackToLanding }: V
             plan: data.plan || 'standard',
           });
         }
-      } catch {}
+      } catch { /* intencional: falha silenciosa */ }
       if (mountedRef.current) setLoading(false);
     };
     fetchData();

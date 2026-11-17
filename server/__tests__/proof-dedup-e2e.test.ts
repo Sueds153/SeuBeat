@@ -79,9 +79,9 @@ function buildSupabaseMock() {
   const insertCalls: any[] = [];
 
   function builderFor(table: string) {
-    let filters: Record<string, any> = {};
-    let inFilters: { col: string; values: any[] }[] = [];
-    let neqFilters: { col: string; val: any }[] = [];
+    const filters: Record<string, any> = {};
+    const inFilters: { col: string; values: any[] }[] = [];
+    const neqFilters: { col: string; val: any }[] = [];
     let limitCount: number | null = null;
 
     const b: any = {

@@ -90,7 +90,7 @@ function createSupabaseMock(handler: (ctx: QueryCtx) => QueryResult | Promise<Qu
 
   const makeChain = (from: string) => {
     const ctx: QueryCtx = { from, cols: null, eqs: [], update: null, single: false, maybeSingle: false };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const chain: any = {
       select(cols: unknown) { ctx.cols = cols; return chain; },
       eq(key: string, value: unknown) { ctx.eqs.push([key, value]); return chain; },

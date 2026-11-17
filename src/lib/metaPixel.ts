@@ -119,9 +119,9 @@ export function initMetaPixel(): void {
   if (window.fbq) return;
 
   window.fbq = function (...args: any[]) {
-    (window.fbq as any).callMethod
-      ? (window.fbq as any).callMethod.apply(window.fbq, args)
-      : (window.fbq as any).queue.push(args);
+    const fbq = window.fbq as any;
+    if (fbq.callMethod) fbq.callMethod.apply(window.fbq, args);
+    else fbq.queue.push(args);
   };
 
   if (!window._fbq) window._fbq = window.fbq;

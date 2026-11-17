@@ -63,7 +63,7 @@ export async function persistGeneratedSunoAudio(
     try {
       await applyFades(tempSunoPath, tempFadedPath);
       logInfo('[Workflow] Fades complete, cleaning up original', { songId, mem: mem() });
-      try { fs.unlinkSync(tempSunoPath); } catch {}
+      try { fs.unlinkSync(tempSunoPath); } catch { /* intencional: falha silenciosa */ }
     } catch (fadeErr) {
       logWarn('[Workflow] Fades falharam, a usar áudio original', fadeErr instanceof Error ? fadeErr : undefined);
       fs.copyFileSync(tempSunoPath, tempFadedPath);
@@ -83,13 +83,13 @@ export async function persistGeneratedSunoAudio(
     logInfo('[Workflow] Full audio uploaded successfully', { songId, taskId, url: fullAudioUrl, mem: mem() });
 
     if (uploadSource === tempFadedPath) {
-      try { fs.unlinkSync(tempFadedPath); } catch {}
+      try { fs.unlinkSync(tempFadedPath); } catch { /* intencional: falha silenciosa */ }
     }
 
     return { taskId, fullAudioUrl, publicPreviewUrl: null as string | null, duration: durationInt };
   } finally {
-    try { fs.unlinkSync(tempSunoPath); } catch {}
-    try { fs.unlinkSync(tempFadedPath); } catch {}
-    try { fs.unlinkSync(tempPreviewPath); } catch {}
+    try { fs.unlinkSync(tempSunoPath); } catch { /* intencional: falha silenciosa */ }
+    try { fs.unlinkSync(tempFadedPath); } catch { /* intencional: falha silenciosa */ }
+    try { fs.unlinkSync(tempPreviewPath); } catch { /* intencional: falha silenciosa */ }
   }
 }

@@ -211,7 +211,7 @@ export async function isTeaserEnabled(): Promise<boolean> {
       fetchConfigSilently();
       return teaserEnabledCache;
     }
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
 
   // Primera visita: ir buscar ao servidor
   const result = await fetchConfig();
@@ -225,7 +225,7 @@ function fetchConfigSilently(): void {
       if (data) {
         const enabled = data.features?.lyricsTeaser === true;
         teaserEnabledCache = enabled;
-        try { localStorage.setItem(TEASER_CACHE_KEY, String(enabled)); } catch {}
+        try { localStorage.setItem(TEASER_CACHE_KEY, String(enabled)); } catch { /* intencional: falha silenciosa */ }
       }
     })
     .catch(() => {
@@ -240,20 +240,20 @@ async function fetchConfig(): Promise<boolean> {
       const data = await res.json();
       const enabled = data.features?.lyricsTeaser === true;
       teaserEnabledCache = enabled;
-      try { localStorage.setItem(TEASER_CACHE_KEY, String(enabled)); } catch {}
+      try { localStorage.setItem(TEASER_CACHE_KEY, String(enabled)); } catch { /* intencional: falha silenciosa */ }
       return enabled;
     }
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
   // Em caso de falha, NÃO cacheamos false permanentemente
   // Devolver o último valor conhecido via localStorage ou false
   try {
     const stored = localStorage.getItem(TEASER_CACHE_KEY);
     if (stored !== null) return stored === 'true';
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
   return false;
 }
 
 export function resetTeaserEnabledCache(): void {
   teaserEnabledCache = null;
-  try { localStorage.removeItem(TEASER_CACHE_KEY); } catch {}
+  try { localStorage.removeItem(TEASER_CACHE_KEY); } catch { /* intencional: falha silenciosa */ }
 }

@@ -396,7 +396,7 @@ export function normalizeLyricsArray(lyrics: unknown): string[] {
         if (Array.isArray(parsed)) {
           return parsed.map(item => (typeof item === 'string' ? item : String(item || ''))).filter(Boolean);
         }
-      } catch {}
+      } catch { /* intencional: falha silenciosa */ }
     }
     return trimmed.split('\n').filter(Boolean);
   }

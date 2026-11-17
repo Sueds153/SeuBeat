@@ -14,9 +14,9 @@ export interface BulkClient {
   message?: string;
 }
 
-export interface BulkOptions {
-  // reservado para opções futuras
-}
+// Reservado para opções futuras. Um alias (e não uma interface vazia) evita que
+// o TypeScript aceite qualquer objeto como opções válidas.
+export type BulkOptions = Record<string, never>;
 
 export interface SendProgressData {
   running: boolean;

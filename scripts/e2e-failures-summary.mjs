@@ -57,6 +57,8 @@ if (!rows.length) {
 }
 
 for (const r of rows) {
+  // O alvo é mesmo o caracter de controlo ANSI que o Playwright emite.
+  // eslint-disable-next-line no-control-regex
   const clean = String(r.error).replace(/\u001b\[[0-9;]*m/g, '');
   const lines = clean.split('\n').slice(0, 15).join('\n');
   console.log(`### ${r.title}`);

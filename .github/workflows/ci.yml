@@ -35,6 +35,9 @@ jobs:
       - run: npm ci
 
       # ---------- gates bloqueantes ----------
+      - name: Lint
+        run: npm run lint
+
       - name: Unit & integration tests
         run: npm test
 
@@ -45,10 +48,6 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
 
       # ---------- gates advisory (dívida pré-existente) ----------
-      - name: Lint (advisory)
-        continue-on-error: true
-        run: npm run lint
-
       - name: npm audit (advisory)
         continue-on-error: true
         run: npm audit --audit-level=high

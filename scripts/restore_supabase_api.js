@@ -27,7 +27,7 @@ async function restoreViaApi() {
   console.log('\n🗂️ A verificar e criar buckets de Storage (full-audio, proofs)...');
   const bucketsToEnsure = ['full-audio', 'proofs', 'photos', 'preview', 'voice-samples'];
   for (const b of bucketsToEnsure) {
-    const { data: bData, error: bErr } = await supabase.storage.createBucket(b, { public: true });
+    const { data: _bData, error: bErr } = await supabase.storage.createBucket(b, { public: true });
     if (bErr && !bErr.message.includes('already exists')) {
       console.log(`  ℹ️ Bucket ${b}: ${bErr.message}`);
     } else {
@@ -95,7 +95,7 @@ async function restoreViaApi() {
         });
       }
 
-      const { data, error } = await supabase.from(table).upsert(batch, { ignoreDuplicates: true });
+      const { data: _data, error } = await supabase.from(table).upsert(batch, { ignoreDuplicates: true });
 
       if (error) {
         console.error(`  ❌ Erro no lote da tabela ${table}:`, error.message);

@@ -719,7 +719,7 @@ router.get('/requests', adminAuth, async (req, res) => {
 
     if (error) return res.status(500).json({ success: false, error: safeMessage(error) });
 
-    let paymentsMap: Record<string, any[]> = {};
+    const paymentsMap: Record<string, any[]> = {};
 
     {
       const { data: paymentsData, error: paymentsError } = await supabase
@@ -2648,7 +2648,7 @@ async function sendVideoUpsellOffer(
         .eq('request_id', requestId)
         .single();
       if (songData?.title) songTitle = songData.title;
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
 
     const upsellUrl = `${getAppUrl(req)}/video-upsell?requestId=${requestId}&email=${encodeURIComponent(songRequest.user_email || '')}`;
 
@@ -2658,7 +2658,7 @@ async function sendVideoUpsellOffer(
         .from('song_requests')
         .update({ video_upsell_sent_at: new Date().toISOString() })
         .eq('id', requestId);
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
 
     // Enviar WhatsApp
     const phone = songRequest.phone || songRequest.users?.phone || null;
