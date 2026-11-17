@@ -61,7 +61,7 @@
     "react-hot-toast": "^2.5.2",
     "react-router-dom": "^7.4.0",
     "resend": "^6.0.0",
-    "sharp": "^0.34.0",
+    "sharp": "^0.35.5",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^3.0.2",
