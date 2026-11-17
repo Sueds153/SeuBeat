@@ -47,11 +47,11 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
 
-      # ---------- gates advisory (dívida pré-existente) ----------
-      - name: npm audit (advisory)
-        continue-on-error: true
+      # ---------- gate bloqueante ----------
+      - name: npm audit (high+)
         run: npm audit --audit-level=high
 
+      # ---------- advisory: ver docs/ci-debt.md ----------
       - name: Install Playwright + deps
         continue-on-error: true
         run: |
