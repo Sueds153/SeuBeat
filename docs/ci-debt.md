@@ -44,12 +44,12 @@ Cada passo foi verificado com os 566 testes, build e lint antes do seguinte.
 | `@sentry/vite-plugin` `3` → `11.13` | cortou o `glob`/`minimatch` antigo do build; movido para `devDependencies` (só corre no build) |
 | `npm audit fix` (sem `--force`) | subiu `@typescript-eslint/*` dentro das ranges já declaradas |
 
-## 3. E2E — em vias de virar gate
+## 3. E2E — gate
 
 O passo arrancava `node dist/server.js`, mas o build (`vite build` +
-`esbuild api/vercel-entry.ts`) nunca produzia esse ficheiro: a suite corria sem
-servidor e falhava por ligação recusada — e, antes disso, nem chegava a correr
-porque saía com `::warning::`.
+`esbuild api/vercel-entry.ts`) nunca produzia esse ficheiro. E, antes de falhar
+por ligação recusada, saía com `::warning::` — por isso é que "nunca funcionou":
+nem sequer tentava correr.
 
 Agora o build produz o servidor a sério:
 
@@ -58,14 +58,15 @@ Agora o build produz o servidor a sério:
   (`api/index.js`)
 - `dist-server/` e não `dist/` de propósito: `dist/` é o output público do
   Vercel, e o bundle do servidor não deve ser servido como asset estático
-- `npm start` passou a apontar para `dist-server/server.js`
+- `dist-server/**` está nos ignores do ESLint
+- `npm start` aponta para `dist-server/server.js`
 
-O passo de CI já não tem a guarda que o fazia sair; se o ficheiro faltar, falha
-com `::error::`. Continua `continue-on-error: true` **só nesta passagem**, para
-vermos o resultado da suite real antes de a tornar bloqueante.
+O passo já não tem a guarda que o fazia sair: se o ficheiro faltar, falha com
+`::error::`. E **é bloqueante**.
 
-Instruções defeituosas já verificadas: o servidor arranca e `/health` responde
-`200` (`status: degradado` sem service role key, como esperado fora de CI).
+Primeira execução real (run do PR #15): `74 tests`, **72 passed, 2 skipped,
+4,4 min**, exit `0`. Ficou advisory nesse run precisamente para se ver o
+resultado antes de o promover.
 
 ## 4. Nota sobre `tsc --noEmit`
 
