@@ -3,15 +3,18 @@ import { renderHook, act } from '@testing-library/react';
 
 describe('useAudioPlayer', () => {
   beforeAll(() => {
-    globalThis.Audio = vi.fn().mockImplementation(() => ({
-      play: vi.fn().mockResolvedValue(undefined),
-      pause: vi.fn(),
-      muted: false,
-      currentTime: 0,
-      duration: 60,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    })) as unknown as typeof Audio;
+    // `new Audio(...)` exige um construtor: com vitest 5 um arrow não serve.
+    globalThis.Audio = vi.fn(function () {
+      return {
+        play: vi.fn().mockResolvedValue(undefined),
+        pause: vi.fn(),
+        muted: false,
+        currentTime: 0,
+        duration: 60,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      };
+    }) as unknown as typeof Audio;
   });
 
   afterAll(() => {

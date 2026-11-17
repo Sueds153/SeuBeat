@@ -5,15 +5,17 @@ const mockGeminiGenerate = vi.fn();
 const mockOpenAIChat = vi.fn();
 
 vi.mock('@google/genai', () => ({
-  GoogleGenAI: vi.fn().mockImplementation(() => ({
-    models: { generateContent: mockGeminiGenerate },
-  })),
+  // `function` (não arrow) porque o serviço faz `new GoogleGenAI(...)`; a partir
+  // do vitest 5 um mock sem construtor próprio rebenta ao ser instanciado.
+  GoogleGenAI: vi.fn(function () {
+    return { models: { generateContent: mockGeminiGenerate } };
+  }),
 }));
 
 vi.mock('openai', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    chat: { completions: { create: mockOpenAIChat } },
-  })),
+  default: vi.fn(function () {
+    return { chat: { completions: { create: mockOpenAIChat } } };
+  }),
 }));
 
 import { verifyPaymentProof } from '../services/proofVerification';

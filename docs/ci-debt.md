@@ -1,69 +1,58 @@
 # Dívida de CI
 
-O `ci.yml` bloqueia `npm run lint`, `npm test` e `npm run build`. `npm audit` e a
-suite E2E correm na mesma, mas com `continue-on-error`, porque o repositório já
-vinha vermelho por motivos que não se resolvem dentro de um PR de funcionalidade.
-
-Antes desta mudança, o `npm audit` era o primeiro passo a falhar e os restantes
-passos (lint, testes, build, E2E) ficavam `skipped` — ou seja, o CI nunca correu
-testes nenhuns. A `main` está vermelha desde 2026-11-10 por este motivo.
+`ci.yml` bloqueia `npm run lint`, `npm test`, `npm run build` e
+`npm audit --audit-level=high`. Só a suite E2E é advisory.
 
 ## 1. Lint — resolvido
 
 `npm run lint` → **0 erros / 26 warnings** (era 130 erros / 27 warnings).
 
-O que foi feito:
-
-- **72 `no-empty`**: blocos `catch {}` vazios passaram a `catch { /* intencional:
-  falha silenciosa */ }`. Zero mudança de comportamento; a intenção fica escrita.
-- **23 `no-require-imports`**: scripts CommonJS de manutenção (`*.cjs`, `scripts/`,
-  `tools/`) passaram a poder usar `require` — são corridos com `node`, fora do
-  bundle, e converter para ESM não traria nada.
+- **72 `no-empty`**: `catch {}` passou a `catch { /* intencional: falha
+  silenciosa */ }`. Zero mudança de comportamento.
+- **23 `no-require-imports`**: scripts CommonJS de manutenção (`*.cjs`,
+  `scripts/`, `tools/`) podem usar `require` — correm com `node`, fora do bundle.
 - **Scripts de diagnóstico pontuais na raiz** (`check_supabase.*`,
   `full_setup.cjs`, `get_*.cjs`, `compress_video.cjs`, `test_generation.cjs`)
-  saíram do âmbito do ESLint: são descartáveis, não fazem parte da aplicação.
-- **`prefer-const`** em dois testes, **`no-empty-object-type`** (`BulkOptions`
-  passou a alias), **`no-useless-escape`** (classe de caracteres em `SongLyrics`),
-  **`no-unused-expressions`** (ternário do `fbq` virou `if/else`), variáveis não
-  usadas nos restantes scripts.
+  saíram do âmbito do ESLint.
+- `prefer-const`, `no-empty-object-type`, `no-useless-escape`,
+  `no-unused-expressions` e variáveis não usadas corrigidos.
 
-Os 26 warnings que sobram são quase todos `react-hooks/exhaustive-deps` em
-componentes grandes (`Wizard.tsx`, `AdminPanel.tsx`). Corrigi-los a sério exige
-mexer em dependências de efeitos com a app a correr — fica para um PR próprio.
-Para não crescerem, o script passou a `eslint . --ext ts,tsx --max-warnings 26`:
-um warning novo falha o CI; à medida que se limpam, baixa-se o número.
+Os 26 warnings são `react-hooks/exhaustive-deps` em componentes grandes. Para
+não crescerem, o script usa `--max-warnings 26`: um warning novo falha o CI e o
+número desce à medida que se limpam. Corrigi-los a sério exige mexer em efeitos
+com a app a correr — PR próprio, um componente de cada vez.
 
-## 2. Vulnerabilidades (`npm audit`) — advisory
+## 2. Vulnerabilidades — resolvido ao nível high/critical
 
-18 vulnerabilidades (3 high, 4 critical). Todas as correções exigem *semver
-major*, logo não cabem num PR de integração:
+`npm audit --audit-level=high` → **0** (era 3 high + 4 critical em 6 pacotes).
 
-| pacote | severidade | correção | nota |
-|---|---|---|---|
-| `jspdf` | critical | `jspdf@4.2.1` | geração de PDF |
-| `sharp` | high | `sharp@0.35.5` | binários nativos |
-| `zod` | high | `zod@4.6.7` | v3 → v4, toda a validação |
-| `openai` | high | `openai@7.57.0` | 5.x → 7.x |
-| `vitest` / `tinypool` | critical | `vitest@5.1.0` | dev only |
-| `happy-dom` | critical | `happy-dom@21.0.4` | dev only |
+| pacote | saída |
+|---|---|
+| `jspdf`, `jspdf-autotable` | removidos — não eram importados em lado nenhum |
+| `happy-dom` | removido — o ambiente de teste é `jsdom`, que agora é devDependency explícita (antes só existia via `isomorphic-dompurify`) |
+| `sharp` | `0.34` → `0.35.5` (só `scripts/generate-og-image.cjs`; PNG validado) |
+| `zod` | `3` → `4.6.7` (3 ficheiros; `preprocess`/`enum`+`catch`/`strict`/`uuid` compatíveis) |
+| `openai` | `5` → `7.57` (só `server/services/openai.ts`; POST `/v1/chat/completions` validado contra servidor local) |
+| `vitest` (+`tinypool`) | `3` → `5.1` (mocks com `new` passaram a `function` em 3 sítios) |
 
-`npm audit fix --force` está proibido neste projeto (arrastaria majors em
-produção sem revisão). Tratar num PR dedicado, um pacote de cada vez, com os 566
-testes como rede.
+Cada passo foi verificado com os 566 testes, build e lint antes do seguinte.
+
+**Sobra:** 10 vulnerabilidades **moderate** de `glob`/`minimatch`, que entram por
+`@sentry/vite-plugin` (build) e `@typescript-eslint/*` (lint). A correção exige
+`@sentry/vite-plugin@11` (major) e não afeta runtime. Fica para quando esse
+plugin for atualizado; o gate de CI é `high`.
 
 ## 3. E2E — advisory
 
-O passo antigo arrancava `node dist/server.js`, mas o build (`vite build` +
-`esbuild api/vercel-entry.ts`) nunca produz esse ficheiro. A suite Playwright
-corria sem servidor e falhava por ligação recusada. Para voltar a ser gate:
-adicionar um build do servidor (esbuild de `server.ts`) e remover o
-`continue-on-error` do passo.
+O passo arrancava `node dist/server.js`, mas o build (`vite build` +
+`esbuild api/vercel-entry.ts`) nunca produz esse ficheiro: a suite corria sem
+servidor e falhava por ligação recusada. Agora o passo deteta a ausência do
+ficheiro, avisa e sai (sem gastar 10 minutos). Para voltar a ser gate: adicionar
+um build do servidor (esbuild de `server.ts`) e remover o `continue-on-error`.
 
-## Como fechar o resto
+## 4. Nota sobre `tsc --noEmit`
 
-1. PR de dependências de produção: `zod`, `openai`, `sharp`, `jspdf`.
-2. PR de dependências dev: `vitest`, `happy-dom`, `tinypool`.
-3. PR dos 26 `exhaustive-deps` (um componente de cada vez, com Playwright).
-4. PR de E2E: build do servidor + gate.
-
-Quando cada item fechar, o respetivo `continue-on-error` sai do workflow.
+Não é gate: a `main` já tinha **51** erros (sobretudo `string | string[]` em
+`server/routes/public.ts` e `admin.ts`). Depois destas atualizações são **30**
+(sem erros novos). Vale a pena tratá-los num PR de tipagem, mas fora do âmbito
+de uma atualização de dependências.

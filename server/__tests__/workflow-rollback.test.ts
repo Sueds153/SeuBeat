@@ -78,7 +78,13 @@ type QueryCtx = {
 
 function createSupabaseMock(handler: (ctx: QueryCtx) => QueryResult | Promise<QueryResult> | undefined) {
   const queries: QueryCtx[] = [];
-  const buckets: Record<string, { list: ReturnType<typeof vi.fn>; remove: ReturnType<typeof vi.fn> }> = {};
+  // Tipos explícitos: no vitest 5 `ReturnType<typeof vi.fn>` é
+  // `Mock<Procedure | Constructable>`, que não é directamente invocável.
+  type BucketMock = {
+    list: (path: string) => Promise<{ data: unknown[]; error: null }>;
+    remove: (paths: string[]) => Promise<{ error: null }>;
+  };
+  const buckets: Record<string, BucketMock> = {};
 
   const getBucket = (bucket: string) => {
     buckets[bucket] ??= {
