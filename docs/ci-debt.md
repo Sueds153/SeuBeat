@@ -37,18 +37,35 @@ com a app a correr — PR próprio, um componente de cada vez.
 
 Cada passo foi verificado com os 566 testes, build e lint antes do seguinte.
 
-**Sobra:** 10 vulnerabilidades **moderate** de `glob`/`minimatch`, que entram por
-`@sentry/vite-plugin` (build) e `@typescript-eslint/*` (lint). A correção exige
-`@sentry/vite-plugin@11` (major) e não afeta runtime. Fica para quando esse
-plugin for atualizado; o gate de CI é `high`.
+**Sobra:** nada. `npm audit` → **0 vulnerabilidades** de qualquer severidade.
 
-## 3. E2E — advisory
+| passo | efeito |
+|---|---|
+| `@sentry/vite-plugin` `3` → `11.13` | cortou o `glob`/`minimatch` antigo do build; movido para `devDependencies` (só corre no build) |
+| `npm audit fix` (sem `--force`) | subiu `@typescript-eslint/*` dentro das ranges já declaradas |
+
+## 3. E2E — em vias de virar gate
 
 O passo arrancava `node dist/server.js`, mas o build (`vite build` +
-`esbuild api/vercel-entry.ts`) nunca produz esse ficheiro: a suite corria sem
-servidor e falhava por ligação recusada. Agora o passo deteta a ausência do
-ficheiro, avisa e sai (sem gastar 10 minutos). Para voltar a ser gate: adicionar
-um build do servidor (esbuild de `server.ts`) e remover o `continue-on-error`.
+`esbuild api/vercel-entry.ts`) nunca produzia esse ficheiro: a suite corria sem
+servidor e falhava por ligação recusada — e, antes disso, nem chegava a correr
+porque saía com `::warning::`.
+
+Agora o build produz o servidor a sério:
+
+- `npm run build:server` → `esbuild server.ts … --outfile=dist-server/server.js`
+- incluído no `npm run build`, ao lado do frontend (`dist/`) e da função
+  (`api/index.js`)
+- `dist-server/` e não `dist/` de propósito: `dist/` é o output público do
+  Vercel, e o bundle do servidor não deve ser servido como asset estático
+- `npm start` passou a apontar para `dist-server/server.js`
+
+O passo de CI já não tem a guarda que o fazia sair; se o ficheiro faltar, falha
+com `::error::`. Continua `continue-on-error: true` **só nesta passagem**, para
+vermos o resultado da suite real antes de a tornar bloqueante.
+
+Instruções defeituosas já verificadas: o servidor arranca e `/health` responde
+`200` (`status: degradado` sem service role key, como esperado fora de CI).
 
 ## 4. Nota sobre `tsc --noEmit`
 
