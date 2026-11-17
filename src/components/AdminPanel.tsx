@@ -343,7 +343,7 @@ function normalizeLyricsArray(lyrics: any): string[] {
     try {
       const parsed = JSON.parse(lyrics);
       if (Array.isArray(parsed)) return parsed.map(item => typeof item === 'string' ? item : String(item || ''));
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
     return lyrics.trim() ? lyrics.split('\n') : [];
   }
   return [];
@@ -963,7 +963,7 @@ export default function AdminPanel() {
           setAuthenticated(false);
         }, 1500);
       }
-    } catch (e) {}
+    } catch { /* intencional: falha silenciosa */ }
   }, [adminToken, apiHeaders]);
 
   useEffect(() => {

@@ -25,7 +25,7 @@ export function parseSavedVoice(value: unknown): SavedVoiceMeta | null {
     if (parsed && typeof parsed === 'object' && parsed.id && parsed.taskId && parsed.ts) {
       return parsed as SavedVoiceMeta;
     }
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
   return null;
 }
 
@@ -137,12 +137,12 @@ export async function processSunoVoice(
 
     const tempWavPath = path.join(os.tmpdir(), `${requestId}_converted.wav`);
     await convertToWav(tempSamplePath, tempWavPath);
-    try { fs.unlinkSync(tempSamplePath); } catch {}
+    try { fs.unlinkSync(tempSamplePath); } catch { /* intencional: falha silenciosa */ }
 
     const publicFilename = `sunovoice/${requestId}_${Date.now()}.wav`;
     const publicVoiceUrl = await uploadFileToStorage('preview', publicFilename, tempWavPath, 'audio/wav');
 
-    try { fs.unlinkSync(tempWavPath); } catch {}
+    try { fs.unlinkSync(tempWavPath); } catch { /* intencional: falha silenciosa */ }
 
     if (!publicVoiceUrl) {
       throw new Error('Failed to upload voice sample to public URL');
@@ -161,7 +161,7 @@ export async function processSunoVoice(
         storedVoiceValidationTaskId = storedVoice.validation_task_id;
         validationTaskId = storedVoiceValidationTaskId;
       }
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
 
     const langMap: Record<string, string> = {
       'inglês': 'en',

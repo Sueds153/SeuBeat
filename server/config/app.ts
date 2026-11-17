@@ -11,6 +11,7 @@ import { renderOgPage } from '../services/ogTemplate';
 import adminRouter from '../routes/admin';
 import publicRouter from '../routes/public';
 import webhookRouter from '../routes/webhook';
+import comAmorRouter from '../routes/comamor';
 import { hasDeepSeekApiKey } from '../services/deepseekConfig';
 import { checkDeepSeekCredits, checkGeminiCredits } from '../services/aiHealth';
 import { startDeliveryScheduler } from '../services/deliveryScheduler';
@@ -18,6 +19,7 @@ import { startAbandonedRecoveryScheduler } from '../services/abandonedRecoverySc
 import { startFollowUpScheduler } from '../services/followUpScheduler';
 import { startFailedLyricsRecoveryScheduler } from '../services/failedLyricsRecoveryScheduler';
 import { startStuckMusicRecoveryScheduler } from '../services/stuckMusicRecoveryScheduler';
+import { startComAmorScheduler } from '../services/comamor/scheduler';
 
 const sentryDsn = getEnv('SENTRY_DSN');
 
@@ -28,6 +30,7 @@ export function startSchedulers(): void {
     startFollowUpScheduler();
     startFailedLyricsRecoveryScheduler();
     startStuckMusicRecoveryScheduler();
+    startComAmorScheduler();
   } catch (schedErr) {
     logError('Aviso: falha ao iniciar schedulers em segundo plano', schedErr);
   }
@@ -167,6 +170,7 @@ export async function createApp(): Promise<express.Application> {
   });
 
   app.use('/api/admin', adminIpRestriction, adminRouter);
+  app.use('/api/v1/comamor', comAmorRouter);
   app.use('/api', publicRouter);
   app.use('/api', webhookRouter);
 

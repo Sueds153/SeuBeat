@@ -19,6 +19,7 @@ const VoiceCapturePage = lazy(() => import('./components/VoiceCapturePage'));
 const VideoUpsellPage = lazy(() => import('./components/VideoUpsellPage'));
 const PersonalizedSongPage = lazy(() => import('./components/PersonalizedSongPage'));
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const ComAmorOrderPage = lazy(() => import('./components/ComAmorOrderPage'));
 
 export default function App() {
   useMetaPixel();
@@ -28,11 +29,12 @@ export default function App() {
     captureUtm();
   }, []);
 
-  const [currentView, setCurrentView] = useState<'landing' | 'wizard' | 'song' | 'admin' | 'terms' | 'privacy' | 'recover' | 'voice' | 'video-upsell'>(() => {
+  const [currentView, setCurrentView] = useState<'landing' | 'wizard' | 'song' | 'admin' | 'terms' | 'privacy' | 'recover' | 'voice' | 'video-upsell' | 'comamor'>(() => {
     if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
       return 'admin';
     }
     if (window.location.pathname === '/wizard') {
+      if (new URLSearchParams(window.location.search).has('comamor_order')) return 'comamor';
       return 'wizard';
     }
     if (window.location.pathname.includes('/voice/')) {
@@ -79,7 +81,7 @@ export default function App() {
       if (path === '/admin' || path === '/admin/') {
         setCurrentView('admin');
       } else if (path === '/wizard') {
-        setCurrentView('wizard');
+        setCurrentView(new URLSearchParams(window.location.search).has('comamor_order') ? 'comamor' : 'wizard');
       } else if (path.includes('/voice/')) {
         setCurrentView('voice');
       } else if (path === '/video-upsell' || path.startsWith('/video-upsell/')) {
@@ -125,6 +127,10 @@ export default function App() {
   }
   if (currentView === 'privacy') {
     return <PrivacyPage onBackToLanding={backToLanding} />;
+  }
+  if (currentView === 'comamor') {
+    const orderId = new URLSearchParams(window.location.search).get('comamor_order') || '';
+    return <Suspense fallback={loading}><ComAmorOrderPage orderId={orderId} /></Suspense>;
   }
   if (currentView === 'recover') {
     return (

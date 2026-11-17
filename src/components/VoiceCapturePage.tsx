@@ -46,7 +46,7 @@ export default function VoiceCapturePage({ requestId, email, onBackToLanding }: 
             hasVoice: false,
           });
         }
-      } catch {}
+      } catch { /* intencional: falha silenciosa */ }
       if (mountedRef.current) setLoading(false);
     };
     fetchRequest();
@@ -179,7 +179,7 @@ export default function VoiceCapturePage({ requestId, email, onBackToLanding }: 
           voiceFreeSampleFilename = freeSampleFile.name;
           voiceFreeSampleMimeType = freeSampleFile.type || 'audio/wav';
         }
-      } catch {}
+      } catch { /* intencional: falha silenciosa */ }
     }
 
     const reader = new FileReader();

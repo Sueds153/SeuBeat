@@ -1572,7 +1572,7 @@ router.post('/submit-payment', paymentLimiter, (req, res, next) => {
         logWarn('[API] UNIQUE constraint violation — payment já existe para este pedido', { songRequestId });
         try {
           await supabase.from('song_requests').update({ status: previousStatus }).eq('id', songRequestId);
-        } catch {}
+        } catch { /* intencional: falha silenciosa */ }
         return res.status(409).json({ success: false, error: 'Este pagamento já foi registado.' });
       }
       logError('[API] Falha ao gravar pagamento — a reverter estado do pedido', paymentError, {
@@ -2215,7 +2215,7 @@ router.post('/song/voice/validation-phrase', voiceValidationLimiter, async (req,
     });
   } finally {
     for (const f of tempFiles) {
-      try { fs.unlinkSync(f); } catch {}
+      try { fs.unlinkSync(f); } catch { /* intencional: falha silenciosa */ }
     }
   }
 });

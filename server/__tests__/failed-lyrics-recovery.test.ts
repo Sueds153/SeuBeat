@@ -57,11 +57,9 @@ function buildSupabaseMock(config: SupabaseConfig = {}) {
   };
   let lastOp = 'select';
 
-  let chain!: Record<string, unknown>;
-  const from = vi.fn(() => chain);
   const insert = vi.fn().mockReturnValue(Promise.resolve(results.songInsert));
 
-  chain = {
+  const chain: Record<string, unknown> = {
     select: () => {
       lastOp = 'select';
       return chain;
@@ -93,6 +91,8 @@ function buildSupabaseMock(config: SupabaseConfig = {}) {
     single: () => Promise.resolve(results.candidates),
     then: (resolve: (v: MockResult) => unknown) => resolve(results[lastOp]),
   };
+
+  const from = vi.fn(() => chain);
 
   mocks.getAdminSupabase.mockReturnValue({ from });
   return { from, insert };

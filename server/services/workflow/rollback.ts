@@ -18,10 +18,10 @@ async function rollbackStorageForSong(
       await deleteStorageFiles('full-audio', matches);
       logInfo(`[Rollback] Storage limpo: ${matches.length} ficheiro(s) em full-audio`, { songId });
     }
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
   try {
     await deleteStorageFiles('preview', [`previews/${songId}_preview.mp3`]);
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
   try {
     const voiceFiles = await listStorageFiles('preview', 'sunovoice/');
     const matches = voiceFiles.filter(f => f.name.startsWith(requestId)).map(f => `sunovoice/${f.name}`);
@@ -29,11 +29,11 @@ async function rollbackStorageForSong(
       await deleteStorageFiles('preview', matches);
       logInfo(`[Rollback] Storage limpo: ${matches.length} ficheiro(s) de voz em preview`, { requestId });
     }
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
   if (voiceSampleUrl && !voiceSampleUrl.startsWith('http')) {
     try {
       await deleteStorageFiles('voice-samples', [voiceSampleUrl]);
-    } catch {}
+    } catch { /* intencional: falha silenciosa */ }
   }
 }
 
@@ -89,7 +89,7 @@ export async function rollbackSunoWorkflow(
       .eq('id', requestId)
       .maybeSingle();
     await rollbackStorageForSong(supabase, songId, requestId, sr?.voice_sample_url);
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
 
   try {
     const adminUrl = `${getAppUrl()}/admin`;

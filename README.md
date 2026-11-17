@@ -13,6 +13,7 @@ Plataforma de geração de músicas personalizadas para Angola. O cliente preenc
 - **Email**: Brevo (REST API)
 - **WhatsApp**: Meta WhatsApp Business Cloud API
 - **Pagamentos**: Multicaixa Express + Referência
+- **Integração opcional**: API servidor-servidor ComAmor, desligada por omissão
 - **Monitorização**: Sentry
 - **CI/CD**: GitHub Actions + Render (auto-deploy)
 
@@ -72,7 +73,8 @@ npm run lint         # tsc --noEmit (type-checking)
 │   ├── routes/
 │   │   ├── admin.ts           # ~2400 linhas — painel admin (25+ endpoints)
 │   │   ├── public.ts          # ~2200 linhas — wizard, pagamento, dedicatória
-│   │   └── webhook.ts         # Brevo + WhatsApp delivery webhooks
+│   │   ├── webhook.ts         # Brevo + WhatsApp delivery webhooks
+│   │   └── comamor.ts         # API aditiva /api/v1/comamor
 │   ├── services/
 │   │   ├── email/             # 11 módulos — Brevo templates + envio
 │   │   ├── whatsapp/          # 10 módulos — Cloud API, bulk, abandoned, delivery
@@ -96,6 +98,10 @@ npm run lint         # tsc --noEmit (type-checking)
 ├── e2e/                       # Playwright tests
 └── supabase_migration_*.sql   # Migrações SQL aplicadas em produção
 ```
+
+## Integração ComAmor
+
+Opcional e desligada até configurar `COMAMOR_INTEGRATION_ENABLED=true` e as credenciais no servidor. A implementação, contrato HTTP, callback HMAC, migração aditiva e configuração estão em [`docs/comamor-integration.md`](docs/comamor-integration.md). A migração `supabase_migration_comamor_integration.sql` deve ser aplicada primeiro em staging; não é aplicada automaticamente pelo app.
 
 ## Deploy
 

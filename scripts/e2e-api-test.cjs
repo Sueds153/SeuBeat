@@ -132,7 +132,7 @@ async function testGenerateLyrics() {
 // ─────────────────────────────────────────────────────────
 // TESTE 3 — GET /api/song/:id (o bug que foi corrigido!)
 // ─────────────────────────────────────────────────────────
-async function testGetSong(songId, requestId) {
+async function testGetSong(songId, _requestId) {
   console.log('\n══ TESTE 3: GET /api/song/:id (bug fix crítico) ══');
 
   if (!songId) {

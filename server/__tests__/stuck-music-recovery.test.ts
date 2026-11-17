@@ -56,14 +56,9 @@ function buildSupabaseMock(config: SupabaseConfig = {}) {
   let lastOp = 'select';
   let currentTable = '';
 
-  let chain!: Record<string, unknown>;
-  const from = vi.fn((table: string) => {
-    currentTable = table;
-    return chain;
-  });
   const update = vi.fn((..._args: unknown[]) => chain);
 
-  chain = {
+  const chain: Record<string, unknown> = {
     select: () => {
       lastOp = 'select';
       return chain;
@@ -82,6 +77,11 @@ function buildSupabaseMock(config: SupabaseConfig = {}) {
     maybeSingle: () => Promise.resolve(currentTable === 'payments' ? results.payment : results.claim),
     then: (resolve: (v: MockResult) => unknown) => resolve(results[lastOp]),
   };
+
+  const from = vi.fn((table: string) => {
+    currentTable = table;
+    return chain;
+  });
 
   mocks.getAdminSupabase.mockReturnValue({ from });
   return { from, update };

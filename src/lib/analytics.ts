@@ -25,7 +25,7 @@ export function gaPageView(path?: string): void {
   if (!IS_ENABLED || !initialized) return;
   try {
     ReactGA.send({ hitType: 'pageview', page: path || window.location.pathname, ...getUtm() });
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
 }
 
 export function gaViewContent(contentName?: string, value?: number, currency = CURRENCY): void {
@@ -38,7 +38,7 @@ export function gaViewContent(contentName?: string, value?: number, currency = C
       currency,
       ...getUtm(),
     });
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
 }
 
 export function gaInitiateCheckout(plan?: string, value?: number, currency = CURRENCY): void {
@@ -50,7 +50,7 @@ export function gaInitiateCheckout(plan?: string, value?: number, currency = CUR
       items: [{ item_name: plan || 'unknown', price: value }],
       ...getUtm(),
     });
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
 }
 
 export function gaAddPaymentInfo(plan?: string, value?: number, currency = CURRENCY): void {
@@ -62,7 +62,7 @@ export function gaAddPaymentInfo(plan?: string, value?: number, currency = CURRE
       items: [{ item_name: plan || 'unknown', price: value }],
       ...getUtm(),
     });
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
 }
 
 export function gaLead(contentName?: string): void {
@@ -72,7 +72,7 @@ export function gaLead(contentName?: string): void {
       value: contentName || '',
       ...getUtm(),
     });
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
 }
 
 export function gaCompleteRegistration(): void {
@@ -82,7 +82,7 @@ export function gaCompleteRegistration(): void {
       method: 'wizard',
       ...getUtm(),
     });
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
 }
 
 export function gaSubmitApplication(plan?: string, value?: number, currency = CURRENCY): void {
@@ -94,7 +94,7 @@ export function gaSubmitApplication(plan?: string, value?: number, currency = CU
       items: [{ item_name: plan || 'unknown', price: value }],
       ...getUtm(),
     });
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
 }
 
 export function gaPurchase(plan?: string, value?: number, currency = CURRENCY): void {
@@ -107,7 +107,7 @@ export function gaPurchase(plan?: string, value?: number, currency = CURRENCY): 
       items: [{ item_name: plan || 'unknown', price: value }],
       ...getUtm(),
     });
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
 }
 
 export function gaWizardStep(step: number, totalSteps = 5): void {
@@ -119,5 +119,5 @@ export function gaWizardStep(step: number, totalSteps = 5): void {
       progress_pct: Math.round((step / totalSteps) * 100),
       ...getUtm(),
     });
-  } catch {}
+  } catch { /* intencional: falha silenciosa */ }
 }
