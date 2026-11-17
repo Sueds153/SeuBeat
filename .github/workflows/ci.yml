@@ -58,16 +58,15 @@ jobs:
           npx playwright install chromium
           npx playwright install-deps chromium
 
-      - name: Start server & run E2E (advisory)
-        continue-on-error: true
+      - name: Start server & run E2E
         shell: bash
         run: |
-          if [ ! -f dist/server.js ]; then
-            echo "::warning::E2E ignorado: o build não produz dist/server.js (ver docs/ci-debt.md §3)."
-            exit 0
+          if [ ! -f dist-server/server.js ]; then
+            echo "::error::dist-server/server.js não existe — 'npm run build' devia tê-lo produzido."
+            exit 1
           fi
           echo "Starting server in background..."
-          node dist/server.js > /tmp/server.log 2>&1 &
+          node dist-server/server.js > /tmp/server.log 2>&1 &
           SERVER_PID=$!
           echo "Server PID: $SERVER_PID"
           for i in $(seq 1 60); do
