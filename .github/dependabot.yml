@@ -10,11 +10,15 @@ updates:
     groups:
       # Minor/patch viajam juntos: são os que passam o CI sem migração.
       dev-minor-patch:
+        patterns:
+          - "*"
         dependency-type: development
         update-types:
           - minor
           - patch
       prod-minor-patch:
+        patterns:
+          - "*"
         dependency-type: production
         update-types:
           - minor
@@ -24,10 +28,14 @@ updates:
       # Compiler (35 erros), vite@8 muda para Rolldown/oxc, express@5 muda
       # params e rotas. Nunca devem viajar no mesmo PR dos seguros.
       dev-major:
+        patterns:
+          - "*"
         dependency-type: development
         update-types:
           - major
       prod-major:
+        patterns:
+          - "*"
         dependency-type: production
         update-types:
           - major
@@ -39,11 +47,3 @@ updates:
     open-pull-requests-limit: 4
     labels:
       - ci
-    groups:
-      actions-minor-patch:
-        update-types:
-          - minor
-          - patch
-      actions-major:
-        update-types:
-          - major

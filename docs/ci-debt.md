@@ -164,8 +164,11 @@ majors com patch. Resultado: PRs como o #16 (15 actualizações, incluindo
 não podia ser mergeado sem uma migração e arrastava consigo bumps que não
 tinham problema nenhum — ficavam todos parados.
 
-Agora cada ecosystem tem dois grupos, `*-minor-patch` e `*-major`, e um major
-nunca viaja com o resto.
+Agora o bloco `npm` tem quatro grupos — `dev-minor-patch`, `prod-minor-patch`,
+`dev-major` e `prod-major` — com `patterns: "*"` explícito, e um major nunca
+viaja com o resto. O bloco `github-actions` fica sem grupos: são duas acções,
+os updates são raros, e um PR por acção é mais fácil de revisar do que um
+pacote de mudanças no CI.
 
 Entrou no PR `chore/dependabot-groups`: `@playwright/test@1.65.1`,
 `jsdom@31.0.1`, `esbuild@0.28.2`, `@types/node@26.6.6`,
