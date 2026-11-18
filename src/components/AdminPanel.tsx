@@ -433,6 +433,27 @@ const Pagination = ({ page, totalPages, setPage }: { page: number; totalPages: n
   );
 };
 
+// Mapas de campo usados so para ordenar tabelas: constantes, por isso vivem
+// fora do componente (dentro eram recriados a cada render, a anular o useMemo).
+const reqFieldMap: Record<string, (r: any) => string> = {
+  created_at: r => r.created_at || '',
+  name: r => r.users?.name || r.recipient_name || '',
+  status: r => r.status || '',
+};
+
+const payFieldMap: Record<string, (p: any) => string> = {
+  created_at: p => p.created_at || '',
+  email: p => p.user_email || '',
+  plan: p => p.plan || '',
+  status: p => p.status || '',
+};
+
+const songFieldMap: Record<string, (s: any) => string> = {
+  created_at: s => s.created_at || '',
+  title: s => s.title || '',
+  status: s => s.mureka_status || '',
+};
+
 export default function AdminPanel() {
   const [authenticated, setAuthenticated] = useState(() => {
     return !!sessionStorage.getItem('seubeat_admin_token');
@@ -467,8 +488,6 @@ export default function AdminPanel() {
   const [uploadingSongId, setUploadingSongId] = useState<string | null>(null);
   const [funnel, setFunnel] = useState<any>(null);
   const [funnelLoading, setFunnelLoading] = useState(false);
-  const progressPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const viewPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [refreshDebounce, setRefreshDebounce] = useState(false);
   const [credits, setCredits] = useState<CreditsResult | null>(null);
@@ -503,7 +522,6 @@ export default function AdminPanel() {
   const [previewLyrics, setPreviewLyrics] = useState<{ title: string; lyrics: string[]; letterText?: string } | null>(null);
   const [notification, setNotification] = useState<{ message: string } | null>(null);
   const prevCountsRef = useRef({ requests: 0, payments: 0 });
-  const notifIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ action: 'approve' | 'reject'; paymentId: string; plan?: string } | null>(null);
   const [clients, setClients] = useState<any[]>([]);
   const [paymentSearchQuery, setPaymentSearchQuery] = useState('');
@@ -543,11 +561,17 @@ export default function AdminPanel() {
   useEffect(() => {
     return () => {
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-      if (notifIntervalRef.current) clearInterval(notifIntervalRef.current);
-      if (viewPollRef.current) clearInterval(viewPollRef.current);
-      if (progressPollRef.current) clearInterval(progressPollRef.current);
     };
   }, []);
+
+  const expireSession = useCallback(() => {
+    showToast('Sessão expirada. Faça login novamente.', 'error');
+    setTimeout(() => {
+      sessionStorage.removeItem('seubeat_admin_token');
+      setAdminToken('');
+      setAuthenticated(false);
+    }, 1500);
+  }, [showToast]);
 
   const apiHeaders = useMemo<Record<string, string>>(() => 
     adminToken
@@ -570,16 +594,7 @@ export default function AdminPanel() {
       showToast('Erro de ligação ao servidor.', 'error');
       return { _error: true, error: 'Erro de ligação ao servidor.' };
     }
-  }, [adminToken, apiHeaders]);
-
-  const expireSession = useCallback(() => {
-    showToast('Sessão expirada. Faça login novamente.', 'error');
-    setTimeout(() => {
-      sessionStorage.removeItem('seubeat_admin_token');
-      setAdminToken('');
-      setAuthenticated(false);
-    }, 1500);
-  }, []);
+  }, [apiHeaders, showToast, expireSession]);
 
   const handleLogin = async () => {
     setAuthError('');
@@ -688,7 +703,7 @@ export default function AdminPanel() {
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
     fetchRequests(); fetchPayments(); fetchSongs();
-  }, [forceStatusModal, forceStatusValue, apiHeaders, expireSession]);
+  }, [forceStatusModal, forceStatusValue, apiHeaders, expireSession, fetchPayments, fetchRequests, fetchSongs, showToast]);
 
   const handleUpdateStyle = useCallback(async (requestId: string, musicStyle?: string, voiceType?: string) => {
     setActionLoading(requestId + '_style');
@@ -703,7 +718,7 @@ export default function AdminPanel() {
       else showToast(data.error || 'Erro ao atualizar.', 'error');
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
-  }, [apiHeaders, expireSession]);
+  }, [apiHeaders, expireSession, fetchRequests, showToast]);
 
   const handleSaveClient = useCallback(async () => {
     if (!editingClient) return;
@@ -719,7 +734,7 @@ export default function AdminPanel() {
       else showToast(data.error || 'Erro ao atualizar cliente.', 'error');
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
-  }, [editingClient, apiHeaders, expireSession]);
+  }, [editingClient, apiHeaders, expireSession, fetchPayments, fetchRequests, showToast]);
 
   const handleSaveRequestDetails = useCallback(async () => {
     if (!editingRequestDetails) return;
@@ -740,7 +755,7 @@ export default function AdminPanel() {
       else showToast(data.error || 'Erro ao atualizar pedido.', 'error');
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
-  }, [editingRequestDetails, apiHeaders, expireSession]);
+  }, [editingRequestDetails, apiHeaders, expireSession, fetchPayments, fetchRequests, fetchSongs, showToast]);
 
   const handleRegenerateLyrics = useCallback(async (requestId: string) => {
     setActionLoading(requestId + '_reg');
@@ -754,7 +769,7 @@ export default function AdminPanel() {
       else showToast(data.error || 'Erro ao regenerar.', 'error');
     } catch (e: any) { showToast(e.message || 'Erro de ligação.', 'error'); }
     setActionLoading(null);
-  }, [adminToken, expireSession]);
+  }, [expireSession, apiHeaders, fetchRequests, showToast]);
 
   const fetchMetrics = useCallback(async () => {
     if (!adminToken) return;
@@ -918,7 +933,7 @@ export default function AdminPanel() {
     const d = await apiFetch(`/api/admin/request/${requestId}/logs`);
     if (d) setLogsModal({ id: requestId, loading: false, logs: d.logs || [] });
     else setLogsModal(null);
-  }, [adminToken, apiFetch]);
+  }, [apiFetch]);
 
   const checkNewData = useCallback(async () => {
     if (!adminToken) return;
@@ -964,7 +979,7 @@ export default function AdminPanel() {
         }, 1500);
       }
     } catch { /* intencional: falha silenciosa */ }
-  }, [adminToken, apiHeaders]);
+  }, [adminToken, apiHeaders, showToast]);
 
   useEffect(() => {
     if (!authenticated) return;
@@ -982,7 +997,7 @@ export default function AdminPanel() {
     };
     loadViewData();
     return () => {};
-  }, [authenticated, activeView, abandonedRange, fetchStats, fetchFunnel, fetchPayments, fetchRequests, fetchSongs, fetchCredits, fetchDiagnostics, fetchMetrics, fetchProfitability, fetchCampaigns, fetchAbandoned, fetchSendProgress, fetchClientsList]);
+  }, [authenticated, activeView, abandonedRange, fetchStats, fetchFunnel, fetchPayments, fetchRequests, fetchSongs, fetchCredits, fetchDiagnostics, fetchMetrics, fetchProfitability, fetchCampaigns, fetchAbandoned, fetchSendProgress, fetchClientsList, fetchProgress]);
 
   // Single polling interval for current view data (10s)
   // Respects active tab - only polls when on that tab
@@ -1000,7 +1015,7 @@ export default function AdminPanel() {
       else if (activeView === 'diagnostics') fetchDiagnostics();
     }, 10000);
     return () => clearInterval(poll);
-  }, [authenticated, fetchPayments, fetchRequests, fetchSongs, fetchClientsList, fetchMetrics, fetchProfitability, fetchCampaigns, fetchAbandoned, fetchSendProgress, fetchCredits, fetchDiagnostics]);
+  }, [authenticated, fetchPayments, fetchRequests, fetchSongs, fetchClientsList, fetchMetrics, fetchProfitability, fetchCampaigns, fetchAbandoned, fetchSendProgress, fetchCredits, fetchDiagnostics, fetchProgress, activeView, abandonedRange]);
 
   // Notification check every 15s (independent of tab)
   useEffect(() => {
@@ -1025,7 +1040,7 @@ export default function AdminPanel() {
     };
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [authenticated]);
+  }, [authenticated, activeView, abandonedRange, fetchPayments, fetchRequests, fetchProgress, fetchSongs, fetchClientsList, fetchMetrics, fetchProfitability, fetchCampaigns, fetchAbandoned, fetchSendProgress, fetchCredits, fetchDiagnostics]);
 
   useEffect(() => { setReqPage(1); }, [searchQuery, reqStatusFilter]);
   useEffect(() => { setPayPage(1); }, [paymentSearchQuery, payStatusFilter]);
@@ -1261,18 +1276,6 @@ export default function AdminPanel() {
     });
   };
 
-  const reqFieldMap: Record<string, (r: any) => string> = {
-    created_at: r => r.created_at || '',
-    name: r => r.users?.name || r.recipient_name || '',
-    status: r => r.status || '',
-  };
-  const payFieldMap: Record<string, (p: any) => string> = {
-    created_at: p => p.created_at || '',
-    email: p => p.user_email || '',
-    plan: p => p.plan || '',
-    status: p => p.status || '',
-  };
-
   const filteredRequests = useMemo(() => {
     return requests.filter(r => {
       if (reqStatusFilter && r.status !== reqStatusFilter) return false;
@@ -1325,12 +1328,6 @@ export default function AdminPanel() {
 
   const reqTotalPages = Math.ceil(sortedRequests.length / PER_PAGE);
   const payTotalPages = Math.ceil(sortedPayments.length / PER_PAGE);
-
-  const songFieldMap: Record<string, (s: any) => string> = {
-    created_at: s => s.created_at || '',
-    title: s => s.title || '',
-    status: s => s.mureka_status || '',
-  };
 
   const filteredSongs = useMemo(() => {
     return songs.filter(s => {

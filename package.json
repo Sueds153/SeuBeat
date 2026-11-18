@@ -9,7 +9,7 @@
     "build:server": "esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist-server/server.js",
     "start": "node dist-server/server.js",
     "clean": "npx rimraf dist dist-server",
-    "lint": "eslint . --ext ts,tsx --max-warnings 26",
+    "lint": "eslint . --ext ts,tsx --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
