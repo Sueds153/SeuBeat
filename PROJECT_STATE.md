@@ -41,6 +41,7 @@ Atualizado em 18/Nov/2026. Snapshot operacional; o histórico detalhado está no
 - `npm run lint` está a **0 erros / 0 avisos** e o script usa `--max-warnings 0`: qualquer aviso novo falha o CI. Como foram limpos os 26 `exhaustive-deps` está em `docs/ci-debt.md` §1.
 - E2E: 74 testes, 72 passam, 2 ignorados, ~4,4 min, com servidor real (`dist-server/server.js`).
 - `npm audit --omit=dev` → 0 vulnerabilidades. A árvore de build/test tem 11 `high` sem patch publicado (`picomatch <=4.0.7`, GHSA-fc5q-39xc-vjpf) — ver `docs/ci-debt.md` §5.
+- Dependabot agrupa por tipo de bump: `*-minor-patch` (passam CI, merge directo) e `*-major` (um PR por migração: `express@5`, `vite@8`, `eslint@10`, `supabase@3`). Ver `docs/ci-debt.md` §6.
 
 ## Pendências
 - ComAmor: `SUPABASE_SERVICE_ROLE_KEY` existe só em Production e Preview (não em Development) — irrelevante para deploy, mas bloqueia `vercel dev` local.

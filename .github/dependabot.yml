@@ -4,19 +4,46 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 6
     labels:
       - dependencies
     groups:
-      dev-dependencies:
+      # Minor/patch viajam juntos: são os que passam o CI sem migração.
+      dev-minor-patch:
         dependency-type: development
-      production-dependencies:
+        update-types:
+          - minor
+          - patch
+      prod-minor-patch:
         dependency-type: production
+        update-types:
+          - minor
+          - patch
+      # Major sempre separado. Cada um destes exige migração e já tem
+      # histórico de partir o build: eslint@10 liga as regras do React
+      # Compiler (35 erros), vite@8 muda para Rolldown/oxc, express@5 muda
+      # params e rotas. Nunca devem viajar no mesmo PR dos seguros.
+      dev-major:
+        dependency-type: development
+        update-types:
+          - major
+      prod-major:
+        dependency-type: production
+        update-types:
+          - major
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 4
     labels:
       - ci
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch
+      actions-major:
+        update-types:
+          - major
