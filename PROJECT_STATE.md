@@ -41,7 +41,8 @@ Atualizado em 18/Nov/2026. Snapshot operacional; o histórico detalhado está no
 - `npm run lint` está a **0 erros / 0 avisos** e o script usa `--max-warnings 0`: qualquer aviso novo falha o CI. Como foram limpos os 26 `exhaustive-deps` está em `docs/ci-debt.md` §1.
 - E2E: 74 testes, 72 passam, 2 ignorados, ~4,4 min, com servidor real (`dist-server/server.js`).
 - `npm audit --omit=dev` → 0 vulnerabilidades. A árvore de build/test tem 11 `high` sem patch publicado (`picomatch <=4.0.7`, GHSA-fc5q-39xc-vjpf) — ver `docs/ci-debt.md` §5.
-- Dependabot (npm) agrupa por tipo de bump: `dev/prod-minor-patch` (passam CI, merge directo) e `dev/prod-major` (um PR por migração: `express@5`, `vite@8`, `eslint@10`, `supabase@3`). `github-actions` mantém um PR por acção. Ver `docs/ci-debt.md` §6.
+- Dependabot (npm) agrupa por tipo de bump: `dev/prod-minor-patch` (passam CI, merge directo) e `dev/prod-major` (um PR por migração). `github-actions` mantém um PR por acção. Ver `docs/ci-debt.md` §6.
+- Bumps de 18/Nov já na `main`: minor/patch de dev e de produção (incl. `@supabase/supabase-js` 2.119, `axios` 1.21, `react` 19.3, `@aws-sdk/*` 3.1169) e `actions/checkout`/`setup-node` `@v7`. Ficam em aberto como backlog de migração: #25 (`vite@8`, `eslint@10`+`react-hooks@7`, `supabase@3`) e #26 (`express@5`, `@sentry` 11, SDKs de IA).
 
 ## Pendências
 - ComAmor: `SUPABASE_SERVICE_ROLE_KEY` existe só em Production e Preview (não em Development) — irrelevante para deploy, mas bloqueia `vercel dev` local.

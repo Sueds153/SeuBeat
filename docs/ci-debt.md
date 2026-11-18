@@ -188,3 +188,27 @@ Ficou de fora, com motivo:
 
 Ficam a chegar em PRs próprios (`dev-major` / `prod-major`), para serem
 migrados um de cada vez, com o CI como rede.
+
+### O que aconteceu quando isto entrou na `main`
+
+O Dependabot correu minutos depois e produziu exactamente o que se queria:
+
+- **#22, `dev-minor-patch`** — só `eslint-plugin-react-refresh@0.5.7` (o resto dos
+  dev já estava em dia). CI verde, mergeado.
+- **#24, `prod-minor-patch`** — 13 updates de produção:
+  `@supabase/supabase-js` 2.49→2.119, `axios` 1.8→1.21, `helmet` 8.1→8.3,
+  `@aws-sdk/*` 3.1164→3.1169, `@neondatabase/serverless` 1.0→1.2,
+  `react`/`react-dom` 19.1→19.3, `react-hook-form` 7.54→7.92,
+  `resend` 6.0→6.38, `motion` 14.10→14.14, `tailwind-merge` 3.0→3.7.
+  CI verde (incluindo E2E) e mergeado; verificado em produção depois do deploy
+  (`/health` com `supabase: ok`, `storage: r2 ok`, `deepseek/gemini: ok`;
+  `POST /api/v1/comamor/authorize` continua a devolver `403 not_authorized`).
+- **#25, `dev-major`** e **#26, `prod-major`** — abertos como backlog visível.
+  O run do `dev-major` até falhou a resolução
+  (`typescript: dependency_file_not_resolvable`, "Error while updating peer
+  dependency"), o que confirma que `eslint@10` + `vite@8` + `supabase@3` não
+  formam um conjunto instalável.
+
+`actions/checkout` e `actions/setup-node` subiram para `@v7` (#1, #2), também
+com CI verde. O bloco `github-actions` ficou sem grupos: são duas acções e um PR
+por acção é mais fácil de revisar.
