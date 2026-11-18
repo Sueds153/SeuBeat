@@ -34,7 +34,8 @@ export function useTypewriter({ text, speed = 40, enabled = true }: UseTypewrite
     }, speed);
 
     return () => clearInterval(interval);
-  }, [text, enabled]);
+    // speed entra: se mudar, o intervalo tem de ser recriado com o novo ritmo.
+  }, [text, enabled, speed]);
 
   return { displayed, isDone };
 }

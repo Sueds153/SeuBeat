@@ -38,6 +38,7 @@ Atualizado em 18/Nov/2026. Snapshot operacional; o histórico detalhado está no
 ## CI — sem dívida pendente
 - `.github/workflows/ci.yml` bloqueia lint, typecheck, testes, build, audit (high+) e E2E. Detalhe em `docs/ci-debt.md`.
 - `npm run typecheck` (`tsc --noEmit`) está a 0. A causa dos 51→0 erros era `@types/express@5` a tipar um `express@4`.
+- `npm run lint` está a **0 erros / 0 avisos** e o script usa `--max-warnings 0`: qualquer aviso novo falha o CI. Como foram limpos os 26 `exhaustive-deps` está em `docs/ci-debt.md` §1.
 - E2E: 74 testes, 72 passam, 2 ignorados, ~4,4 min, com servidor real (`dist-server/server.js`).
 - `npm audit --omit=dev` → 0 vulnerabilidades. A árvore de build/test tem 11 `high` sem patch publicado (`picomatch <=4.0.7`, GHSA-fc5q-39xc-vjpf) — ver `docs/ci-debt.md` §5.
 
@@ -45,5 +46,4 @@ Atualizado em 18/Nov/2026. Snapshot operacional; o histórico detalhado está no
 - ComAmor: `SUPABASE_SERVICE_ROLE_KEY` existe só em Production e Preview (não em Development) — irrelevante para deploy, mas bloqueia `vercel dev` local.
 - ComAmor: o último deploy de produção feito por CLI não ficou ligado a um commit (`source: cli`); o próximo push por git repõe a proveniência.
 - ComAmor: `VITE_SUPABASE_URL` é a mesma em Production e Preview; não há staging isolado. Ensaio de migração tem de ser feito com cuidado.
-- Restam 26 avisos `react-hooks/exhaustive-deps` no lint (0 erros). Limpar um componente de cada vez, baixando o teto `--max-warnings`.
 - `auth_leaked_password_protection` no Supabase: passo manual (Dashboard → Authentication → Password Protection).

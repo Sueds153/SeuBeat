@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   ArrowRight, ArrowLeft, Heart, Sparkles, Check, Upload,
   Mic, Mail, Eye, Lock, RefreshCw, AlertTriangle, ShieldCheck, Copy,
@@ -447,6 +447,49 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   });
   const [generationError, setGenerationError] = useState('');
 
+  // Espelhos em ref para efeitos que têm de ler o valor actual SEM voltar a
+  // disparar. Ficam em ref de propósito (não nas dependências):
+  // - selectedPlanID: entrar nas deps do efeito de 'lyrics_ready' re-dispararia
+  //   gaViewContent/fbLyricsGenerated a cada mudança de plano;
+  // - generationStatus: entrar nas deps do efeito de submit voltaria a correr o
+  //   submitData quando o estado mudasse.
+  const selectedPlanIDRef = useRef(selectedPlanID);
+  const generationStatusRef = useRef(generationStatus);
+  useEffect(() => { selectedPlanIDRef.current = selectedPlanID; }, [selectedPlanID]);
+  useEffect(() => { generationStatusRef.current = generationStatus; }, [generationStatus]);
+
+  // Preço: useCallback para ser referencialmente estável — é usado no efeito de
+  // polling do pagamento, que não pode ser recriado a cada render.
+  const getPriceNumber = useCallback(() => {
+    let base = 7900;
+    if (voiceUpsellApplied || selectedPlanID === 'premium') base = 14900;
+    else if (selectedPlanID === 'express') base = 9900;
+
+    if (addonSecondStyle) base += 2500;
+    if (addonPrintableCover) base += 1500;
+    return base;
+  }, [voiceUpsellApplied, selectedPlanID, addonSecondStyle, addonPrintableCover]);
+
+  const getPrice = useCallback(() => {
+    const num = getPriceNumber();
+    return `${num.toLocaleString('pt-PT')} Kz`;
+  }, [getPriceNumber]);
+
+  // showToast tem de ser declarado antes dos efeitos que o listam nas
+  // dependências (senão é usado antes da inicialização). Sendo estável ([]) não
+  // reintroduz ciclos nos efeitos.
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((message: string, type: 'error' | 'success' | 'info' = 'info') => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    const id = Date.now();
+    setToast({ message, type, id });
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(null);
+      toastTimeoutRef.current = null;
+    }, 4000);
+  }, []);
+  useEffect(() => () => { if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current); }, []);
+
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   // Estado para edição de letra
@@ -511,7 +554,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       if (!resumeAppliedRef.current) {
         setConversionStep('preview');
         const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
-        const plan = selectedPlanID || 'standard';
+        const plan = selectedPlanIDRef.current || 'standard';
         gaViewContent(plan, PLAN_VALUES[plan]);
         // Meta: letras geradas = CompleteRegistration real
         fbLyricsGenerated(safeUUID());
@@ -526,7 +569,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     if (conversionStep === 'plans' && !plansViewTrackedRef.current && dbSongRequestId) {
       plansViewTrackedRef.current = true;
       const PLAN_VALUES: Record<string, number> = { standard: 7900, express: 9900, premium: 14900 };
-      const plan = selectedPlanID || 'standard';
+      const plan = selectedPlanIDRef.current || 'standard';
       fbCheckoutView(plan, PLAN_VALUES[plan], CURRENCY, generateEventId(dbSongRequestId, 'ViewContent'));
     }
   }, [conversionStep, dbSongRequestId]);
@@ -649,7 +692,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       const interval = setInterval(checkStatus, 30000);
       return () => clearInterval(interval);
     }
-  }, [paymentSubmitted, dbSongRequestId, formData.email, paymentStatus]);
+  }, [paymentSubmitted, dbSongRequestId, formData.email, paymentStatus, selectedPlanID, getPrice, showToast]);
 
   // Buscar dados Multicaixa do servidor
   useEffect(() => {
@@ -681,19 +724,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       }).catch(() => {});
     }
   }, [formData.email]);
-
-  // Helper para mostrar toasts
-  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showToast = (message: string, type: 'error' | 'success' | 'info' = 'info') => {
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    const id = Date.now();
-    setToast({ message, type, id });
-    toastTimeoutRef.current = setTimeout(() => {
-      setToast(null);
-      toastTimeoutRef.current = null;
-    }, 4000);
-  };
-  useEffect(() => () => { if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current); }, []);
 
   const proofMountedRef = useRef(true);
   useEffect(() => { proofMountedRef.current = true; return () => { proofMountedRef.current = false; }; }, []);
@@ -755,7 +785,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     })();
 
     return () => { cancelled = true; resumeAppliedRef.current = false; };
-  }, [dbSongId]);
+  }, [dbSongId, showToast]);
 
   const clearProof = () => {
     setProofPreviewUrl((prev) => {
@@ -1132,7 +1162,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   // Recupera uma letra já criada no servidor quando a geração "falhou" no cliente
   // (falha de rede/timeout após o servidor ter concluído). Evita duplicatas.
   // Janela total ≈ 60s (5 tentativas × 8s + 4 backoffs × 5s) para cobrir gerações lentas.
-  const tryRecoverExistingLyrics = async () => {
+  const tryRecoverExistingLyrics = useCallback(async () => {
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) return false;
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
@@ -1162,7 +1192,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       }
     }
     return false;
-  };
+  }, [formData.email, showToast]);
 
   // Call Claude Lyric Generator API on submission
   useEffect(() => {
@@ -1313,7 +1343,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
           }
 
           await pollSongUntilPreview(data.dbSongId);
-          if (generationStatus !== 'error') {
+          if (generationStatusRef.current !== 'error') {
             showToast('Letra criada com sucesso! Reveja e edite se necessário.', 'success');
           }
           submissionStartedRef.current = false;
@@ -1333,7 +1363,7 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
       
       submitData();
     }
-  }, [isSubmitting, formData]);
+  }, [isSubmitting, formData, tryRecoverExistingLyrics, showToast]);
 
   // Recording timer countdown ticker simulation
   useEffect(() => {
@@ -1443,9 +1473,14 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
   };
 
   const blobUrlRef = useRef<string | null>(null);
+  // Snapshot do photoUrl no mount: este efeito corre uma vez. Pôr
+  // formData.photoUrl nas dependências recriaria o blob a cada troca de foto —
+  // e o próprio efeito escreve photoUrl, o que seria um ciclo.
+  const photoUrlAtMountRef = useRef(formData.photoUrl);
   useEffect(() => {
+    const photoUrlAtMount = photoUrlAtMountRef.current;
     const savedBase64 = sessionStorage.getItem('seubeat_photo_base64') || localStorage.getItem('seubeat_photo_base64');
-    if (savedBase64 && (!formData.photoUrl || formData.photoUrl.startsWith('blob:'))) {
+    if (savedBase64 && (!photoUrlAtMount || photoUrlAtMount.startsWith('blob:'))) {
       try {
         const byteString = atob(savedBase64.split(',')[1]);
         const mimeString = savedBase64.split(',')[0].split(':')[1].split(';')[0];
@@ -1462,12 +1497,12 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
         sessionStorage.removeItem('seubeat_photo_base64');
         localStorage.removeItem('seubeat_photo_base64');
       }
-    } else if (!savedBase64 && formData.photoUrl?.startsWith('blob:')) {
+    } else if (!savedBase64 && photoUrlAtMount?.startsWith('blob:')) {
       wrappedSetFormData(prev => ({ ...prev, photoUrl: '' }));
       showToast('A foto foi perdida após o recarregamento. Selecione novamente.', 'error');
     }
     return () => { if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current); };
-  }, []);
+  }, [showToast]);
 
   const prevPhotoUrlRef = useRef(formData.photoUrl);
   useEffect(() => {
@@ -1628,21 +1663,6 @@ const [toast, setToast] = useState<{ message: string; type: 'error' | 'success' 
     if (addPaymentInfoFiredRef.current || !dbSongRequestId) return;
     addPaymentInfoFiredRef.current = true;
     fbAddPaymentInfo(selectedPlanID || 'standard', getPriceNumber(), CURRENCY, generateEventId(dbSongRequestId, 'AddPaymentInfo'));
-  };
-
-  const getPriceNumber = (): number => {
-    let base = 7900;
-    if (voiceUpsellApplied || selectedPlanID === 'premium') base = 14900;
-    else if (selectedPlanID === 'express') base = 9900;
-
-    if (addonSecondStyle) base += 2500;
-    if (addonPrintableCover) base += 1500;
-    return base;
-  };
-
-  const getPrice = () => {
-    const num = getPriceNumber();
-    return `${num.toLocaleString('pt-PT')} Kz`;
   };
 
   // ETA honesto por plano: Express/Premium = entrega imediata após aprovação; Standard = até 24h

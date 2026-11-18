@@ -43,13 +43,6 @@ export default function VideoTestimonial({ onStartWizard }: VideoTestimonialProp
   const [progress, setProgress] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const blobUrlRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-    };
-  }, []);
 
   // Auto-rotate testimonials
   useEffect(() => {

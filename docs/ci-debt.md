@@ -6,7 +6,8 @@ existia e o que foi preciso para a pagar.
 
 ## 1. Lint — resolvido
 
-`npm run lint` → **0 erros / 26 warnings** (era 130 erros / 27 warnings).
+`npm run lint` → **0 erros / 0 warnings** (era 130 erros / 27 warnings). O
+script usa `--max-warnings 0`.
 
 - **72 `no-empty`**: `catch {}` passou a `catch { /* intencional: falha
   silenciosa */ }`. Zero mudança de comportamento.
@@ -18,10 +19,35 @@ existia e o que foi preciso para a pagar.
 - `prefer-const`, `no-empty-object-type`, `no-useless-escape`,
   `no-unused-expressions` e variáveis não usadas corrigidos.
 
-Os 26 warnings são `react-hooks/exhaustive-deps` em componentes grandes. Para
-não crescerem, o script usa `--max-warnings 26`: um warning novo falha o CI e o
-número desce à medida que se limpam. Corrigi-los a sério exige mexer em efeitos
-com a app a correr — PR próprio, um componente de cada vez.
+Os últimos 26 warnings eram `react-hooks/exhaustive-deps` e um
+`react-refresh/only-export-components`. Limpos sem mudar comportamento
+observável:
+
+- **`AdminPanel`**: três `useRef` de intervalo que já não eram atribuídos em
+  lado nenhum (ficaram quando o polling passou a um único intervalo) saíram com
+  o `useEffect` de limpeza; `expireSession` subiu para antes do `apiFetch`
+  porque é usado nas dependências dele; os `useCallback` passaram a declarar as
+  funções que já chamavam (todas estáveis) e `fetchLogs` deixou de listar
+  `adminToken`, que não usa; `reqFieldMap`/`payFieldMap`/`songFieldMap`
+  passaram a constantes de módulo (dentro do componente eram recriados a cada
+  render, anulando o `useMemo` de ordenação).
+- **`Wizard`**: `selectedPlanID` e `generationStatus` passaram a ser lidos por
+  ref-espelho. Entrar nas dependências re-dispararia `gaViewContent`/
+  `fbLyricsGenerated` a cada mudança de plano e voltaria a correr o submit
+  quando o estado mudasse. `showToast` e `getPrice` ficaram `useCallback`
+  estáveis (e `showToast` subiu no ficheiro, senão era usado antes da
+  inicialização nas dependências); `formData.photoUrl` no efeito de restauro da
+  foto passou a snapshot no mount — como dependência recriaria o blob a cada
+  troca de foto, e o próprio efeito escreve `photoUrl`.
+- **`useTypewriter`**: `speed` entrou nas dependências (se muda, o intervalo tem
+  de ser recriado).
+- **`VideoTestimonial`**: `blobUrlRef` nunca era atribuído; saiu com o efeito.
+- **`ui/button`**: `buttonVariants` mudou para `button-variants.ts` — o ficheiro
+  do componente só exporta componentes (`react-refresh`). O barrel continua a
+  exportar o mesmo.
+
+Um teto de warnings só desce se nunca subir sozinho: com 0, qualquer warning
+novo falha o CI.
 
 ## 2. Vulnerabilidades — resolvido ao nível high/critical
 
