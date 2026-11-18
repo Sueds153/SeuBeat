@@ -102,3 +102,30 @@ dia houver migração para Express 5, os tipos sobem nesse PR — com o runtime.
 (correm com o typecheck próprio do Playwright).
 
 Agora corre no CI a seguir ao lint (`npm run typecheck`), antes dos testes.
+
+## 5. Novos avisos de 18/Nov: `picomatch` sem patch
+
+Em 18/Nov apareceu o aviso **GHSA-fc5q-39xc-vjpf** — ReDoS no `picomatch`,
+`<=4.0.7`. O `picomatch` mais recente publicado **é** o 4.0.7: não existe versão
+corrigida. Propaga-se por `tinyglobby`/`fdir`/`picomatch` a `vite`, `vitest` e
+`typescript-eslint/*` — **11 avisos `high`, todos no que só existe para
+compilar e testar**.
+
+`npm audit fix` não resolve (não há para onde subir); `--force` propõe downgrades
+absurdos (`vite@6.2.7` para um projecto em 6.4.6).
+
+Medido:
+
+| árvore | antes | agora |
+|---|---|---|
+| `npm audit --omit=dev` (o que é servido) | 0 | **0** |
+| `npm audit` (inclui build/test) | 0 (17/Nov) | **11 high, sem patch** |
+
+Política: o gate bloqueante passa a ser a árvore de produção
+(`--omit=dev --audit-level=high`), e a árvore completa continua a correr como
+advisory. Um ReDoS num glob de build não é explorável por quem chama a API; e
+um gate que falha por dívida alheia sem correção possível treina toda a gente a
+ignorá-lo — que é exatamente a armadilha que este documento existe para evitar.
+
+**Reverter quando existir `picomatch > 4.0.7`:** subir e voltar a pôr o audit
+completo como bloqueante.

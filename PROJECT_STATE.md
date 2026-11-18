@@ -39,7 +39,7 @@ Atualizado em 18/Nov/2026. Snapshot operacional; o histórico detalhado está no
 - `.github/workflows/ci.yml` bloqueia lint, typecheck, testes, build, audit (high+) e E2E. Detalhe em `docs/ci-debt.md`.
 - `npm run typecheck` (`tsc --noEmit`) está a 0. A causa dos 51→0 erros era `@types/express@5` a tipar um `express@4`.
 - E2E: 74 testes, 72 passam, 2 ignorados, ~4,4 min, com servidor real (`dist-server/server.js`).
-- `npm audit` → 0 vulnerabilidades.
+- `npm audit --omit=dev` → 0 vulnerabilidades. A árvore de build/test tem 11 `high` sem patch publicado (`picomatch <=4.0.7`, GHSA-fc5q-39xc-vjpf) — ver `docs/ci-debt.md` §5.
 
 ## Pendências
 - ComAmor: `SUPABASE_SERVICE_ROLE_KEY` existe só em Production e Preview (não em Development) — irrelevante para deploy, mas bloqueia `vercel dev` local.
