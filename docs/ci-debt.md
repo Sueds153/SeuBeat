@@ -155,3 +155,33 @@ ignorá-lo — que é exatamente a armadilha que este documento existe para evit
 
 **Reverter quando existir `picomatch > 4.0.7`:** subir e voltar a pôr o audit
 completo como bloqueante.
+
+## 6. Bumps de Dependabot: derivar por tipo, não por dependência
+
+O `.github/dependabot.yml` agrupava só por `dependency-type`, o que misturava
+majors com patch. Resultado: PRs como o #16 (15 actualizações, incluindo
+`vite@8`) e o #17 (25 actualizações, incluindo `express@5`). Um PR assim já
+não podia ser mergeado sem uma migração e arrastava consigo bumps que não
+tinham problema nenhum — ficavam todos parados.
+
+Agora cada ecosystem tem dois grupos, `*-minor-patch` e `*-major`, e um major
+nunca viaja com o resto.
+
+Entrou no PR `chore/dependabot-groups`: `@playwright/test@1.65.1`,
+`jsdom@31.0.1`, `esbuild@0.28.2`, `@types/node@26.6.6`,
+`@types/ffmpeg-static@5.1.0`, `@types/pino@7.0.5`, `tsx@4.23.15`. Verificado
+localmente: lint 0/0, `tsc --noEmit` 0, 566 testes (1 skipped), build OK,
+`npm audit --omit=dev` a 0.
+
+Ficou de fora, com motivo:
+
+| bump | porque não |
+|---|---|
+| `express@5` | muda `params`, wildcards de rotas e o contrato de `res.status(...)`; é migração de código, não de versão |
+| `vite@8` + `@vitejs/plugin-react@6` | Vite 8 assenta em Rolldown/oxc, e o plugin 6 passa a exigir `oxc-transform-react` e `babel-plugin-react-compiler` como peers |
+| `eslint@10` + `eslint-plugin-react-hooks@7` | o plugin 7 liga as regras do React Compiler (`react-hooks/purity`, `react-hooks/refs`) e devolve 35 erros em código correcto — ex. `useRef<number>(Date.now())` em `src/lib/deliveredCount.ts` |
+| `eslint-plugin-react-refresh@0.5` | só faz sentido a par do ESLint 10 |
+| `supabase@3` | o postinstall descarrega um binário de `github.com`; sem rede para lá, o `npm ci` falha |
+
+Ficam a chegar em PRs próprios (`dev-major` / `prod-major`), para serem
+migrados um de cada vez, com o CI como rede.
