@@ -1,7 +1,8 @@
 # Dívida de CI
 
-`ci.yml` bloqueia `npm run lint`, `npm test`, `npm run build` e
-`npm audit --audit-level=high`. Só a suite E2E é advisory.
+`ci.yml` bloqueia **tudo**: `lint`, `typecheck`, `test`, `build`,
+`npm audit --audit-level=high` e o E2E. Cada secção abaixo é uma dívida que
+existia e o que foi preciso para a pagar.
 
 ## 1. Lint — resolvido
 
@@ -68,9 +69,36 @@ Primeira execução real (run do PR #15): `74 tests`, **72 passed, 2 skipped,
 4,4 min**, exit `0`. Ficou advisory nesse run precisamente para se ver o
 resultado antes de o promover.
 
-## 4. Nota sobre `tsc --noEmit`
+## 4. `tsc --noEmit` — resolvido, agora é gate
 
-Não é gate: a `main` já tinha **51** erros (sobretudo `string | string[]` em
-`server/routes/public.ts` e `admin.ts`). Depois destas atualizações são **30**
-(sem erros novos). Vale a pena tratá-los num PR de tipagem, mas fora do âmbito
-de uma atualização de dependências.
+**51 erros** na `main` → 30 depois das atualizações de dependências → **0**.
+
+A causa raiz não era código: era **`@types/express@5` a tipar um `express@4`**.
+`@types/express-serve-static-core@5` mudou `ParamsDictionary` para
+
+```ts
+export interface ParamsDictionary {
+    [key: string]: string | string[];
+    [key: number]: string;
+}
+```
+
+porque o Express 5 admite parâmetros repetidos (`*ids`). Num Express 4 os
+parâmetros são sempre `string`, por isso cada `const { id } = req.params` passou
+a ser `string | string[]` — 22 erros em `server/routes/{admin,public}.ts` — e
+8 testes falhavam em `app.listen(0, resolve)` por as assinaturas de `listen`
+também terem mudado.
+
+`@types/express` `^5.0.0` → `^4.17.25`, que é a versão que corresponde ao
+runtime (`express@4.22.3`). **Zero alterações de código, zero mudança de
+comportamento, 30 → 0 erros.**
+
+Porquê alinhar os tipos em vez de anotar 22 sítios: os tipos devem descrever o
+que o runtime faz. Se o parâmetro é sempre `string`, `string | string[]` é uma
+mentira que obriga a casts em todo o lado e esconde o próximo erro real. Se um
+dia houver migração para Express 5, os tipos sobem nesse PR — com o runtime.
+
+`tsconfig.json` usa `strict: true`, `skipLibCheck: true`, e exclui `e2e/`
+(correm com o typecheck próprio do Playwright).
+
+Agora corre no CI a seguir ao lint (`npm run typecheck`), antes dos testes.
