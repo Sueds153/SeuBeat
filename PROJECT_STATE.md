@@ -1,6 +1,6 @@
 # SeuBeat — Estado Atual
 
-Atualizado em 16/Nov/2026. Snapshot operacional; o histórico detalhado está no Git.
+Atualizado em 18/Nov/2026. Snapshot operacional; o histórico detalhado está no Git.
 
 ## Stack e arquitectura
 - React 19, Vite, TypeScript, Tailwind; API Node.js/Express empacotada para Vercel/Render.
@@ -14,34 +14,36 @@ Atualizado em 16/Nov/2026. Snapshot operacional; o histórico detalhado está no
 - Schedulers activos incluem entrega, recuperação de músicas/letras e lembretes de abandono.
 - Segredos críticos ficam apenas no servidor: Supabase service role, Suno, IA, email, WhatsApp e admin.
 - `.env.example` documenta configuração; nunca incluir `.env` ou dados reais em commits.
+- Produção: `https://seubeat.vercel.app`, deploy automático a partir da `main` (Vercel).
 
-## Mudança desta branch: integração ComAmor
-- Branch isolada `codex/comamor-integration`, baseada no commit limpo `2af7449`.
-- Integração aditiva em `/api/v1/comamor`, desligada por omissão (`COMAMOR_INTEGRATION_ENABLED=false`).
-- A referência `comamor_order` não autoriza: o servidor valida com ComAmor antes de mostrar o formulário, criar job ou consultar resultado.
+## Integração ComAmor — activa em produção
+- Integração aditiva em `/api/v1/comamor`, ligada por `COMAMOR_INTEGRATION_ENABLED=true`.
+- A referência `comamor_order` não autoriza: o servidor valida com o ComAmor antes de mostrar o formulário, criar job ou consultar resultado.
 - Reserva de job usa `idempotency_key` do ComAmor e função transaccional; o retry com o mesmo texto recupera o mesmo job.
 - Conteúdo fornecido pelo organizador é guardado na tabela normal de pedidos; nenhum dado ou mídia familiar é importado.
 - Callback assinado por HMAC vai por outbox durável, com retry, timestamp e supressão de tentativas antigas.
 - Áudio só é devolvido em HTTPS e host exacto incluído no allowlist.
-- Suporte a preview Vercel protegido: `COMAMOR_VERCEL_PROTECTION_BYPASS` é opcional e o backend envia `x-vercel-protection-bypass` apenas nas chamadas server-to-server de autorização e callback. Configurar somente no ambiente Preview do SeuBeat, nunca no browser ou em Production. A flag continua desligada até migração e segredos de staging verificados.
-- Migração aditiva `supabase_migration_comamor_integration.sql` ainda não aplicada em base remota; não houve deploy nem mudança no ComAmor.
+- `COMAMOR_VERCEL_PROTECTION_BYPASS` é opcional e só para Preview protegido: o backend envia `x-vercel-protection-bypass` apenas nas chamadas server-to-server. Nunca no browser.
+- Token e segredo de webhook são **distintos por ambiente** (Preview ≠ Production), gerados com CSPRNG. Não são copiados entre ambientes.
+- Migração `supabase_migration_comamor_integration.sql`: **estado da aplicação não verificado** nesta sessão (o MCP desta sessão não tem acesso ao Supabase do SeuBeat). A rota de autorização responde correctamente em produção, mas a outbox e `idempotency_key` só são exercidas no fluxo completo — confirmar na base antes de considerar a integração fechada.
 - Configuração no servidor: `COMAMOR_INTEGRATION_ENABLED`, `COMAMOR_API_BASE_URL`, `COMAMOR_INTEGRATION_TOKEN`, `COMAMOR_VERCEL_PROTECTION_BYPASS` (Preview apenas), `SEUBEAT_WEBHOOK_SECRET`, `COMAMOR_AUDIO_ALLOWED_HOSTS`.
-- Contrato e procedimento de staging em `docs/comamor-integration.md`.
+- Contrato e procedimento em `docs/comamor-integration.md`.
+- Verificação em produção: `POST /api/v1/comamor/authorize` com UUID inexistente → `403 {"code":"not_authorized"}` (cadeia SeuBeat → ComAmor → RPC executada). Token inválido no lado ComAmor → `401 unauthorized`.
 
-## Validação desta branch
-- Baseline antes da implementação: 504 testes passaram; 3 suites falharam por ausência de `@testing-library/jest-dom`, `@testing-library/react` e `@testing-library/user-event`.
-- Esta branch adiciona as 3 bibliotecas, `@testing-library/dom` e as dependências que faltavam no botão (`@radix-ui/react-slot`, `class-variance-authority`). As três suites antes bloqueadas passaram (37 testes, 1 ignorado).
-- Testes ComAmor: 24/24; E2E completo: 72 passaram, 2 ignorados (Chromium + Mobile Chrome); build passou também após actualizar dependências.
-- Suite completa pós-dependências: 564 passaram, 1 ignorado e 1 timeout intermitente em `metaPixelCapi.test.ts`; essa suite passou isolada (13/13).
-- ESLint 9 agora tem `eslint.config.js`; lint dos ficheiros ComAmor passou. Lint global expõe 130 erros e 27 avisos preexistentes noutros ficheiros, não corrigidos fora do escopo.
-- `tsc --noEmit` continua com erros preexistentes em testes e rotas Express; nenhum diagnóstico ComAmor apareceu.
-- Cliente ComAmor com header de bypass condicional: 10 testes específicos passaram; 25 testes ComAmor, lint dos ficheiros alterados e build passaram após `npm ci`.
-- `npm audit fix` sem `--force` actualizou apenas versões compatíveis e reduziu 27 para 22 avisos. O gate `npm audit --audit-level=high` continua bloqueado por vulnerabilidades alta/críticas que exigem upgrades major; não foram ignoradas nem forçadas.
+## Upsell SeuBeat no ComAmor — activo em produção
+- Gate real: `config.seubeatAddonCheckoutEnabled` (`src/config.ts`), alimentado por `VITE_SEUBEAT_ADDON_CHECKOUT_ENABLED` e consumido em `PostPaymentOffers.tsx` (oferta pós-pagamento) e `AdminPage.tsx` (tab de pedidos).
+- Em Production do ComAmor: `VITE_SEUBEAT_ADDON_CHECKOUT_ENABLED=true` e `VITE_SEUBEAT_SITE_URL=https://seubeat.vercel.app`. Ambos são inlined pelo Vite no build — mudar env exige redeploy.
+- O default no código é `https://seubeat.onrender.com` (host legado). Sem `VITE_SEUBEAT_SITE_URL` definido, o link do upsell aponta para um host morto.
+
+## CI — sem dívida pendente
+- `.github/workflows/ci.yml` bloqueia lint, typecheck, testes, build, audit (high+) e E2E. Detalhe em `docs/ci-debt.md`.
+- `npm run typecheck` (`tsc --noEmit`) está a 0. A causa dos 51→0 erros era `@types/express@5` a tipar um `express@4`.
+- E2E: 74 testes, 72 passam, 2 ignorados, ~4,4 min, com servidor real (`dist-server/server.js`).
+- `npm audit --omit=dev` → 0 vulnerabilidades. A árvore de build/test tem 11 `high` sem patch publicado (`picomatch <=4.0.7`, GHSA-fc5q-39xc-vjpf) — ver `docs/ci-debt.md` §5.
 
 ## Pendências
-- A Vercel mostra a mesma `VITE_SUPABASE_URL` associada a Production e Preview do ComAmor; o Preview não está isolado numa base staging. Confirmar/criar staging antes de aplicar migração ComAmor ou fazer ensaio.
-- Ainda falta gerar o Protection Bypass do ComAmor e configurá-lo no ambiente Preview do SeuBeat; manter as flags desligadas até migração e todos os segredos de staging verificados.
-- A sessão só tem acesso Vercel à equipa do ComAmor e o Supabase ligado corresponde ao projecto ComAmor; não foi possível configurar a Preview nem aplicar a migration no Supabase do SeuBeat. Não consultar ou alterar mais recursos ComAmor via estas credenciais.
-- Credenciais ComAmor não estão configuradas no `.env`, shell ou GitHub Secrets. Manter a feature desactivada até configurar o endpoint/hosts e inserir token/HMAC no secret manager do serviço.
-- Instalar/recuperar dependências de testes frontend e configuração ESLint para desbloquear as suites antigas.
-- Não aplicar migração, fazer deploy ou merge sem revisão e autorização operacional.
+- ComAmor: `SUPABASE_SERVICE_ROLE_KEY` existe só em Production e Preview (não em Development) — irrelevante para deploy, mas bloqueia `vercel dev` local.
+- ComAmor: o último deploy de produção feito por CLI não ficou ligado a um commit (`source: cli`); o próximo push por git repõe a proveniência.
+- ComAmor: `VITE_SUPABASE_URL` é a mesma em Production e Preview; não há staging isolado. Ensaio de migração tem de ser feito com cuidado.
+- Restam 26 avisos `react-hooks/exhaustive-deps` no lint (0 erros). Limpar um componente de cada vez, baixando o teto `--max-warnings`.
+- `auth_leaked_password_protection` no Supabase: passo manual (Dashboard → Authentication → Password Protection).

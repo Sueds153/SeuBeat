@@ -10,18 +10,19 @@ permissions:
 
 # Política dos gates:
 #
-# - `npm test` e `npm run build` BLOQUEIAM. São rápidos, determinísticos e
-#   cobrem o que o PR pode partir.
-# - `npm run lint` e `npm audit` são ADVISORY (`continue-on-error`): o repositório
-#   já vinha com dívida antiga (ver docs/ci-debt.md) e um gate vermelho por
-#   motivos alheios ao PR escondia os testes, porque o audit falhava primeiro e
-#   os passos seguintes ficavam `skipped`. Continuam a correr e a imprimir tudo,
-#   mas não bloqueiam até a dívida ser paga num PR próprio.
-# - O E2E continua a publicar relatório, mas também é advisory: o build atual
-#   não produz `dist/server.js` (o passo antigo arrancava um ficheiro que não
-#   existe), por isso a suite não tem servidor para testar.
+# Todos os passos bloqueiam: `npm run lint`, `npm run typecheck`, `npm test`,
+# `npm run build`, `npm audit --omit=dev --audit-level=high` e o E2E.
 #
-# Ordem importa: primeiro o que bloqueia, depois o que informa.
+# A dívida antiga que impedia isto está paga e registada em docs/ci-debt.md
+# (lint 130→0 erros, audit high/critical→0, E2E nunca corria por falta de
+# servidor, tsc 51→0 erros). Um gate que se ignora não é gate: esconde
+# regressões novas no meio de ruído antigo.
+#
+# Exceção documentada (§5): o audit da árvore de build/test corre como advisory
+# enquanto não existir patch para o picomatch. O audit do que é servido bloqueia.
+#
+# Ordem importa: do mais barato para o mais caro — falhar em segundos, não em
+# minutos. lint → typecheck → testes → build → audit → E2E.
 
 jobs:
   lint-and-test:
@@ -38,6 +39,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # tsc não gera ficheiros: só verifica. Corre antes dos testes porque é
+      # segundos e apanha contratos partidos que os testes podem não cobrir.
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Unit & integration tests
         run: npm test
 
@@ -48,7 +54,15 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
 
       # ---------- gate bloqueante ----------
-      - name: npm audit (high+)
+      # Só o que é instalado em produção. Um ReDoS numa ferramenta de build não
+      # é explorável por quem usa a API. Ver docs/ci-debt.md §5.
+      - name: npm audit (production tree)
+        run: npm audit --omit=dev --audit-level=high
+
+      # Ferramentas de build continuam a ser auditadas: informa (e é onde os
+      # avisos aparecem primeiro), mas não bloqueia enquanto não houver patch.
+      - name: npm audit (inclui dev, advisory)
+        continue-on-error: true
         run: npm audit --audit-level=high
 
       # ---------- advisory: ver docs/ci-debt.md ----------
